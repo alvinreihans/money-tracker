@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { authErrorMessage } from "@/lib/errors";
+import { passwordValid } from "@/lib/password";
 import PasswordField from "@/components/PasswordField";
 import BrandMark from "@/components/BrandMark";
 
@@ -31,6 +32,11 @@ export default function ResetPasswordPage() {
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
+
+    if (!passwordValid(password)) {
+      setError("Passwordnya belum memenuhi semua syarat di bawah kolom.");
+      return;
+    }
 
     if (password !== ulangi) {
       setError("Password dan ulangannya belum sama.");
@@ -83,6 +89,7 @@ export default function ResetPasswordPage() {
                 value={password}
                 onChange={setPassword}
                 autoComplete="new-password"
+                syarat
               />
 
               <PasswordField

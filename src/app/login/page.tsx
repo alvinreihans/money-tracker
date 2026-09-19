@@ -4,6 +4,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { authErrorMessage } from "@/lib/errors";
+import { passwordValid } from "@/lib/password";
 import PasswordField from "@/components/PasswordField";
 import BrandMark from "@/components/BrandMark";
 
@@ -63,6 +64,12 @@ export default function LoginPage() {
     setLoading(true);
     setError(null);
     setMessage(null);
+
+    if (mode === "signup" && !passwordValid(password)) {
+      setError("Passwordnya belum memenuhi semua syarat di bawah kolom.");
+      setLoading(false);
+      return;
+    }
 
     if (mode === "signup" && password !== ulangi) {
       setError("Password dan ulangannya belum sama.");
@@ -162,6 +169,9 @@ export default function LoginPage() {
                 value={password}
                 onChange={setPassword}
                 autoComplete={mode === "signin" ? "current-password" : "new-password"}
+                syarat={mode === "signup"}
+                minLength={mode === "signin" ? 1 : 8}
+                placeholder={mode === "signin" ? "Password kamu" : "Minimal 8 karakter"}
               />
               {mode === "signup" && (
                 <div className="mt-4">
