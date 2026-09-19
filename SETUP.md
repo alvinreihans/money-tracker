@@ -162,6 +162,34 @@ Keduanya menjalankan kode produksi, bukan salinan, lalu membongkar tiap tahap
 supaya hasilnya bisa diperiksa mata sebelum dipercaya. `--no-vision` menguji
 mutu Tesseract+Groq telanjang tanpa memakai kuota Gemini.
 
+## Deploy ke Vercel
+
+**Region wajib diset ke Singapura.** Bawaan Vercel adalah Washington DC,
+sedangkan Supabase project ini di `ap-southeast-1`. Tiap kueri database jadi
+menyeberangi Pasifik, dan satu halaman beranda melakukan lima kueri sekaligus.
+Sudah diatur lewat `vercel.json`.
+
+**Environment variable yang perlu diisi di Vercel:**
+
+| Variabel | Catatan |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | |
+| `GROQ_API_KEY` | |
+| `GEMINI_API_KEY` | |
+| `SUPABASE_SERVICE_ROLE_KEY` | server-only, bypass RLS |
+| `TELEGRAM_BOT_TOKEN` | kalau bot dipakai |
+| `TELEGRAM_WEBHOOK_SECRET` | kalau bot dipakai |
+
+**JANGAN** memasukkan `SUPABASE_DB_URL` — itu koneksi Postgres yang hanya
+dipakai menjalankan migrasi dari mesin lokal. Aplikasinya tidak memakainya, dan
+menaruhnya di produksi cuma menambah rahasia yang bisa bocor.
+
+**Supabase Auth harus tahu domain barunya.** Dashboard -> Authentication ->
+URL Configuration: isi Site URL dengan domain Vercel, dan tambahkan
+`https://<domain>/auth/callback` ke Redirect URLs. Tanpa ini, tautan reset
+password dan konfirmasi email akan ditolak saat diklik.
+
 ## Catatan best practice
 
 - **Stateless**: client Supabase dibuat per-request; worker Tesseract dan client
