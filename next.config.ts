@@ -22,8 +22,21 @@ const nextConfig: NextConfig = {
   // di-import lewat `import`, jadi tracing Next tidak bisa menemukannya sendiri
   // dan harus disebut eksplisit — kalau tidak, OCR gagal di produksi.
   outputFileTracingIncludes: {
-    "/api/upload-receipt": ["./tessdata/**"],
-    "/api/telegram/webhook": ["./tessdata/**"],
+    // tesseract.js memuat worker-nya lewat path yang dirakit saat runtime
+    // (`path.join(__dirname, ...)`), dan WASM core-nya juga tidak pernah
+    // di-`import`. Tracing statis Next tidak bisa mengikuti keduanya, jadi
+    // berkasnya harus disebut eksplisit — kalau tidak, OCR jalan di lokal
+    // tapi fungsinya gagal dimuat di produksi.
+    "/api/upload-receipt": [
+      "./tessdata/**",
+      "./node_modules/tesseract.js/src/worker-script/**",
+      "./node_modules/tesseract.js-core/**",
+    ],
+    "/api/telegram/webhook": [
+      "./tessdata/**",
+      "./node_modules/tesseract.js/src/worker-script/**",
+      "./node_modules/tesseract.js-core/**",
+    ],
   },
 };
 
