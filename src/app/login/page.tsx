@@ -4,6 +4,8 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { authErrorMessage } from "@/lib/errors";
+import PasswordField from "@/components/PasswordField";
+import BrandMark from "@/components/BrandMark";
 
 type Mode = "signin" | "signup";
 
@@ -114,12 +116,14 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-dvh items-center justify-center px-4 py-8">
-      <div className="w-full max-w-sm rounded-[var(--radius-lg)] border border-border bg-card p-6 shadow-sm">
-        <h1 className="text-xl font-semibold text-foreground">
+    <main className="flex min-h-dvh flex-col items-center justify-center px-4 py-8">
+      <BrandMark subjudul="Foto struk, sisanya otomatis." />
+
+      <div className="w-full max-w-sm rounded-[var(--radius-lg)] border border-border bg-card p-6">
+        <h2 className="text-lg font-semibold text-foreground">
           {mode === "signin" ? "Masuk" : "Daftar"}
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        </h2>
+        <p className="mt-0.5 text-sm text-muted-foreground">
           {mode === "signin"
             ? "Lanjut ke catatan keuanganmu."
             : "Bikin akun dulu, bentar aja."}
@@ -146,11 +150,14 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <div className="mb-1 flex items-baseline justify-between">
-              <label htmlFor="password" className="text-sm font-medium text-foreground">
-                Password
-              </label>
-              {mode === "signin" && (
+            <PasswordField
+              label="Password"
+              value={password}
+              onChange={setPassword}
+              autoComplete={mode === "signin" ? "current-password" : "new-password"}
+            />
+            {mode === "signin" && (
+              <div className="mt-1.5 flex justify-end">
                 <button
                   type="button"
                   onClick={() => void lupaPassword()}
@@ -159,19 +166,8 @@ export default function LoginPage() {
                 >
                   {kirimReset ? "Ngirim..." : "Lupa password?"}
                 </button>
-              )}
-            </div>
-            <input
-              id="password"
-              type="password"
-              required
-              minLength={6}
-              autoComplete={mode === "signin" ? "current-password" : "new-password"}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-md border border-border px-3 py-2 text-sm outline-none focus:border-[var(--ring)] focus:ring-2 focus:ring-[var(--ring)]"
-              placeholder="Minimal 6 karakter"
-            />
+              </div>
+            )}
           </div>
 
           {mode === "signup" && (
@@ -239,3 +235,4 @@ export default function LoginPage() {
     </main>
   );
 }
+

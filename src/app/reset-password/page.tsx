@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { authErrorMessage } from "@/lib/errors";
+import PasswordField from "@/components/PasswordField";
+import BrandMark from "@/components/BrandMark";
 
 export default function ResetPasswordPage() {
   const router = useRouter();
@@ -38,9 +40,11 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <main className="flex min-h-dvh items-center justify-center px-4 py-8">
+    <main className="flex min-h-dvh flex-col items-center justify-center px-4 py-8">
+      <BrandMark />
+
       <div className="w-full max-w-sm rounded-[var(--radius-lg)] border border-border bg-card p-6 shadow-sm">
-        <h1 className="text-xl font-semibold text-foreground">Password baru</h1>
+        <h2 className="text-lg font-semibold text-foreground">Password baru</h2>
 
         {punyaSesi === false ? (
           <>
@@ -62,25 +66,12 @@ export default function ResetPasswordPage() {
             </p>
 
             <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-              <div>
-                <label
-                  htmlFor="password-baru"
-                  className="mb-1 block text-sm font-medium text-foreground"
-                >
-                  Password baru
-                </label>
-                <input
-                  id="password-baru"
-                  type="password"
-                  required
-                  minLength={6}
-                  autoComplete="new-password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full rounded-md border border-border px-3 py-2 text-sm outline-none focus:border-[var(--ring)] focus:ring-2 focus:ring-[var(--ring)]"
-                  placeholder="Minimal 6 karakter"
-                />
-              </div>
+              <PasswordField
+                label="Password baru"
+                value={password}
+                onChange={setPassword}
+                autoComplete="new-password"
+              />
 
               {error && (
                 <p className="rounded-md bg-[rgba(255,107,91,0.14)] px-3 py-2 text-sm text-[var(--danger)]">
