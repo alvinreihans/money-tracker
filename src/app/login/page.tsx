@@ -7,11 +7,25 @@ import { authErrorMessage } from "@/lib/errors";
 import PasswordField from "@/components/PasswordField";
 import BrandMark from "@/components/BrandMark";
 
-type Mode = "signin" | "signup";
+/**
+ * "lupa" sengaja jadi mode tersendiri, bukan tombol yang langsung mengirim.
+ * Versi sebelumnya menembakkan email begitu diklik — user tidak sempat tahu
+ * alamat tujuannya, dan tidak bisa membetulkan kalau kolom emailnya salah isi.
+ */
+type Mode = "signin" | "signup" | "lupa";
 
 const ERROR_TAUTAN: Record<string, string> = {
   "tautan-kedaluwarsa": "Tautannya udah lewat masa berlaku. Minta yang baru ya.",
   "tautan-tidak-valid": "Tautannya nggak lengkap. Coba minta yang baru.",
+};
+
+const JUDUL: Record<Mode, { judul: string; sub: string }> = {
+  signin: { judul: "Masuk", sub: "Lanjut ke catatan keuanganmu." },
+  signup: { judul: "Daftar", sub: "Bikin akun dulu, bentar aja." },
+  lupa: {
+    judul: "Lupa password",
+    sub: "Masukin emailmu, nanti kami kirim tautan buat bikin password baru.",
+  },
 };
 
 export default function LoginPage() {
@@ -21,16 +35,14 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+
   // Halaman ini di-render server dulu, jadi formnya sudah terlihat siap sebelum
   // JS-nya termuat. Di koneksi lambat, menekan kirim di jeda itu memicu submit
   // bawaan browser: halaman reload dan isian hilang. Penanda ini menutup celahnya.
   const [siap, setSiap] = useState(false);
   useEffect(() => setSiap(true), []);
-  const [kirimReset, setKirimReset] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  // Ditandai terpisah supaya bisa menawarkan reset password di kotak errornya.
-  const [passwordMungkinSalah, setPasswordMungkinSalah] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
 
   // Pesan dari /auth/callback saat tautan email gagal ditukar jadi session.
   useEffect(() => {
@@ -38,43 +50,27 @@ export default function LoginPage() {
     if (kode && ERROR_TAUTAN[kode]) setError(ERROR_TAUTAN[kode]);
   }, []);
 
-  function reset() {
-    setError(null);
-    setMessage(null);
-    setPasswordMungkinSalah(false);
-  }
-
   function pindahMode(target: Mode) {
     setMode(target);
-    reset();
-  }
-
-  async function lupaPassword() {
-    reset();
-    if (!email.trim()) {
-      setError("Isi emailnya dulu ya, biar tahu mau dikirim ke mana.");
-      return;
-    }
-
-    setKirimReset(true);
-    const supabase = createSupabaseBrowserClient();
-    const { error: err } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
-    });
-
-    if (err) setError(authErrorMessage(err));
-    else setMessage("Udah dikirim. Cek email buat bikin password baru.");
-    setKirimReset(false);
+    setError(null);
+    setMessage(null);
   }
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
-    reset();
+    setError(null);
+    setMessage(null);
 
     const supabase = createSupabaseBrowserClient();
 
-    if (mode === "signup") {
+    if (mode === "lupa") {
+      const { error: err } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
+      });
+      if (err) setError(authErrorMessage(err));
+      else setMessage(`Tautan dikirim ke ${email}. Cek inbox dan folder spam ya.`);
+    } else if (mode === "signup") {
       const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
@@ -105,11 +101,6 @@ export default function LoginPage() {
 
       if (signInError) {
         setError(authErrorMessage(signInError));
-        const kode = (signInError as { code?: string }).code;
-        setPasswordMungkinSalah(
-          kode === "invalid_credentials" ||
-            signInError.message.toLowerCase().includes("invalid login credentials"),
-        );
       } else {
         router.push("/");
         router.refresh(); // biar Server Component baca ulang session-nya
@@ -120,19 +111,21 @@ export default function LoginPage() {
     setLoading(false);
   }
 
+  const teksTombol = loading
+    ? "Bentar ya..."
+    : mode === "lupa"
+      ? "Kirim tautan"
+      : mode === "signup"
+        ? "Daftar"
+        : "Masuk";
+
   return (
     <main className="flex min-h-dvh flex-col items-center justify-center px-4 py-8">
       <BrandMark subjudul="Foto struk, sisanya otomatis." />
 
       <div className="w-full max-w-sm rounded-[var(--radius-lg)] border border-border bg-card p-6">
-        <h2 className="text-lg font-semibold text-foreground">
-          {mode === "signin" ? "Masuk" : "Daftar"}
-        </h2>
-        <p className="mt-0.5 text-sm text-muted-foreground">
-          {mode === "signin"
-            ? "Lanjut ke catatan keuanganmu."
-            : "Bikin akun dulu, bentar aja."}
-        </p>
+        <h2 className="text-lg font-semibold text-foreground">{JUDUL[mode].judul}</h2>
+        <p className="mt-0.5 text-sm text-muted-foreground">{JUDUL[mode].sub}</p>
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
           <div>
@@ -149,31 +142,32 @@ export default function LoginPage() {
               autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-md border border-border px-3 py-2 text-sm outline-none focus:border-[var(--ring)] focus:ring-2 focus:ring-[var(--ring)]"
+              className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm outline-none focus:border-[var(--ring)] focus:ring-2 focus:ring-[var(--ring)]"
               placeholder="kamu@email.com"
             />
           </div>
 
-          <div>
-            <PasswordField
-              label="Password"
-              value={password}
-              onChange={setPassword}
-              autoComplete={mode === "signin" ? "current-password" : "new-password"}
-            />
-            {mode === "signin" && (
-              <div className="mt-1.5 flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => void lupaPassword()}
-                  disabled={kirimReset}
-                  className="text-xs font-semibold text-[var(--accent)] transition hover:opacity-80 disabled:opacity-50"
-                >
-                  {kirimReset ? "Ngirim..." : "Lupa password?"}
-                </button>
-              </div>
-            )}
-          </div>
+          {mode !== "lupa" && (
+            <div>
+              <PasswordField
+                label="Password"
+                value={password}
+                onChange={setPassword}
+                autoComplete={mode === "signin" ? "current-password" : "new-password"}
+              />
+              {mode === "signin" && (
+                <div className="mt-1.5 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => pindahMode("lupa")}
+                    className="text-xs font-semibold text-[var(--accent)] transition hover:opacity-80"
+                  >
+                    Lupa password?
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           {mode === "signup" && (
             <div>
@@ -190,7 +184,7 @@ export default function LoginPage() {
                 autoComplete="tel"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                className="w-full rounded-md border border-border px-3 py-2 text-sm outline-none focus:border-[var(--ring)] focus:ring-2 focus:ring-[var(--ring)]"
+                className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm outline-none focus:border-[var(--ring)] focus:ring-2 focus:ring-[var(--ring)]"
                 placeholder="08xxxxxxxxxx"
               />
               <p className="mt-1 text-xs text-muted-foreground">
@@ -200,23 +194,19 @@ export default function LoginPage() {
           )}
 
           {error && (
-            <div role="alert" className="flex flex-wrap items-baseline gap-x-2 rounded-md border border-[rgba(255,107,91,0.45)] bg-[rgba(255,107,91,0.14)] px-3 py-2 text-sm text-[var(--danger)]">
-              <span>{error}</span>
-              {passwordMungkinSalah && (
-                <button
-                  type="button"
-                  onClick={() => void lupaPassword()}
-                  disabled={kirimReset}
-                  className="font-medium underline underline-offset-2 transition hover:opacity-80 disabled:opacity-50"
-                >
-                  {kirimReset ? "Ngirim..." : "Reset password"}
-                </button>
-              )}
-            </div>
+            <p
+              role="alert"
+              className="rounded-md border border-[rgba(255,107,91,0.45)] bg-[rgba(255,107,91,0.14)] px-3 py-2 text-sm text-[var(--danger)]"
+            >
+              {error}
+            </p>
           )}
 
           {message && (
-            <p role="status" className="rounded-md border border-[rgba(74,222,128,0.45)] bg-[rgba(74,222,128,0.14)] px-3 py-2 text-sm text-[var(--success)]">
+            <p
+              role="status"
+              className="rounded-md border border-[rgba(74,222,128,0.45)] bg-[rgba(74,222,128,0.14)] px-3 py-2 text-sm text-[var(--success)]"
+            >
               {message}
             </p>
           )}
@@ -226,21 +216,48 @@ export default function LoginPage() {
             disabled={loading || !siap}
             className="w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-60"
           >
-            {loading ? "Bentar ya..." : mode === "signin" ? "Masuk" : "Daftar"}
+            {teksTombol}
           </button>
         </form>
 
-        <button
-          onClick={() => pindahMode(mode === "signin" ? "signup" : "signin")}
-          className="mt-4 w-full text-center text-sm text-muted-foreground transition hover:opacity-80"
-        >
-          {mode === "signin" ? "Belum punya akun? " : "Udah punya akun? "}
-          <span className="font-bold text-[var(--accent)]">
-            {mode === "signin" ? "Daftar" : "Masuk"}
-          </span>
-        </button>
+        {/* Yang bisa diklik cuma kata kerjanya; kalimat pengantarnya teks biasa. */}
+        <p className="mt-4 text-center text-sm text-muted-foreground">
+          {mode === "lupa" ? (
+            <>
+              Inget passwordnya?{" "}
+              <button
+                type="button"
+                onClick={() => pindahMode("signin")}
+                className="font-bold text-[var(--accent)] transition hover:opacity-80"
+              >
+                Masuk
+              </button>
+            </>
+          ) : mode === "signin" ? (
+            <>
+              Belum punya akun?{" "}
+              <button
+                type="button"
+                onClick={() => pindahMode("signup")}
+                className="font-bold text-[var(--accent)] transition hover:opacity-80"
+              >
+                Daftar
+              </button>
+            </>
+          ) : (
+            <>
+              Udah punya akun?{" "}
+              <button
+                type="button"
+                onClick={() => pindahMode("signin")}
+                className="font-bold text-[var(--accent)] transition hover:opacity-80"
+              >
+                Masuk
+              </button>
+            </>
+          )}
+        </p>
       </div>
     </main>
   );
 }
-
