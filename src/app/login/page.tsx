@@ -114,7 +114,7 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center px-4">
+    <main className="flex min-h-dvh items-center justify-center px-4 py-8">
       <div className="w-full max-w-sm rounded-[var(--radius-lg)] border border-border bg-card p-6 shadow-sm">
         <h1 className="text-xl font-semibold text-foreground">
           {mode === "signin" ? "Masuk" : "Daftar"}
