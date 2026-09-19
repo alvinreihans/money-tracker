@@ -74,9 +74,21 @@ export default async function BerandaPage() {
             border: "1px solid rgba(192,57,43,0.20)",
           }}
         >
-          <span aria-hidden className="text-base">
-            ⚠️
-          </span>
+          <svg
+            aria-hidden
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="var(--danger)"
+            strokeWidth="2"
+            strokeLinecap="round"
+            className="mt-0.5 shrink-0"
+          >
+            <path d="M12 9v4" />
+            <path d="M12 17h.01" />
+            <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
+          </svg>
           <span>
             <span
               className="block text-[13px] font-semibold"
@@ -105,7 +117,7 @@ export default async function BerandaPage() {
             {daftar.length > 0 && (
               <Link
                 href="/riwayat"
-                className="shrink-0 text-xs font-semibold"
+                className="-my-2 flex min-h-11 shrink-0 items-center text-xs font-semibold"
                 style={{ color: "var(--primary)" }}
               >
                 Lihat semua

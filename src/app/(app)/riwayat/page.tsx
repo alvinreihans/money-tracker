@@ -53,7 +53,7 @@ export default async function RiwayatPage({
             <Link
               key={f.id}
               href={f.id === "semua" ? "/riwayat" : `/riwayat?filter=${f.id}`}
-              className="shrink-0 rounded-full border px-3 py-1 text-xs font-semibold"
+              className="flex min-h-11 shrink-0 items-center rounded-full border px-4 text-xs font-semibold"
               style={
                 aktif
                   ? {

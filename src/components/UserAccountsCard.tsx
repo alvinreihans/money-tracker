@@ -125,7 +125,7 @@ export default function UserAccountsCard() {
                 </div>
                 <button
                   onClick={() => void hapus(a.id)}
-                  className="shrink-0 text-xs text-muted-foreground transition hover:text-[var(--danger)]"
+                  className="-my-2 flex min-h-11 shrink-0 items-center px-2 text-xs text-muted-foreground transition hover:text-[var(--danger)]"
                 >
                   Hapus
                 </button>
@@ -166,7 +166,7 @@ export default function UserAccountsCard() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Ketik nama bank atau dompetnya"
-              className="w-full rounded-md border border-border px-2.5 py-1.5 text-sm outline-none focus:border-[var(--ring)]"
+              className="w-full rounded-md border border-border px-2.5 py-1.5 text-sm outline-none focus:border-[var(--ring)] focus:ring-2 focus:ring-[var(--ring)]"
             />
           </div>
           <div>
@@ -180,7 +180,7 @@ export default function UserAccountsCard() {
               id="jenis-rekening"
               value={kind}
               onChange={(e) => setKind(e.target.value as Kind)}
-              className="rounded-md border border-border px-2.5 py-1.5 text-sm outline-none focus:border-[var(--ring)]"
+              className="rounded-md border border-border px-2.5 py-1.5 text-sm outline-none focus:border-[var(--ring)] focus:ring-2 focus:ring-[var(--ring)]"
             >
               <option value="bank">Bank</option>
               <option value="ewallet">E-wallet</option>

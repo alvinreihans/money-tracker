@@ -74,10 +74,10 @@ export default async function TransactionDetailPage({
             )}
           </div>
 
-          <p className="mt-3 text-3xl font-bold tracking-tight text-foreground">
+          <h1 className="mt-3 text-3xl font-bold tracking-tight text-foreground">
             {t.type === "income" ? "+" : ""}
             {fmtIDR(Number(t.amount))}
-          </p>
+          </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {t.merchant ?? "Tanpa nama"} · {fmtTanggal(t.transaction_date)}
           </p>
