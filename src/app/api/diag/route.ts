@@ -39,10 +39,27 @@ export async function GET() {
   // Cek keberadaan berkas yang dimuat lewat path runtime, bukan lewat import.
   const fs = await import("node:fs");
   const path = await import("node:path");
-  const berkas = ["tessdata/ind.traineddata", "tessdata/eng.traineddata"].map((p) => ({
-    path: p,
-    ada: fs.existsSync(path.join(process.cwd(), p)),
-  }));
+  const berkas = [
+    "tessdata/ind.traineddata",
+    "node_modules/@img/sharp-linux-x64",
+    "node_modules/@img/sharp-libvips-linux-x64",
+  ].map((p) => ({ path: p, ada: fs.existsSync(path.join(process.cwd(), p)) }));
 
-  return NextResponse.json({ cwd: process.cwd(), hasil, berkas });
+  // Isi folder @img memberi tahu paket platform mana yang benar-benar sampai
+  // ke fungsi — glob tracing-nya sudah dipasang tapi sharp tetap gagal.
+  function isi(relatif: string): string[] {
+    try {
+      return fs.readdirSync(path.join(process.cwd(), relatif));
+    } catch (err) {
+      return [`(gagal: ${err instanceof Error ? err.message : String(err)})`];
+    }
+  }
+
+  return NextResponse.json({
+    cwd: process.cwd(),
+    hasil,
+    berkas,
+    img: isi("node_modules/@img"),
+    libvips: isi("node_modules/@img/sharp-libvips-linux-x64/lib"),
+  });
 }
