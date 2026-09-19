@@ -33,6 +33,7 @@ export default function LoginPage() {
   const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [ulangi, setUlangi] = useState("");
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,6 +53,7 @@ export default function LoginPage() {
 
   function pindahMode(target: Mode) {
     setMode(target);
+    setUlangi("");
     setError(null);
     setMessage(null);
   }
@@ -61,6 +63,12 @@ export default function LoginPage() {
     setLoading(true);
     setError(null);
     setMessage(null);
+
+    if (mode === "signup" && password !== ulangi) {
+      setError("Password dan ulangannya belum sama.");
+      setLoading(false);
+      return;
+    }
 
     const supabase = createSupabaseBrowserClient();
 
@@ -155,6 +163,17 @@ export default function LoginPage() {
                 onChange={setPassword}
                 autoComplete={mode === "signin" ? "current-password" : "new-password"}
               />
+              {mode === "signup" && (
+                <div className="mt-4">
+                  <PasswordField
+                    label="Ulangi password"
+                    value={ulangi}
+                    onChange={setUlangi}
+                    autoComplete="new-password"
+                    placeholder="Ketik ulang passwordnya"
+                  />
+                </div>
+              )}
               {mode === "signin" && (
                 <div className="mt-1.5 flex justify-end">
                   <button
