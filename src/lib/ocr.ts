@@ -1,6 +1,5 @@
 import path from "node:path";
 import os from "node:os";
-import sharp from "sharp";
 import { createWorker, type Worker } from "tesseract.js";
 
 /**
@@ -65,6 +64,13 @@ function getWorker(): Promise<Worker> {
  * kertas melengkung, dan pencahayaan tidak rata.
  */
 async function preprocess(input: Buffer): Promise<Buffer> {
+  // Dimuat saat dipakai, bukan di puncak berkas. sharp punya binary native
+  // yang bisa gagal dimuat di lingkungan tertentu; kalau di-import statis,
+  // kegagalannya menjatuhkan SELURUH modul sehingga route-nya balas 500 —
+  // padahal preprocessing cuma penyempurna, dan OCR masih bisa jalan tanpanya.
+  // Pemanggilnya sudah membungkus fungsi ini dengan try/catch.
+  const { default: sharp } = await import("sharp");
+
   return sharp(input)
     .rotate() // auto-orient dari metadata EXIF
     .grayscale()
