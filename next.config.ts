@@ -27,15 +27,26 @@ const nextConfig: NextConfig = {
     // di-`import`. Tracing statis Next tidak bisa mengikuti keduanya, jadi
     // berkasnya harus disebut eksplisit — kalau tidak, OCR jalan di lokal
     // tapi fungsinya gagal dimuat di produksi.
+    //
+    // sharp memuat libvips lewat dlopen saat runtime, dari paket @img yang
+    // TERPISAH dari binary .node-nya. Tracing tidak bisa mengikuti dlopen, jadi
+    // di produksi binary-nya ada tapi pustakanya tidak:
+    //   ERR_DLOPEN_FAILED: libvips-cpp.so.8.18.6: cannot open shared object file
+    // Paket linux ini tidak terpasang di mesin Windows, tapi ada saat Vercel
+    // menjalankan build-nya — di situlah glob ini dievaluasi.
     "/api/upload-receipt": [
       "./tessdata/**",
       "./node_modules/tesseract.js/src/worker-script/**",
       "./node_modules/tesseract.js-core/**",
+      "./node_modules/@img/sharp-linux-x64/**",
+      "./node_modules/@img/sharp-libvips-linux-x64/**",
     ],
     "/api/telegram/webhook": [
       "./tessdata/**",
       "./node_modules/tesseract.js/src/worker-script/**",
       "./node_modules/tesseract.js-core/**",
+      "./node_modules/@img/sharp-linux-x64/**",
+      "./node_modules/@img/sharp-libvips-linux-x64/**",
     ],
   },
 };
