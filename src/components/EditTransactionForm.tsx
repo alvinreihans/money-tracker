@@ -6,6 +6,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { dbErrorMessage } from "@/lib/errors";
 import { CATEGORY_LABEL } from "@/lib/format";
 import type { Transaction, TransactionType } from "@/types/transaction";
+import { IconEdit, IconSimpan, IconBatal } from "@/components/icons";
 
 /**
  * Menyunting rincian transaksi.
@@ -107,8 +108,9 @@ export default function EditTransactionForm({ tx }: { tx: Transaction }) {
     return (
       <button
         onClick={() => setBuka(true)}
-        className="flex min-h-11 items-center rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:opacity-90"
+        className="flex min-h-11 items-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:opacity-90"
       >
+        <IconEdit />
         {draft ? "Betulkan transaksi" : "Edit transaksi"}
       </button>
     );
@@ -226,16 +228,18 @@ export default function EditTransactionForm({ tx }: { tx: Transaction }) {
         <button
           type="submit"
           disabled={loading}
-          className="flex min-h-11 items-center rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-60"
+          className="flex min-h-11 items-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-60"
         >
+          <IconSimpan />
           {loading ? "Nyimpen..." : "Simpan"}
         </button>
         <button
           type="button"
           onClick={() => setBuka(false)}
           disabled={loading}
-          className="flex min-h-11 items-center rounded-md border border-border px-4 text-sm font-medium text-foreground transition hover:bg-secondary disabled:opacity-60"
+          className="flex min-h-11 items-center gap-2 rounded-md border border-border px-4 text-sm font-medium text-foreground transition hover:bg-secondary disabled:opacity-60"
         >
+          <IconBatal />
           Batal
         </button>
       </div>

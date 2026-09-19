@@ -50,7 +50,7 @@ export const fmtWaktu = (iso: string) =>
   }).format(new Date(iso));
 
 export const TYPE_BADGE: Record<TransactionType, { label: string; cls: string }> = {
-  expense: { label: "Keluar", cls: "bg-[rgba(251,251,251,0.06)] text-muted-foreground" },
+  expense: { label: "Keluar", cls: "bg-[rgba(245,110,15,0.14)] text-[var(--accent)]" },
   income: { label: "Masuk", cls: "bg-[rgba(74,222,128,0.12)] text-[var(--success)]" },
   transfer: { label: "Pindah kantong", cls: "bg-[rgba(125,169,255,0.12)] text-[var(--transfer)]" },
 };

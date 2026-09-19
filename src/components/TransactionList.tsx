@@ -8,7 +8,7 @@ import type { Transaction, TransactionType } from "@/types/transaction";
  */
 
 const CHIPS: Record<TransactionType, { label: string; warna: string; bg: string }> = {
-  expense: { label: "Keluar", warna: "var(--muted-foreground)", bg: "rgba(251,251,251,0.06)" },
+  expense: { label: "Keluar", warna: "var(--accent)", bg: "rgba(245,110,15,0.14)" },
   income: { label: "Masuk", warna: "var(--success)", bg: "rgba(74,222,128,0.12)" },
   transfer: { label: "Pindah kantong", warna: "var(--transfer)", bg: "rgba(125,169,255,0.12)" },
 };

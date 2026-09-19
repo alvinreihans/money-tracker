@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { dbErrorMessage } from "@/lib/errors";
+import { IconHapus, IconBatal } from "@/components/icons";
 
 /**
  * Hapus transaksi. Dua langkah, karena ini tidak bisa dibatalkan — sekali
@@ -41,9 +42,10 @@ export default function DeleteTransactionButton({ id }: { id: string }) {
       // sedangkan Dark Void 6,55:1. Kasusnya sama persis dengan tombol oranye.
       <button
         onClick={() => setKonfirmasi(true)}
-        className="flex min-h-11 items-center rounded-md px-4 text-sm font-semibold transition hover:opacity-90"
+        className="flex min-h-11 items-center gap-2 rounded-md px-4 text-sm font-semibold transition hover:opacity-90"
         style={{ background: "var(--danger)", color: "#151419" }}
       >
+        <IconHapus />
         Hapus transaksi
       </button>
     );
@@ -56,15 +58,17 @@ export default function DeleteTransactionButton({ id }: { id: string }) {
         <button
           onClick={() => void hapus()}
           disabled={loading}
-          className="flex min-h-11 items-center rounded-md bg-[var(--danger)] px-4 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-60"
+          className="flex min-h-11 items-center gap-2 rounded-md bg-[var(--danger)] px-4 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-60"
         >
+          <IconHapus />
           {loading ? "Ngapus..." : "Ya, hapus"}
         </button>
         <button
           onClick={() => setKonfirmasi(false)}
           disabled={loading}
-          className="flex min-h-11 items-center rounded-md border border-border px-4 text-sm font-medium text-foreground transition hover:bg-secondary disabled:opacity-60"
+          className="flex min-h-11 items-center gap-2 rounded-md border border-border px-4 text-sm font-medium text-foreground transition hover:bg-secondary disabled:opacity-60"
         >
+          <IconBatal />
           Batal
         </button>
       </div>
