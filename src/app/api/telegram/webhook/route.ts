@@ -88,11 +88,15 @@ export async function POST(req: NextRequest) {
 
   try {
     // 3. Cari apakah chat ini sudah terhubung ke akun.
-    const { data: link } = await admin
+    const { data: link, error: linkError } = await admin
       .from("telegram_links")
       .select("user_id")
       .eq("chat_id", chatId)
       .maybeSingle();
+
+    if (linkError) {
+      throw new Error(`Gagal membaca telegram_links: ${linkError.message}`);
+    }
 
     // 4. User membagikan kontak => proses linking (cepat, tidak perlu after()).
     if (msg.contact) {
@@ -108,11 +112,15 @@ export async function POST(req: NextRequest) {
         return ok();
       }
 
-      const { data: profile } = await admin
+      const { data: profile, error: profileError } = await admin
         .from("profiles")
         .select("user_id")
         .eq("phone", phone)
         .maybeSingle();
+
+      if (profileError) {
+        throw new Error(`Gagal mencari profil: ${profileError.message}`);
+      }
 
       if (!profile) {
         await sendMessage(
@@ -122,9 +130,13 @@ export async function POST(req: NextRequest) {
         return ok();
       }
 
-      await admin
+      const { error: linkSaveError } = await admin
         .from("telegram_links")
         .upsert({ chat_id: chatId, user_id: profile.user_id });
+
+      if (linkSaveError) {
+        throw new Error(`Gagal menyimpan tautan: ${linkSaveError.message}`);
+      }
 
       await sendMessage(
         chatId,
