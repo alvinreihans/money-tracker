@@ -3,6 +3,7 @@
 import { useState, type ChangeEvent, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import ProcessingMessage, { TAHAP_STATEMENT } from "@/components/ProcessingMessage";
+import { IconUnggah } from "@/components/icons";
 
 interface ImportResponse {
   parsed: number;
@@ -86,8 +87,9 @@ export default function UploadStatementForm() {
         <button
           type="submit"
           disabled={!file || loading}
-          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-60"
+          className="flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-60"
         >
+          <IconUnggah />
           {loading ? "Lagi diproses..." : "Impor"}
         </button>
 

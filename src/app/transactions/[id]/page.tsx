@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import DeleteTransactionButton from "@/components/DeleteTransactionButton";
+import EditTransactionForm from "@/components/EditTransactionForm";
 import {
   fmtIDR,
   fmtTanggal,
@@ -99,9 +100,9 @@ export default async function TransactionDetailPage({
               Kenapa perlu dibenerin
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Struknya nggak berhasil dibaca, jadi nominalnya belum benar. Di
-              bawah ini teks yang sempat kebaca — pakai itu buat mencatat ulang
-              manual.
+              Struknya nggak berhasil dibaca, jadi nominalnya belum benar. Teks yang
+              sempat kebaca ada di bawah — pakai itu buat mengisi lewat tombol
+              Betulkan transaksi.
             </p>
             {t.raw_ocr_text ? (
               <pre className="mt-3 max-h-64 overflow-auto whitespace-pre-wrap rounded-[var(--radius)] bg-secondary p-3 text-xs text-foreground">
@@ -115,7 +116,8 @@ export default async function TransactionDetailPage({
           </div>
         )}
 
-        <div className="border-t border-border p-6">
+        <div className="space-y-5 border-t border-border p-6">
+          <EditTransactionForm tx={t} />
           <DeleteTransactionButton id={t.id} />
         </div>
       </div>

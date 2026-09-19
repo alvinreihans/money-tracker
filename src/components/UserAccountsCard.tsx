@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { dbErrorMessage } from "@/lib/errors";
 import type { UserAccount } from "@/types/transaction";
+import { IconTambah } from "@/components/icons";
 
 type Kind = UserAccount["kind"];
 
@@ -190,8 +191,9 @@ export default function UserAccountsCard() {
           <button
             type="submit"
             disabled={!name.trim()}
-            className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-40"
+            className="flex items-center gap-2 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-40"
           >
+            <IconTambah />
             Tambah
           </button>
         </form>
