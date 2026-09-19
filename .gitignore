@@ -1,0 +1,37 @@
+# dependencies
+/node_modules
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# env files (JANGAN commit rahasia!)
+.env
+.env*.local
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# misc
+.DS_Store
+*.log
+
+# output diagnostik struk
+/.receipt-test/
+
+# Data pribadi — JANGAN pernah di-commit.
+# Berisi rekening koran (nama, alamat, no. rekening, saldo) dan bukti bayar.
+/archive/
+
+# Hasil Figma Make, bukan bagian dari aplikasi
+/Review Markdown Instructions/
+
+# env lokal (eksplisit, jangan cuma andalkan pola wildcard)
+.env.local

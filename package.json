@@ -1,0 +1,40 @@
+{
+  "name": "money-tracker",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "db:migrate": "node --env-file-if-exists=.env.local scripts/migrate.mjs",
+    "db:status": "node --env-file-if-exists=.env.local scripts/migrate.mjs --status",
+    "db:baseline": "node --env-file-if-exists=.env.local scripts/migrate.mjs --baseline",
+    "test:receipt": "tsx --env-file-if-exists=.env.local scripts/test-receipt.mts",
+    "test:statement": "tsx --env-file-if-exists=.env.local scripts/test-statement.mts"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "@supabase/ssr": "^0.12.3",
+    "@supabase/supabase-js": "^2.110.7",
+    "groq-sdk": "^1.6.0",
+    "next": "^16.2.10",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "recharts": "^3.9.2",
+    "sharp": "^0.35.4",
+    "tesseract.js": "^7.0.0",
+    "unpdf": "^1.8.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/node": "^26.1.1",
+    "@types/pg": "^8.23.1",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "pg": "^8.23.0",
+    "tailwindcss": "^4.3.3",
+    "tsx": "^4.23.13",
+    "typescript": "^5.9.3"
+  }
+}
