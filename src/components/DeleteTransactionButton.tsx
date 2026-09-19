@@ -34,9 +34,15 @@ export default function DeleteTransactionButton({ id }: { id: string }) {
 
   if (!konfirmasi) {
     return (
+      // Terisi penuh merah. Sebelumnya warnanya cuma muncul saat hover — dan
+      // di HP hover tidak ada, jadi tombolnya selamanya tampak teks abu biasa.
+      //
+      // Teksnya Dark Void, bukan putih: putih di atas merah ini cuma 2,70:1,
+      // sedangkan Dark Void 6,55:1. Kasusnya sama persis dengan tombol oranye.
       <button
         onClick={() => setKonfirmasi(true)}
-        className="text-sm text-muted-foreground transition hover:text-[var(--danger)]"
+        className="flex min-h-11 items-center rounded-md px-4 text-sm font-semibold transition hover:opacity-90"
+        style={{ background: "var(--danger)", color: "#151419" }}
       >
         Hapus transaksi
       </button>
@@ -50,14 +56,14 @@ export default function DeleteTransactionButton({ id }: { id: string }) {
         <button
           onClick={() => void hapus()}
           disabled={loading}
-          className="rounded-md bg-[var(--danger)] px-3 py-1.5 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-60"
+          className="flex min-h-11 items-center rounded-md bg-[var(--danger)] px-4 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-60"
         >
           {loading ? "Ngapus..." : "Ya, hapus"}
         </button>
         <button
           onClick={() => setKonfirmasi(false)}
           disabled={loading}
-          className="rounded-md border border-border px-3 py-1.5 text-sm font-medium text-foreground transition hover:bg-secondary"
+          className="flex min-h-11 items-center rounded-md border border-border px-4 text-sm font-medium text-foreground transition hover:bg-secondary disabled:opacity-60"
         >
           Batal
         </button>
