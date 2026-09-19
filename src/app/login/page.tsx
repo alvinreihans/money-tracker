@@ -4,6 +4,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { authErrorMessage } from "@/lib/errors";
+import { passwordValid } from "@/lib/password";
 import PasswordField from "@/components/PasswordField";
 import BrandMark from "@/components/BrandMark";
 
@@ -33,6 +34,7 @@ export default function LoginPage() {
   const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [ulangi, setUlangi] = useState("");
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,6 +54,7 @@ export default function LoginPage() {
 
   function pindahMode(target: Mode) {
     setMode(target);
+    setUlangi("");
     setError(null);
     setMessage(null);
   }
@@ -61,6 +64,18 @@ export default function LoginPage() {
     setLoading(true);
     setError(null);
     setMessage(null);
+
+    if (mode === "signup" && !passwordValid(password)) {
+      setError("Passwordnya belum memenuhi semua syarat di bawah kolom.");
+      setLoading(false);
+      return;
+    }
+
+    if (mode === "signup" && password !== ulangi) {
+      setError("Password dan ulangannya belum sama.");
+      setLoading(false);
+      return;
+    }
 
     const supabase = createSupabaseBrowserClient();
 
@@ -154,7 +169,21 @@ export default function LoginPage() {
                 value={password}
                 onChange={setPassword}
                 autoComplete={mode === "signin" ? "current-password" : "new-password"}
+                syarat={mode === "signup"}
+                minLength={mode === "signin" ? 1 : 8}
+                placeholder={mode === "signin" ? "Password kamu" : "Minimal 8 karakter"}
               />
+              {mode === "signup" && (
+                <div className="mt-4">
+                  <PasswordField
+                    label="Ulangi password"
+                    value={ulangi}
+                    onChange={setUlangi}
+                    autoComplete="new-password"
+                    placeholder="Ketik ulang passwordnya"
+                  />
+                </div>
+              )}
               {mode === "signin" && (
                 <div className="mt-1.5 flex justify-end">
                   <button

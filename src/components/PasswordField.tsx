@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
+import { cekPassword } from "@/lib/password";
 
 /**
  * Field password dengan tombol intip.
@@ -19,6 +20,8 @@ interface Props {
   minLength?: number;
   /** Elemen tambahan di sebelah kanan label, mis. tautan bantuan. */
   aksi?: React.ReactNode;
+  /** Tampilkan daftar syarat yang hidup saat mengetik. Untuk password BARU saja. */
+  syarat?: boolean;
 }
 
 export default function PasswordField({
@@ -26,12 +29,15 @@ export default function PasswordField({
   value,
   onChange,
   autoComplete,
-  placeholder = "Minimal 6 karakter",
-  minLength = 6,
+  placeholder = "Minimal 8 karakter",
+  minLength = 8,
   aksi,
+  syarat = false,
 }: Props) {
   const id = useId();
+  const idSyarat = useId();
   const [terlihat, setTerlihat] = useState(false);
+  const daftar = syarat ? cekPassword(value) : [];
 
   return (
     <div>
@@ -51,6 +57,7 @@ export default function PasswordField({
           autoComplete={autoComplete}
           value={value}
           onChange={(e) => onChange(e.target.value)}
+          aria-describedby={syarat ? idSyarat : undefined}
           // Ruang kanan disisakan supaya teks tidak tertimpa tombol intip.
           className="w-full rounded-md border border-border bg-transparent py-2 pl-3 pr-12 text-sm outline-none focus:border-[var(--ring)] focus:ring-2 focus:ring-[var(--ring)]"
           placeholder={placeholder}
@@ -68,6 +75,26 @@ export default function PasswordField({
           {terlihat ? <IconMataTutup /> : <IconMata />}
         </button>
       </div>
+
+      {syarat && (
+        // Muncul begitu mulai mengetik. Menampilkannya sejak awal bikin form
+        // terlihat penuh tuntutan sebelum orang sempat mencoba.
+        <ul id={idSyarat} className={value ? "mt-2 space-y-0.5" : "hidden"}>
+          {daftar.map((s) => (
+            <li
+              key={s.id}
+              className="flex items-center gap-1.5 text-xs"
+              style={{ color: s.ok ? "var(--success)" : "var(--muted-foreground)" }}
+            >
+              {/* Tanda centang vs lingkaran: statusnya terbaca tanpa warna. */}
+              <span aria-hidden className="w-3">
+                {s.ok ? "✓" : "○"}
+              </span>
+              {s.label}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

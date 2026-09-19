@@ -5,12 +5,14 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { authErrorMessage } from "@/lib/errors";
+import { passwordValid } from "@/lib/password";
 import PasswordField from "@/components/PasswordField";
 import BrandMark from "@/components/BrandMark";
 
 export default function ResetPasswordPage() {
   const router = useRouter();
   const [password, setPassword] = useState("");
+  const [ulangi, setUlangi] = useState("");
   const [loading, setLoading] = useState(false);
   // Halaman ini di-render server dulu, jadi formnya sudah terlihat siap sebelum
   // JS-nya termuat. Di koneksi lambat, menekan kirim di jeda itu memicu submit
@@ -29,8 +31,19 @@ export default function ResetPasswordPage() {
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setLoading(true);
     setError(null);
+
+    if (!passwordValid(password)) {
+      setError("Passwordnya belum memenuhi semua syarat di bawah kolom.");
+      return;
+    }
+
+    if (password !== ulangi) {
+      setError("Password dan ulangannya belum sama.");
+      return;
+    }
+
+    setLoading(true);
 
     const supabase = createSupabaseBrowserClient();
     const { error: err } = await supabase.auth.updateUser({ password });
@@ -76,6 +89,15 @@ export default function ResetPasswordPage() {
                 value={password}
                 onChange={setPassword}
                 autoComplete="new-password"
+                syarat
+              />
+
+              <PasswordField
+                label="Ulangi password baru"
+                value={ulangi}
+                onChange={setUlangi}
+                autoComplete="new-password"
+                placeholder="Ketik ulang passwordnya"
               />
 
               {error && (
