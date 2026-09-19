@@ -21,6 +21,11 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
+  // Halaman ini di-render server dulu, jadi formnya sudah terlihat siap sebelum
+  // JS-nya termuat. Di koneksi lambat, menekan kirim di jeda itu memicu submit
+  // bawaan browser: halaman reload dan isian hilang. Penanda ini menutup celahnya.
+  const [siap, setSiap] = useState(false);
+  useEffect(() => setSiap(true), []);
   const [kirimReset, setKirimReset] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Ditandai terpisah supaya bisa menawarkan reset password di kotak errornya.
@@ -218,7 +223,7 @@ export default function LoginPage() {
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || !siap}
             className="w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-60"
           >
             {loading ? "Bentar ya..." : mode === "signin" ? "Masuk" : "Daftar"}

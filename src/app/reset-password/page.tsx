@@ -12,6 +12,11 @@ export default function ResetPasswordPage() {
   const router = useRouter();
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  // Halaman ini di-render server dulu, jadi formnya sudah terlihat siap sebelum
+  // JS-nya termuat. Di koneksi lambat, menekan kirim di jeda itu memicu submit
+  // bawaan browser: halaman reload dan isian hilang. Penanda ini menutup celahnya.
+  const [siap, setSiap] = useState(false);
+  useEffect(() => setSiap(true), []);
   const [error, setError] = useState<string | null>(null);
   // Tautan reset sudah ditukar jadi session oleh /auth/callback. Kalau tidak
   // ada session, berarti halaman ini dibuka langsung tanpa lewat email.
@@ -81,7 +86,7 @@ export default function ResetPasswordPage() {
 
               <button
                 type="submit"
-                disabled={loading || punyaSesi === null}
+                disabled={loading || !siap || punyaSesi === null}
                 className="w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-60"
               >
                 {loading ? "Bentar ya..." : "Simpan & masuk"}
