@@ -197,7 +197,7 @@ export default function UserAccountsCard() {
         </form>
 
         {error && (
-          <p className="rounded-md bg-[rgba(255,107,91,0.14)] px-3 py-2 text-sm text-[var(--danger)]">{error}</p>
+          <p className="rounded-md border border-[rgba(255,107,91,0.45)] bg-[rgba(255,107,91,0.14)] px-3 py-2 text-sm text-[var(--danger)]">{error}</p>
         )}
       </div>
     </div>

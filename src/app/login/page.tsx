@@ -162,7 +162,7 @@ export default function LoginPage() {
                   type="button"
                   onClick={() => void lupaPassword()}
                   disabled={kirimReset}
-                  className="text-xs text-muted-foreground transition hover:text-foreground disabled:opacity-50"
+                  className="text-xs font-semibold text-[var(--accent)] transition hover:opacity-80 disabled:opacity-50"
                 >
                   {kirimReset ? "Ngirim..." : "Lupa password?"}
                 </button>
@@ -195,7 +195,7 @@ export default function LoginPage() {
           )}
 
           {error && (
-            <div className="flex flex-wrap items-baseline gap-x-2 rounded-md bg-[rgba(255,107,91,0.14)] px-3 py-2 text-sm text-[var(--danger)]">
+            <div role="alert" className="flex flex-wrap items-baseline gap-x-2 rounded-md border border-[rgba(255,107,91,0.45)] bg-[rgba(255,107,91,0.14)] px-3 py-2 text-sm text-[var(--danger)]">
               <span>{error}</span>
               {passwordMungkinSalah && (
                 <button
@@ -211,7 +211,7 @@ export default function LoginPage() {
           )}
 
           {message && (
-            <p className="rounded-md bg-[rgba(74,222,128,0.14)] px-3 py-2 text-sm text-[var(--success)]">
+            <p role="status" className="rounded-md border border-[rgba(74,222,128,0.45)] bg-[rgba(74,222,128,0.14)] px-3 py-2 text-sm text-[var(--success)]">
               {message}
             </p>
           )}
@@ -227,9 +227,12 @@ export default function LoginPage() {
 
         <button
           onClick={() => pindahMode(mode === "signin" ? "signup" : "signin")}
-          className="mt-4 w-full text-center text-sm text-muted-foreground hover:text-foreground"
+          className="mt-4 w-full text-center text-sm text-muted-foreground transition hover:opacity-80"
         >
-          {mode === "signin" ? "Belum punya akun? Daftar" : "Udah punya akun? Masuk"}
+          {mode === "signin" ? "Belum punya akun? " : "Udah punya akun? "}
+          <span className="font-bold text-[var(--accent)]">
+            {mode === "signin" ? "Daftar" : "Masuk"}
+          </span>
         </button>
       </div>
     </main>

@@ -101,7 +101,7 @@ export default function SpendingByCategoryChart() {
             <div className="h-8 w-8 animate-spin rounded-full border-2 border-border border-t-[var(--primary)]" />
           </div>
         ) : error ? (
-          <div className="flex h-72 items-center justify-center rounded-[var(--radius)] bg-[rgba(255,107,91,0.14)] text-sm text-[var(--danger)]">
+          <div className="flex h-72 items-center justify-center rounded-[var(--radius)] border border-[rgba(255,107,91,0.45)] bg-[rgba(255,107,91,0.14)] text-sm text-[var(--danger)]">
             Gagal ambil data: {error}
           </div>
         ) : data.length === 0 ? (
