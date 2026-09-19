@@ -63,12 +63,12 @@ export default function UploadStatementForm() {
   }
 
   return (
-    <div className="w-full rounded-xl border border-slate-200 bg-white shadow-sm">
+    <div className="w-full rounded-[var(--radius-lg)] border border-border bg-card shadow-sm">
       <div className="flex flex-col space-y-1.5 p-6">
-        <h3 className="text-lg font-semibold tracking-tight text-slate-900">
+        <h3 className="text-lg font-semibold tracking-tight text-foreground">
           Impor Rekening Koran
         </h3>
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-muted-foreground">
           Upload PDF rekening koran dari aplikasi bank. Pindahan antar kantong
           sendiri nggak dihitung pengeluaran, dan yang udah ada bukti bayarnya
           nggak bakal kecatat dua kali.
@@ -80,31 +80,31 @@ export default function UploadStatementForm() {
           type="file"
           accept="application/pdf"
           onChange={handleFileChange}
-          className="block w-full text-sm text-slate-600 file:mr-4 file:rounded-md file:border-0 file:bg-slate-900 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-slate-800"
+          className="block w-full text-sm text-muted-foreground file:mr-4 file:rounded-md file:border-0 file:bg-primary file:px-4 file:py-2 file:text-sm file:font-medium file:text-primary-foreground hover:file:opacity-90"
         />
 
         <button
           type="submit"
           disabled={!file || loading}
-          className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 disabled:opacity-60"
+          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-60"
         >
           {loading ? "Lagi diproses..." : "Impor"}
         </button>
 
         {loading && (
-          <ProcessingMessage tahap={TAHAP_STATEMENT} className="text-sm text-slate-600" />
+          <ProcessingMessage tahap={TAHAP_STATEMENT} className="text-sm text-muted-foreground" />
         )}
 
         {error && (
-          <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>
+          <p className="rounded-md bg-[rgba(192,57,43,0.10)] px-3 py-2 text-sm text-[var(--danger)]">{error}</p>
         )}
 
         {result && (
-          <div className="rounded-md bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+          <div className="rounded-md bg-[rgba(43,87,65,0.10)] px-4 py-3 text-sm text-[var(--success)]">
             <p className="font-medium">
               {result.inserted} transaksi masuk dari {result.account}
             </p>
-            <ul className="mt-1 space-y-0.5 text-emerald-800">
+            <ul className="mt-1 space-y-0.5 text-[var(--success)]">
               <li>{result.parsed} baris kebaca dari PDF</li>
               {result.skippedReimport > 0 && (
                 <li>
@@ -119,10 +119,10 @@ export default function UploadStatementForm() {
               )}
             </ul>
             <details className="mt-2">
-              <summary className="cursor-pointer text-xs text-emerald-700">
+              <summary className="cursor-pointer text-xs text-[var(--success)]">
                 Rincian per halaman
               </summary>
-              <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap rounded bg-emerald-100 p-2 text-xs">
+              <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap rounded bg-[rgba(43,87,65,0.12)] p-2 text-xs">
                 {result.notes.join("\n")}
               </pre>
             </details>

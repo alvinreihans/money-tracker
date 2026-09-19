@@ -11,6 +11,7 @@ import {
   YAxis,
 } from "recharts";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { labelKategori } from "@/lib/format";
 import type { AvgMonthlyExpenseRow } from "@/types/transaction";
 
 // Helper format Rupiah (kompak: Rp1,2jt).
@@ -33,11 +34,11 @@ interface ChartTooltipProps {
 function ChartTooltip({ active, payload, label }: ChartTooltipProps) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-md">
-      <p className="font-medium capitalize text-slate-900">{label}</p>
-      <p className="text-slate-500">
+    <div className="rounded-[var(--radius)] border border-border bg-card px-3 py-2 text-sm shadow-md">
+      <p className="font-medium capitalize text-foreground">{label}</p>
+      <p className="text-muted-foreground">
         Rata-rata:{" "}
-        <span className="font-semibold text-slate-900">
+        <span className="font-semibold text-foreground">
           {formatIDR(Number(payload[0].value))}
         </span>
       </p>
@@ -82,13 +83,13 @@ export default function SpendingByCategoryChart() {
   );
 
   return (
-    <div className="w-full rounded-xl border border-slate-200 bg-white shadow-sm">
+    <div className="w-full rounded-[var(--radius-lg)] border border-border bg-card shadow-sm">
       {/* Header kartu */}
       <div className="flex flex-col space-y-1.5 p-6">
-        <h3 className="text-lg font-semibold leading-none tracking-tight text-slate-900">
+        <h3 className="text-lg font-semibold leading-none tracking-tight text-foreground">
           Rata-rata Pengeluaran per Kategori
         </h3>
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-muted-foreground">
           Rerata bulanan selama 3 bulan terakhir
         </p>
       </div>
@@ -97,16 +98,16 @@ export default function SpendingByCategoryChart() {
       <div className="p-6 pt-0">
         {loading ? (
           <div className="flex h-72 items-center justify-center">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-slate-900" />
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-border border-t-[var(--primary)]" />
           </div>
         ) : error ? (
-          <div className="flex h-72 items-center justify-center rounded-lg bg-red-50 text-sm text-red-600">
+          <div className="flex h-72 items-center justify-center rounded-[var(--radius)] bg-[rgba(192,57,43,0.10)] text-sm text-[var(--danger)]">
             Gagal ambil data: {error}
           </div>
         ) : data.length === 0 ? (
-          <div className="flex h-72 flex-col items-center justify-center px-6 text-center text-sm text-slate-500">
+          <div className="flex h-72 flex-col items-center justify-center px-6 text-center text-sm text-muted-foreground">
             <p>Belum ada pengeluaran di rentang ini.</p>
-            <p className="mt-1 text-xs text-slate-400">
+            <p className="mt-1 text-xs text-muted-foreground">
               Chart ini cuma menghitung 3 bulan penuh terakhir, jadi transaksi
               bulan berjalan belum ikut. Lihat daftar di atas buat yang terbaru.
             </p>
@@ -114,10 +115,10 @@ export default function SpendingByCategoryChart() {
         ) : (
           <>
             <div className="mb-4">
-              <span className="text-2xl font-bold text-slate-900">
+              <span className="text-2xl font-bold text-foreground">
                 {formatIDR(totalAvg)}
               </span>
-              <span className="ml-2 text-sm text-slate-500">
+              <span className="ml-2 text-sm text-muted-foreground">
                 total rerata / bulan
               </span>
             </div>
@@ -130,31 +131,29 @@ export default function SpendingByCategoryChart() {
                 <CartesianGrid
                   vertical={false}
                   strokeDasharray="3 3"
-                  stroke="#e2e8f0"
+                  stroke="var(--border)"
                 />
                 <XAxis
                   dataKey="category"
                   tickLine={false}
                   axisLine={false}
-                  tick={{ fill: "#64748b", fontSize: 12 }}
-                  tickFormatter={(v: string) =>
-                    v.charAt(0).toUpperCase() + v.slice(1)
-                  }
+                  tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
+                  tickFormatter={labelKategori}
                 />
                 <YAxis
                   tickLine={false}
                   axisLine={false}
                   width={64}
-                  tick={{ fill: "#64748b", fontSize: 12 }}
+                  tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
                   tickFormatter={(v: number) => formatIDR(v)}
                 />
                 <Tooltip
                   content={<ChartTooltip />}
-                  cursor={{ fill: "#f1f5f9" }}
+                  cursor={{ fill: "var(--secondary)" }}
                 />
                 <Bar
                   dataKey="avg_monthly"
-                  fill="#0f172a"
+                  fill="var(--primary)"
                   radius={[6, 6, 0, 0]}
                   maxBarSize={56}
                 />

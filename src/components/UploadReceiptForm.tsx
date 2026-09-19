@@ -23,6 +23,37 @@ interface Item {
   pesan?: string;
 }
 
+const ikon = {
+  width: 24,
+  height: 24,
+  viewBox: "0 0 24 24",
+  fill: "none",
+  stroke: "currentColor",
+  strokeWidth: 1.8,
+  strokeLinecap: "round" as const,
+  strokeLinejoin: "round" as const,
+  "aria-hidden": true,
+};
+
+function IconKamera() {
+  return (
+    <svg {...ikon}>
+      <path d="M3 8.5A2 2 0 0 1 5 6.5h2l1.2-2h7.6L17 6.5h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+      <circle cx="12" cy="13" r="3.5" />
+    </svg>
+  );
+}
+
+function IconGaleri() {
+  return (
+    <svg {...ikon} width={22} height={22}>
+      <rect x="3" y="5" width="18" height="14" rx="2.5" />
+      <circle cx="8.5" cy="10" r="1.5" />
+      <path d="m4 17 4.5-4.5 3 3L15 12l5 5" />
+    </svg>
+  );
+}
+
 const fmtIDR = (n: number) =>
   new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(n);
 
@@ -144,37 +175,32 @@ export default function UploadReceiptForm() {
         />
       )}
 
-      <div className="w-full rounded-xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex flex-col space-y-1.5 p-6">
-          <h3 className="text-lg font-semibold tracking-tight text-slate-900">
-            Upload Struk
-          </h3>
-          <p className="text-sm text-slate-500">
-            Bisa sekalian banyak. Nanti dibaca otomatis terus disimpan.
+      <div className="w-full rounded-[var(--radius-lg)] border border-border bg-card shadow-sm">
+        <div className="p-4 pb-3">
+          <p className="m-0 text-[13px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+            Catat transaksi
           </p>
         </div>
 
-        <div className="space-y-4 p-6 pt-0">
-          <div className="flex flex-wrap gap-2">
-            {/* Begitu antreannya habis, menambah gambar jadi aksi utama —
-                jadi tombol ini yang ditonjolkan, bukan tombol proses. */}
-            <button
-              type="button"
-              onClick={() => fileRef.current?.click()}
-              className={
-                semuaSelesai
-                  ? "rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
-                  : "rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-              }
-            >
-              {semuaSelesai ? "Upload lagi" : "Pilih gambar"}
-            </button>
+        <div className="space-y-4 p-4 pt-0">
+          {/* Memotret struk adalah aksi harian di aplikasi ini, jadi kedua
+              tombolnya dibikin besar dan sejajar — bukan tombol teks kecil. */}
+          <div className="grid grid-cols-2 gap-2.5">
             <button
               type="button"
               onClick={() => setKameraBuka(true)}
-              className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+              className="flex flex-col items-center gap-1.5 rounded-[var(--radius)] bg-primary px-3 py-3.5 text-sm font-bold text-primary-foreground transition hover:opacity-90"
             >
+              <IconKamera />
               Foto pakai kamera
+            </button>
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              className="flex flex-col items-center gap-1.5 rounded-[var(--radius)] border-[1.5px] border-dashed border-border bg-secondary px-3 py-3.5 text-sm font-semibold text-secondary-foreground transition hover:opacity-90"
+            >
+              <IconGaleri />
+              {semuaSelesai ? "Upload lagi" : "Pilih gambar"}
             </button>
             <input
               ref={fileRef}
@@ -191,7 +217,7 @@ export default function UploadReceiptForm() {
               {items.map((i) => (
                 <li
                   key={i.id}
-                  className="flex items-start gap-3 rounded-lg border border-slate-200 p-2"
+                  className="flex items-start gap-3 rounded-[var(--radius)] border border-border p-2"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
@@ -201,18 +227,18 @@ export default function UploadReceiptForm() {
                   />
 
                   <div className="min-w-0 flex-1 text-sm">
-                    {i.status === "antre" && <p className="text-slate-400">Nunggu giliran</p>}
+                    {i.status === "antre" && <p className="text-muted-foreground">Nunggu giliran</p>}
                     {i.status === "proses" && (
-                      <ProcessingMessage className="text-slate-600" />
+                      <ProcessingMessage className="text-muted-foreground" />
                     )}
 
                     {i.status === "ok" && i.hasil && (
                       <>
-                        <p className="font-medium text-emerald-700">
+                        <p className="font-medium text-[var(--success)]">
                           {i.hasil.transaction.merchant ?? "Tanpa nama"} —{" "}
                           {fmtIDR(i.hasil.transaction.amount)}
                         </p>
-                        <p className="text-xs text-slate-500">
+                        <p className="text-xs text-muted-foreground">
                           {i.hasil.transaction.category} ·{" "}
                           {i.hasil.transaction.transaction_date}
                         </p>
@@ -221,8 +247,8 @@ export default function UploadReceiptForm() {
 
                     {i.status === "draft" && (
                       <>
-                        <p className="font-medium text-amber-700">Nggak kebaca</p>
-                        <p className="text-xs text-slate-500">
+                        <p className="font-medium text-[var(--accent)]">Nggak kebaca</p>
+                        <p className="text-xs text-muted-foreground">
                           Disimpan jadi draft, nominalnya isi manual ya.
                         </p>
                       </>
@@ -230,8 +256,8 @@ export default function UploadReceiptForm() {
 
                     {i.status === "gagal" && (
                       <>
-                        <p className="font-medium text-red-600">Gagal</p>
-                        <p className="text-xs text-slate-500">{i.pesan}</p>
+                        <p className="font-medium text-[var(--danger)]">Gagal</p>
+                        <p className="text-xs text-muted-foreground">{i.pesan}</p>
                       </>
                     )}
                   </div>
@@ -239,7 +265,7 @@ export default function UploadReceiptForm() {
                   {!berjalan && (
                     <button
                       onClick={() => hapus(i.id)}
-                      className="shrink-0 text-xs text-slate-400 transition hover:text-red-600"
+                      className="shrink-0 text-xs text-muted-foreground transition hover:text-[var(--danger)]"
                     >
                       Hapus
                     </button>
@@ -256,7 +282,7 @@ export default function UploadReceiptForm() {
                   type="button"
                   onClick={() => void prosesSemua()}
                   disabled={berjalan}
-                  className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 disabled:opacity-40"
+                  className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-40"
                 >
                   {berjalan ? "Lagi diproses..." : `Proses ${antre} gambar`}
                 </button>
@@ -267,7 +293,7 @@ export default function UploadReceiptForm() {
                   type="button"
                   onClick={bersihkan}
                   disabled={berjalan}
-                  className="text-sm text-slate-500 transition hover:text-slate-900 disabled:opacity-40"
+                  className="text-sm text-muted-foreground transition hover:text-foreground disabled:opacity-40"
                 >
                   Bersihkan daftar
                 </button>
@@ -276,7 +302,7 @@ export default function UploadReceiptForm() {
           )}
 
           {berjalan && (
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-muted-foreground">
               Diproses satu per satu biar nggak kena batas kuota.
             </p>
           )}

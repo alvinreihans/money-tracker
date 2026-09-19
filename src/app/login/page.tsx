@@ -115,11 +115,11 @@ export default function LoginPage() {
 
   return (
     <main className="flex min-h-screen items-center justify-center px-4">
-      <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h1 className="text-xl font-semibold text-slate-900">
+      <div className="w-full max-w-sm rounded-[var(--radius-lg)] border border-border bg-card p-6 shadow-sm">
+        <h1 className="text-xl font-semibold text-foreground">
           {mode === "signin" ? "Masuk" : "Daftar"}
         </h1>
-        <p className="mt-1 text-sm text-slate-500">
+        <p className="mt-1 text-sm text-muted-foreground">
           {mode === "signin"
             ? "Lanjut ke catatan keuanganmu."
             : "Bikin akun dulu, bentar aja."}
@@ -129,7 +129,7 @@ export default function LoginPage() {
           <div>
             <label
               htmlFor="email"
-              className="mb-1 block text-sm font-medium text-slate-700"
+              className="mb-1 block text-sm font-medium text-foreground"
             >
               Email
             </label>
@@ -140,14 +140,14 @@ export default function LoginPage() {
               autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900"
+              className="w-full rounded-md border border-border px-3 py-2 text-sm outline-none focus:border-[var(--ring)] focus:ring-1 focus:ring-[var(--ring)]"
               placeholder="kamu@email.com"
             />
           </div>
 
           <div>
             <div className="mb-1 flex items-baseline justify-between">
-              <label htmlFor="password" className="text-sm font-medium text-slate-700">
+              <label htmlFor="password" className="text-sm font-medium text-foreground">
                 Password
               </label>
               {mode === "signin" && (
@@ -155,7 +155,7 @@ export default function LoginPage() {
                   type="button"
                   onClick={() => void lupaPassword()}
                   disabled={kirimReset}
-                  className="text-xs text-slate-400 transition hover:text-slate-900 disabled:opacity-50"
+                  className="text-xs text-muted-foreground transition hover:text-foreground disabled:opacity-50"
                 >
                   {kirimReset ? "Ngirim..." : "Lupa password?"}
                 </button>
@@ -169,7 +169,7 @@ export default function LoginPage() {
               autoComplete={mode === "signin" ? "current-password" : "new-password"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900"
+              className="w-full rounded-md border border-border px-3 py-2 text-sm outline-none focus:border-[var(--ring)] focus:ring-1 focus:ring-[var(--ring)]"
               placeholder="Minimal 6 karakter"
             />
           </div>
@@ -178,7 +178,7 @@ export default function LoginPage() {
             <div>
               <label
                 htmlFor="phone"
-                className="mb-1 block text-sm font-medium text-slate-700"
+                className="mb-1 block text-sm font-medium text-foreground"
               >
                 Nomor HP (buat bot Telegram)
               </label>
@@ -189,24 +189,24 @@ export default function LoginPage() {
                 autoComplete="tel"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900"
+                className="w-full rounded-md border border-border px-3 py-2 text-sm outline-none focus:border-[var(--ring)] focus:ring-1 focus:ring-[var(--ring)]"
                 placeholder="08xxxxxxxxxx"
               />
-              <p className="mt-1 text-xs text-slate-400">
+              <p className="mt-1 text-xs text-muted-foreground">
                 Samain sama nomor Telegram kamu.
               </p>
             </div>
           )}
 
           {error && (
-            <div className="flex flex-wrap items-baseline gap-x-2 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+            <div className="flex flex-wrap items-baseline gap-x-2 rounded-md bg-[rgba(192,57,43,0.10)] px-3 py-2 text-sm text-[var(--danger)]">
               <span>{error}</span>
               {passwordMungkinSalah && (
                 <button
                   type="button"
                   onClick={() => void lupaPassword()}
                   disabled={kirimReset}
-                  className="font-medium underline underline-offset-2 transition hover:text-red-900 disabled:opacity-50"
+                  className="font-medium underline underline-offset-2 transition hover:opacity-80 disabled:opacity-50"
                 >
                   {kirimReset ? "Ngirim..." : "Reset password"}
                 </button>
@@ -215,7 +215,7 @@ export default function LoginPage() {
           )}
 
           {message && (
-            <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+            <p className="rounded-md bg-[rgba(43,87,65,0.10)] px-3 py-2 text-sm text-[var(--success)]">
               {message}
             </p>
           )}
@@ -223,7 +223,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 disabled:opacity-60"
+            className="w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-60"
           >
             {loading ? "Bentar ya..." : mode === "signin" ? "Masuk" : "Daftar"}
           </button>
@@ -231,7 +231,7 @@ export default function LoginPage() {
 
         <button
           onClick={() => pindahMode(mode === "signin" ? "signup" : "signin")}
-          className="mt-4 w-full text-center text-sm text-slate-500 hover:text-slate-900"
+          className="mt-4 w-full text-center text-sm text-muted-foreground hover:text-foreground"
         >
           {mode === "signin" ? "Belum punya akun? Daftar" : "Udah punya akun? Masuk"}
         </button>

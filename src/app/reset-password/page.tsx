@@ -39,25 +39,25 @@ export default function ResetPasswordPage() {
 
   return (
     <main className="flex min-h-screen items-center justify-center px-4">
-      <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h1 className="text-xl font-semibold text-slate-900">Password baru</h1>
+      <div className="w-full max-w-sm rounded-[var(--radius-lg)] border border-border bg-card p-6 shadow-sm">
+        <h1 className="text-xl font-semibold text-foreground">Password baru</h1>
 
         {punyaSesi === false ? (
           <>
-            <p className="mt-2 text-sm text-slate-500">
+            <p className="mt-2 text-sm text-muted-foreground">
               Tautannya udah nggak berlaku. Tautan reset cuma bisa dipakai sekali
               dan ada masa berlakunya.
             </p>
             <Link
               href="/login"
-              className="mt-5 block w-full rounded-md bg-slate-900 px-4 py-2 text-center text-sm font-medium text-white transition hover:bg-slate-800"
+              className="mt-5 block w-full rounded-md bg-primary px-4 py-2 text-center text-sm font-medium text-primary-foreground transition hover:opacity-90"
             >
               Minta tautan baru
             </Link>
           </>
         ) : (
           <>
-            <p className="mt-1 text-sm text-slate-500">
+            <p className="mt-1 text-sm text-muted-foreground">
               Bikin password baru, terus langsung masuk.
             </p>
 
@@ -65,7 +65,7 @@ export default function ResetPasswordPage() {
               <div>
                 <label
                   htmlFor="password-baru"
-                  className="mb-1 block text-sm font-medium text-slate-700"
+                  className="mb-1 block text-sm font-medium text-foreground"
                 >
                   Password baru
                 </label>
@@ -77,13 +77,13 @@ export default function ResetPasswordPage() {
                   autoComplete="new-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900"
+                  className="w-full rounded-md border border-border px-3 py-2 text-sm outline-none focus:border-[var(--ring)] focus:ring-1 focus:ring-[var(--ring)]"
                   placeholder="Minimal 6 karakter"
                 />
               </div>
 
               {error && (
-                <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+                <p className="rounded-md bg-[rgba(192,57,43,0.10)] px-3 py-2 text-sm text-[var(--danger)]">
                   {error}
                 </p>
               )}
@@ -91,7 +91,7 @@ export default function ResetPasswordPage() {
               <button
                 type="submit"
                 disabled={loading || punyaSesi === null}
-                className="w-full rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 disabled:opacity-60"
+                className="w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-60"
               >
                 {loading ? "Bentar ya..." : "Simpan & masuk"}
               </button>
