@@ -68,7 +68,6 @@
   --radius-lg: calc(var(--radius) + 4px);
   --radius-xl: calc(var(--radius) + 8px);
   --font-sans: var(--font-jakarta), system-ui, sans-serif;
-  --font-display: var(--font-dm-serif), Georgia, serif;
 }
 
 body {
@@ -78,14 +77,18 @@ body {
 }
 
 /**
- * Nominal besar pakai serif display — pilihan editorial, bukan dekorasi asal.
- * Hanya untuk angka berukuran besar; di baris daftar yang kecil serif
- * satu-berat ini justru sulit dibaca, jadi di sana tetap sans.
+ * Nominal besar. Satu-satunya keluarga huruf di aplikasi ini adalah Plus
+ * Jakarta Sans — serif editorial terasa nempel dari desain lain di atas palet
+ * gelap yang tajam ini, dan angka utama memang sebaiknya sekeluarga dengan
+ * teks lainnya.
+ *
+ * Yang membedakannya dari teks biasa: berat ekstra, tracking rapat, dan angka
+ * proporsional (bukan tabular — pada ukuran besar tabular bikin digit renggang).
  */
 .amount-display {
-  font-family: var(--font-dm-serif), Georgia, serif;
   font-variant-numeric: proportional-nums;
-  font-weight: 400;
+  font-weight: 800;
+  letter-spacing: -0.02em;
 }
 
 /* Kolom angka harus sejajar; angka tunggal yang besar tidak. */

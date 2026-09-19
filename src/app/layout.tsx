@@ -1,20 +1,11 @@
 import type { Metadata, Viewport } from "next";
-import { Plus_Jakarta_Sans, DM_Serif_Display } from "next/font/google";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 
 // Plus Jakarta Sans memang dirancang untuk Jakarta — pas untuk aplikasi ini.
 const jakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
   variable: "--font-jakarta",
-  display: "swap",
-});
-
-// Khusus nominal berukuran besar. Satu berat saja karena memang cuma dipakai
-// untuk angka, bukan untuk badan teks.
-const dmSerif = DM_Serif_Display({
-  subsets: ["latin"],
-  weight: "400",
-  variable: "--font-dm-serif",
   display: "swap",
 });
 
@@ -32,7 +23,7 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="id" className={`${jakarta.variable} ${dmSerif.variable}`}>
+    <html lang="id" className={jakarta.variable}>
       <body className="min-h-screen bg-background font-sans text-foreground antialiased">
         {children}
       </body>
