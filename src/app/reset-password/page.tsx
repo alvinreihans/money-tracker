@@ -83,7 +83,7 @@ export default function ResetPasswordPage() {
               </div>
 
               {error && (
-                <p className="rounded-md bg-[rgba(192,57,43,0.10)] px-3 py-2 text-sm text-[var(--danger)]">
+                <p className="rounded-md bg-[rgba(255,107,91,0.14)] px-3 py-2 text-sm text-[var(--danger)]">
                   {error}
                 </p>
               )}

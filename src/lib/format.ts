@@ -50,9 +50,9 @@ export const fmtWaktu = (iso: string) =>
   }).format(new Date(iso));
 
 export const TYPE_BADGE: Record<TransactionType, { label: string; cls: string }> = {
-  expense: { label: "Keluar", cls: "bg-amber-50 text-amber-700" },
-  income: { label: "Masuk", cls: "bg-emerald-50 text-emerald-700" },
-  transfer: { label: "Pindah kantong", cls: "bg-sky-50 text-sky-700" },
+  expense: { label: "Keluar", cls: "bg-[rgba(251,251,251,0.06)] text-muted-foreground" },
+  income: { label: "Masuk", cls: "bg-[rgba(74,222,128,0.12)] text-[var(--success)]" },
+  transfer: { label: "Pindah kantong", cls: "bg-[rgba(125,169,255,0.12)] text-[var(--transfer)]" },
 };
 
 /** Kategori disimpan sebagai slug Inggris; yang dilihat user harus Indonesia. */

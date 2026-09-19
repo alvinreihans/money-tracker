@@ -104,7 +104,7 @@ export default function UserAccountsCard() {
         {loading ? (
           <p className="text-sm text-muted-foreground">Memuat...</p>
         ) : accounts.length === 0 ? (
-          <p className="rounded-md bg-[rgba(201,122,47,0.10)] px-3 py-2.5 text-sm text-[var(--accent)]">
+          <p className="rounded-md bg-[rgba(245,110,15,0.14)] px-3 py-2.5 text-sm text-[var(--accent)]">
             Masih kosong. Pilih dari bawah — minimal bank sama e-wallet yang kamu
             pakai sehari-hari.
           </p>
@@ -197,7 +197,7 @@ export default function UserAccountsCard() {
         </form>
 
         {error && (
-          <p className="rounded-md bg-[rgba(192,57,43,0.10)] px-3 py-2 text-sm text-[var(--danger)]">{error}</p>
+          <p className="rounded-md bg-[rgba(255,107,91,0.14)] px-3 py-2 text-sm text-[var(--danger)]">{error}</p>
         )}
       </div>
     </div>

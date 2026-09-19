@@ -70,8 +70,8 @@ export default async function BerandaPage() {
           href="/riwayat?filter=draft"
           className="mx-4 mt-3 flex items-center gap-2.5 rounded-[var(--radius)] px-3.5 py-2.5"
           style={{
-            background: "rgba(192,57,43,0.08)",
-            border: "1px solid rgba(192,57,43,0.20)",
+            background: "rgba(255,107,91,0.14)",
+            border: "1px solid rgba(255,107,91,0.14)",
           }}
         >
           <svg

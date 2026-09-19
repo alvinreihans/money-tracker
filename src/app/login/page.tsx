@@ -199,7 +199,7 @@ export default function LoginPage() {
           )}
 
           {error && (
-            <div className="flex flex-wrap items-baseline gap-x-2 rounded-md bg-[rgba(192,57,43,0.10)] px-3 py-2 text-sm text-[var(--danger)]">
+            <div className="flex flex-wrap items-baseline gap-x-2 rounded-md bg-[rgba(255,107,91,0.14)] px-3 py-2 text-sm text-[var(--danger)]">
               <span>{error}</span>
               {passwordMungkinSalah && (
                 <button
@@ -215,7 +215,7 @@ export default function LoginPage() {
           )}
 
           {message && (
-            <p className="rounded-md bg-[rgba(43,87,65,0.10)] px-3 py-2 text-sm text-[var(--success)]">
+            <p className="rounded-md bg-[rgba(74,222,128,0.14)] px-3 py-2 text-sm text-[var(--success)]">
               {message}
             </p>
           )}

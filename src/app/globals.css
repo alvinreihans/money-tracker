@@ -1,76 +1,48 @@
 @import "tailwindcss";
 
 /* ---------------------------------------------------------------------------
-   Sistem token dari desain Figma.
-   Krem hangat + hijau tua, sengaja menjauh dari tampilan fintech Amerika.
-   Dark mode dipilih ulang stepnya, bukan hasil membalik warna terang.
+   Palet: Dark Void / Liquid Lava.
+   Aplikasi ini GELAP SAJA — paletnya memang dirancang begitu, dan oranyenya
+   tidak lolos kontras sebagai teks di latar terang (2,85:1 di atas Snow).
+   Memaksakan mode terang berarti mengganti oranyenya, jadi lebih jujur
+   berkomitmen pada satu mode.
+
+   Angka di komentar = rasio kontras terukur, bukan perkiraan.
 --------------------------------------------------------------------------- */
 
 :root {
-  --background: #faf8f4;
-  --foreground: #1c1914;
-  --card: #ffffff;
-  --card-foreground: #1c1914;
-  --primary: #2b5741;
-  --primary-foreground: #f5f2ec;
-  --secondary: #ede9e1;
-  --secondary-foreground: #3d3a35;
-  --muted: #f0ede6;
-  --muted-foreground: #7a7167;
-  --accent: #c97a2f;
-  --accent-foreground: #ffffff;
-  --border: rgba(28, 25, 20, 0.1);
-  --ring: #2b5741;
-  --danger: #c0392b;
-  --success: #2b5741;
-  /* Tipe ketiga. Pindah kantong bukan pemasukan maupun pengeluaran, jadi
-     tidak boleh memakai hijau atau merah keduanya. */
-  --transfer: #5b4a8a;
+  color-scheme: dark;
+
+  --background: #151419; /* Dark Void  */
+  --foreground: #fbfbfb; /* Snow       — 17,71:1 di atas latar */
+  --card: #1b1b1e; /* Gluon Grey — permukaan kartu */
+  --card-foreground: #fbfbfb;
+
+  /* Liquid Lava. Teksnya WAJIB gelap: Snow di atas Lava cuma 2,85:1,
+     sedangkan Dark Void di atas Lava 6,21:1. */
+  --primary: #f56e0f;
+  --primary-foreground: #151419;
+  --accent: #f56e0f;
+  --accent-foreground: #151419;
+
+  --secondary: #262626; /* Slate Grey — permukaan yang terangkat, chip */
+  --secondary-foreground: #fbfbfb;
+  --muted: #1b1b1e;
+  --muted-foreground: #878787; /* Dusty Grey — 5,10:1 di atas latar */
+
+  /* Slate Grey sebagai garis cuma 1,21:1 di atas latar — nyaris tak terlihat.
+     Garisnya pakai Snow beralfa supaya benar-benar kelihatan. */
+  --border: rgba(251, 251, 251, 0.12);
+  --ring: #f56e0f;
+
+  /* Palet aslinya tidak punya warna semantik, padahal aplikasi ini harus
+     membedakan empat makna. Tiga warna ini ditambahkan dan sudah diukur
+     di atas kartu Gluon Grey. */
+  --success: #4ade80; /* Masuk          — 9,86:1 */
+  --danger: #ff6b5b; /* Perlu dibenerin — 6,14:1 */
+  --transfer: #7da9ff; /* Pindah kantong  — 7,36:1 */
+
   --radius: 12px;
-}
-
-/* Ikut setelan sistem, tapi bisa dipaksa terang lewat data-theme. */
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --background: #18160f;
-    --foreground: #f0ede6;
-    --card: #242017;
-    --card-foreground: #f0ede6;
-    --primary: #3a7358;
-    --primary-foreground: #f0ede6;
-    --secondary: #2e2b22;
-    --secondary-foreground: #c8c2b5;
-    --muted: #2a2720;
-    --muted-foreground: #8c8478;
-    --accent: #d4883a;
-    --accent-foreground: #1c1914;
-    --border: rgba(240, 237, 230, 0.1);
-    --ring: #3a7358;
-    --danger: #e05a4a;
-    --success: #3a7358;
-    --transfer: #7b69ba;
-  }
-}
-
-/* Dipakai kalau nanti ada tombol ganti tema manual. */
-:root[data-theme="dark"] {
-  --background: #18160f;
-  --foreground: #f0ede6;
-  --card: #242017;
-  --card-foreground: #f0ede6;
-  --primary: #3a7358;
-  --primary-foreground: #f0ede6;
-  --secondary: #2e2b22;
-  --secondary-foreground: #c8c2b5;
-  --muted: #2a2720;
-  --muted-foreground: #8c8478;
-  --accent: #d4883a;
-  --accent-foreground: #1c1914;
-  --border: rgba(240, 237, 230, 0.1);
-  --ring: #3a7358;
-  --danger: #e05a4a;
-  --success: #3a7358;
-  --transfer: #7b69ba;
 }
 
 /* Jembatan ke utility Tailwind: bg-card, text-muted-foreground, dst. */
@@ -106,9 +78,9 @@ body {
 }
 
 /**
- * Nominal besar pakai serif display — pilihan editorial dari desainnya, bukan
- * dekorasi asal. Hanya untuk angka berukuran besar; di baris daftar yang kecil
- * serif satu-berat ini justru jadi sulit dibaca, jadi di sana tetap sans.
+ * Nominal besar pakai serif display — pilihan editorial, bukan dekorasi asal.
+ * Hanya untuk angka berukuran besar; di baris daftar yang kecil serif
+ * satu-berat ini justru sulit dibaca, jadi di sana tetap sans.
  */
 .amount-display {
   font-family: var(--font-dm-serif), Georgia, serif;

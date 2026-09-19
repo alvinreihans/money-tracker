@@ -96,11 +96,11 @@ export default function UploadStatementForm() {
         )}
 
         {error && (
-          <p className="rounded-md bg-[rgba(192,57,43,0.10)] px-3 py-2 text-sm text-[var(--danger)]">{error}</p>
+          <p className="rounded-md bg-[rgba(255,107,91,0.14)] px-3 py-2 text-sm text-[var(--danger)]">{error}</p>
         )}
 
         {result && (
-          <div className="rounded-md bg-[rgba(43,87,65,0.10)] px-4 py-3 text-sm text-[var(--success)]">
+          <div className="rounded-md bg-[rgba(74,222,128,0.14)] px-4 py-3 text-sm text-[var(--success)]">
             <p className="font-medium">
               {result.inserted} transaksi masuk dari {result.account}
             </p>
@@ -122,7 +122,7 @@ export default function UploadStatementForm() {
               <summary className="cursor-pointer text-xs text-[var(--success)]">
                 Rincian per halaman
               </summary>
-              <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap rounded bg-[rgba(43,87,65,0.12)] p-2 text-xs">
+              <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap rounded bg-[rgba(74,222,128,0.14)] p-2 text-xs">
                 {result.notes.join("\n")}
               </pre>
             </details>

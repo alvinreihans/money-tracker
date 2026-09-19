@@ -68,7 +68,7 @@ export default async function TransactionDetailPage({
               {badge.label}
             </span>
             {draft && (
-              <span className="rounded bg-[rgba(192,57,43,0.10)] px-2 py-0.5 text-xs text-[var(--danger)]">
+              <span className="rounded bg-[rgba(255,107,91,0.14)] px-2 py-0.5 text-xs text-[var(--danger)]">
                 Perlu dibenerin
               </span>
             )}

@@ -1,6 +1,5 @@
 import UserAccountsCard from "@/components/UserAccountsCard";
 import SignOutButton from "@/components/SignOutButton";
-import ThemeToggle from "@/components/ThemeToggle";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -25,9 +24,6 @@ export default async function RekeningPage() {
 
       <UserAccountsCard />
 
-      <div className="mt-6">
-        <ThemeToggle />
-      </div>
     </main>
   );
 }

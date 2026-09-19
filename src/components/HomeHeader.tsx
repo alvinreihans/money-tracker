@@ -2,8 +2,11 @@ import { fmtIDRRingkas, namaBulan } from "@/lib/format";
 
 /**
  * Header beranda: bulan berjalan dan tiga angka ringkasannya di atas bidang
- * hijau. Menaruhnya di header, bukan sebagai kartu di tengah halaman, membuat
- * angka terpenting terbaca duluan sebelum apa pun sempat mengalihkan.
+ * Liquid Lava.
+ *
+ * SEMUA teks di sini pakai Dark Void solid, tanpa opasitas. Teks gelap
+ * beralfa di atas oranye jatuh ke 3,66–4,25:1 — gagal untuk ukuran kecil.
+ * Jadi hierarkinya dibangun lewat tebal dan ukuran huruf, bukan transparansi.
  */
 
 interface Props {
@@ -15,27 +18,28 @@ interface Props {
 function Tile({
   label,
   value,
-  negatif = false,
   children,
   lebar = false,
 }: {
   label: string;
   value: string;
-  negatif?: boolean;
   children?: React.ReactNode;
   lebar?: boolean;
 }) {
   return (
     <div
-      className={`rounded-[10px] bg-white/10 px-3 py-3 ${lebar ? "flex items-center justify-between gap-3" : ""}`}
+      className={`rounded-[10px] px-3 py-3 ${lebar ? "flex items-center justify-between gap-3" : ""}`}
+      // Void 12% di atas oranye; nominal solid di atasnya tetap 5,04:1.
+      style={{ background: "rgba(21,20,25,0.12)" }}
     >
-      <p className="m-0 text-[11px] font-medium uppercase tracking-[0.05em] text-[rgba(245,242,236,0.65)]">
+      <p className="m-0 text-[11px] font-semibold uppercase tracking-[0.05em] text-primary-foreground">
         {label}
       </p>
       <div>
         <p
-          className={`amount-display m-0 leading-tight ${lebar ? "text-[22px]" : "mt-1 text-[19px]"}`}
-          style={{ color: negatif ? "#f08070" : "rgba(245,242,236,0.95)" }}
+          className={`amount-display m-0 leading-tight text-primary-foreground ${
+            lebar ? "text-[22px]" : "mt-1 text-[19px]"
+          }`}
         >
           {value}
         </p>
@@ -66,27 +70,27 @@ export default function HomeHeader({ keluar, masuk, keluarBulanLalu }: Props) {
     >
       <div
         aria-hidden
-        className="pointer-events-none absolute -right-10 -top-10 h-44 w-44 rounded-full bg-white/5"
+        className="pointer-events-none absolute -right-10 -top-10 h-44 w-44 rounded-full"
+        style={{ background: "rgba(21,20,25,0.06)" }}
       />
 
       <div className="relative">
-        <p className="m-0 text-[13px] font-medium text-[rgba(245,242,236,0.65)]">
+        <p className="m-0 text-[13px] font-semibold text-primary-foreground">
           {namaBulan(sekarang)} {sekarang.getFullYear()}
         </p>
-        <h1 className="mb-5 mt-0.5 text-xl font-bold text-[var(--primary-foreground)]">
+        <h1 className="mb-5 mt-0.5 text-xl font-extrabold text-primary-foreground">
           Money Tracker
         </h1>
 
         <div className="grid grid-cols-2 gap-2.5">
           <Tile label="Keluar bulan ini" value={fmtIDRRingkas(keluar)}>
             {adaPembanding && persen !== 0 && (
-              // Arah lewat panah dan teks, bukan warna saja — merah-hijau
-              // sendirian tidak terbaca oleh sebagian orang.
-              <p
-                className="m-0 mt-1 text-[11px] font-medium"
-                style={{ color: naik ? "#f08070" : "#7dcfa0" }}
-              >
-                {naik ? "↑" : "↓"} {Math.abs(persen)}% vs {namaBulan(bulanLalu)}
+              // Arah dibawa panah dan teks. Hijau/merah di atas oranye sama-sama
+              // gagal kontras, dan warna sendirian memang tidak boleh jadi
+              // satu-satunya pembawa makna.
+              <p className="m-0 mt-1 text-[11px] font-semibold text-primary-foreground">
+                {naik ? "↑ naik" : "↓ turun"} {Math.abs(persen)}% vs{" "}
+                {namaBulan(bulanLalu)}
               </p>
             )}
           </Tile>
@@ -97,10 +101,9 @@ export default function HomeHeader({ keluar, masuk, keluarBulanLalu }: Props) {
             <Tile
               label="Selisih"
               lebar
-              negatif={selisih < 0}
               value={`${selisih < 0 ? "−" : ""}${fmtIDRRingkas(Math.abs(selisih))}`}
             >
-              <p className="m-0 mt-1 text-[11px] italic text-[rgba(245,242,236,0.55)]">
+              <p className="m-0 mt-1 text-[11px] font-medium text-primary-foreground">
                 {selisih >= 0 ? "Masih surplus" : "Lebih besar pasak"}
               </p>
             </Tile>

@@ -8,9 +8,9 @@ import type { Transaction, TransactionType } from "@/types/transaction";
  */
 
 const CHIPS: Record<TransactionType, { label: string; warna: string; bg: string }> = {
-  expense: { label: "Keluar", warna: "var(--danger)", bg: "rgba(192,57,43,0.10)" },
-  income: { label: "Masuk", warna: "var(--success)", bg: "rgba(43,87,65,0.10)" },
-  transfer: { label: "Pindah kantong", warna: "var(--transfer)", bg: "rgba(91,74,138,0.12)" },
+  expense: { label: "Keluar", warna: "var(--muted-foreground)", bg: "rgba(251,251,251,0.06)" },
+  income: { label: "Masuk", warna: "var(--success)", bg: "rgba(74,222,128,0.12)" },
+  transfer: { label: "Pindah kantong", warna: "var(--transfer)", bg: "rgba(125,169,255,0.12)" },
 };
 
 /**
@@ -52,7 +52,7 @@ export default function TransactionList({ items }: { items: Transaction[] }) {
                   {draft && (
                     <span
                       className="shrink-0 rounded-md px-2 py-0.5 text-[11px] font-bold"
-                      style={{ color: "var(--danger)", background: "rgba(192,57,43,0.10)" }}
+                      style={{ color: "var(--danger)", background: "rgba(255,107,91,0.14)" }}
                     >
                       Perlu dibenerin
                     </span>

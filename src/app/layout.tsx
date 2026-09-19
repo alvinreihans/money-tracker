@@ -24,10 +24,8 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#2b5741" },
-    { media: "(prefers-color-scheme: dark)", color: "#18160f" },
-  ],
+  // Aplikasi gelap saja, jadi satu warna saja — disamakan dgn header oranye.
+  themeColor: "#f56e0f",
 };
 
 export default function RootLayout({
@@ -35,19 +33,6 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="id" className={`${jakarta.variable} ${dmSerif.variable}`}>
-      <head>
-        {/*
-          Harus berjalan SEBELUM halaman digambar. Pilihan tema tersimpan di
-          localStorage yang cuma ada di browser, jadi server tidak bisa tahu —
-          tanpa skrip pemblokir ini, halaman sempat tampil terang dulu lalu
-          berkedip jadi gelap. Sengaja inline dan sekecil mungkin.
-        */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem('theme');if(t==='light'||t==='dark'){document.documentElement.setAttribute('data-theme',t)}}catch(e){}})()`,
-          }}
-        />
-      </head>
       <body className="min-h-screen bg-background font-sans text-foreground antialiased">
         {children}
       </body>
