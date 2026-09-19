@@ -5,11 +5,18 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { authErrorMessage } from "@/lib/errors";
+import PasswordField from "@/components/PasswordField";
+import BrandMark from "@/components/BrandMark";
 
 export default function ResetPasswordPage() {
   const router = useRouter();
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  // Halaman ini di-render server dulu, jadi formnya sudah terlihat siap sebelum
+  // JS-nya termuat. Di koneksi lambat, menekan kirim di jeda itu memicu submit
+  // bawaan browser: halaman reload dan isian hilang. Penanda ini menutup celahnya.
+  const [siap, setSiap] = useState(false);
+  useEffect(() => setSiap(true), []);
   const [error, setError] = useState<string | null>(null);
   // Tautan reset sudah ditukar jadi session oleh /auth/callback. Kalau tidak
   // ada session, berarti halaman ini dibuka langsung tanpa lewat email.
@@ -38,60 +45,49 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center px-4">
-      <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h1 className="text-xl font-semibold text-slate-900">Password baru</h1>
+    <main className="flex min-h-dvh flex-col items-center justify-center px-4 py-8">
+      <BrandMark />
+
+      <div className="w-full max-w-sm rounded-[var(--radius-lg)] border border-border bg-card p-6 shadow-sm">
+        <h2 className="text-lg font-semibold text-foreground">Password baru</h2>
 
         {punyaSesi === false ? (
           <>
-            <p className="mt-2 text-sm text-slate-500">
+            <p className="mt-2 text-sm text-muted-foreground">
               Tautannya udah nggak berlaku. Tautan reset cuma bisa dipakai sekali
               dan ada masa berlakunya.
             </p>
             <Link
               href="/login"
-              className="mt-5 block w-full rounded-md bg-slate-900 px-4 py-2 text-center text-sm font-medium text-white transition hover:bg-slate-800"
+              className="mt-5 block w-full rounded-md bg-primary px-4 py-2 text-center text-sm font-medium text-primary-foreground transition hover:opacity-90"
             >
               Minta tautan baru
             </Link>
           </>
         ) : (
           <>
-            <p className="mt-1 text-sm text-slate-500">
+            <p className="mt-1 text-sm text-muted-foreground">
               Bikin password baru, terus langsung masuk.
             </p>
 
             <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-              <div>
-                <label
-                  htmlFor="password-baru"
-                  className="mb-1 block text-sm font-medium text-slate-700"
-                >
-                  Password baru
-                </label>
-                <input
-                  id="password-baru"
-                  type="password"
-                  required
-                  minLength={6}
-                  autoComplete="new-password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900"
-                  placeholder="Minimal 6 karakter"
-                />
-              </div>
+              <PasswordField
+                label="Password baru"
+                value={password}
+                onChange={setPassword}
+                autoComplete="new-password"
+              />
 
               {error && (
-                <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+                <p role="alert" className="rounded-md border border-[rgba(255,107,91,0.45)] bg-[rgba(255,107,91,0.14)] px-3 py-2 text-sm text-[var(--danger)]">
                   {error}
                 </p>
               )}
 
               <button
                 type="submit"
-                disabled={loading || punyaSesi === null}
-                className="w-full rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 disabled:opacity-60"
+                disabled={loading || !siap || punyaSesi === null}
+                className="w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-60"
               >
                 {loading ? "Bentar ya..." : "Simpan & masuk"}
               </button>

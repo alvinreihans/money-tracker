@@ -100,8 +100,33 @@ export default function CameraCapture({ onCapture, onClose }: Props) {
     );
   }
 
+  // Overlay layar penuh harus bisa ditutup dari papan ketik. Tanpa ini,
+  // pengguna keyboard terjebak di kamera tanpa jalan keluar.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", onKey);
+    // Cegah halaman di belakang ikut tergulir saat kamera terbuka.
+    const overflowAwal = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = overflowAwal;
+    };
+  }, [onClose]);
+
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-black">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Ambil foto struk"
+      className="fixed inset-0 z-50 flex flex-col bg-black"
+      style={{
+        paddingTop: "env(safe-area-inset-top)",
+        paddingBottom: "env(safe-area-inset-bottom)",
+      }}
+    >
       <div className="flex items-center justify-between px-4 py-3">
         <button
           onClick={onClose}

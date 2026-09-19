@@ -1,6 +1,19 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Next memblokir permintaan lintas-origin ke aset dev secara bawaan. Saat
+  // menguji dari HP lewat terowongan (ngrok/Cloudflare), origin-nya bukan
+  // localhost sehingga chunk JS ditolak: halaman tampil tapi React tidak
+  // pernah terpasang, jadi tidak ada satu pun yang bisa diklik.
+  //
+  // Hanya berlaku di mode dev — produksi tidak terpengaruh.
+  allowedDevOrigins: [
+    "*.ngrok-free.dev",
+    "*.ngrok-free.app",
+    "*.ngrok.io",
+    "*.trycloudflare.com",
+  ],
+
   // tesseract.js & sharp memuat binary/WASM lewat path runtime. Kalau ikut
   // di-bundle, resolusi path-nya rusak saat dijalankan di serverless.
   serverExternalPackages: ["tesseract.js", "sharp"],

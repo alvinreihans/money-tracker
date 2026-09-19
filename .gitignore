@@ -35,3 +35,6 @@ next-env.d.ts
 
 # env lokal (eksplisit, jangan cuma andalkan pola wildcard)
 .env.local
+
+# claude
+.claude

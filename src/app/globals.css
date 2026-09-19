@@ -1,12 +1,125 @@
 @import "tailwindcss";
 
+/* ---------------------------------------------------------------------------
+   Palet: Dark Void / Liquid Lava.
+   Aplikasi ini GELAP SAJA — paletnya memang dirancang begitu, dan oranyenya
+   tidak lolos kontras sebagai teks di latar terang (2,85:1 di atas Snow).
+   Memaksakan mode terang berarti mengganti oranyenya, jadi lebih jujur
+   berkomitmen pada satu mode.
+
+   Angka di komentar = rasio kontras terukur, bukan perkiraan.
+--------------------------------------------------------------------------- */
+
 :root {
-  --background: #ffffff;
-  --foreground: #0f172a;
+  color-scheme: dark;
+
+  --background: #151419; /* Dark Void  */
+  --foreground: #fbfbfb; /* Snow       — 17,71:1 di atas latar */
+  --card: #1b1b1e; /* Gluon Grey — permukaan kartu */
+  --card-foreground: #fbfbfb;
+
+  /* Liquid Lava. Teksnya WAJIB gelap: Snow di atas Lava cuma 2,85:1,
+     sedangkan Dark Void di atas Lava 6,21:1. */
+  --primary: #f56e0f;
+  --primary-foreground: #151419;
+  --accent: #f56e0f;
+  --accent-foreground: #151419;
+
+  --secondary: #262626; /* Slate Grey — permukaan yang terangkat, chip */
+  --secondary-foreground: #fbfbfb;
+  --muted: #1b1b1e;
+  --muted-foreground: #878787; /* Dusty Grey — 5,10:1 di atas latar */
+
+  /* Slate Grey sebagai garis cuma 1,21:1 di atas latar — nyaris tak terlihat.
+     Garisnya pakai Snow beralfa supaya benar-benar kelihatan. */
+  --border: rgba(251, 251, 251, 0.12);
+  --ring: #f56e0f;
+
+  /* Palet aslinya tidak punya warna semantik, padahal aplikasi ini harus
+     membedakan empat makna. Tiga warna ini ditambahkan dan sudah diukur
+     di atas kartu Gluon Grey. */
+  --success: #4ade80; /* Masuk          — 9,86:1 */
+  --danger: #ff6b5b; /* Perlu dibenerin — 6,14:1 */
+  --transfer: #7da9ff; /* Pindah kantong  — 7,36:1 */
+
+  --radius: 12px;
+}
+
+/* Jembatan ke utility Tailwind: bg-card, text-muted-foreground, dst. */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-border: var(--border);
+  --color-ring: var(--ring);
+  --color-danger: var(--danger);
+  --color-success: var(--success);
+  --color-transfer: var(--transfer);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 4px);
+  --radius-xl: calc(var(--radius) + 8px);
+  --font-sans: var(--font-jakarta), system-ui, sans-serif;
 }
 
 body {
-  background: var(--background);
+  background-color: var(--background);
   color: var(--foreground);
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  margin: 0;
+}
+
+/**
+ * Nominal besar. Satu-satunya keluarga huruf di aplikasi ini adalah Plus
+ * Jakarta Sans — serif editorial terasa nempel dari desain lain di atas palet
+ * gelap yang tajam ini, dan angka utama memang sebaiknya sekeluarga dengan
+ * teks lainnya.
+ *
+ * Yang membedakannya dari teks biasa: berat ekstra, tracking rapat, dan angka
+ * proporsional (bukan tabular — pada ukuran besar tabular bikin digit renggang).
+ */
+.amount-display {
+  font-variant-numeric: proportional-nums;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+/* Kolom angka harus sejajar; angka tunggal yang besar tidak. */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+button:active,
+[role="button"]:active {
+  transform: scale(0.97);
+}
+
+button,
+a,
+[role="button"] {
+  transition:
+    background-color 150ms cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 150ms cubic-bezier(0.4, 0, 0.2, 1),
+    color 150ms cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 150ms cubic-bezier(0.4, 0, 0.2, 1),
+    transform 150ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button,
+  a,
+  [role="button"] {
+    transition: none;
+  }
+  button:active,
+  [role="button"]:active {
+    transform: none;
+  }
 }

@@ -36,7 +36,7 @@ export default function DeleteTransactionButton({ id }: { id: string }) {
     return (
       <button
         onClick={() => setKonfirmasi(true)}
-        className="text-sm text-slate-400 transition hover:text-red-600"
+        className="text-sm text-muted-foreground transition hover:text-[var(--danger)]"
       >
         Hapus transaksi
       </button>
@@ -45,24 +45,24 @@ export default function DeleteTransactionButton({ id }: { id: string }) {
 
   return (
     <div className="space-y-2">
-      <p className="text-sm text-slate-700">Yakin mau dihapus? Nggak bisa dibalikin.</p>
+      <p className="text-sm text-foreground">Yakin mau dihapus? Nggak bisa dibalikin.</p>
       <div className="flex gap-2">
         <button
           onClick={() => void hapus()}
           disabled={loading}
-          className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-red-700 disabled:opacity-60"
+          className="rounded-md bg-[var(--danger)] px-3 py-1.5 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-60"
         >
           {loading ? "Ngapus..." : "Ya, hapus"}
         </button>
         <button
           onClick={() => setKonfirmasi(false)}
           disabled={loading}
-          className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+          className="rounded-md border border-border px-3 py-1.5 text-sm font-medium text-foreground transition hover:bg-secondary"
         >
           Batal
         </button>
       </div>
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-[var(--danger)]">{error}</p>}
     </div>
   );
 }

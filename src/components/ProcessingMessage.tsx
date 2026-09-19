@@ -53,7 +53,7 @@ export default function ProcessingMessage({
     <span className={`flex items-center gap-2 ${className}`}>
       <span
         aria-hidden
-        className="h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-slate-200 border-t-slate-700"
+        className="h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-border border-t-[var(--primary)]"
       />
       <span>{pesan}</span>
     </span>
