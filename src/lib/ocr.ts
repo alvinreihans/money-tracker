@@ -30,12 +30,20 @@ const TESSDATA_DIR = path.join(process.cwd(), "tessdata");
 // permintaan mati tanpa hasil apa pun — padahal pipeline ini sudah punya
 // jaring pengaman yang siap mengambil alih.
 //
-// Angkanya dipilih supaya kasus terburuk tetap muat: 15 + 20 = 35 detik untuk
-// OCR, menyisakan ~25 detik untuk Gemini Vision dan penyimpanan. Pada kondisi
-// normal jauh lebih cepat — worker hangat ~0 detik, pengenalan 3-10 detik —
-// jadi tenggat ini hanya menggigit saat ada yang benar-benar salah.
-const OCR_WORKER_TIMEOUT_MS = 15_000;
-const OCR_RECOGNIZE_TIMEOUT_MS = 20_000;
+// Satu anggaran untuk seluruh tahap OCR, dibagi antara menyiapkan worker dan
+// mengenali teks. Dua plafon terpisah sempat dipakai, tapi jumlahnya bisa
+// melewati batas fungsi tanpa ada yang menyadarinya.
+//
+// Angkanya longgar dengan sengaja. Pengukuran lokal (siap worker ~180 ms)
+// menyesatkan: traineddata-nya sudah ter-cache dan mesinnya jauh lebih cepat.
+// Di produksi, fungsi yang baru pertama kali dipanggil pernah melewati 15
+// detik hanya untuk menyiapkan worker.
+//
+// Longgar juga karena jaring pengamannya rapuh: kuota gratis Gemini cuma 20
+// permintaan per hari, jadi menyerah lebih awal bukan berarti berpindah ke
+// jalur lain — seringnya berarti gagal sama sekali. Menunggu lebih lama lebih
+// baik daripada itu.
+const OCR_BUDGET_MS = 45_000;
 
 export const OCR_MIN_CONFIDENCE = 60;
 export const OCR_MIN_LENGTH = 20;
@@ -56,7 +64,7 @@ export function isOcrUsable(result: OcrResult): boolean {
 // Worker mahal dibuat (load WASM + traineddata), jadi di-reuse per cold-start.
 let workerPromise: Promise<Worker> | null = null;
 
-function getWorker(): Promise<Worker> {
+function getWorker(tenggatMs: number): Promise<Worker> {
   if (!workerPromise) {
     // Tenggatnya dipasang di sini, bukan di pemanggil, supaya reset di bawah
     // ikut menangkap kasus menggantung. Kalau tidak, janji yang tak pernah
@@ -68,7 +76,7 @@ function getWorker(): Promise<Worker> {
         cachePath: os.tmpdir(), // satu-satunya direktori yang writable di serverless
         gzip: false,
       }),
-      OCR_WORKER_TIMEOUT_MS,
+      tenggatMs,
       "Worker Tesseract tidak siap dalam batas waktu.",
     ).catch((err: unknown) => {
       workerPromise = null; // reset supaya request berikutnya mencoba lagi
@@ -125,6 +133,12 @@ function denganTenggat<T>(janji: Promise<T>, ms: number, pesan: string): Promise
 
 /** Jalankan OCR pada gambar struk. Tidak pernah melempar karena preprocessing. */
 export async function runOcr(input: Buffer): Promise<OcrResult> {
+  // Anggarannya dihitung dari awal pemanggilan, bukan per langkah, supaya
+  // preprocessing yang lambat ikut terhitung dan totalnya tidak pernah
+  // melewati batas berapa pun langkah mana yang memakan waktu.
+  const batasWaktu = Date.now() + OCR_BUDGET_MS;
+  const sisa = () => batasWaktu - Date.now();
+
   let image = input;
   let preprocessed = false;
 
@@ -136,16 +150,16 @@ export async function runOcr(input: Buffer): Promise<OcrResult> {
     // yang memutuskan. Lebih baik hasil jelek daripada gagal total.
   }
 
-  // Kedua langkah diberi tenggat sendiri. Keduanya bisa menggantung tanpa
-  // pernah melempar: createWorker menunggu thread yang mungkin tidak pernah
-  // siap, dan recognize() menunggu balasan dari thread itu. Menggantung lebih
-  // buruk daripada gagal — kegagalan masih bisa dialihkan ke vision, sedangkan
+  // Kedua langkah berbagi sisa anggaran yang sama. Keduanya bisa menggantung
+  // tanpa pernah melempar: createWorker menunggu thread yang mungkin tidak
+  // pernah siap, dan recognize() menunggu balasan dari thread itu. Menggantung
+  // lebih buruk daripada gagal — kegagalan masih bisa dialihkan, sedangkan
   // menggantung menghabiskan jatah durasi sampai fungsinya dimatikan diam-diam.
-  const worker = await getWorker();
+  const worker = await getWorker(sisa());
 
   const { data } = await denganTenggat(
     worker.recognize(image),
-    OCR_RECOGNIZE_TIMEOUT_MS,
+    sisa(),
     "OCR melewati batas waktu.",
   );
 
