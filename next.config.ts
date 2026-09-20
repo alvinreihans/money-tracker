@@ -14,7 +14,12 @@ const BERKAS_OCR = [
 
   // tesseract.js menjalankan OCR di worker thread terpisah, dan merakit path
   // worker-nya saat runtime (`path.join(__dirname, ...)`).
-  "./node_modules/tesseract.js/src/worker-script/**",
+  //
+  // Seluruh src/ disertakan, bukan cuma worker-script/. Berkas di dalamnya
+  // me-require ke luar direktori sendiri (mis. utils/dump.js -> ../../constants/
+  // imageType), sehingga menyebut worker-script/ saja meninggalkan lubang yang
+  // baru terasa saat runtime. Isinya JavaScript semua, jadi murah.
+  "./node_modules/tesseract.js/src/**",
 
   // Dependensi milik worker thread itu. Inilah yang paling mudah terlewat:
   // tracing memang menelusuri tesseract.js, tapi berhenti sebelum worker-script
@@ -54,7 +59,21 @@ const BERKAS_OCR = [
   "./node_modules/@img/sharp-libvips-linux-x64/**",
 ];
 
+const standalone =
+  process.env.npm_lifecycle_event === "build:standalone" ||
+  process.env.BUILD_STANDALONE === "1";
+
 const nextConfig: NextConfig = {
+  // Dinyalakan lewat `npm run build:standalone` untuk menguji hasil tracing
+  // secara lokal. Keluarannya berisi node_modules versi ciut — hanya berkas
+  // yang dianggap perlu — jadi berkas yang terlewat langsung ketahuan tanpa
+  // harus deploy dulu. Membaca .nft.json saja tidak cukup: itu baru klaim Next
+  // soal apa yang dibutuhkan, dan klaim itu pernah meleset.
+  //
+  // Nama skrip dipakai sebagai penanda, bukan variabel lingkungan, supaya
+  // jalan sama saja di PowerShell maupun bash.
+  output: standalone ? "standalone" : undefined,
+
   // Next memblokir permintaan lintas-origin ke aset dev secara bawaan. Saat
   // menguji dari HP lewat terowongan (ngrok/Cloudflare), origin-nya bukan
   // localhost sehingga chunk JS ditolak: halaman tampil tapi React tidak
