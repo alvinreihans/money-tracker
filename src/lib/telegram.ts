@@ -52,13 +52,39 @@ export async function getFileUrl(fileId: string): Promise<string> {
 }
 
 /** Unduh file gambar sebagai Buffer + mime (bentuk yang dipakai pipeline). */
+/** Ekstensi berkas -> mime type gambar yang dikenali Gemini. */
+const MIME_GAMBAR: Record<string, string> = {
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+  heic: "image/heic",
+  heif: "image/heif",
+};
+
 export async function downloadAsBuffer(
   fileUrl: string,
 ): Promise<{ buffer: Buffer; mimeType: string }> {
   const res = await fetch(fileUrl);
   const arrayBuffer = await res.arrayBuffer();
-  const mimeType = res.headers.get("content-type") ?? "image/jpeg";
-  return { buffer: Buffer.from(arrayBuffer), mimeType };
+
+  // CDN Telegram membalas `application/octet-stream`, bukan tipe gambarnya.
+  // Meneruskan itu apa adanya membuat Gemini Vision menolak permintaannya,
+  // sehingga jalur cadangan dari Telegram tidak pernah bisa berhasil — lama
+  // tak ketahuan karena tertutup kegagalan lain yang lebih dulu muncul.
+  // Header-nya dipakai hanya bila benar-benar menyebut sebuah gambar.
+  const dariHeader = res.headers.get("content-type")?.split(";")[0].trim();
+  if (dariHeader?.startsWith("image/")) {
+    return { buffer: Buffer.from(arrayBuffer), mimeType: dariHeader };
+  }
+
+  // Kalau tidak, simpulkan dari ekstensi di file_path milik Telegram
+  // (mis. .../photos/file_123.jpg). Foto selalu JPEG, jadi itu default-nya.
+  const ekstensi = fileUrl.split("?")[0].split(".").pop()?.toLowerCase() ?? "";
+  return {
+    buffer: Buffer.from(arrayBuffer),
+    mimeType: MIME_GAMBAR[ekstensi] ?? "image/jpeg",
+  };
 }
 
 /** Unduh file gambar dan kembalikan base64 + mime. */
