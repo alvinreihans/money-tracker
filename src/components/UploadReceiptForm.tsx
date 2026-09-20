@@ -10,7 +10,23 @@ interface UploadResponse {
   transaction: Transaction;
   status: "confirmed" | "needs_review";
   source: "groq" | "gemini_vision" | "none";
+  /** Jejak tiap tahap pipeline. Hanya ditampilkan saat hasilnya jadi draft. */
+  notes?: string[];
 }
+
+/**
+ * Jalur mana yang akhirnya membaca struknya.
+ *
+ * Ditampilkan karena bedanya nyata buat user, bukan sekadar detail teknis:
+ * Gemini punya jatah 20 permintaan per hari, jadi struk yang lolos lewat
+ * Tesseract tidak memakan kuota sama sekali, sedangkan yang lewat Gemini
+ * mengurangi sisa jatah hari itu.
+ */
+const SUMBER: Record<UploadResponse["source"], string> = {
+  groq: "Tesseract",
+  gemini_vision: "Gemini",
+  none: "gagal baca",
+};
 
 type Status = "antre" | "proses" | "ok" | "draft" | "gagal";
 
@@ -240,7 +256,8 @@ export default function UploadReceiptForm() {
                         </p>
                         <p className="text-xs text-muted-foreground">
                           {i.hasil.transaction.category} ·{" "}
-                          {i.hasil.transaction.transaction_date}
+                          {i.hasil.transaction.transaction_date} · via{" "}
+                          {SUMBER[i.hasil.source]}
                         </p>
                       </>
                     )}
@@ -251,6 +268,23 @@ export default function UploadReceiptForm() {
                         <p className="text-xs text-muted-foreground">
                           Disimpan jadi draft, nominalnya isi manual ya.
                         </p>
+                        {/* Jejak tahapnya cuma muncul saat gagal, dan terlipat
+                            supaya tidak menghalangi yang cuma mau membenarkan
+                            nominalnya. */}
+                        {i.hasil?.notes?.length ? (
+                          <details className="mt-1">
+                            <summary className="cursor-pointer text-xs text-muted-foreground">
+                              Kenapa gagal?
+                            </summary>
+                            <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+                              {i.hasil.notes.map((n, idx) => (
+                                <li key={idx} className="break-words">
+                                  · {n}
+                                </li>
+                              ))}
+                            </ul>
+                          </details>
+                        ) : null}
                       </>
                     )}
 

@@ -1,6 +1,7 @@
 import path from "node:path";
 import os from "node:os";
-import { createWorker, type Worker } from "tesseract.js";
+import { createRequire } from "node:module";
+import type { Worker } from "tesseract.js";
 
 /**
  * Layer OCR: gambar masuk -> teks + skor keyakinan keluar.
@@ -64,6 +65,64 @@ export function isOcrUsable(result: OcrResult): boolean {
 // Worker mahal dibuat (load WASM + traineddata), jadi di-reuse per cold-start.
 let workerPromise: Promise<Worker> | null = null;
 
+/**
+ * Error terakhir dari worker thread, kalau sempat tertangkap.
+ *
+ * tesseract.js memasang penanganya lewat `worker.onerror = ...`, properti milik
+ * Web Worker yang tidak berlaku sama sekali di worker_threads. Akibatnya setiap
+ * kegagalan di dalam thread — modul tidak ketemu, WASM gagal diinstansiasi —
+ * lenyap tanpa jejak, dan janji createWorker cuma menggantung selamanya.
+ *
+ * Kita yang memasang pendengarnya, supaya menggantung setidaknya bisa
+ * menjelaskan dirinya sendiri.
+ */
+let errorWorker: string | null = null;
+let sudahDipantau = false;
+
+function pantauErrorWorker(): void {
+  if (sudahDipantau) return;
+  sudahDipantau = true;
+
+  try {
+    // Modul builtin, jadi apa pun yang dipakai sebagai basis resolusi tidak
+    // berpengaruh; yang dibutuhkan cuma akses CJS ke objek exports-nya, karena
+    // namespace ESM builtin bersifat read-only.
+    const req = createRequire(path.join(process.cwd(), "index.js"));
+    const wt = req("node:worker_threads") as { Worker: typeof import("node:worker_threads").Worker };
+
+    const Asli = wt.Worker;
+    class WorkerTerpantau extends Asli {
+      constructor(...args: ConstructorParameters<typeof Asli>) {
+        super(...args);
+        this.on("error", (err: Error) => {
+          errorWorker = err.message;
+        });
+      }
+    }
+    wt.Worker = WorkerTerpantau;
+  } catch {
+    // Kalau tidak bisa dipasang, kita cuma kehilangan pesan errornya —
+    // tenggat di bawah tetap mencegah permintaannya menggantung.
+  }
+}
+
+/**
+ * Muat tesseract.js SETELAH pemantau terpasang.
+ *
+ * Urutannya menentukan. spawnWorker.js menjalankan
+ * `const { Worker } = require('worker_threads')` saat modulnya dimuat, jadi ia
+ * memegang kelas aslinya selamanya. Menambal sesudah itu tidak ada gunanya.
+ */
+async function buatWorker(): Promise<Worker> {
+  pantauErrorWorker();
+  const { createWorker } = await import("tesseract.js");
+  return createWorker(LANGS, undefined, {
+    langPath: TESSDATA_DIR,
+    cachePath: os.tmpdir(), // satu-satunya direktori yang writable di serverless
+    gzip: false,
+  });
+}
+
 function getWorker(tenggatMs: number): Promise<Worker> {
   if (!workerPromise) {
     // Tenggatnya dipasang di sini, bukan di pemanggil, supaya reset di bawah
@@ -71,15 +130,20 @@ function getWorker(tenggatMs: number): Promise<Worker> {
     // selesai akan tersimpan di variabel ini dan setiap permintaan berikutnya
     // pada instance yang sama ikut membuang jatah durasinya.
     workerPromise = denganTenggat(
-      createWorker(LANGS, undefined, {
-        langPath: TESSDATA_DIR,
-        cachePath: os.tmpdir(), // satu-satunya direktori yang writable di serverless
-        gzip: false,
-      }),
+      buatWorker(),
       tenggatMs,
       "Worker Tesseract tidak siap dalam batas waktu.",
     ).catch((err: unknown) => {
       workerPromise = null; // reset supaya request berikutnya mencoba lagi
+
+      // Kalau thread-nya sempat melapor, pesan itulah yang berguna. Tanpa ini
+      // yang sampai ke user cuma "kehabisan waktu", yang tidak menjelaskan
+      // apa-apa dan sudah beberapa kali menyesatkan.
+      if (errorWorker) {
+        throw new Error(
+          `${err instanceof Error ? err.message : String(err)} (thread melapor: ${errorWorker})`,
+        );
+      }
       throw err;
     });
   }
