@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse, after } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { processReceiptImage, processReceiptText, toTransactionRow } from "@/lib/receipt";
 import { insertFromImage } from "@/lib/statement-import";
@@ -15,7 +15,8 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// Pekerjaan di dalam after() tetap dihitung sebagai durasi fungsi.
+// Seluruh pipeline dijalankan sebelum membalas, jadi batas ini yang menentukan
+// berapa lama sebuah struk boleh diproses.
 export const maxDuration = 60;
 
 // --- Tipe minimal Telegram Update (hanya yang kita pakai) ---
@@ -98,7 +99,7 @@ export async function POST(req: NextRequest) {
       throw new Error(`Gagal membaca telegram_links: ${linkError.message}`);
     }
 
-    // 4. User membagikan kontak => proses linking (cepat, tidak perlu after()).
+    // 4. User membagikan kontak => proses linking. Ringan, tidak menyentuh OCR.
     if (msg.contact) {
       // Hanya boleh membagikan kontak milik sendiri.
       if (msg.from && msg.contact.user_id && msg.contact.user_id !== msg.from.id) {
@@ -167,43 +168,58 @@ export async function POST(req: NextRequest) {
       return ok();
     }
 
-    // 6. Pipeline berat dijalankan SETELAH respons dikirim. Telegram langsung
-    //    menerima 200 sehingga tidak menggantung dan tidak memicu retry.
-    after(async () => {
-      try {
-        let result: ProcessedReceipt;
+    // 6. Pipeline berat dijalankan SEBELUM respons dikirim, bukan di after().
+    //
+    //    Sempat sebaliknya, supaya Telegram langsung menerima 200. Tapi di
+    //    produksi OCR-nya selalu menggantung sampai kena tenggat, sementara
+    //    jalur web dengan kode dan bundle yang persis sama berhasil — sudah
+    //    dipastikan lewat nft.json kedua fungsi: 282 berkas, identik.
+    //
+    //    Polanya menunjuk satu arah. Semua yang I/O di dalam after() berjalan
+    //    normal: kirim pesan, panggil Gemini, simpan ke database. Yang gagal
+    //    justru satu-satunya langkah yang butuh CPU dan thread baru — worker
+    //    Tesseract dengan WASM-nya. Sesudah respons terkirim, pekerjaan macam
+    //    itu tidak kebagian jatah jalan.
+    //
+    //    Menunggu di sini membuat Telegram bisa retry, dan itu memang terjadi.
+    //    Tidak apa-apa: dedupe update_id di atas berjalan sebelum satu pun
+    //    pesan dikirim, jadi update ulangan langsung dibalas tanpa memproses
+    //    apa pun. Pengaman itu sudah ada sejak awal.
+    try {
+      let result: ProcessedReceipt;
 
-        if (hasPhoto) {
-          await sendMessage(chatId, "🧾 Lagi baca struknya...");
-          const photos = msg.photo!;
-          const largest = photos[photos.length - 1]; // resolusi tertinggi
-          const fileUrl = await getFileUrl(largest.file_id);
-          const { buffer, mimeType } = await downloadAsBuffer(fileUrl);
-          result = await processReceiptImage(buffer, mimeType);
-        } else {
-          await sendMessage(chatId, "✍️ Lagi nyatet...");
-          result = await processReceiptText(msg.text!);
-        }
-
-        // Menyingkirkan baris rekening koran yang mewakili transaksi sama.
-        try {
-          await insertFromImage(
-            admin,
-            userId,
-            toTransactionRow(result, userId) as unknown as Record<string, unknown>,
-          );
-        } catch (dbError) {
-          const pesan = dbError instanceof Error ? dbError.message : "Unknown error";
-          await sendMessage(chatId, `❌ Gagal nyimpen: ${escapeHtml(pesan)}`);
-          return;
-        }
-
-        await sendMessage(chatId, buildReply(result));
-      } catch (err) {
-        const message = err instanceof Error ? err.message : "Unknown error";
-        await sendMessage(chatId, `❌ Ada error: ${escapeHtml(message)}`);
+      if (hasPhoto) {
+        // Dikirim lebih dulu supaya user tahu prosesnya jalan. Ini lewat Bot
+        // API, jadi tidak bergantung pada respons HTTP kita.
+        await sendMessage(chatId, "🧾 Lagi baca struknya...");
+        const photos = msg.photo!;
+        const largest = photos[photos.length - 1]; // resolusi tertinggi
+        const fileUrl = await getFileUrl(largest.file_id);
+        const { buffer, mimeType } = await downloadAsBuffer(fileUrl);
+        result = await processReceiptImage(buffer, mimeType);
+      } else {
+        await sendMessage(chatId, "✍️ Lagi nyatet...");
+        result = await processReceiptText(msg.text!);
       }
-    });
+
+      // Menyingkirkan baris rekening koran yang mewakili transaksi sama.
+      try {
+        await insertFromImage(
+          admin,
+          userId,
+          toTransactionRow(result, userId) as unknown as Record<string, unknown>,
+        );
+      } catch (dbError) {
+        const pesan = dbError instanceof Error ? dbError.message : "Unknown error";
+        await sendMessage(chatId, `❌ Gagal nyimpen: ${escapeHtml(pesan)}`);
+        return ok();
+      }
+
+      await sendMessage(chatId, buildReply(result));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      await sendMessage(chatId, `❌ Ada error: ${escapeHtml(message)}`);
+    }
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     await sendMessage(chatId, `❌ Ada error: ${escapeHtml(message)}`);
