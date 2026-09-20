@@ -1,41 +1,40 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
+import { useEffect, useState } from 'react';
 
 /**
- * Spinner + pesan yang berubah makin lama nunggu.
+ * Spinner + pesan yang berganti tiap 20 detik dan mengulang dari awal.
  *
- * Tahap pertama sengaja netral: mayoritas struk selesai dalam 3-4 detik, dan
- * lelucon yang nongol langsung malah terasa dipaksakan. Candaan baru keluar
- * kalau nunggunya memang kelamaan — di situ justru membantu, karena user jadi
- * tahu sistemnya masih hidup, bukan nge-hang.
+ * Pesan pertama sengaja netral: mayoritas struk selesai dalam beberapa detik,
+ * dan lelucon yang nongol langsung terasa dipaksakan. Candaan baru muncul kalau
+ * nunggunya memang kelamaan — di situ justru membantu, karena user jadi tahu
+ * sistemnya masih hidup, bukan nge-hang.
+ *
+ * Berputar, bukan berhenti di pesan terakhir: kalau macet di satu kalimat,
+ * layarnya terlihat beku dan orang keburu menganggapnya mati.
  */
 
-export interface Tahap {
-  /** Detik minimal sebelum pesan ini dipakai. */
-  detik: number;
-  teks: string;
-}
+const GANTI_TIAP_DETIK = 25;
 
-export const TAHAP_STRUK: Tahap[] = [
-  { detik: 0, teks: "Lagi baca struknya..." },
-  { detik: 4, teks: "Bentar, struknya agak panjang nih..." },
-  { detik: 9, teks: "Ini borong satu toko atau gimana?" },
-  { detik: 14, teks: "Sabar ya, lagi ngitung kerugian dompetmu..." },
+export const TAHAP_STRUK = [
+  'Lagi baca struknya...',
+  'Bentar, struknya agak panjang nih...',
+  'Ini borong satu toko atau gimana?',
+  'Sabar ya, lagi ngitung kerugian dompetmu...',
 ];
 
-export const TAHAP_STATEMENT: Tahap[] = [
-  { detik: 0, teks: "Lagi baca rekening korannya..." },
-  { detik: 8, teks: "Halamannya lumayan banyak nih..." },
-  { detik: 20, teks: "Masih jalan, ini transaksi sebulan penuh..." },
-  { detik: 35, teks: "Sabar ya, diitungin satu-satu biar nggak ada yang kelewat..." },
+export const TAHAP_STATEMENT = [
+  'Lagi baca rekening korannya...',
+  'Halamannya lumayan banyak nih...',
+  'Masih jalan, ini transaksi sebulan penuh...',
+  'Sabar ya, diitungin satu-satu biar nggak ada yang kelewat...',
 ];
 
 export default function ProcessingMessage({
   tahap = TAHAP_STRUK,
-  className = "",
+  className = '',
 }: {
-  tahap?: Tahap[];
+  tahap?: string[];
   className?: string;
 }) {
   const [detik, setDetik] = useState(0);
@@ -45,9 +44,8 @@ export default function ProcessingMessage({
     return () => clearInterval(timer);
   }, []);
 
-  // Ambil tahap terakhir yang ambangnya sudah terlewat.
-  const pesan =
-    [...tahap].reverse().find((t) => detik >= t.detik)?.teks ?? tahap[0].teks;
+  // Modulo yang membuatnya berputar kembali ke pesan pertama.
+  const pesan = tahap[Math.floor(detik / GANTI_TIAP_DETIK) % tahap.length];
 
   return (
     <span className={`flex items-center gap-2 ${className}`}>
