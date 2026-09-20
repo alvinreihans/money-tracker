@@ -17,13 +17,28 @@ import fs from "node:fs";
 import os from "node:os";
 import { createRequire } from "node:module";
 
-const BUNDLE = path.join(process.cwd(), ".next", "standalone");
+const ASAL = path.join(process.cwd(), ".next", "standalone");
 const BATAS_MS = 45_000;
 
-if (!fs.existsSync(BUNDLE)) {
+if (!fs.existsSync(ASAL)) {
   console.error("Bundle belum ada. Jalankan dulu: npm run build:standalone");
   process.exit(1);
 }
+
+/**
+ * Bundle disalin ke luar folder project sebelum diuji.
+ *
+ * Ini bukan kerapian, tapi syarat supaya ujinya sahih. Node mencari modul
+ * dengan menyusuri direktori ke atas, jadi selama bundle berada di dalam
+ * project, paket yang TIDAK ikut terkirim tetap ketemu di node_modules asli
+ * satu tingkat di atasnya. Ujinya lolos, produksinya tetap jatuh.
+ *
+ * Pernah terjadi persis begitu: uji ini menyatakan bundle lengkap, padahal
+ * `bmp-js` tidak pernah ikut. Di Vercel tidak ada induk yang bisa dinaiki.
+ */
+const BUNDLE = path.join(os.tmpdir(), "money-tracker-uji-bundle");
+fs.rmSync(BUNDLE, { recursive: true, force: true });
+fs.cpSync(ASAL, BUNDLE, { recursive: true });
 
 // Resolusi modul mengikuti lokasi berkas ini, bukan cwd. Basis require diarahkan
 // ke dalam bundle supaya yang dimuat benar-benar node_modules versi ciut itu.

@@ -1,4 +1,22 @@
+import fs from "node:fs";
 import type { NextConfig } from "next";
+
+/**
+ * Seluruh dependensi yang dideklarasikan tesseract.js.
+ *
+ * Dibaca dari package.json-nya, bukan diketik ulang. Worker thread bisa
+ * me-require mana saja dari daftar itu, dan tracing Next tidak pernah
+ * menelusurinya karena worker dimuat lewat path yang dirakit saat runtime.
+ * Setiap paket yang terlewat berakhir sama: thread mati diam-diam dan OCR
+ * menggantung sampai kena tenggat.
+ */
+const DEP_TESSERACT = Object.keys(
+  (
+    JSON.parse(
+      fs.readFileSync("./node_modules/tesseract.js/package.json", "utf8"),
+    ) as { dependencies?: Record<string, string> }
+  ).dependencies ?? {},
+).map((nama) => `./node_modules/${nama}/**`);
 
 /**
  * Berkas yang harus ikut ter-deploy bersama kedua route OCR.
@@ -32,12 +50,13 @@ const BERKAS_OCR = [
   // Penanganya tak pernah terpasang, janji createWorker tak pernah selesai,
   // dan permintaannya menggantung sampai fungsinya dimatikan tanpa satu pun
   // pesan error. (src/lib/ocr.ts memasang tenggat sebagai jaring pengaman.)
-  "./node_modules/regenerator-runtime/**",
-  "./node_modules/is-url/**",
-  "./node_modules/wasm-feature-detect/**",
-  // Hanya dipakai bila global.fetch tidak ada. Node di Vercel punya, jadi
-  // praktis tak terpakai — tapi biayanya kecil dan menutup satu jalan gagal.
-  "./node_modules/node-fetch/**",
+  // Didaftar otomatis, bukan manual. Mendaftar sendiri sudah meleset dua kali
+  // — `wasm-feature-detect` lolos, lalu `bmp-js` — karena worker me-require
+  // dari berkas yang tidak terpikir diperiksa. Selama daftarnya ikut apa yang
+  // dideklarasikan tesseract.js, kesalahan itu tidak bisa terulang.
+  ...DEP_TESSERACT,
+
+  // Ekor transitif dari node-fetch, yang tidak ikut terbawa daftar di atas.
   "./node_modules/whatwg-url/**",
   "./node_modules/tr46/**",
   "./node_modules/webidl-conversions/**",
