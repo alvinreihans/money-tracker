@@ -79,6 +79,12 @@ export async function processReceiptImage(
   let best: ExtractedReceipt | null = null;
 
   // --- 1. OCR ---
+  // Ukuran gambar ikut dicatat karena sumbernya berbeda-beda: Telegram
+  // mengompres foto sebelum meneruskannya, sedangkan unggahan web memakai
+  // berkas aslinya. Kalau hasilnya berbeda antar jalur, angka inilah yang
+  // membedakan "gambarnya sudah telanjur kecil" dari "OCR-nya yang bermasalah".
+  notes.push(`Gambar masuk: ${Math.round(image.byteLength / 1024)} KB, ${mimeType}`);
+
   try {
     ocr = await runOcr(image);
     notes.push(

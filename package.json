@@ -11,7 +11,8 @@
     "db:status": "node --env-file-if-exists=.env.local scripts/migrate.mjs --status",
     "db:baseline": "node --env-file-if-exists=.env.local scripts/migrate.mjs --baseline",
     "test:receipt": "tsx --env-file-if-exists=.env.local scripts/test-receipt.mts",
-    "test:statement": "tsx --env-file-if-exists=.env.local scripts/test-statement.mts"
+    "test:statement": "tsx --env-file-if-exists=.env.local scripts/test-statement.mts",
+    "ukur:ocr": "tsx --env-file-if-exists=.env.local scripts/ukur-ocr.mts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

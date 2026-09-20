@@ -229,12 +229,22 @@ function buildReply(result: ProcessedReceipt): string {
   // Draft: tampilkan potongan teks OCR supaya user bisa mengetik ulang
   // nominalnya tanpa perlu memfoto struk sekali lagi.
   const cuplikan = result.rawOcrText?.slice(0, 300).trim();
+
+  // Jejak tiap tahap ikut dikirim. Tanpa ini, kegagalan di sini tidak bisa
+  // dibedakan satu sama lain: OCR yang melempar dan OCR yang berhasil tapi
+  // mengembalikan nol karakter sama-sama muncul sebagai draft kosong. Hanya
+  // ditampilkan saat gagal, jadi tidak mengganggu pemakaian normal.
+  const jejak = result.notes.length
+    ? `\nJejaknya:\n<pre>${escapeHtml(result.notes.join("\n"))}</pre>\n`
+    : "";
+
   return (
     `⚠️ <b>Struknya nggak kebaca</b>\n` +
     `Udah disimpan jadi draft buat dibenerin manual.\n` +
     (cuplikan
       ? `\nYang sempat kebaca:\n<pre>${escapeHtml(cuplikan)}</pre>\n`
       : "") +
+    jejak +
     `\nKetik ulang manual aja, contoh: <i>indomaret 52rb qris</i>`
   );
 }
