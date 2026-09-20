@@ -12,7 +12,9 @@
     "db:baseline": "node --env-file-if-exists=.env.local scripts/migrate.mjs --baseline",
     "test:receipt": "tsx --env-file-if-exists=.env.local scripts/test-receipt.mts",
     "test:statement": "tsx --env-file-if-exists=.env.local scripts/test-statement.mts",
-    "ukur:ocr": "tsx --env-file-if-exists=.env.local scripts/ukur-ocr.mts"
+    "ukur:ocr": "tsx --env-file-if-exists=.env.local scripts/ukur-ocr.mts",
+    "build:standalone": "next build",
+    "uji:bundle": "node scripts/uji-bundle.mjs"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
