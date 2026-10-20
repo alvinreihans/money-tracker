@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { createClient } from "@supabase/supabase-js";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { authErrorMessage } from "@/lib/errors";
 import { passwordValid } from "@/lib/password";
@@ -80,8 +81,18 @@ export default function LoginPage() {
     const supabase = createSupabaseBrowserClient();
 
     if (mode === "lupa") {
-      const { error: err } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
+      // Sengaja flow implicit, bukan PKCE bawaan @supabase/ssr: tautan PKCE butuh
+      // cookie code-verifier dari browser yang meminta, jadi "kedaluwarsa" kalau
+      // dibuka di app email atau perangkat lain. Implicit membawa token di hash
+      // URL, lalu /reset-password memasangnya sendiri. (Mengganti template email
+      // ke token_hash butuh SMTP sendiri di Supabase.)
+      const implicit = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        { auth: { flowType: "implicit", persistSession: false } },
+      );
+      const { error: err } = await implicit.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
       });
       if (err) setError(authErrorMessage(err));
       else setMessage(`Tautan dikirim ke ${email}. Cek inbox dan folder spam ya.`);

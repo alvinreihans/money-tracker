@@ -20,13 +20,28 @@ export default function ResetPasswordPage() {
   const [siap, setSiap] = useState(false);
   useEffect(() => setSiap(true), []);
   const [error, setError] = useState<string | null>(null);
-  // Tautan reset sudah ditukar jadi session oleh /auth/callback. Kalau tidak
-  // ada session, berarti halaman ini dibuka langsung tanpa lewat email.
+  // Tautan reset (flow implicit, lihat halaman login) membawa token di hash URL.
+  // Client @supabase/ssr hanya menerima PKCE, jadi tokennya dipasang manual.
+  // Tanpa token dan tanpa session: tautannya kedaluwarsa (Supabase menaruh
+  // #error=... di hash) atau halaman ini dibuka langsung tanpa lewat email.
   const [punyaSesi, setPunyaSesi] = useState<boolean | null>(null);
 
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
-    void supabase.auth.getUser().then(({ data }) => setPunyaSesi(!!data.user));
+    const hash = new URLSearchParams(window.location.hash.slice(1));
+    const access_token = hash.get("access_token");
+    const refresh_token = hash.get("refresh_token");
+
+    const sesi =
+      access_token && refresh_token
+        ? supabase.auth.setSession({ access_token, refresh_token }).then(({ data }) => {
+            // Token jangan tertinggal di address bar / riwayat browser.
+            window.history.replaceState(null, "", window.location.pathname);
+            return !!data.user;
+          })
+        : supabase.auth.getUser().then(({ data }) => !!data.user);
+
+    void sesi.then(setPunyaSesi);
   }, []);
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {

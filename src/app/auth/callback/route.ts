@@ -5,7 +5,8 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * Titik pendaratan tautan dari email Supabase (reset password, konfirmasi akun).
+ * Titik pendaratan tautan dari email Supabase (konfirmasi akun). Reset password
+ * tidak lewat sini: tokennya di hash URL, ditangani /reset-password.
  *
  * Tautannya membawa `code` sekali-pakai yang harus ditukar jadi session di sisi
  * server supaya cookie-nya ikut ter-set. Tanpa langkah ini, halaman tujuan
