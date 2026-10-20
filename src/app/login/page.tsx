@@ -104,7 +104,14 @@ export default function LoginPage() {
       });
 
       if (signUpError) {
-        setError(authErrorMessage(signUpError));
+        // Error dari trigger handle_new_user disamarkan Supabase jadi pesan umum
+        // ini. Satu-satunya yang bisa gagal di sana: profiles.phone unique, yaitu
+        // nomornya sudah dipakai akun lain.
+        setError(
+          signUpError.message === "Database error saving new user"
+            ? "Nomor HP ini udah dipakai akun lain."
+            : authErrorMessage(signUpError),
+        );
       } else if (data.user && data.user.identities?.length === 0) {
         // Supabase membalas "sukses" untuk email yang sudah terdaftar biar orang
         // luar nggak bisa nebak email mana yang ada. Penandanya identities kosong.
