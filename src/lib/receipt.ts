@@ -41,7 +41,7 @@ export interface TransactionRow {
   transaction_date: string;
   status: ReceiptStatus;
   raw_ocr_text: string | null;
-  /** receipt | payment_proof — menentukan perilaku dedup saat impor statement. */
+  /** receipt | payment_proof | text — ditampilkan sebagai "Masuk lewat". */
   source: string;
 }
 
@@ -183,8 +183,7 @@ export function toTransactionRow(
     // Teks OCR hanya disimpan saat butuh koreksi manual — kalau ekstraksi
     // berhasil, menyimpannya cuma menggemukkan tabel tanpa guna.
     raw_ocr_text: result.status === "needs_review" ? result.rawOcrText : null,
-    // Bukti bayar digital akan muncul lagi sebagai baris rekening koran;
-    // menandainya di sini yang membuat deduplikasi bisa bekerja nanti.
+    // Membedakan screenshot bukti bayar dari struk kertas di halaman detail.
     source: e.document_type,
   };
 }

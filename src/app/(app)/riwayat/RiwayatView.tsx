@@ -40,7 +40,7 @@ export default function RiwayatView({ filter, daftar }: { filter: string; daftar
         </div>
 
         {daftar.length > 0 ? (
-          <TransactionList items={daftar} perTanggal />
+          <TransactionList items={daftar} />
         ) : (
           <div className={s.blok}>
             <Kosong ikon={Inbox} judul={filter === "draft" ? "Nggak ada yang perlu dibenerin" : "Belum ada transaksi di sini"}>

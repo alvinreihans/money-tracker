@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { processReceiptImage, processReceiptText, toTransactionRow } from "@/lib/receipt";
-import { insertFromImage } from "@/lib/statement-import";
+import { simpanTransaksi } from "@/lib/simpan-transaksi";
 import type { ProcessedReceipt } from "@/lib/receipt";
 import {
   sendMessage,
@@ -204,7 +204,7 @@ export async function POST(req: NextRequest) {
 
       // Menyingkirkan baris rekening koran yang mewakili transaksi sama.
       try {
-        await insertFromImage(admin, userId, {
+        await simpanTransaksi(admin, userId, {
           ...toTransactionRow(result, userId),
           // Pesan teks tidak punya struk; tanpa ini tercatat sebagai "Foto struk".
           ...(hasPhoto ? {} : { source: "text" }),

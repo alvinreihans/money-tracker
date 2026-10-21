@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { insertFromImage } from "@/lib/statement-import";
+import { simpanTransaksi } from "@/lib/simpan-transaksi";
 import { dbErrorMessage } from "@/lib/errors";
 import { validasiTransaksi } from "@/lib/transaksi-input";
 import type { Transaction } from "@/types/transaction";
@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { transaction } = await insertFromImage(supabase, user.id, {
+    const { transaction } = await simpanTransaksi(supabase, user.id, {
       ...hasil.data,
       user_id: user.id,
       // Diisi sendiri oleh pemiliknya, jadi nominalnya sudah bisa dipercaya.

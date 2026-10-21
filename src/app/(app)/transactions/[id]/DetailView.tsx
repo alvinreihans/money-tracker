@@ -2,6 +2,7 @@
 
 import DeleteTransactionButton from "@/components/DeleteTransactionButton";
 import EditTransactionForm from "@/components/EditTransactionForm";
+import { tandaTransaksi } from "@/components/kategori";
 import { AppBar, Pesan } from "@/components/oneui";
 import s from "@/components/ui.module.css";
 import { fmtIDR, fmtTanggal, fmtWaktu, JENIS, labelKategori, labelSumber } from "@/lib/format";
@@ -10,6 +11,7 @@ import type { Transaction } from "@/types/transaction";
 export default function DetailView({ t }: { t: Transaction }) {
   const draft = t.status === "needs_review";
   const nama = t.merchant ?? "Tanpa nama";
+  const { ikon: Ikon, warna } = tandaTransaksi(t);
 
   // Baris kosong dilewati: label tanpa isi cuma bikin rincian terlihat bolong.
   const rincian = [
@@ -31,6 +33,15 @@ export default function DetailView({ t }: { t: Transaction }) {
         judulKecil={nama}
         sub={`${nama} · ${fmtTanggal(t.transaction_date)}`}
         aksi={<DeleteTransactionButton id={t.id} />}
+        ikon={
+          <span
+            className={s.ikonBesar}
+            style={{ background: `color-mix(in srgb, ${warna} 18%, transparent)`, color: warna }}
+            aria-hidden
+          >
+            <Ikon size={30} />
+          </span>
+        }
       />
 
       <div className={s.isi}>

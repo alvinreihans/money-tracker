@@ -192,6 +192,19 @@
   font-weight: 600;
 }
 
+.subheaderBaris { display: flex; justify-content: space-between; gap: 12px; }
+.subheaderNilai { color: var(--teks-2); font-variant-numeric: tabular-nums; }
+
+.kelompok { display: flex; flex-direction: column; gap: 16px; }
+
+/* Umpan balik tekan ala One UI: mengecil sedikit, bukan riak warna. */
+.tekan { transition: transform 120ms ease, background-color 120ms ease; }
+.tekan:active { transform: scale(0.98); }
+
+@media (prefers-reduced-motion: reduce) {
+  .tekan, .tekan:active { transition: none; transform: none; }
+}
+
 .baris {
   min-height: 64px;
   display: flex;
@@ -212,6 +225,9 @@ button.baris {
   text-align: left;
   cursor: pointer;
 }
+
+/* Tombol yang sekaligus focus block (mis. "Edit transaksi") tetap berlatar blok. */
+button.blok { background: var(--blok); }
 
 .barisIkon {
   width: 40px;
@@ -349,7 +365,10 @@ button.baris {
 
 .lapisBawah > * { pointer-events: auto; }
 
+.fab:active { transform: scale(0.94); }
+
 .fab {
+  transition: transform 120ms ease;
   width: 56px;
   height: 56px;
   display: flex;
@@ -513,5 +532,105 @@ button.baris {
 }
 
 .baris details { font-size: 14px; color: var(--teks-2); }
+
+/* ---------- Menu "lainnya" (⋮) ---------- */
+
+/* Popover API bawaan: buka/tutup, Esc, dan klik di luar ditangani browser.
+   Diposisikan di pojok kanan atas kolom aplikasi. */
+.popover {
+  position: fixed;
+  inset: auto;
+  top: 52px;
+  right: max(8px, calc((100vw - var(--lebar-app)) / 2 + 8px));
+  margin: 0;
+  min-width: 220px;
+  padding: 8px 0;
+  border: 0;
+  border-radius: 20px;
+  background: #262626;
+  color: var(--teks);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.popover .baris { min-height: 52px; }
+
+/* ---------- Sheet Catat ---------- */
+
+.pintasan {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.pintasan button {
+  min-height: 84px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 0;
+  border-radius: 20px;
+  background: var(--blok-2);
+  color: var(--teks);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.pintasan span {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+.ketik {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 4px 4px 0;
+  border-radius: 28px;
+  background: var(--blok-2);
+}
+
+.ketik input {
+  flex: 1;
+  min-width: 0;
+  min-height: 52px;
+  padding: 0 4px 0 20px;
+  border: 0;
+  border-radius: 28px;
+  background: transparent;
+  font-size: 17px;
+}
+
+.kirim {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: var(--fab);
+  color: #fff;
+  cursor: pointer;
+}
+
+.kirim:disabled { background: var(--garis); color: var(--teks-2); cursor: default; }
+
+/* Ikon kategori di area tampilan halaman detail. */
+.ikonBesar {
+  width: 64px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  margin-bottom: 4px;
+}
 
 .logo { display: block; margin: 0 auto 16px; }

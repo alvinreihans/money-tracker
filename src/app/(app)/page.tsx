@@ -17,6 +17,9 @@ export default async function BerandaPage() {
   // Transfer dikecualikan di semua hitungan: itu uang pindah kantong sendiri,
   // bukan pengeluaran maupun pemasukan.
   const [
+    {
+      data: { user },
+    },
     { data: terbaru },
     { data: keluarIni },
     { data: masukIni },
@@ -24,6 +27,7 @@ export default async function BerandaPage() {
     { count: draft },
     { data: rerata, error: rerataError },
   ] = await Promise.all([
+    supabase.auth.getUser(),
     supabase
       .from("transactions")
       .select("*")
@@ -58,6 +62,7 @@ export default async function BerandaPage() {
 
   return (
     <BerandaView
+      email={user?.email ?? null}
       ringkasan={{
         keluar: jumlahkan(keluarIni),
         masuk: jumlahkan(masukIni),

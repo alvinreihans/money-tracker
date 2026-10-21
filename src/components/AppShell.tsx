@@ -22,14 +22,9 @@ export default function AppShell({
   const pathname = usePathname();
 
   // Detail transaksi dibuka dari daftar, jadi menyorot Riwayat.
-  const aktif = pathname.startsWith("/rekening")
-    ? "/rekening"
-    : pathname.startsWith("/riwayat") || pathname.startsWith("/transactions")
-      ? "/riwayat"
-      : "/";
+  const diRiwayat = pathname.startsWith("/riwayat") || pathname.startsWith("/transactions");
 
-  // FAB hanya di halaman yang memang tempat mencatat; di detail & rekening
-  // ia cuma menutupi isi.
+  // FAB hanya di halaman daftar; di detail ia cuma menutupi isi.
   const fab = pathname === "/" || pathname === "/riwayat";
 
   return (
@@ -37,15 +32,12 @@ export default function AppShell({
       <div className={s.app}>{children}</div>
 
       <nav className={s.nav} aria-label="Navigasi utama">
-        <NextLink href="/" aria-current={aktif === "/" ? "page" : undefined}>
+        <NextLink href="/" aria-current={!diRiwayat ? "page" : undefined}>
           Beranda
         </NextLink>
-        <NextLink href="/riwayat" aria-current={aktif === "/riwayat" ? "page" : undefined}>
+        <NextLink href="/riwayat" aria-current={diRiwayat ? "page" : undefined}>
           Riwayat
           {draftCount > 0 && <span className={s.navTitik} aria-label={`${draftCount} perlu dibenerin`} role="img" />}
-        </NextLink>
-        <NextLink href="/rekening" aria-current={aktif === "/rekening" ? "page" : undefined}>
-          Rekening
         </NextLink>
       </nav>
     </CatatProvider>

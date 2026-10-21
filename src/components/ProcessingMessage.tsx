@@ -24,13 +24,6 @@ export const TAHAP_STRUK = [
   "Sabar ya, lagi ngitung kerugian dompetmu...",
 ];
 
-export const TAHAP_STATEMENT = [
-  "Lagi baca rekening korannya...",
-  "Halamannya lumayan banyak nih...",
-  "Masih jalan, ini transaksi sebulan penuh...",
-  "Sabar ya, diitungin satu-satu biar nggak ada yang kelewat...",
-];
-
 export default function ProcessingMessage({ tahap = TAHAP_STRUK }: { tahap?: string[] }) {
   const [detik, setDetik] = useState(0);
 

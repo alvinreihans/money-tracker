@@ -11,11 +11,11 @@
     "db:status": "node --env-file-if-exists=.env.local scripts/migrate.mjs --status",
     "db:baseline": "node --env-file-if-exists=.env.local scripts/migrate.mjs --baseline",
     "test:receipt": "tsx --env-file-if-exists=.env.local scripts/test-receipt.mts",
-    "test:statement": "tsx --env-file-if-exists=.env.local scripts/test-statement.mts",
     "ukur:ocr": "tsx --env-file-if-exists=.env.local scripts/ukur-ocr.mts",
     "build:standalone": "next build",
     "uji:bundle": "node scripts/uji-bundle.mjs",
-    "uji:validasi": "tsx scripts/uji-validasi.mts"
+    "uji:validasi": "tsx scripts/uji-validasi.mts",
+    "uji:tanggal": "tsx scripts/uji-tanggal.mts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
@@ -27,8 +27,7 @@
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "sharp": "^0.35.4",
-    "tesseract.js": "^7.0.0",
-    "unpdf": "^1.8.1"
+    "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
     "@types/node": "^26.1.1",

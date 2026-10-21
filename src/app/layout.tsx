@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Money Tracker",
-  description: "Pencatatan keuangan otomatis dari struk dan rekening koran.",
+  description: "Catat pengeluaran dari struk, teks, atau isian sendiri.",
 };
 
 export const viewport: Viewport = {
@@ -12,6 +12,9 @@ export const viewport: Viewport = {
   // Konten boleh sampai ke bawah notch/gesture bar; padding-nya diatur lewat
   // env(safe-area-inset-*) di navigasi bawah.
   viewportFit: "cover",
+  // Saat keyboard HP muncul, tata letak ikut menyusut — sheet "Catat" yang
+  // menempel di bawah layar naik ke atas keyboard, bukan tertutup olehnya.
+  interactiveWidget: "resizes-content",
 };
 
 export default function RootLayout({

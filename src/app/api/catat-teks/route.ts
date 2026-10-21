@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { processReceiptText, toTransactionRow } from "@/lib/receipt";
-import { insertFromImage } from "@/lib/statement-import";
+import { simpanTransaksi } from "@/lib/simpan-transaksi";
 import { dbErrorMessage } from "@/lib/errors";
 import { TEKS_MAKS } from "@/lib/transaksi-input";
 import type { Transaction } from "@/types/transaction";
@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
   const result = await processReceiptText(text);
 
   try {
-    const { transaction } = await insertFromImage(supabase, user.id, {
+    const { transaction } = await simpanTransaksi(supabase, user.id, {
       ...toTransactionRow(result, user.id),
       // Teks yang gagal dibaca tetap disimpan apa adanya, supaya draft-nya
       // bisa dibenerin tanpa harus mengingat lagi apa yang diketik.

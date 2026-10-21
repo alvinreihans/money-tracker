@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { processReceiptImage, toTransactionRow } from "@/lib/receipt";
-import { insertFromImage } from "@/lib/statement-import";
+import { simpanTransaksi } from "@/lib/simpan-transaksi";
 import { dbErrorMessage } from "@/lib/errors";
 import type { Transaction } from "@/types/transaction";
 
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
     let inserted: Transaction;
     let supersededStatement = false;
     try {
-      const hasil = await insertFromImage(
+      const hasil = await simpanTransaksi(
         supabase,
         user.id,
         toTransactionRow(result, user.id) as unknown as Record<string, unknown>,

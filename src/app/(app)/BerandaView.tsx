@@ -1,37 +1,45 @@
 "use client";
 
 import NextLink from "next/link";
-import { ChevronRight, Inbox, TriangleAlert } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ChevronRight, Inbox, LogOut, TriangleAlert, UserRound } from "lucide-react";
 import { useCatat } from "@/components/Catat";
 import KomposisiKategori from "@/components/KomposisiKategori";
-import { AppBar, Kosong } from "@/components/oneui";
+import { AppBar, Kosong, MenuLainnya } from "@/components/oneui";
 import RingkasanBulan from "@/components/RingkasanBulan";
 import TransactionList from "@/components/TransactionList";
 import s from "@/components/ui.module.css";
 import { fmtIDR, namaBulan } from "@/lib/format";
+import { rentangBulan } from "@/lib/periode";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { AvgMonthlyExpenseRow, Transaction } from "@/types/transaction";
 
 export default function BerandaView({
+  email,
   ringkasan,
   draft,
   terbaru,
   rerata,
   rerataError,
 }: {
+  email: string | null;
   ringkasan: { keluar: number; masuk: number; keluarBulanLalu: number };
   draft: number;
   terbaru: Transaction[];
   rerata: AvgMonthlyExpenseRow[];
   rerataError: string | null;
 }) {
+  const router = useRouter();
   const catat = useCatat();
   const { keluar, masuk, keluarBulanLalu } = ringkasan;
-
-  const sekarang = new Date();
-  const bulanLalu = new Date();
-  bulanLalu.setDate(1);
-  bulanLalu.setMonth(bulanLalu.getMonth() - 1);
+  const { awalBulanIni, awalBulanLalu } = rentangBulan();
   const persen = keluarBulanLalu > 0 ? Math.round(((keluar - keluarBulanLalu) / keluarBulanLalu) * 100) : 0;
+
+  async function keluarAkun() {
+    await createSupabaseBrowserClient().auth.signOut();
+    router.push("/login");
+    router.refresh();
+  }
 
   return (
     <>
@@ -43,13 +51,29 @@ export default function BerandaView({
         judulKecil="Beranda"
         sub={
           <>
-            keluar di {namaBulan(sekarang)}
+            keluar di {namaBulan(awalBulanIni)}
             {persen !== 0 && (
               <>
                 <br />
-                {persen > 0 ? "↑ naik" : "↓ turun"} {Math.abs(persen)}% dari {namaBulan(bulanLalu)}
+                {persen > 0 ? "↑ naik" : "↓ turun"} {Math.abs(persen)}% dari {namaBulan(awalBulanLalu)}
               </>
             )}
+          </>
+        }
+        aksi={
+          <>
+            <MenuLainnya>
+              {email && (
+                <div className={s.baris} style={{ minHeight: 52 }}>
+                  <UserRound size={20} color="var(--teks-2)" aria-hidden />
+                  <span className={`${s.barisTeks} ${s.redup}`}>{email}</span>
+                </div>
+              )}
+              <button type="button" className={s.baris} onClick={() => void keluarAkun()}>
+                <LogOut size={20} color="var(--bahaya)" aria-hidden />
+                <span className={s.bahaya}>Keluar</span>
+              </button>
+            </MenuLainnya>
           </>
         }
       />
@@ -58,7 +82,7 @@ export default function BerandaView({
         <RingkasanBulan keluar={keluar} masuk={masuk} />
 
         {draft > 0 && (
-          <NextLink href="/riwayat?filter=draft" className={`${s.blok} ${s.baris}`}>
+          <NextLink href="/riwayat?filter=draft" className={`${s.blok} ${s.baris} ${s.tekan}`}>
             <span className={`${s.barisIkon} ${s.peringatan}`} aria-hidden>
               <TriangleAlert size={20} />
             </span>
@@ -70,18 +94,21 @@ export default function BerandaView({
           </NextLink>
         )}
 
-        <h2 className={s.subheader}>Terbaru</h2>
         {terbaru.length > 0 ? (
           <>
             <TransactionList items={terbaru} />
-            <NextLink href="/riwayat" className={`${s.blok} ${s.baris}`} style={{ minHeight: 52, justifyContent: "center" }}>
+            <NextLink
+              href="/riwayat"
+              className={`${s.blok} ${s.baris} ${s.tekan}`}
+              style={{ minHeight: 52, justifyContent: "center" }}
+            >
               Lihat semua riwayat
             </NextLink>
           </>
         ) : (
           <div className={s.blok}>
             <Kosong ikon={Inbox} judul="Belum ada transaksi">
-              Foto struk, ketik, atau isi sendiri.
+              Ketik aja, mis. &ldquo;beli makan warteg 20k&rdquo;.
               <br />
               <button type="button" className={s.tombol} style={{ marginTop: 16 }} onClick={catat.buka}>
                 Catat transaksi

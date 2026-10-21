@@ -1,4 +1,5 @@
 import { ChartPie } from "lucide-react";
+import { KATEGORI } from "@/components/kategori";
 import { Kosong, Pesan } from "@/components/oneui";
 import s from "@/components/ui.module.css";
 import { fmtIDR, fmtIDRRingkas, labelKategori } from "@/lib/format";
@@ -8,11 +9,10 @@ import type { AvgMonthlyExpenseRow } from "@/types/transaction";
  * Porsi pengeluaran per kategori: satu bar bersegmen plus daftar. Untuk
  * pertanyaan "uangku habis ke mana", porsi sudah cukup; daftar di bawahnya
  * menampilkan nama kategori utuh, yang di chart biasa sering terpotong di HP.
+ *
+ * Warnanya warna kategori yang sama dengan ikon di daftar transaksi, jadi
+ * segmen oranye selalu berarti Makan.
  */
-
-// Warna aksen dari palet sistem; area luas tetap tenang, warna hanya di bar kecil.
-const WARNA = ["#3e91ff", "#5ecb7a", "#ffb340", "#bf7af0", "#ff7a9c", "#4fc9e0", "#ffd84a", "#ff5f5f"];
-
 export default function KomposisiKategori({
   data,
   error,
@@ -26,6 +26,7 @@ export default function KomposisiKategori({
     .sort((a, b) => b.nilai - a.nilai);
   const total = baris.reduce((t, r) => t + r.nilai, 0);
   const persen = (n: number) => Math.round((n / total) * 100);
+  const warna = (k: string) => (KATEGORI[k] ?? KATEGORI.other).warna;
 
   return (
     <>
@@ -48,14 +49,14 @@ export default function KomposisiKategori({
               {fmtIDRRingkas(total)}
             </div>
             <div className={s.bar} role="img" aria-label="Porsi pengeluaran per kategori">
-              {baris.map((r, i) => (
-                <span key={r.kategori} style={{ flex: r.nilai, background: WARNA[i % WARNA.length] }} />
+              {baris.map((r) => (
+                <span key={r.kategori} style={{ flex: r.nilai, background: warna(r.kategori) }} />
               ))}
             </div>
           </div>
-          {baris.map((r, i) => (
+          {baris.map((r) => (
             <div key={r.kategori} className={s.baris} style={{ minHeight: 52 }}>
-              <span className={s.titik} style={{ background: WARNA[i % WARNA.length] }} aria-hidden />
+              <span className={s.titik} style={{ background: warna(r.kategori) }} aria-hidden />
               <span className={s.barisTeks}>
                 <span>{labelKategori(r.kategori)}</span>
               </span>

@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import NextLink from "next/link";
-import { ChevronLeft, CircleCheck, CircleX, Info, TriangleAlert } from "lucide-react";
+import { ChevronLeft, CircleCheck, CircleX, EllipsisVertical, Info, TriangleAlert } from "lucide-react";
 import s from "@/components/ui.module.css";
 
 /**
@@ -22,9 +22,12 @@ export function AppBar({
   judulKecil,
   kembali,
   aksi,
+  ikon,
 }: {
   judul: React.ReactNode;
   sub?: React.ReactNode;
+  /** Visual di atas judul besar, mis. ikon kategori di halaman detail. */
+  ikon?: React.ReactNode;
   /** Judul di bilah atas setelah mengecil; bawaannya sama dengan `judul`. */
   judulKecil?: React.ReactNode;
   kembali?: string;
@@ -58,6 +61,7 @@ export function AppBar({
         {aksi}
       </div>
       <header ref={ref} className={s.viewing}>
+        {ikon}
         <h1 className={s.judulBesar}>{judul}</h1>
         {sub && <p className={s.judulSub}>{sub}</p>}
       </header>
@@ -97,10 +101,15 @@ export function Lembar({
     tutup.current = onClose;
   });
 
-  useEffect(() => {
+  // useLayoutEffect, bukan useEffect: berjalan masih di dalam ketukan yang
+  // membuka dialog. Browser HP hanya memunculkan keyboard untuk fokus yang
+  // terjadi selama aksi user, jadi kolom bertanda data-autofocus langsung
+  // siap diketik tanpa perlu diketuk lagi.
+  useLayoutEffect(() => {
     const d = ref.current;
     if (!d) return;
     d.showModal();
+    d.querySelector<HTMLElement>("[data-autofocus]")?.focus();
     const batal = (e: Event) => {
       e.preventDefault(); // biar React yang melepas dialognya, bukan browser
       tutup.current();
@@ -126,6 +135,25 @@ export function Lembar({
       <div className={daftar ? s.dialogBadanDaftar : s.dialogBadan}>{children}</div>
       {tombol && <div className={s.dialogTombol}>{tombol}</div>}
     </dialog>
+  );
+}
+
+/**
+ * Menu "lainnya" (⋮) di ujung kanan app bar — tempat One UI menaruh aksi dan
+ * pengaturan tambahan. Memakai Popover API bawaan: buka/tutup, Esc, dan
+ * ketuk di luar ditangani browser.
+ */
+export function MenuLainnya({ children }: { children: React.ReactNode }) {
+  const id = useId();
+  return (
+    <>
+      <button type="button" className={s.ikonTombol} popoverTarget={id} aria-label="Lainnya">
+        <EllipsisVertical size={22} />
+      </button>
+      <div id={id} popover="auto" className={s.popover}>
+        {children}
+      </div>
+    </>
   );
 }
 

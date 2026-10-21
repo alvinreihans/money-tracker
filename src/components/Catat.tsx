@@ -2,27 +2,27 @@
 
 import { createContext, useContext, useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowDownLeft, ArrowUpRight, Camera, FileText, Image as IkonGambar, PencilLine, Plus } from "lucide-react";
+import { ArrowUp, Camera, ClipboardPen, Image as IkonGambar, Plus } from "lucide-react";
 import CameraCapture from "@/components/CameraCapture";
-import { Field, Lembar, Pesan, Spinner } from "@/components/oneui";
+import { Lembar, Pesan, Spinner } from "@/components/oneui";
 import TransactionFields, { nilaiAwal } from "@/components/TransactionFields";
 import s from "@/components/ui.module.css";
 import DaftarAntrean, { ACCEPT_STRUK, useAntreanStruk } from "@/components/UploadReceiptForm";
-import UploadStatementForm, { useImporRekeningKoran } from "@/components/UploadStatementForm";
 import { fmtIDR, labelKategori } from "@/lib/format";
 import { TEKS_MAKS, validasiTransaksi } from "@/lib/transaksi-input";
-import type { Transaction, TransactionType } from "@/types/transaction";
+import type { Transaction } from "@/types/transaction";
 
 /**
- * Satu pintu untuk semua cara mencatat: tombol "+" melayang (FAB) di kanan
- * bawah — dalam jangkauan jempol — membuka dialog pilihan di bawah layar,
- * dan tiap pilihan membuka dialognya sendiri.
+ * Pintu mencatat. Tombol "+" melayang (FAB) langsung membuka kolom ketik
+ * yang sudah siap diketik — "beli makan warteg 20k" lalu kirim, selesai.
+ * Mengetik adalah cara tercepat, jadi itu yang langsung muncul; kamera,
+ * galeri, dan form isian ada sebagai pintasan di atas kolomnya.
  *
  * Provider ini ditaruh di kerangka aplikasi, jadi antrean struk bertahan saat
  * dialognya ditutup atau saat pindah halaman.
  */
 
-type DialogAktif = "pilih" | "kamera" | "struk" | "ketik" | "manual" | "impor" | null;
+type DialogAktif = "catat" | "kamera" | "struk" | "manual" | null;
 
 interface Kabar {
   teks: string;
@@ -30,14 +30,10 @@ interface Kabar {
   draft: boolean;
 }
 
-interface CatatApi {
-  buka: () => void;
-}
+const CatatContext = createContext<{ buka: () => void } | null>(null);
 
-const CatatContext = createContext<CatatApi | null>(null);
-
-/** Membuka dialog pilihan "+" dari mana saja, mis. dari halaman kosong. */
-export function useCatat(): CatatApi {
+/** Membuka sheet Catat dari mana saja, mis. dari halaman kosong. */
+export function useCatat() {
   const api = useContext(CatatContext);
   if (!api) throw new Error("useCatat dipakai di luar CatatProvider");
   return api;
@@ -46,9 +42,7 @@ export function useCatat(): CatatApi {
 export function CatatProvider({ fab, children }: { fab: boolean; children: React.ReactNode }) {
   const router = useRouter();
   const antrean = useAntreanStruk();
-  const impor = useImporRekeningKoran();
   const [dialog, setDialog] = useState<DialogAktif>(null);
-  const [tipeManual, setTipeManual] = useState<TransactionType>("expense");
   const [kabar, setKabar] = useState<Kabar | null>(null);
   const galeriRef = useRef<HTMLInputElement>(null);
 
@@ -85,7 +79,7 @@ export function CatatProvider({ fab, children }: { fab: boolean; children: React
       : null;
 
   return (
-    <CatatContext.Provider value={{ buka: () => setDialog("pilih") }}>
+    <CatatContext.Provider value={{ buka: () => setDialog("catat") }}>
       <input
         ref={galeriRef}
         type="file"
@@ -121,57 +115,23 @@ export function CatatProvider({ fab, children }: { fab: boolean; children: React
           </div>
         )}
         {fab && (
-          <button type="button" className={s.fab} aria-label="Catat transaksi" onClick={() => setDialog("pilih")}>
+          <button type="button" className={s.fab} aria-label="Catat transaksi" onClick={() => setDialog("catat")}>
             <Plus size={28} />
           </button>
         )}
       </div>
 
-      {dialog === "pilih" && (
-        <Lembar
-          judul="Catat transaksi"
-          daftar
+      {dialog === "catat" && (
+        <CatatDialog
           onClose={() => setDialog(null)}
-          tombol={
-            <button type="button" className={s.flat} onClick={() => setDialog(null)}>
-              Batal
-            </button>
-          }
-        >
-          <h3 className={s.subheader} style={{ margin: "4px 0 4px" }}>Dari struk</h3>
-          <Pilihan ikon={Camera} judul="Foto struk" ket="Pakai kamera HP atau laptop" onClick={() => setDialog("kamera")} />
-          <Pilihan
-            ikon={IkonGambar}
-            judul="Upload gambar"
-            ket="Bisa beberapa sekaligus"
-            onClick={() => {
-              setDialog(null);
-              galeriRef.current?.click();
-            }}
-          />
-          <h3 className={s.subheader} style={{ margin: "12px 0 4px" }}>Catat sendiri</h3>
-          <Pilihan ikon={PencilLine} judul="Ketik cepat" ket="kopi 25rb gopay" onClick={() => setDialog("ketik")} />
-          <Pilihan
-            ikon={ArrowUpRight}
-            judul="Pengeluaran"
-            ket="Isi rinciannya sendiri"
-            onClick={() => {
-              setTipeManual("expense");
-              setDialog("manual");
-            }}
-          />
-          <Pilihan
-            ikon={ArrowDownLeft}
-            judul="Pemasukan"
-            ket="Gaji, transferan masuk, dll."
-            onClick={() => {
-              setTipeManual("income");
-              setDialog("manual");
-            }}
-          />
-          <h3 className={s.subheader} style={{ margin: "12px 0 4px" }}>Impor</h3>
-          <Pilihan ikon={FileText} judul="Rekening koran" ket="PDF dari aplikasi bank" onClick={() => setDialog("impor")} />
-        </Lembar>
+          onTersimpan={tersimpan}
+          onKamera={() => setDialog("kamera")}
+          onGaleri={() => {
+            setDialog(null);
+            galeriRef.current?.click();
+          }}
+          onForm={() => setDialog("manual")}
+        />
       )}
 
       {dialog === "kamera" && (
@@ -199,60 +159,8 @@ export function CatatProvider({ fab, children }: { fab: boolean; children: React
         </Lembar>
       )}
 
-      {dialog === "ketik" && <KetikDialog onClose={() => setDialog(null)} onTersimpan={tersimpan} />}
-
-      {dialog === "manual" && (
-        <ManualDialog type={tipeManual} onClose={() => setDialog(null)} onTersimpan={(tx) => tersimpan(tx, false)} />
-      )}
-
-      {dialog === "impor" && (
-        <Lembar
-          judul="Impor rekening koran"
-          onClose={() => !impor.loading && setDialog(null)}
-          tombol={
-            <>
-              <button type="button" className={s.flat} disabled={impor.loading} onClick={() => setDialog(null)}>
-                Tutup
-              </button>
-              <button
-                type="button"
-                className={s.flat}
-                disabled={!impor.file || impor.loading}
-                onClick={() => void impor.impor()}
-              >
-                {impor.loading ? <Spinner /> : "Impor"}
-              </button>
-            </>
-          }
-        >
-          <UploadStatementForm impor={impor} />
-        </Lembar>
-      )}
+      {dialog === "manual" && <ManualDialog onClose={() => setDialog(null)} onTersimpan={(tx) => tersimpan(tx, false)} />}
     </CatatContext.Provider>
-  );
-}
-
-function Pilihan({
-  ikon: Ikon,
-  judul,
-  ket,
-  onClick,
-}: {
-  ikon: React.ElementType;
-  judul: string;
-  ket: string;
-  onClick: () => void;
-}) {
-  return (
-    <button type="button" className={s.baris} onClick={onClick}>
-      <span className={s.barisIkon}>
-        <Ikon size={20} />
-      </span>
-      <span className={s.barisTeks}>
-        <span className={s.barisJudul}>{judul}</span>
-        <span className={s.redup}>{ket}</span>
-      </span>
-    </button>
   );
 }
 
@@ -275,12 +183,24 @@ async function kirimJson(url: string, body: unknown) {
   }
 }
 
-function KetikDialog({
+const PINTASAN = [
+  { id: "kamera", label: "Kamera", ikon: Camera, warna: "#3e91ff" },
+  { id: "galeri", label: "Galeri", ikon: IkonGambar, warna: "#5ecb7a" },
+  { id: "form", label: "Isi form", ikon: ClipboardPen, warna: "#ff9f43" },
+] as const;
+
+function CatatDialog({
   onClose,
   onTersimpan,
+  onKamera,
+  onGaleri,
+  onForm,
 }: {
   onClose: () => void;
   onTersimpan: (tx: Transaction, draft: boolean) => void;
+  onKamera: () => void;
+  onGaleri: () => void;
+  onForm: () => void;
 }) {
   const [teks, setTeks] = useState("");
   const [loading, setLoading] = useState(false);
@@ -289,7 +209,7 @@ function KetikDialog({
   async function kirim(e?: FormEvent) {
     e?.preventDefault();
     const bersih = teks.trim();
-    if (!bersih) return setError("Teksnya masih kosong.");
+    if (!bersih) return;
     if (bersih.length > TEKS_MAKS) return setError(`Maksimal ${TEKS_MAKS} karakter.`);
 
     setLoading(true);
@@ -301,48 +221,56 @@ function KetikDialog({
     onTersimpan(r.tx, r.status === "needs_review");
   }
 
+  const aksi = { kamera: onKamera, galeri: onGaleri, form: onForm };
+
   return (
-    <Lembar
-      judul="Ketik cepat"
-      sub="Nominal, tempat, dan cara bayarnya dibaca otomatis."
-      onClose={() => !loading && onClose()}
-      tombol={
-        <>
-          <button type="button" className={s.flat} disabled={loading} onClick={onClose}>
-            Batal
-          </button>
-          <button type="button" className={s.flat} disabled={loading} onClick={() => void kirim()}>
-            {loading ? <Spinner /> : "Catat"}
-          </button>
-        </>
-      }
-    >
-      <form onSubmit={kirim}>
-        <Field label="Transaksinya" keterangan="Contoh: kopi 25rb gopay · gaji masuk 8jt kemarin" galat={error}>
+    <Lembar judul="Catat transaksi" onClose={() => !loading && onClose()}>
+      <div className={s.form}>
+        <div className={s.pintasan}>
+          {PINTASAN.map(({ id, label, ikon: Ikon, warna }) => (
+            <button key={id} type="button" className={s.tekan} disabled={loading} onClick={aksi[id]}>
+              <span style={{ background: `color-mix(in srgb, ${warna} 18%, transparent)`, color: warna }} aria-hidden>
+                <Ikon size={22} />
+              </span>
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* Kolom ketik di paling bawah sheet: paling dekat dengan keyboard dan
+            jempol, seperti kolom pesan di aplikasi chat. */}
+        <form onSubmit={kirim} className={s.ketik}>
           <input
-            autoFocus
+            data-autofocus
+            aria-label="Tulis transaksinya"
             value={teks}
             onChange={(e) => setTeks(e.target.value)}
-            placeholder="kopi 25rb gopay"
+            placeholder="beli makan warteg 20k"
             disabled={loading}
             enterKeyHint="send"
+            autoComplete="off"
           />
-        </Field>
-      </form>
+          <button type="submit" className={s.kirim} aria-label="Catat" disabled={loading || !teks.trim()}>
+            {loading ? <Spinner /> : <ArrowUp size={22} />}
+          </button>
+        </form>
+
+        {error ? (
+          <span className={s.galat} role="alert">
+            {error}
+          </span>
+        ) : (
+          <span className={s.keterangan}>
+            {loading ? "Lagi dibaca..." : "Nominal, tempat, dan cara bayarnya dibaca otomatis."}
+          </span>
+        )}
+      </div>
     </Lembar>
   );
 }
 
-function ManualDialog({
-  type,
-  onClose,
-  onTersimpan,
-}: {
-  type: TransactionType;
-  onClose: () => void;
-  onTersimpan: (tx: Transaction) => void;
-}) {
-  const [nilai, setNilai] = useState(() => nilaiAwal(undefined, type));
+function ManualDialog({ onClose, onTersimpan }: { onClose: () => void; onTersimpan: (tx: Transaction) => void }) {
+  const [nilai, setNilai] = useState(() => nilaiAwal());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

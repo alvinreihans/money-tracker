@@ -23,15 +23,39 @@ export const fmtIDRRingkas = (n: number) =>
       }).format(n)
     : fmtIDR(n);
 
-/** Tanggal lokal sebagai YYYY-MM-DD. toISOString() menggeser hari di UTC+7. */
-export const isoLokal = (d: Date) => {
-  const bulan = String(d.getMonth() + 1).padStart(2, "0");
-  const hari = String(d.getDate()).padStart(2, "0");
-  return `${d.getFullYear()}-${bulan}-${hari}`;
+/**
+ * Semua hitungan "hari ini" memakai WIB, bukan zona waktu mesin. Server Vercel
+ * berjalan di UTC: dengan zona mesin, dari jam 00.00 sampai 07.00 WIB server
+ * mengira masih kemarin — label "Hari ini" meleset dan batas bulan bergeser
+ * pada tanggal 1. Zona tetap juga membuat render server dan HP selalu sama.
+ */
+const ZONA = "Asia/Jakarta";
+
+/** Tanggal WIB sebagai YYYY-MM-DD. toISOString() menggeser hari ke UTC. */
+export const isoLokal = (d: Date) =>
+  // en-CA kebetulan memformat tanggal persis YYYY-MM-DD.
+  new Intl.DateTimeFormat("en-CA", { timeZone: ZONA }).format(d);
+
+/** Geser tanggal YYYY-MM-DD sejumlah hari (boleh negatif). */
+export const geserHari = (iso: string, hari: number) => {
+  const d = new Date(`${iso}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + hari);
+  return d.toISOString().slice(0, 10);
 };
 
-export const namaBulan = (d: Date) =>
-  new Intl.DateTimeFormat("id-ID", { month: "long" }).format(d);
+/** Nama bulan dari tanggal YYYY-MM-DD, mis. "Oktober". */
+export const namaBulan = (iso: string) =>
+  new Intl.DateTimeFormat("id-ID", { month: "long", timeZone: "UTC" }).format(
+    new Date(`${iso.slice(0, 7)}-01T00:00:00Z`),
+  );
+
+/** "Hari ini", "Kemarin", atau tanggalnya — untuk subheader daftar. */
+export const fmtHari = (iso: string, sekarang = new Date()) => {
+  const hariIni = isoLokal(sekarang);
+  if (iso === hariIni) return "Hari ini";
+  if (iso === geserHari(hariIni, -1)) return "Kemarin";
+  return fmtTanggal(iso);
+};
 
 export const fmtTanggal = (iso: string) =>
   new Intl.DateTimeFormat("id-ID", {
@@ -47,6 +71,7 @@ export const fmtWaktu = (iso: string) =>
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: ZONA,
   }).format(new Date(iso));
 
 /** Nama jenis transaksi dalam bahasa user. */
