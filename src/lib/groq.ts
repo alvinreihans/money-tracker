@@ -111,8 +111,7 @@ const STRICT_REMINDER =
  *  - JSON invalid -> retry 1x ke model sama dengan prompt lebih ketat
  *  - 4xx lain     -> hentikan rantai, payload kita yang salah
  *
- * Dipakai bersama oleh ekstraksi struk dan rekening koran supaya logika
- * fallback-nya hanya ada di satu tempat.
+ * Logika fallback-nya sengaja di satu tempat, terpisah dari prompt ekstraksi.
  */
 export async function runGroqChain<T>(
   system: string,

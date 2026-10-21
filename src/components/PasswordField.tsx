@@ -1,6 +1,9 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useState } from "react";
+import { Circle, CircleCheck, Eye, EyeOff, LockKeyhole } from "lucide-react";
+import { Field } from "@/components/oneui";
+import s from "@/components/ui.module.css";
 import { cekPassword } from "@/lib/password";
 
 /**
@@ -16,117 +19,57 @@ interface Props {
   value: string;
   onChange: (nilai: string) => void;
   autoComplete: string;
-  placeholder?: string;
-  minLength?: number;
-  /** Elemen tambahan di sebelah kanan label, mis. tautan bantuan. */
-  aksi?: React.ReactNode;
+  /** Di bawah kolom, mis. tautan "Lupa password?". */
+  caption?: React.ReactNode;
   /** Tampilkan daftar syarat yang hidup saat mengetik. Untuk password BARU saja. */
   syarat?: boolean;
 }
 
-export default function PasswordField({
-  label,
-  value,
-  onChange,
-  autoComplete,
-  placeholder = "Minimal 8 karakter",
-  minLength = 8,
-  aksi,
-  syarat = false,
-}: Props) {
-  const id = useId();
-  const idSyarat = useId();
+export default function PasswordField({ label, value, onChange, autoComplete, caption, syarat = false }: Props) {
   const [terlihat, setTerlihat] = useState(false);
-  const daftar = syarat ? cekPassword(value) : [];
 
   return (
-    <div>
-      <div className="mb-1 flex items-baseline justify-between">
-        <label htmlFor={id} className="text-sm font-medium text-foreground">
-          {label}
-        </label>
-        {aksi}
-      </div>
-
-      <div className="relative">
-        <input
-          id={id}
-          type={terlihat ? "text" : "password"}
-          required
-          minLength={minLength}
-          autoComplete={autoComplete}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          aria-describedby={syarat ? idSyarat : undefined}
-          // Ruang kanan disisakan supaya teks tidak tertimpa tombol intip.
-          className="w-full rounded-md border border-border bg-transparent py-2 pl-3 pr-12 text-sm outline-none focus:border-[var(--ring)] focus:ring-2 focus:ring-[var(--ring)]"
-          placeholder={placeholder}
-        />
-
+    <Field
+      label={label}
+      ikon={LockKeyhole}
+      kanan={
         <button
           type="button"
-          onClick={() => setTerlihat((t) => !t)}
+          className={s.ikonTombol}
           // Label ikut berubah: pembaca layar harus tahu tombol ini akan
           // melakukan apa, bukan sedang dalam keadaan apa.
           aria-label={terlihat ? "Sembunyikan password" : "Tampilkan password"}
-          aria-pressed={terlihat}
-          className="absolute inset-y-0 right-0 flex w-12 items-center justify-center rounded-r-md text-muted-foreground transition hover:text-foreground"
+          onClick={() => setTerlihat((t) => !t)}
         >
-          {terlihat ? <IconMataTutup /> : <IconMata />}
+          {terlihat ? <EyeOff size={20} /> : <Eye size={20} />}
         </button>
-      </div>
-
-      {syarat && (
-        // Muncul begitu mulai mengetik. Menampilkannya sejak awal bikin form
-        // terlihat penuh tuntutan sebelum orang sempat mencoba.
-        <ul id={idSyarat} className={value ? "mt-2 space-y-0.5" : "hidden"}>
-          {daftar.map((s) => (
-            <li
-              key={s.id}
-              className="flex items-center gap-1.5 text-xs"
-              style={{ color: s.ok ? "var(--success)" : "var(--muted-foreground)" }}
-            >
-              {/* Tanda centang vs lingkaran: statusnya terbaca tanpa warna. */}
-              <span aria-hidden className="w-3">
-                {s.ok ? "✓" : "○"}
+      }
+      keterangan={
+        syarat && value ? (
+          // Muncul begitu mulai mengetik. Menampilkannya sejak awal bikin form
+          // terlihat penuh tuntutan sebelum orang sempat mencoba.
+          <span style={{ display: "grid", gap: 2 }}>
+            {cekPassword(value).map((x) => (
+              // Ikon centang vs lingkaran kosong: statusnya terbaca tanpa warna.
+              <span key={x.id} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                {x.ok ? <CircleCheck size={14} color="var(--sukses)" /> : <Circle size={14} />}
+                {x.label}
               </span>
-              {s.label}
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
-const svg = {
-  width: 18,
-  height: 18,
-  viewBox: "0 0 24 24",
-  fill: "none",
-  stroke: "currentColor",
-  strokeWidth: 1.8,
-  strokeLinecap: "round" as const,
-  strokeLinejoin: "round" as const,
-  "aria-hidden": true,
-};
-
-function IconMata() {
-  return (
-    <svg {...svg}>
-      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
-      <circle cx="12" cy="12" r="3" />
-    </svg>
-  );
-}
-
-function IconMataTutup() {
-  return (
-    <svg {...svg}>
-      <path d="M2 12s3.5-7 10-7c1.7 0 3.2.5 4.5 1.2" />
-      <path d="M22 12s-3.5 7-10 7c-1.7 0-3.2-.5-4.5-1.2" />
-      <path d="m3 3 18 18" />
-      <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
-    </svg>
+            ))}
+          </span>
+        ) : (
+          caption
+        )
+      }
+    >
+      <input
+        type={terlihat ? "text" : "password"}
+        required
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        autoComplete={autoComplete}
+        placeholder={label}
+      />
+    </Field>
   );
 }

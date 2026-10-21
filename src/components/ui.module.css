@@ -1,0 +1,1017 @@
+/* Komponen One UI. Token warna & ukuran ada di app/globals.css. */
+
+.app {
+  max-width: var(--lebar-app);
+  margin: 0 auto;
+  min-height: 100dvh;
+  /* Ruang untuk navigasi bawah (jaraknya 16px dari tepi) + 16px napas, supaya
+     isi terakhir tidak tertutup. Tombol kembali ke atas boleh menimpa kartu
+     terakhir — ia cuma muncul sesaat. */
+  padding-bottom: calc(var(--tinggi-nav) + 32px + env(safe-area-inset-bottom));
+}
+
+.isi {
+  padding: 0 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ---------- App bar ---------- */
+
+/* Baris aksi di bawah judul besar (One UI 8). Sticky: saat menempel, kedua
+   grupnya jadi kapsul transparan berblur yang melayang di atas konten. */
+.barAksi {
+  position: sticky;
+  top: calc(8px + env(safe-area-inset-top));
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  margin-bottom: 8px;
+  pointer-events: none;
+}
+
+.grupAksi {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  border-radius: 999px;
+  pointer-events: auto;
+  transition: background-color 150ms ease, box-shadow 150ms ease;
+}
+
+.grupAksi + .grupAksi { margin-left: auto; }
+
+.barAksi[data-ciut="true"] .grupAksi:has(> *:not([aria-hidden="true"])) {
+  background: rgba(44, 44, 44, 0.86);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+}
+
+/* Setinggi tombol ikon di sebelahnya (48px), supaya kapsul berisi judul saja
+   sama besar dengan kapsul ⋮. */
+.barJudulKecil {
+  display: none;
+  max-width: 55vw;
+  height: 48px;
+  line-height: 48px;
+  padding: 0 20px 0 6px;
+  font-size: 17px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.grupAksi > .barJudulKecil:first-child { padding-left: 20px; }
+
+.barAksi[data-ciut="true"] .barJudulKecil { display: block; }
+
+/* Area tampilan: judul besar di tengah dengan ruang lega, tanpa tombol. */
+.viewing {
+  min-height: min(34vh, 300px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 24px 24px;
+  text-align: center;
+}
+
+.judulBesar {
+  margin: 0;
+  font-size: 34px;
+  font-weight: 500;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.judulSub {
+  margin: 0;
+  color: var(--teks-2);
+  font-size: 15px;
+}
+
+/* ---------- Tombol ---------- */
+
+.ikonTombol {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--teks);
+  cursor: pointer;
+}
+
+.ikonTombol:active { background: var(--blok-2); }
+
+.tombol {
+  min-height: 48px;
+  padding: 0 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 0;
+  border-radius: var(--radius-tombol);
+  background: var(--tombol);
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tombol:disabled { opacity: 0.4; cursor: default; }
+
+.tombolSekunder { background: var(--blok-2); color: var(--teks); }
+
+.tombolPenuh { width: 100%; }
+
+/* Tombol flat untuk dialog: tanpa latar, supaya tidak menambah lapisan. */
+.flat {
+  flex: 1;
+  min-height: 48px;
+  border: 0;
+  border-radius: var(--radius-tombol);
+  background: transparent;
+  color: var(--primer);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.flat:active { background: var(--blok-2); }
+.flat:disabled { opacity: 0.4; }
+.flatBahaya { color: var(--bahaya); }
+
+.chip {
+  min-height: 40px;
+  padding: 0 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  border-radius: 20px;
+  background: var(--blok-2);
+  color: var(--teks);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.chip[aria-pressed="true"] { background: var(--primer); color: #000; font-weight: 600; }
+
+.chips {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  margin: 0 -16px;
+  padding: 0 16px;
+}
+
+.chipsBungkus { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* Pilihan tersegmen (jenis transaksi). */
+.segmen {
+  display: flex;
+  padding: 4px;
+  gap: 4px;
+  border-radius: 20px;
+  background: var(--blok-2);
+}
+
+.segmen button {
+  flex: 1;
+  min-height: 40px;
+  border: 0;
+  border-radius: 16px;
+  background: transparent;
+  color: var(--teks-2);
+  cursor: pointer;
+}
+
+.segmen button[aria-pressed="true"] { background: var(--blok); color: var(--teks); font-weight: 600; }
+
+/* ---------- Focus block & daftar ---------- */
+
+.blok {
+  border-radius: var(--radius-blok);
+  background: var(--blok);
+  overflow: hidden;
+}
+
+.blokIsi { padding: 20px; }
+
+.blokJudul { margin: 0; font-size: 24px; font-weight: 700; line-height: 1.2; }
+.blokSub { margin: 4px 0 0; color: var(--teks-2); font-size: 15px; }
+
+/* Aksi penutup kartu ala Samsung Wallet ("Close", "More things you can
+   add"): teks abu di tengah, dipisah garis tipis dari isi kartu. */
+.blokKaki {
+  display: block;
+  width: calc(100% - 40px);
+  margin: 0 20px;
+  padding: 16px 0;
+  border: 0;
+  border-top: 1px solid var(--garis);
+  background: none;
+  color: var(--teks-2);
+  font-size: 16px;
+  text-align: center;
+  cursor: pointer;
+}
+
+/* Subheader ala Samsung Wallet: abu-abu, semi-tebal, sejajar isi kartu. */
+.subheader {
+  margin: 12px 0 -6px;
+  padding: 0 20px;
+  color: var(--teks-2);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.subheaderBaris { display: flex; align-items: center; gap: 12px; }
+.subheaderNilai { font-variant-numeric: tabular-nums; }
+
+/* Titik-titik penuntun ("More things you can add ·······") — di sini
+   menyambung label hari ke totalnya, seperti baris di struk. */
+.titikTitik {
+  flex: 1;
+  height: 4px;
+  background-image: radial-gradient(circle, var(--titik) 1.2px, transparent 1.7px);
+  background-size: 8px 4px;
+  background-repeat: repeat-x;
+}
+
+.kelompok { display: flex; flex-direction: column; gap: 10px; }
+
+/* Subheader kelompok waktu ala Voice Recorder: putih tebal. */
+.subheaderTebal { color: var(--teks); font-size: 17px; font-weight: 700; margin-bottom: 0; }
+
+.kartuTx { display: block; border-radius: 22px; background: var(--blok); color: inherit; }
+.kartuTx:active { background: var(--blok-2); }
+
+/* Kartu penutup daftar ("Lihat semua riwayat"): teks abu di tengah. */
+.kartuKaki { padding: 16px 20px; color: var(--teks-2); text-align: center; }
+
+/* Keterangan transaksi di bawah garis putus-putus, seperti ringkasan rekaman. */
+.kartuCatatan {
+  margin: 0 20px;
+  padding: 10px 0 14px;
+  border-top: 1px dashed #4a4a4a;
+  color: var(--teks);
+  font-size: 15px;
+}
+
+/* Umpan balik tekan ala One UI: mengecil sedikit, bukan riak warna. */
+.tekan { transition: transform 120ms ease, background-color 120ms ease; }
+.tekan:active { transform: scale(0.98); }
+
+@media (prefers-reduced-motion: reduce) {
+  .tekan, .tekan:active { transition: none; transform: none; }
+}
+
+.baris {
+  min-height: 64px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 20px;
+  color: inherit;
+}
+
+.baris { position: relative; }
+
+/* Garis antarbaris menjorok: mulai sejajar teks, bukan dari bawah ikon
+   (daftar "Partners" di Samsung Wallet). */
+.baris + .baris::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 20px;
+  right: 20px;
+  border-top: 1px solid var(--garis);
+}
+
+.baris:has(> .barisIkon) + .baris:has(> .barisIkon)::before { left: 76px; }
+.baris:has(> .thumb) + .baris:has(> .thumb)::before { left: 84px; }
+
+a.baris:active, button.baris:active { background: var(--blok-2); }
+
+button.baris {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* Tombol yang sekaligus focus block (mis. "Edit transaksi") tetap berlatar blok. */
+button.blok { background: var(--blok); }
+
+.barisIkon {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--blok-2);
+}
+
+.barisTeks {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.barisJudul {
+  font-size: 17px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.redup { color: var(--teks-2); font-size: 14px; }
+
+/* Baris daftar tetap satu baris per teks, seperti daftar One UI. */
+.barisTeks > .redup { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.nominal {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.masuk { color: var(--sukses); }
+.pindah { color: var(--primer); }
+.tautan { color: var(--primer); font-weight: 600; }
+.bahaya { color: var(--bahaya); }
+.peringatan { color: var(--peringatan); }
+
+.lencana {
+  align-self: flex-start;
+  padding: 1px 8px;
+  border-radius: 8px;
+  background: var(--blok-2);
+  color: var(--teks-2);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.lencanaBahaya { background: rgba(255, 95, 95, 0.16); color: var(--bahaya); }
+
+/* ---------- Statistik & kategori ---------- */
+
+.statBaris {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding: 16px 20px;
+}
+
+.statBaris + .statBaris { border-top: 1px solid var(--garis); }
+
+.bar {
+  display: flex;
+  height: 12px;
+  gap: 2px;
+  border-radius: 6px;
+  overflow: hidden;
+  margin: 12px 0 16px;
+}
+
+/* Bar progres budget: lintasan abu, isinya warna kategori/status. */
+.progres {
+  display: block;
+  height: 8px;
+  margin: 6px 0 4px;
+  border-radius: 4px;
+  background: var(--blok-2);
+  overflow: hidden;
+}
+
+.progres > span { display: block; height: 100%; border-radius: 4px; }
+
+.budgetAtas,
+.budgetBawah {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.budgetBawah { color: var(--teks-2); font-size: 14px; }
+
+.titik {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ---------- Navigasi bawah & FAB ---------- */
+
+/* Bottom bar ala Samsung Wallet: kapsul melayang di tengah bawah. Tab aktif
+   ditandai kapsul yang lebih terang di belakangnya. */
+.nav {
+  position: fixed;
+  left: 50%;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  z-index: 30;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 4px;
+  padding: 6px;
+  border-radius: 999px;
+  background: #262626;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.nav a {
+  min-width: 108px;
+  height: 56px;
+  padding: 0 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border-radius: 999px;
+  color: var(--teks-2);
+  font-size: 13px;
+  transition: background-color 150ms ease;
+}
+
+.nav a[aria-current="page"] { background: #3d3d3d; color: var(--teks); font-weight: 600; }
+
+.navIkon { position: relative; display: flex; }
+
+/* Tombol + di tengah kapsul: aksi utama aplikasi, seperti tombol rekam di
+   tengah bawah Voice Recorder. */
+.navCatat {
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 4px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--fab);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(3, 129, 254, 0.35);
+  cursor: pointer;
+  transition: transform 120ms ease;
+}
+
+.navCatat:active { transform: scale(0.94); }
+
+/* Titik oranye di pojok ikon, seperti penanda notifikasi Samsung Wallet. */
+.navTitik {
+  position: absolute;
+  top: -2px;
+  right: -5px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ff6a1a;
+}
+
+.lapisBawah {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--tinggi-nav) + env(safe-area-inset-bottom) + 32px);
+  z-index: 25;
+  max-width: var(--lebar-app);
+  margin: 0 auto;
+  padding: 0 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+  pointer-events: none;
+}
+
+.lapisBawah > * { pointer-events: auto; }
+
+.snackbar {
+  align-self: stretch;
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 8px 8px 20px;
+  border-radius: var(--radius-tombol);
+  background: #2f2f2f;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+.snackbar > span { flex: 1; min-width: 0; font-size: 15px; }
+
+.snackbar button {
+  min-height: 40px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--primer);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* ---------- Dialog ---------- */
+
+.dialog {
+  width: calc(100% - 16px);
+  max-width: 560px;
+  max-height: calc(100dvh - 32px);
+  margin: auto auto 8px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-blok);
+  background: var(--blok);
+  color: var(--teks);
+  overflow: hidden;
+  display: none;
+}
+
+.dialog[open] { display: flex; flex-direction: column; }
+
+.dialogTengah { margin: auto; }
+
+.dialogPenuh {
+  width: 100%;
+  max-width: none;
+  height: 100dvh;
+  max-height: none;
+  margin: 0;
+  padding-top: env(safe-area-inset-top);
+  border-radius: 0;
+  background: #000;
+}
+
+/* Kepala halaman penuh: "‹ Judul" dalam satu baris (Samsung Wallet). */
+.dialogKepala { display: flex; align-items: center; gap: 4px; padding: 16px 12px 12px 4px; }
+.dialogPenuh .dialogKepala .dialogJudul { padding: 0; font-size: 24px; font-weight: 700; }
+
+.dialogPenuh .dialogBadan { padding: 4px 12px 16px; }
+
+/* Ruang di bawah isi supaya baris terakhir tidak tertutup kapsul tombol. */
+.dialogBadan.dialogBadanPil { padding-bottom: calc(100px + env(safe-area-inset-bottom)); }
+
+.dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
+
+.dialogJudul { margin: 0; padding: 24px 24px 8px; font-size: 20px; font-weight: 600; }
+.dialogSub { margin: -4px 0 0; padding: 0 24px 8px; color: var(--teks-2); font-size: 14px; }
+.dialogBadan { padding: 8px 24px 16px; overflow-y: auto; flex: 1; }
+.dialogBadanDaftar { padding: 0 0 8px; overflow-y: auto; }
+
+.dialogTombol {
+  display: flex;
+  gap: 8px;
+  padding: 8px 16px 16px;
+}
+
+/* ---------- Form ---------- */
+
+.form { display: flex; flex-direction: column; gap: 16px; }
+
+.keterangan { font-size: 13px; color: var(--teks-2); padding: 0 4px; }
+
+.galat { font-size: 13px; color: var(--bahaya); padding: 0 4px; }
+
+/*
+ * Isian ala Kontak Samsung (One UI 8): tanpa kotak, ikon garis di kiri, garis
+ * bawah tipis abu. Saat aktif garisnya putih dan menebal, label kecil di
+ * atasnya serta ikonnya jadi biru. Label hanya muncul begitu ada isinya —
+ * sebelum itu, nama field tampil sebagai placeholder.
+ */
+.fieldBaris {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 6px 20px;
+}
+
+/* Ikon sejajar tengah isian (label 18px + isian 44px), bukan dasar kolom,
+   supaya tetap lurus walau ada keterangan di bawahnya. */
+.fieldIkon {
+  width: 24px;
+  flex-shrink: 0;
+  display: flex;
+  justify-content: center;
+  padding-top: 29px;
+  color: var(--teks-2);
+}
+
+.fieldKolom {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  box-shadow: inset 0 -1px 0 #3d3d3d;
+  transition: box-shadow 150ms ease;
+}
+
+.fieldLabel {
+  min-height: 18px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--teks-2);
+}
+
+.fieldKolom > input,
+.fieldKolom > select,
+.fieldKolom > button,
+.fieldKolom > textarea {
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 32px 10px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  font-size: 18px;
+  appearance: none;
+}
+
+.fieldKolom > textarea { min-height: 44px; resize: none; field-sizing: content; }
+
+/* Isian pilihan (Pilih): tombol yang tampil seperti isian teks. */
+.fieldKolom > button { color: var(--teks); text-align: left; cursor: pointer; }
+
+.pilihAktif { color: var(--primer); font-weight: 600; }
+
+/* Label mengambang: tersembunyi selama isian kosong (placeholder-nya sudah
+   menyebut nama field). visibility, bukan display, supaya tinggi tidak lompat. */
+.fieldKolom:has(> input:placeholder-shown) > .fieldLabel,
+.fieldKolom:has(> textarea:placeholder-shown) > .fieldLabel { visibility: hidden; }
+
+.fieldBaris:focus-within .fieldKolom { box-shadow: inset 0 -2px 0 #fafafa; }
+.fieldBaris:focus-within .fieldLabel,
+.fieldBaris:focus-within .fieldIkon { color: var(--primer); }
+
+.fieldGalat .fieldKolom,
+.fieldGalat:focus-within .fieldKolom { box-shadow: inset 0 -2px 0 var(--bahaya); }
+
+/* Aksi di kanan isian: chevron pilihan, tombol intip password. */
+.fieldKanan {
+  position: absolute;
+  right: -10px;
+  bottom: 0;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  color: var(--teks-2);
+  pointer-events: none;
+}
+
+.fieldKanan button { pointer-events: auto; }
+
+.fieldBawah { padding: 6px 0 0; }
+
+/* Kartu berisi isian: jarak atas-bawah supaya baris pertama & terakhir lega. */
+.blokForm { padding: 10px 0 14px; }
+
+/* Tombol simpan/batal ala Kontak Samsung: kapsul melayang di tengah bawah,
+   dua tombol teks dipisah garis tegak — senada dengan navigasi bawah. */
+.pil {
+  position: absolute;
+  left: 50%;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  padding: 6px;
+  border-radius: 999px;
+  background: #262626;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.pil button {
+  min-width: 116px;
+  height: 52px;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--teks);
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.pil button:active { background: #3d3d3d; }
+.pil button:disabled { opacity: 0.4; cursor: default; }
+
+.pilPemisah { width: 1px; height: 26px; background: #4a4a4a; flex-shrink: 0; }
+
+.pesan {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 16px 20px;
+  border-radius: var(--radius-blok);
+  background: var(--blok);
+}
+
+.pesan > div { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+
+/* ---------- Lain-lain ---------- */
+
+.spinner {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  border: 2px solid var(--garis);
+  border-top-color: var(--primer);
+  border-radius: 50%;
+  animation: putar 0.8s linear infinite;
+}
+
+@keyframes putar { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner { animation-duration: 2.4s; }
+  .barJudul { transition: none; }
+}
+
+.kosong {
+  padding: 32px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+  color: var(--teks-2);
+}
+
+.pre {
+  margin: 0;
+  white-space: pre-wrap;
+  font-family: ui-monospace, monospace;
+  font-size: 14px;
+}
+
+.thumb {
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 12px;
+  flex-shrink: 0;
+}
+
+.video {
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  object-fit: contain;
+  background: #000;
+}
+
+.baris details { font-size: 14px; color: var(--teks-2); }
+
+/* ---------- Menu "lainnya" (⋮) ---------- */
+
+/* Popover API bawaan: buka/tutup, Esc, dan klik di luar ditangani browser.
+   Diposisikan di pojok kanan atas kolom aplikasi. */
+.popover {
+  position: fixed;
+  inset: auto;
+  top: 60px;
+  right: 12px;
+  margin: 0;
+  min-width: 220px;
+  padding: 8px 0;
+  border: 0;
+  border-radius: 20px;
+  background: #262626;
+  color: var(--teks);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.popover .baris { min-height: 52px; }
+
+/* Nomor versi: kecil dan redup, cuma untuk dicari saat melapor masalah. */
+.versi {
+  margin: 0;
+  padding: 8px 20px 4px;
+  color: var(--teks-2);
+  font-size: 12px;
+  text-align: center;
+}
+
+.popover .versi { text-align: left; border-top: 1px solid var(--garis); padding-top: 12px; }
+
+/* Tombol kembali ke atas ala My Files: muncul sebentar saat menggulir, lalu
+   memudar sendiri. */
+.keAtas {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--tinggi-nav) + env(safe-area-inset-bottom) + 28px);
+  z-index: 24;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(60, 60, 60, 0.9);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: var(--teks);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+  transform: translateX(-50%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 250ms ease;
+  cursor: pointer;
+}
+
+.keAtas[data-tampil="true"] { opacity: 1; pointer-events: auto; }
+
+/* Kolom cari ala One UI: kapsul dengan ikon kaca pembesar dan tombol hapus. */
+.cari {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 4px 0 16px;
+  border-radius: 28px;
+  background: var(--blok-2);
+  color: var(--teks-2);
+}
+
+.cari input {
+  flex: 1;
+  min-width: 0;
+  min-height: 48px;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: var(--teks);
+  font-size: 17px;
+}
+
+/* Tombol ✕ bawaan input search disembunyikan; kolom ini punya tombol sendiri. */
+.cari input::-webkit-search-cancel-button { appearance: none; }
+
+/* ---------- Sheet Catat ---------- */
+
+.pintasan {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.pintasan button {
+  min-height: 84px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 0;
+  border-radius: 20px;
+  background: var(--blok-2);
+  color: var(--teks);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.pintasan span {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+/* Chip saran: satu baris yang bisa digeser, keluar sampai tepi dialog. */
+.saran {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  margin: 0 -24px;
+  padding: 0 24px;
+}
+
+.saran .chip {
+  min-height: 36px;
+  padding: 0 14px;
+  font-size: 14px;
+  color: var(--teks-2);
+}
+
+.ketik {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 4px 4px 0;
+  border-radius: 28px;
+  background: var(--blok-2);
+}
+
+.ketik input {
+  flex: 1;
+  min-width: 0;
+  min-height: 52px;
+  padding: 0 4px 0 20px;
+  border: 0;
+  border-radius: 28px;
+  background: transparent;
+  font-size: 17px;
+}
+
+.kirim {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: var(--fab);
+  color: #fff;
+  cursor: pointer;
+}
+
+.kirim:disabled { background: var(--garis); color: var(--teks-2); cursor: default; }
+
+/* Ikon kategori di area tampilan halaman detail. */
+.ikonBesar {
+  width: 64px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  margin-bottom: 4px;
+}
+
+.logo { display: block; margin: 0 auto 16px; }
+
+/* ---------- Kategori ---------- */
+
+/* Pratinjau di atas form kategori: ikon besar berwarna + nama. */
+.kategoriPratinjau {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0 4px;
+  font-size: 18px;
+}
+
+.gridIkon {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(48px, 1fr));
+  gap: 8px;
+}
+
+.gridIkon button {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: var(--blok-2);
+  color: var(--teks-2);
+  cursor: pointer;
+}
+
+.gridWarna { display: flex; flex-wrap: wrap; gap: 12px; }
+
+.gridWarna button {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.gridWarna button[aria-checked="true"] { box-shadow: 0 0 0 3px var(--blok), 0 0 0 5px var(--teks); }

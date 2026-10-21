@@ -1,19 +1,39 @@
 import { SchemaType, type GenerationConfig } from "@google/generative-ai";
 import { getGeminiClient, GEMINI_MODEL } from "@/lib/gemini";
 import { runGroqChain, parseJsonLoose } from "@/lib/groq";
+import { KATEGORI_BAWAAN, kategoriJenis, LAINNYA, type Kategori } from "@/lib/kategori";
 import type { ExtractedReceipt, TransactionType } from "@/types/transaction";
 
-// Kategori yang diizinkan (harus konsisten dgn UI & analitik).
-export const CATEGORIES = [
-  "food",
-  "groceries",
-  "transport",
-  "shopping",
-  "health",
-  "entertainment",
-  "bills",
-  "other",
-] as const;
+/**
+ * Petunjuk untuk kategori bawaan. Kategori buatan user tidak punya petunjuk;
+ * model memilihnya dari arti namanya ("Kopi", "Kucing", "Kos").
+ */
+const PETUNJUK: Record<string, string> = {
+  food: "makan/jajan/kopi/gorengan",
+  groceries: "belanja bulanan/indomaret/supermarket",
+  transport: "gojek/grab/bensin/parkir/tol",
+  shopping: "baju/elektronik/tokopedia/shopee",
+  health: "obat/dokter/rumah sakit",
+  entertainment: "nonton/game/langganan",
+  bills: "listrik/pln/air/pulsa/internet/wifi",
+  fees: "biaya admin/biaya transfer",
+  salary: "gaji/gajian",
+  bonus: "bonus/THR/insentif",
+  business: "jualan/usaha/omzet",
+  freelance: "freelance/proyek/dibayar klien",
+  gift: "dikasih/hadiah/angpao/kiriman ortu",
+  refund: "cashback/refund/pengembalian dana",
+  investment: "bunga/dividen/hasil investasi",
+};
+
+/** Daftar kategori milik user untuk satu jenis, sebagai baris prompt. */
+const daftarPrompt = (kategori: Kategori[], type: "expense" | "income") =>
+  kategoriJenis(kategori, type)
+    .map((k) => `    - ${k.slug} = ${k.name}${PETUNJUK[k.slug] ? ` (mis. ${PETUNJUK[k.slug]})` : ""}`)
+    .join("\n");
+
+/** Nominal pelengkap dari model (biaya admin, cashback): angka > 0 atau null. */
+const nominalAtauNull = (v: unknown) => (Number(v) > 0 ? Math.round(Number(v)) : null);
 
 function toISODate(d: Date): string {
   return d.toISOString().slice(0, 10);
@@ -23,19 +43,22 @@ function toISODate(d: Date): string {
 // Prompt bersama (dipakai Groq maupun Gemini agar hasilnya konsisten)
 // ---------------------------------------------------------------------------
 
-function buildSystemPrompt(todayISO: string): string {
+function buildSystemPrompt(todayISO: string, kategori: Kategori[]): string {
   return `Anda adalah mesin ekstraksi data transaksi keuangan berbahasa Indonesia.
 Kembalikan HANYA objek JSON valid sesuai skema.
 
 Skema:
 {
   "amount": number,
-  "type": "income" | "expense",
+  "type": "income" | "expense" | "transfer",
   "merchant": string | null,
   "category": string,
   "transaction_date": "YYYY-MM-DD",
   "description": string | null,
   "payment_method": string | null,
+  "payment_target": string | null,
+  "fee": number | null,
+  "cashback": number | null,
   "document_type": "receipt" | "payment_proof"
 }
 
@@ -60,23 +83,57 @@ Aturan:
   utama transaksi yang biasanya tercetak paling besar di bagian atas. JANGAN
   mengambil angka promo/cashback ("Cashback up to ..."), sisa saldo, nomor
   kartu, PAN, RRN, atau ID transaksi.
-- type: "expense" untuk pengeluaran (default), "income" untuk pemasukan/gaji/transfer masuk.
-- category: WAJIB salah satu dari: ${CATEGORIES.join(", ")}.
-  Petunjuk: makan/jajan/kopi/gorengan=food; belanja bulanan/indomaret/supermarket=groceries;
-  gojek/grab/bensin/parkir/tol=transport; baju/elektronik/tokopedia/shopee=shopping;
-  obat/dokter/rumah sakit=health; nonton/game/langganan=entertainment;
-  listrik/pln/air/pulsa/internet/wifi=bills; sisanya=other.
-- merchant: nama toko/tempat/lokasi bila ada, jika tidak null.
+- type: arah uang dari sudut pandang PEMILIK catatan.
+  "income" bila uang MASUK ke pemilik: gaji/gajian, THR, bonus, cashback,
+  refund, bunga, hasil jual barang, atau uang yang dikasih/dikirim/ditransfer
+  orang lain ("dikasih ibu", "dapet dari teman", "terima transferan", "dibayar klien").
+  "expense" bila uang KELUAR untuk membeli, membayar, atau memberi ke orang lain (default).
+  "transfer" HANYA untuk memindahkan uang antar rekening/dompet milik sendiri:
+  topup e-wallet ("topup gopay 100rb dari bca"), tarik tunai, atau "pindahin
+  500rb dari bca ke seabank". Transfer ke orang lain atau bayar tagihan tetap
+  "expense".
+- category: isi dengan SLUG (kiri) dari daftar milik user di bawah, sesuai type.
+  Pilih berdasarkan arti NAMA kategorinya (kanan); kalau ada yang lebih spesifik
+  dan cocok, pilih yang itu. Kalau tidak ada yang cocok: "other".
+  Untuk "expense":
+${daftarPrompt(kategori, "expense")}
+  Untuk "income":
+${daftarPrompt(kategori, "income")}
+  Untuk "transfer" selalu "other".
+- merchant: nama toko/tempat/lokasi bila ada, jika tidak null. Untuk
+  "income": sumber uangnya bila disebut ("Ibu", "Kantor"). Nama bank/dompet
+  BUKAN merchant — itu payment_method.
 - transaction_date: format "YYYY-MM-DD". Jika tidak disebut, gunakan hari ini: ${todayISO}.
 - description: ringkasan singkat isi transaksi, boleh null.
 - payment_method: metode bayar bila disebut, normalkan istilah gaul/singkatan:
   "sopipay"/"spay"/"shopee pay"=ShopeePay; "gopay"=GoPay; "ovo"=OVO; "dana"=DANA;
   "qris"=QRIS; "cash"/"tunai"/"cod"=Tunai; "transfer"/"tf"/"m-banking"=Transfer;
   "kartu"/"debit"/"kredit"/"visa"=Kartu. Jika tidak disebut null.
+  Kalau nama bank/dompet disebut, pakai NAMA itu, bukan "Transfer"/"Kartu":
+  "tf mandiri" -> Mandiri; "masuk seabank" -> SeaBank; "debit bca" -> BCA.
+  Untuk "income", ini rekening/dompet tempat uang MASUK ("masuk bca", "ke bri" -> BRI).
+  Untuk "transfer", ini rekening/dompet ASAL uangnya ("tarik tunai dari bca" -> BCA).
+- payment_target: HANYA untuk "transfer", rekening/dompet TUJUAN dengan
+  normalisasi yang sama ("topup gopay dari bca" -> GoPay; tarik tunai -> Tunai).
+  Selain transfer null.
+- fee: HANYA untuk "transfer": biaya admin yang disebut ("admin 1000", "biaya 2,5rb"
+  -> 2500). Selain itu null.
+- cashback: HANYA untuk "expense": cashback yang BENAR-BENAR didapat dari belanja
+  itu ("cashback 5rb", "dapet koin 2rb"). BUKAN promo "Cashback up to ...". Selain itu null.
+  Cashback tanpa belanja ("dapet cashback 5rb") adalah "income" kategori refund.
 - document_type: "payment_proof" bila ini tangkapan layar bukti bayar dari
   aplikasi (ShopeePay/GoPay/OVO/DANA/QRIS/m-banking), "receipt" bila ini struk
   kertas dari mesin kasir. Dipakai untuk mencegah transaksi tercatat dua kali
   saat rekening koran diimpor.
+
+Contoh teks ketikan (field lain mengikuti aturan di atas):
+- "dikasih duit ibu 500k ke bri" -> type "income", amount 500000, merchant "Ibu", payment_method "BRI", payment_target null
+- "gajian 8jt masuk bca" -> type "income", amount 8000000, merchant null, payment_method "BCA"
+- "topup gopay 100rb dari bca" -> type "transfer", payment_method "BCA", payment_target "GoPay"
+- "transfer ke budi 50rb pake bca" -> type "expense", merchant "Budi", payment_method "BCA"
+- "kopi 25rb gopay" -> type "expense", payment_method "GoPay"
+- "beli pulsa 50rb shopeepay cashback 5rb" -> type "expense", payment_method "ShopeePay", cashback 5000
+- "topup gopay 100rb dari bca admin 1000" -> type "transfer", payment_method "BCA", payment_target "GoPay", fee 1000
 
 Jangan menambahkan teks/penjelasan/markdown di luar JSON.`;
 }
@@ -92,14 +149,13 @@ benar-benar tidak dapat ditentukan, kembalikan amount 0.`;
 // ---------------------------------------------------------------------------
 
 /** Rapikan hasil mentah model menjadi ExtractedReceipt yang konsisten. */
-export function normalize(parsed: Partial<ExtractedReceipt>): ExtractedReceipt {
-  const category =
-    typeof parsed.category === "string" &&
-    (CATEGORIES as readonly string[]).includes(parsed.category.toLowerCase())
-      ? parsed.category.toLowerCase()
-      : "other";
+export function normalize(parsed: Partial<ExtractedReceipt>, kategori: Kategori[] = KATEGORI_BAWAAN): ExtractedReceipt {
+  const type: TransactionType =
+    parsed.type === "income" || parsed.type === "transfer" ? parsed.type : "expense";
 
-  const type: TransactionType = parsed.type === "income" ? "income" : "expense";
+  // Kategori di luar daftar milik user (atau terhapus) jatuh ke "Lainnya".
+  const slug = typeof parsed.category === "string" ? parsed.category.trim() : "";
+  const category = kategoriJenis(kategori, type).some((k) => k.slug === slug) ? slug : LAINNYA;
 
   return {
     amount: Number(parsed.amount) || 0,
@@ -108,6 +164,9 @@ export function normalize(parsed: Partial<ExtractedReceipt>): ExtractedReceipt {
     merchant: parsed.merchant?.toString().trim() || null,
     description: parsed.description?.toString().trim() || null,
     payment_method: parsed.payment_method?.toString().trim() || null,
+    payment_target: type === "transfer" ? parsed.payment_target?.toString().trim() || null : null,
+    fee: type === "transfer" ? nominalAtauNull(parsed.fee) : null,
+    cashback: type === "expense" ? nominalAtauNull(parsed.cashback) : null,
     document_type: parsed.document_type === "payment_proof" ? "payment_proof" : "receipt",
     transaction_date:
       typeof parsed.transaction_date === "string" && parsed.transaction_date
@@ -121,7 +180,7 @@ export function normalize(parsed: Partial<ExtractedReceipt>): ExtractedReceipt {
  * Hasil yang lolos parsing JSON belum tentu masuk akal: model bisa mengembalikan
  * amount 0 atau tanggal ngawur ketika inputnya tidak terbaca.
  */
-export function isValidExtraction(r: ExtractedReceipt): boolean {
+export function isValidExtraction(r: ExtractedReceipt, kategori: Kategori[] = KATEGORI_BAWAAN): boolean {
   if (!Number.isFinite(r.amount) || r.amount <= 0) return false;
 
   if (!/^\d{4}-\d{2}-\d{2}$/.test(r.transaction_date)) return false;
@@ -133,7 +192,7 @@ export function isValidExtraction(r: ExtractedReceipt): boolean {
   const batasBawah = new Date("2000-01-01T00:00:00Z");
   if (date > besok || date < batasBawah) return false;
 
-  return (CATEGORIES as readonly string[]).includes(r.category);
+  return r.type === "transfer" || kategoriJenis(kategori, r.type).some((k) => k.slug === r.category);
 }
 
 // ---------------------------------------------------------------------------
@@ -146,12 +205,12 @@ export interface GroqExtraction {
 }
 
 /** Ekstraksi satu struk dari teks OCR, lewat rantai model Groq. */
-export async function extractWithGroq(text: string): Promise<GroqExtraction> {
+export async function extractWithGroq(text: string, kategori: Kategori[] = KATEGORI_BAWAAN): Promise<GroqExtraction> {
   const { value, model } = await runGroqChain<Partial<ExtractedReceipt>>(
-    buildSystemPrompt(toISODate(new Date())),
+    buildSystemPrompt(toISODate(new Date()), kategori),
     `${OCR_CONTEXT}\n\n---\n${text}`,
   );
-  return { extracted: normalize(value), model };
+  return { extracted: normalize(value, kategori), model };
 }
 
 // ---------------------------------------------------------------------------
@@ -162,12 +221,15 @@ const geminiSchema: GenerationConfig["responseSchema"] = {
   type: SchemaType.OBJECT,
   properties: {
     amount: { type: SchemaType.NUMBER },
-    type: { type: SchemaType.STRING, format: "enum", enum: ["income", "expense"] },
+    type: { type: SchemaType.STRING, format: "enum", enum: ["income", "expense", "transfer"] },
     merchant: { type: SchemaType.STRING, nullable: true },
     category: { type: SchemaType.STRING },
     transaction_date: { type: SchemaType.STRING },
     description: { type: SchemaType.STRING, nullable: true },
     payment_method: { type: SchemaType.STRING, nullable: true },
+    payment_target: { type: SchemaType.STRING, nullable: true },
+    fee: { type: SchemaType.NUMBER, nullable: true },
+    cashback: { type: SchemaType.NUMBER, nullable: true },
     document_type: { type: SchemaType.STRING, format: "enum", enum: ["receipt", "payment_proof"] },
   },
   required: ["amount", "type", "category", "transaction_date"],
@@ -181,10 +243,11 @@ const geminiSchema: GenerationConfig["responseSchema"] = {
 export async function extractWithGeminiVision(
   base64Image: string,
   mimeType: string,
+  kategori: Kategori[] = KATEGORI_BAWAAN,
 ): Promise<ExtractedReceipt> {
   const model = getGeminiClient().getGenerativeModel({
     model: GEMINI_MODEL,
-    systemInstruction: buildSystemPrompt(toISODate(new Date())),
+    systemInstruction: buildSystemPrompt(toISODate(new Date()), kategori),
     generationConfig: {
       responseMimeType: "application/json",
       responseSchema: geminiSchema,
@@ -205,7 +268,7 @@ export async function extractWithGeminiVision(
         { inlineData: { data: base64Image, mimeType } },
         { text: "Ekstrak data dari struk ini." },
       ]);
-      return normalize(parseJsonLoose(result.response.text()));
+      return normalize(parseJsonLoose(result.response.text()), kategori);
     } catch (err) {
       lastError = err;
       if (!isRetryableGeminiError(err)) throw err;

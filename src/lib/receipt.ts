@@ -4,14 +4,14 @@ import {
   extractWithGeminiVision,
   isValidExtraction,
 } from "@/lib/extract";
+import { KATEGORI_BAWAAN, type Kategori } from "@/lib/kategori";
 import type { ExtractedReceipt } from "@/types/transaction";
 
 /**
  * Orkestrasi pipeline ekstraksi struk sesuai FALLBACK.md.
  *
- * Fungsi di file ini adalah SATU-SATUNYA jalur logika; route web dan webhook
- * Telegram sama-sama memanggilnya. Webhook sengaja tidak memanggil endpoint
- * upload lewat HTTP: itu hanya menambah latensi dan satu invocation serverless.
+ * Fungsi di file ini adalah SATU-SATUNYA jalur logika ekstraksi; route
+ * upload struk dan catat-teks sama-sama memanggilnya.
  */
 
 export type ReceiptStatus = "confirmed" | "needs_review";
@@ -38,10 +38,15 @@ export interface TransactionRow {
   merchant: string | null;
   description: string | null;
   payment_method: string | null;
+  /** Bukan kolom: dicocokkan ke kantong_tujuan_id oleh simpanTransaksi lalu dibuang. */
+  payment_target: string | null;
+  /** Bukan kolom: jadi transaksi ikutan oleh simpanTransaksi (barisIkutan). */
+  biaya_admin: number | null;
+  cashback: number | null;
   transaction_date: string;
   status: ReceiptStatus;
   raw_ocr_text: string | null;
-  /** receipt | payment_proof — menentukan perilaku dedup saat impor statement. */
+  /** receipt | payment_proof | text — ditampilkan sebagai "Masuk lewat". */
   source: string;
 }
 
@@ -58,6 +63,9 @@ function emptyDraft(): ExtractedReceipt {
     merchant: null,
     description: null,
     payment_method: null,
+    payment_target: null,
+    fee: null,
+    cashback: null,
     transaction_date: today(),
     document_type: "receipt",
   };
@@ -73,16 +81,16 @@ function emptyDraft(): ExtractedReceipt {
 export async function processReceiptImage(
   image: Buffer,
   mimeType: string,
+  kategori: Kategori[] = KATEGORI_BAWAAN,
 ): Promise<ProcessedReceipt> {
   const notes: string[] = [];
   let ocr: OcrResult | null = null;
   let best: ExtractedReceipt | null = null;
 
   // --- 1. OCR ---
-  // Ukuran gambar ikut dicatat karena sumbernya berbeda-beda: Telegram
-  // mengompres foto sebelum meneruskannya, sedangkan unggahan web memakai
-  // berkas aslinya. Kalau hasilnya berbeda antar jalur, angka inilah yang
-  // membedakan "gambarnya sudah telanjur kecil" dari "OCR-nya yang bermasalah".
+  // Ukuran gambar ikut dicatat: foto kamera dan screenshot galeri bisa
+  // berbeda jauh. Angka inilah yang membedakan "gambarnya sudah telanjur
+  // kecil" dari "OCR-nya yang bermasalah".
   notes.push(`Gambar masuk: ${Math.round(image.byteLength / 1024)} KB, ${mimeType}`);
 
   try {
@@ -99,9 +107,9 @@ export async function processReceiptImage(
   // bisa menyelamatkan teks rusak, dia hanya akan menebak dengan percaya diri.
   if (ocr && isOcrUsable(ocr)) {
     try {
-      const { extracted, model } = await extractWithGroq(ocr.text);
+      const { extracted, model } = await extractWithGroq(ocr.text, kategori);
       best = extracted;
-      if (isValidExtraction(extracted)) {
+      if (isValidExtraction(extracted, kategori)) {
         notes.push(`Ekstraksi berhasil via Groq (${model})`);
         return done("confirmed", extracted, ocr, "groq", notes);
       }
@@ -126,9 +134,10 @@ export async function processReceiptImage(
     const extracted = await extractWithGeminiVision(
       image.toString("base64"),
       mimeType,
+      kategori,
     );
     best = extracted;
-    if (isValidExtraction(extracted)) {
+    if (isValidExtraction(extracted, kategori)) {
       notes.push("Ekstraksi berhasil via Gemini Vision");
       return done("confirmed", extracted, ocr, "gemini_vision", notes);
     }
@@ -142,17 +151,18 @@ export async function processReceiptImage(
 }
 
 /**
- * Pipeline untuk input TEKS (mis. pesan Telegram "kopi 25rb gopay").
+ * Pipeline untuk input TEKS (mis. "kopi 25rb gopay" di kolom Catat).
  * Tidak ada OCR dan tidak ada fallback vision — tidak ada gambar untuk dibaca.
  */
 export async function processReceiptText(
   text: string,
+  kategori: Kategori[] = KATEGORI_BAWAAN,
 ): Promise<ProcessedReceipt> {
   const notes: string[] = [];
 
   try {
-    const { extracted, model } = await extractWithGroq(text);
-    if (isValidExtraction(extracted)) {
+    const { extracted, model } = await extractWithGroq(text, kategori);
+    if (isValidExtraction(extracted, kategori)) {
       notes.push(`Ekstraksi berhasil via Groq (${model})`);
       return done("confirmed", extracted, null, "groq", notes);
     }
@@ -178,13 +188,15 @@ export function toTransactionRow(
     merchant: e.merchant,
     description: e.description,
     payment_method: e.payment_method,
+    payment_target: e.payment_target,
+    biaya_admin: e.fee,
+    cashback: e.cashback,
     transaction_date: e.transaction_date,
     status: result.status,
-    // Teks OCR hanya disimpan saat butuh koreksi manual — kalau ekstraksi
-    // berhasil, menyimpannya cuma menggemukkan tabel tanpa guna.
-    raw_ocr_text: result.status === "needs_review" ? result.rawOcrText : null,
-    // Bukti bayar digital akan muncul lagi sebagai baris rekening koran;
-    // menandainya di sini yang membuat deduplikasi bisa bekerja nanti.
+    // Dibuang lagi oleh simpanTransaksi kalau transaksinya akhirnya tidak
+    // jadi draft — draft bisa juga muncul di sana (kantong tak cocok).
+    raw_ocr_text: result.rawOcrText,
+    // Membedakan screenshot bukti bayar dari struk kertas di halaman detail.
     source: e.document_type,
   };
 }

@@ -1,142 +1,109 @@
-import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import HomeHeader from "@/components/HomeHeader";
-import TransactionList from "@/components/TransactionList";
-import UploadReceiptForm from "@/components/UploadReceiptForm";
-import UploadStatementForm from "@/components/UploadStatementForm";
-import SpendingByCategoryChart from "@/components/SpendingByCategoryChart";
+import { hitungStreak, progresBudget, trenBulanan } from "@/lib/analitik";
+import { geserHari, isoLokal } from "@/lib/format";
+import { ambilKantong } from "@/lib/kantong";
 import { rentangBulan } from "@/lib/periode";
-import type { Transaction } from "@/types/transaction";
+import BerandaView from "./BerandaView";
+import type { AvgMonthlyExpenseRow, Transaction } from "@/types/transaction";
 
 export const dynamic = "force-dynamic";
 
-const JUMLAH_DI_BERANDA = 6;
+const BULAN_TREN = 6;
+// ponytail: streak dihitung dari catatan 90 hari terakhir; lebih dari itu
+// tetap tampil "90 hari". Pindahkan ke RPC kalau ada yang betah selama itu.
+const HARI_STREAK = 90;
 
 export default async function BerandaPage() {
   const supabase = await createSupabaseServerClient();
-  const { awalBulanIni, awalBulanLalu } = rentangBulan();
+  const sekarang = new Date();
+  const { awalBulanIni, awalBulanLalu } = rentangBulan(sekarang);
+  const hariIni = isoLokal(sekarang);
+  const [tahun, bulan] = hariIni.split("-").map(Number);
+  const idxAwalTren = tahun * 12 + (bulan - 1) - (BULAN_TREN - 1);
+  const awalTren = `${Math.floor(idxAwalTren / 12)}-${String((idxAwalTren % 12) + 1).padStart(2, "0")}-01`;
 
   const jumlahkan = (rows: { amount: number }[] | null) =>
     (rows ?? []).reduce((s, r) => s + Number(r.amount), 0);
 
   // Transfer dikecualikan di semua hitungan: itu uang pindah kantong sendiri,
   // bukan pengeluaran maupun pemasukan.
-  const [{ data: terbaru }, { data: keluarIni }, { data: masukIni }, { data: keluarLalu }, { count: draft }] =
-    await Promise.all([
-      supabase
-        .from("transactions")
-        .select("*")
-        .order("transaction_date", { ascending: false })
-        .order("created_at", { ascending: false })
-        .limit(JUMLAH_DI_BERANDA),
-      supabase
-        .from("transactions")
-        .select("amount")
-        .eq("type", "expense")
-        .eq("status", "confirmed")
-        .gte("transaction_date", awalBulanIni),
-      supabase
-        .from("transactions")
-        .select("amount")
-        .eq("type", "income")
-        .eq("status", "confirmed")
-        .gte("transaction_date", awalBulanIni),
-      supabase
-        .from("transactions")
-        .select("amount")
-        .eq("type", "expense")
-        .eq("status", "confirmed")
-        .gte("transaction_date", awalBulanLalu)
-        .lt("transaction_date", awalBulanIni),
-      supabase
-        .from("transactions")
-        .select("id", { count: "exact", head: true })
-        .eq("status", "needs_review"),
-    ]);
-
-  const daftar = (terbaru ?? []) as Transaction[];
-  const jumlahDraft = draft ?? 0;
+  const [
+    {
+      data: { user },
+    },
+    { data: terbaru },
+    { data: keluarIni },
+    { data: masukIni },
+    { data: keluarLalu },
+    { count: draft },
+    { data: rerata, error: rerataError },
+    { data: barisTren },
+    { data: catatan },
+    { data: budgets },
+    { kantong, saldo },
+  ] = await Promise.all([
+    supabase.auth.getUser(),
+    // Beranda cuma hari ini & kemarin; selebihnya di Riwayat.
+    supabase
+      .from("transactions")
+      .select("*")
+      .in("transaction_date", [hariIni, geserHari(hariIni, -1)])
+      .order("transaction_date", { ascending: false })
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("transactions")
+      .select("amount, category")
+      .eq("type", "expense")
+      .eq("status", "confirmed")
+      .gte("transaction_date", awalBulanIni),
+    supabase
+      .from("transactions")
+      .select("amount")
+      .eq("type", "income")
+      .eq("status", "confirmed")
+      .gte("transaction_date", awalBulanIni),
+    supabase
+      .from("transactions")
+      .select("amount")
+      .eq("type", "expense")
+      .eq("status", "confirmed")
+      .gte("transaction_date", awalBulanLalu)
+      .lt("transaction_date", awalBulanIni),
+    supabase
+      .from("transactions")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "needs_review"),
+    supabase.rpc("get_avg_monthly_expense_by_category"),
+    supabase
+      .from("transactions")
+      .select("amount, type, transaction_date")
+      .eq("status", "confirmed")
+      .in("type", ["income", "expense"])
+      .gte("transaction_date", awalTren),
+    supabase
+      .from("transactions")
+      .select("created_at")
+      .gte("created_at", new Date(sekarang.getTime() - HARI_STREAK * 86_400_000).toISOString()),
+    supabase.from("budgets").select("category, amount"),
+    ambilKantong(supabase),
+  ]);
 
   return (
-    <>
-      <HomeHeader
-        keluar={jumlahkan(keluarIni)}
-        masuk={jumlahkan(masukIni)}
-        keluarBulanLalu={jumlahkan(keluarLalu)}
-      />
-
-      {jumlahDraft > 0 && (
-        <Link
-          href="/riwayat?filter=draft"
-          className="mx-4 mt-3 flex items-center gap-2.5 rounded-[var(--radius)] px-3.5 py-2.5"
-          style={{
-            background: "rgba(255,107,91,0.14)",
-            border: "1px solid rgba(255,107,91,0.14)",
-          }}
-        >
-          <svg
-            aria-hidden
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="var(--danger)"
-            strokeWidth="2"
-            strokeLinecap="round"
-            className="mt-0.5 shrink-0"
-          >
-            <path d="M12 9v4" />
-            <path d="M12 17h.01" />
-            <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
-          </svg>
-          <span>
-            <span
-              className="block text-[13px] font-semibold"
-              style={{ color: "var(--danger)" }}
-            >
-              {jumlahDraft} struk perlu dibenerin
-            </span>
-            <span className="block text-xs text-muted-foreground">
-              Nominalnya belum keisi, klik buat benerin.
-            </span>
-          </span>
-        </Link>
-      )}
-
-      <div className="space-y-5 px-4 pt-4">
-        <UploadReceiptForm />
-
-        <section>
-          <div className="mb-3 flex items-baseline justify-between gap-3">
-            <div>
-              <h2 className="text-[17px] font-bold text-foreground">Transaksi</h2>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                Klik salah satu buat lihat detailnya.
-              </p>
-            </div>
-            {daftar.length > 0 && (
-              <Link
-                href="/riwayat"
-                className="-my-2 flex min-h-11 shrink-0 items-center text-xs font-semibold"
-                style={{ color: "var(--primary)" }}
-              >
-                Lihat semua
-              </Link>
-            )}
-          </div>
-
-          {daftar.length === 0 ? (
-            <p className="rounded-[var(--radius-lg)] border border-border bg-card px-4 py-8 text-center text-sm text-muted-foreground">
-              Belum ada apa-apa. Foto struk dulu di atas.
-            </p>
-          ) : (
-            <TransactionList items={daftar} />
-          )}
-        </section>
-
-        <SpendingByCategoryChart />
-        <UploadStatementForm />
-      </div>
-    </>
+    <BerandaView
+      email={user?.email ?? null}
+      ringkasan={{
+        keluar: jumlahkan(keluarIni),
+        masuk: jumlahkan(masukIni),
+        keluarBulanLalu: jumlahkan(keluarLalu),
+      }}
+      draft={draft ?? 0}
+      terbaru={(terbaru ?? []) as Transaction[]}
+      rerata={(rerata ?? []) as AvgMonthlyExpenseRow[]}
+      rerataError={rerataError?.message ?? null}
+      tren={trenBulanan(barisTren ?? [], sekarang, BULAN_TREN)}
+      kantong={kantong.map((k) => ({ id: k.id, name: k.name, kind: k.kind, saldo: saldo.get(k.id) ?? 0 }))}
+      budget={progresBudget(budgets ?? [], keluarIni ?? [])}
+      streak={hitungStreak((catatan ?? []).map((c) => c.created_at as string), sekarang)}
+    />
   );
 }
