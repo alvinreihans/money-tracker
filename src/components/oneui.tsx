@@ -12,15 +12,18 @@ import s from "@/components/ui.module.css";
  */
 
 /**
- * App bar extended: judul besar di tengah area tampilan (atas), lalu mengecil
- * ke bilah atas begitu di-scroll. Area tampilan sengaja tanpa tombol —
- * kontrol tempatnya di area interaksi di bawahnya, dalam jangkauan jempol.
+ * App bar extended ala One UI 8 (Voice Recorder, Telepon): judul besar di area
+ * tampilan, lalu satu baris aksi tepat di bawahnya — dekat isi, dalam
+ * jangkauan jempol. Baris itu sticky: saat di-scroll ia menempel di atas, dan
+ * kedua grup tombolnya berubah jadi kapsul transparan yang melayang di atas
+ * konten, dengan judul kecil di kapsul kiri.
  */
 export function AppBar({
   judul,
   sub,
   judulKecil,
   kembali,
+  aksiKiri,
   aksi,
   ikon,
 }: {
@@ -28,9 +31,12 @@ export function AppBar({
   sub?: React.ReactNode;
   /** Visual di atas judul besar, mis. ikon kategori di halaman detail. */
   ikon?: React.ReactNode;
-  /** Judul di bilah atas setelah mengecil; bawaannya sama dengan `judul`. */
+  /** Judul di kapsul kiri setelah menempel; bawaannya sama dengan `judul`. */
   judulKecil?: React.ReactNode;
   kembali?: string;
+  /** Tombol di kiri baris aksi, mis. ☰ panel filter. */
+  aksiKiri?: React.ReactNode;
+  /** Tombol di kanan baris aksi, mis. ⋮ atau hapus. */
   aksi?: React.ReactNode;
 }) {
   const ref = useRef<HTMLElement>(null);
@@ -39,9 +45,9 @@ export function AppBar({
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    // Mengecil saat judul besarnya tertutup bilah atas (tinggi 56px).
+    // Judul besar sudah lewat = baris aksi sedang menempel di atas.
     const io = new IntersectionObserver(([e]) => setCiut(!e.isIntersecting), {
-      rootMargin: "-56px 0px 0px 0px",
+      rootMargin: "-8px 0px 0px 0px",
     });
     io.observe(el);
     return () => io.disconnect();
@@ -49,22 +55,25 @@ export function AppBar({
 
   return (
     <>
-      <div className={s.barAtas} data-ciut={ciut}>
-        {kembali && (
-          <NextLink href={kembali} className={s.ikonTombol} aria-label="Kembali">
-            <ChevronLeft size={24} />
-          </NextLink>
-        )}
-        <span className={s.barJudul} aria-hidden={!ciut}>
-          {judulKecil ?? judul}
-        </span>
-        {aksi}
-      </div>
       <header ref={ref} className={s.viewing}>
         {ikon}
         <h1 className={s.judulBesar}>{judul}</h1>
         {sub && <p className={s.judulSub}>{sub}</p>}
       </header>
+      <div className={s.barAksi} data-ciut={ciut}>
+        <div className={s.grupAksi}>
+          {kembali && (
+            <NextLink href={kembali} className={s.ikonTombol} aria-label="Kembali">
+              <ChevronLeft size={24} />
+            </NextLink>
+          )}
+          {aksiKiri}
+          <span className={s.barJudulKecil} aria-hidden={!ciut}>
+            {judulKecil ?? judul}
+          </span>
+        </div>
+        <div className={s.grupAksi}>{aksi}</div>
+      </div>
     </>
   );
 }
@@ -124,7 +133,11 @@ export function Lembar({
     return () => d.removeEventListener("cancel", batal);
   }, []);
 
-  const kelas = [s.dialog, posisi === "tengah" && s.dialogTengah, posisi === "penuh" && s.dialogPenuh]
+  const kelas = [
+    s.dialog,
+    posisi === "tengah" && s.dialogTengah,
+    posisi === "penuh" && s.dialogPenuh,
+  ]
     .filter(Boolean)
     .join(" ");
 
@@ -136,7 +149,18 @@ export function Lembar({
       // Ketuk di luar kotak (area backdrop) menutup dialog.
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      {judul && <h2 className={s.dialogJudul}>{judul}</h2>}
+      {posisi === "penuh" ? (
+        // Halaman penuh: tombol kembali lalu judul dalam satu baris, seperti
+        // "‹ Add boarding passes" di Samsung Wallet.
+        <div className={s.dialogKepala}>
+          <button type="button" className={s.ikonTombol} aria-label="Kembali" onClick={onClose}>
+            <ChevronLeft size={26} />
+          </button>
+          {judul && <h2 className={s.dialogJudul}>{judul}</h2>}
+        </div>
+      ) : (
+        judul && <h2 className={s.dialogJudul}>{judul}</h2>
+      )}
       {sub && <p className={s.dialogSub}>{sub}</p>}
       <div className={daftar ? s.dialogBadanDaftar : `${s.dialogBadan} ${pil ? s.dialogBadanPil : ""}`}>{children}</div>
       {tombol && <div className={s.dialogTombol}>{tombol}</div>}
@@ -163,12 +187,25 @@ export function Lembar({
  */
 export function MenuLainnya({ children }: { children: React.ReactNode }) {
   const id = useId();
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Tombolnya bisa di bawah judul besar atau di kapsul yang menempel di atas,
+  // jadi menu dibuka tepat di bawah tombol. Klik berjalan sebelum popover
+  // dibuka browser, jadi posisinya sudah benar saat muncul.
+  function letakkan(e: React.MouseEvent<HTMLButtonElement>) {
+    const r = e.currentTarget.getBoundingClientRect();
+    const m = menuRef.current;
+    if (!m) return;
+    m.style.top = `${r.bottom + 8}px`;
+    m.style.right = `${window.innerWidth - r.right}px`;
+  }
+
   return (
     <>
-      <button type="button" className={s.ikonTombol} popoverTarget={id} aria-label="Lainnya">
+      <button type="button" className={s.ikonTombol} popoverTarget={id} aria-label="Lainnya" onClick={letakkan}>
         <EllipsisVertical size={22} />
       </button>
-      <div id={id} popover="auto" className={s.popover}>
+      <div ref={menuRef} id={id} popover="auto" className={s.popover}>
         {children}
       </div>
     </>

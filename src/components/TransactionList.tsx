@@ -1,16 +1,18 @@
 import NextLink from "next/link";
 import { tandaTransaksi } from "@/components/kategori";
 import s from "@/components/ui.module.css";
-import { fmtHari, fmtIDR, fmtIDRRingkas, labelKategori } from "@/lib/format";
+import { fmtIDR, fmtIDRRingkas, fmtTanggal, kelompokWaktu, labelKategori } from "@/lib/format";
 import type { Transaction } from "@/types/transaction";
 
 /**
- * Daftar transaksi berkelompok ala One UI: dikelompokkan per hari dengan
- * subheader ("Hari ini", "Kemarin", tanggal), tiap baris dengan ikon berwadah
- * berwarna kategori, di dalam focus block membulat.
+ * Daftar transaksi ala Voice Recorder Samsung: satu transaksi satu kartu,
+ * dikelompokkan dengan subheader waktu yang makin kasar ke belakang ("Hari
+ * ini", "Kemarin", "Minggu ini", nama bulan, tahun). Keterangan transaksi
+ * tampil di bawah garis putus-putus di dalam kartunya, seperti ringkasan
+ * rekaman.
  *
- * Subheader membawa total pengeluaran hari itu — pertanyaan paling umum saat
- * membuka riwayat adalah "kemarin habis berapa".
+ * Subheader membawa total pengeluaran kelompoknya — pertanyaan paling umum
+ * saat membuka riwayat adalah "kemarin habis berapa".
  */
 
 /**
@@ -25,29 +27,34 @@ function kelasNominal(t: Transaction): string {
   return "";
 }
 
-function Baris({ t }: { t: Transaction }) {
+function Kartu({ t, kelompok }: { t: Transaction; kelompok: string }) {
   const { ikon: Ikon, warna } = tandaTransaksi(t);
-  const rincian = [labelKategori(t.category), t.payment_method].filter(Boolean).join(" · ");
+  // Di "Hari ini"/"Kemarin" tanggalnya sudah jelas dari subheader.
+  const tanggal = kelompok === "Hari ini" || kelompok === "Kemarin" ? null : fmtTanggal(t.transaction_date);
+  const rincian = [tanggal, labelKategori(t.category), t.payment_method].filter(Boolean).join(" · ");
 
   return (
-    <NextLink href={`/transactions/${t.id}`} className={`${s.baris} ${s.tekan}`}>
-      <span
-        className={s.barisIkon}
-        // Wadah diwarnai tipis, ikonnya warna penuh: tetap tenang di layar gelap.
-        style={{ background: `color-mix(in srgb, ${warna} 18%, transparent)`, color: warna }}
-        aria-hidden
-      >
-        <Ikon size={20} />
+    <NextLink href={`/transactions/${t.id}`} className={`${s.kartuTx} ${s.tekan}`}>
+      <span className={s.baris}>
+        <span
+          className={s.barisIkon}
+          // Wadah diwarnai tipis, ikonnya warna penuh: tetap tenang di layar gelap.
+          style={{ background: `color-mix(in srgb, ${warna} 18%, transparent)`, color: warna }}
+          aria-hidden
+        >
+          <Ikon size={20} />
+        </span>
+        <span className={s.barisTeks}>
+          <span className={s.barisJudul}>{t.merchant ?? "Tanpa nama"}</span>
+          <span className={s.redup}>{rincian}</span>
+          {t.status === "needs_review" && <span className={`${s.lencana} ${s.lencanaBahaya}`}>Perlu dibenerin</span>}
+        </span>
+        <span className={`${s.nominal} ${kelasNominal(t)}`}>
+          {t.type === "income" ? "+" : ""}
+          {fmtIDR(Number(t.amount))}
+        </span>
       </span>
-      <span className={s.barisTeks}>
-        <span className={s.barisJudul}>{t.merchant ?? "Tanpa nama"}</span>
-        <span className={s.redup}>{rincian}</span>
-        {t.status === "needs_review" && <span className={`${s.lencana} ${s.lencanaBahaya}`}>Perlu dibenerin</span>}
-      </span>
-      <span className={`${s.nominal} ${kelasNominal(t)}`}>
-        {t.type === "income" ? "+" : ""}
-        {fmtIDR(Number(t.amount))}
-      </span>
+      {t.description && <span className={s.kartuCatatan} style={{ display: "block" }}>{t.description}</span>}
     </NextLink>
   );
 }
@@ -57,41 +64,44 @@ export default function TransactionList({
   kaki,
 }: {
   items: Transaction[];
-  /** Aksi penutup di dasar kartu terakhir, mis. "Lihat semua riwayat". */
+  /** Aksi penutup di bawah daftar, mis. "Lihat semua riwayat". */
   kaki?: React.ReactNode;
 }) {
   // Data sudah terurut menurut tanggal dari query, jadi cukup dipecah urut.
-  const kelompok: { tanggal: string; isi: Transaction[] }[] = [];
+  const kelompok: { label: string; isi: Transaction[] }[] = [];
   for (const t of items) {
+    const label = kelompokWaktu(t.transaction_date);
     const akhir = kelompok[kelompok.length - 1];
-    if (akhir?.tanggal === t.transaction_date) akhir.isi.push(t);
-    else kelompok.push({ tanggal: t.transaction_date, isi: [t] });
+    if (akhir?.label === label) akhir.isi.push(t);
+    else kelompok.push({ label, isi: [t] });
   }
 
-  return kelompok.map((k, i) => {
-    // Draft belum punya nominal yang benar; pindah kantong bukan pengeluaran.
-    const keluar = k.isi
-      .filter((t) => t.type === "expense" && t.status === "confirmed")
-      .reduce((n, t) => n + Number(t.amount), 0);
+  return (
+    <>
+      {kelompok.map((k) => {
+        // Draft belum punya nominal yang benar; pindah kantong bukan pengeluaran.
+        const keluar = k.isi
+          .filter((t) => t.type === "expense" && t.status === "confirmed")
+          .reduce((n, t) => n + Number(t.amount), 0);
 
-    return (
-      <section key={k.tanggal} className={s.kelompok}>
-        <h2 className={`${s.subheader} ${s.subheaderBaris}`}>
-          <span>{fmtHari(k.tanggal)}</span>
-          {keluar > 0 && (
-            <>
-              <span className={s.titikTitik} aria-hidden />
-              <span className={s.subheaderNilai}>−{fmtIDRRingkas(keluar)}</span>
-            </>
-          )}
-        </h2>
-        <div className={s.blok}>
-          {k.isi.map((t) => (
-            <Baris key={t.id} t={t} />
-          ))}
-          {i === kelompok.length - 1 && kaki}
-        </div>
-      </section>
-    );
-  });
+        return (
+          <section key={k.label} className={s.kelompok}>
+            <h2 className={`${s.subheader} ${s.subheaderTebal} ${s.subheaderBaris}`}>
+              <span>{k.label}</span>
+              {keluar > 0 && (
+                <>
+                  <span className={s.titikTitik} aria-hidden />
+                  <span className={`${s.subheaderNilai} ${s.redup}`}>−{fmtIDRRingkas(keluar)}</span>
+                </>
+              )}
+            </h2>
+            {k.isi.map((t) => (
+              <Kartu key={t.id} t={t} kelompok={k.label} />
+            ))}
+          </section>
+        );
+      })}
+      {kaki}
+    </>
+  );
 }

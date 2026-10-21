@@ -49,12 +49,26 @@ export const namaBulan = (iso: string) =>
     new Date(`${iso.slice(0, 7)}-01T00:00:00Z`),
   );
 
-/** "Hari ini", "Kemarin", atau tanggalnya — untuk subheader daftar. */
-export const fmtHari = (iso: string, sekarang = new Date()) => {
+/**
+ * Kelompok waktu untuk subheader daftar, ala Voice Recorder Samsung: makin
+ * jauh ke belakang, makin kasar — "Hari ini", "Kemarin", "Minggu ini" (sejak
+ * Senin), nama bulan untuk tahun berjalan, lalu tahun.
+ */
+export const kelompokWaktu = (iso: string, sekarang = new Date()) => {
   const hariIni = isoLokal(sekarang);
+  if (iso > hariIni) return "Mendatang";
   if (iso === hariIni) return "Hari ini";
   if (iso === geserHari(hariIni, -1)) return "Kemarin";
-  return fmtTanggal(iso);
+
+  const hariKe = new Date(`${hariIni}T00:00:00Z`).getUTCDay(); // 0 = Minggu
+  const senin = geserHari(hariIni, -((hariKe + 6) % 7));
+  if (iso >= senin) return "Minggu ini";
+
+  if (iso.slice(0, 4) === hariIni.slice(0, 4)) {
+    const bulan = namaBulan(iso);
+    return bulan.charAt(0).toUpperCase() + bulan.slice(1);
+  }
+  return iso.slice(0, 4);
 };
 
 export const fmtTanggal = (iso: string) =>

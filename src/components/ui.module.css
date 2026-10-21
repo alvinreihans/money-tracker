@@ -17,32 +17,52 @@
 
 /* ---------- App bar ---------- */
 
-.barAtas {
+/* Baris aksi di bawah judul besar (One UI 8). Sticky: saat menempel, kedua
+   grupnya jadi kapsul transparan berblur yang melayang di atas konten. */
+.barAksi {
   position: sticky;
-  top: 0;
+  top: calc(8px + env(safe-area-inset-top));
   z-index: 20;
-  height: 56px;
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 0 8px;
-  background: var(--bg);
+  gap: 8px;
+  padding: 0 12px;
+  margin-bottom: 8px;
+  pointer-events: none;
 }
 
-.barJudul {
-  flex: 1;
+.grupAksi {
   min-width: 0;
-  padding: 0 8px;
-  font-size: 19px;
+  display: flex;
+  align-items: center;
+  border-radius: 999px;
+  pointer-events: auto;
+  transition: background-color 150ms ease, box-shadow 150ms ease;
+}
+
+.grupAksi + .grupAksi { margin-left: auto; }
+
+.barAksi[data-ciut="true"] .grupAksi:has(> *:not([aria-hidden="true"])) {
+  background: rgba(44, 44, 44, 0.86);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+}
+
+.barJudulKecil {
+  display: none;
+  max-width: 55vw;
+  padding: 0 18px 0 6px;
+  font-size: 17px;
   font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  opacity: 0;
-  transition: opacity 150ms ease;
 }
 
-.barAtas[data-ciut="true"] .barJudul { opacity: 1; }
+.grupAksi > .barJudulKecil:first-child { padding-left: 18px; }
+
+.barAksi[data-ciut="true"] .barJudulKecil { display: block; }
 
 /* Area tampilan: judul besar di tengah dengan ruang lega, tanpa tombol. */
 .viewing {
@@ -225,7 +245,25 @@
   background-repeat: repeat-x;
 }
 
-.kelompok { display: flex; flex-direction: column; gap: 16px; }
+.kelompok { display: flex; flex-direction: column; gap: 10px; }
+
+/* Subheader kelompok waktu ala Voice Recorder: putih tebal. */
+.subheaderTebal { color: var(--teks); font-size: 17px; font-weight: 700; margin-bottom: 0; }
+
+.kartuTx { display: block; border-radius: 22px; background: var(--blok); color: inherit; }
+.kartuTx:active { background: var(--blok-2); }
+
+/* Kartu penutup daftar ("Lihat semua riwayat"): teks abu di tengah. */
+.kartuKaki { padding: 16px 20px; color: var(--teks-2); text-align: center; }
+
+/* Keterangan transaksi di bawah garis putus-putus, seperti ringkasan rekaman. */
+.kartuCatatan {
+  margin: 0 20px;
+  padding: 10px 0 14px;
+  border-top: 1px dashed #4a4a4a;
+  color: var(--teks);
+  font-size: 15px;
+}
 
 /* Umpan balik tekan ala One UI: mengecil sedikit, bukan riak warna. */
 .tekan { transition: transform 120ms ease, background-color 120ms ease; }
@@ -374,7 +412,7 @@ button.blok { background: var(--blok); }
 }
 
 .nav a {
-  min-width: 120px;
+  min-width: 108px;
   height: 56px;
   padding: 0 20px;
   display: flex;
@@ -391,6 +429,27 @@ button.blok { background: var(--blok); }
 .nav a[aria-current="page"] { background: #3d3d3d; color: var(--teks); font-weight: 600; }
 
 .navIkon { position: relative; display: flex; }
+
+/* Tombol + di tengah kapsul: aksi utama aplikasi, seperti tombol rekam di
+   tengah bawah Voice Recorder. */
+.navCatat {
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 4px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--fab);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(3, 129, 254, 0.35);
+  cursor: pointer;
+  transition: transform 120ms ease;
+}
+
+.navCatat:active { transform: scale(0.94); }
 
 /* Titik oranye di pojok ikon, seperti penanda notifikasi Samsung Wallet. */
 .navTitik {
@@ -420,23 +479,6 @@ button.blok { background: var(--blok); }
 }
 
 .lapisBawah > * { pointer-events: auto; }
-
-.fab:active { transform: scale(0.94); }
-
-.fab {
-  transition: transform 120ms ease;
-  width: 56px;
-  height: 56px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 0;
-  border-radius: 50%;
-  background: var(--fab);
-  color: #fff;
-  box-shadow: 0 4px 16px rgba(3, 129, 254, 0.35);
-  cursor: pointer;
-}
 
 .snackbar {
   align-self: stretch;
@@ -494,8 +536,11 @@ button.blok { background: var(--blok); }
   background: #000;
 }
 
-.dialogPenuh .dialogJudul { padding: 20px 24px 12px; font-size: 24px; font-weight: 700; }
-.dialogPenuh .dialogBadan { padding: 8px 12px 16px; }
+/* Kepala halaman penuh: "‹ Judul" dalam satu baris (Samsung Wallet). */
+.dialogKepala { display: flex; align-items: center; gap: 4px; padding: 16px 12px 12px 4px; }
+.dialogPenuh .dialogKepala .dialogJudul { padding: 0; font-size: 24px; font-weight: 700; }
+
+.dialogPenuh .dialogBadan { padding: 4px 12px 16px; }
 
 /* Ruang di bawah isi supaya baris terakhir tidak tertutup kapsul tombol. */
 .dialogBadan.dialogBadanPil { padding-bottom: calc(100px + env(safe-area-inset-bottom)); }
@@ -716,8 +761,8 @@ button.blok { background: var(--blok); }
 .popover {
   position: fixed;
   inset: auto;
-  top: 52px;
-  right: max(8px, calc((100vw - var(--lebar-app)) / 2 + 8px));
+  top: 60px;
+  right: 12px;
   margin: 0;
   min-width: 220px;
   padding: 8px 0;

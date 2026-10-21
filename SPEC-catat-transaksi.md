@@ -16,10 +16,10 @@ Rombak UI mengikuti [One UI Design Guidelines](https://developer.samsung.com/one
 | Panduan One UI | Penerapan |
 |---|---|
 | Layar dibagi **area tampilan** (atas) dan **area interaksi** (bawah), supaya kontrol terjangkau jempol | Tiap halaman dibuka dengan judul besar di tengah, tanpa tombol. Semua kontrol ada di bawahnya. |
-| **App bar extended** mengecil saat di-scroll. Judul dinamis boleh berupa kalimat informasi penting. | Beranda: judulnya pengeluaran bulan ini (mis. "Rp 15.000"). Saat di-scroll, judul kecil muncul di bilah atas. |
-| Aksi app bar maksimal 3 | Detail: tombol kembali dan hapus saja. |
+| **App bar extended** mengecil saat di-scroll. Judul dinamis boleh berupa kalimat informasi penting. | Beranda: judulnya pengeluaran bulan ini (mis. "Rp 15.000"). Di bawah judul ada baris aksi (pola Voice Recorder & Telepon One UI 8). Saat di-scroll, baris itu menempel di atas dan tombolnya jadi kapsul transparan yang melayang, dengan judul kecil di kapsul kiri. |
+| Aksi app bar maksimal 3 | Detail: tombol kembali dan hapus saja. Halaman form penuh: "‹ Judul" dalam satu baris (pola Samsung Wallet). |
 | **Navigasi bawah** sebaiknya kurang dari 4 tab | Kapsul melayang ala Samsung Wallet (One UI 8): ikon di atas label, tab aktif berlatar kapsul lebih terang. Titik oranye di ikon Riwayat kalau ada draft. |
-| Primary `#0381fe` dipakai untuk **FAB** | Tombol **+** melayang di kanan bawah (Beranda dan Riwayat). Langsung membuka sheet berisi kolom ketik yang sudah fokus ("beli makan di warteg 20k shopeepay" lalu kirim). Pintasan Kamera, Galeri, dan Manual ada di atas kolomnya. |
+| Primary `#0381fe` untuk aksi utama | Tombol **+** bulat di tengah kapsul navigasi (Beranda · + · Riwayat), seperti tombol rekam di tengah bawah Voice Recorder. Tidak lagi menutupi nominal yang rata kanan. Membuka sheet berisi kolom ketik yang sudah fokus, dengan pintasan Kamera, Galeri, dan Manual di atasnya. |
 | **Dialog pilihan/konfirmasi di bawah layar**, info/progres di tengah | Semua form dan konfirmasi hapus berupa dialog bawah (`<dialog>` bawaan browser). |
 | Konten dikelompokkan dalam **focus block** membulat, dengan **subheader** | Blok bersudut 26px. Subheader abu-abu ala Samsung Wallet. Semua daftar dikelompokkan per hari ("Hari ini ······· −Rp 61.000", dengan titik penuntun ke total pengeluaran hari itu). Garis antarbaris menjorok sejajar teks. Kartu boleh berjudul di dalam ("Pengeluaran per kategori") dan ditutup aksi abu-abu di tengah ("Lihat semua riwayat"). |
 | Daftar berkelompok dengan **ikon berwadah** | Ikon kategori dalam wadah berwarna tipis. Warnanya sama di daftar, bar komposisi, dan detail. |

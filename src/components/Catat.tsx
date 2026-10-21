@@ -13,7 +13,7 @@ import { TEKS_MAKS, validasiTransaksi } from "@/lib/transaksi-input";
 import type { Transaction } from "@/types/transaction";
 
 /**
- * Pintu mencatat. Tombol "+" melayang (FAB) langsung membuka kolom ketik
+ * Pintu mencatat. Tombol "+" di tengah navigasi bawah langsung membuka kolom ketik
  * yang sudah siap diketik — "beli makan di warteg 20k shopeepay" lalu kirim, selesai.
  * Mengetik adalah cara tercepat, jadi itu yang langsung muncul; kamera,
  * galeri, dan form isian ada sebagai pintasan di atas kolomnya.
@@ -39,12 +39,20 @@ export function useCatat() {
   return api;
 }
 
+/** Tombol + di tengah kapsul navigasi bawah. */
+export function TombolCatat() {
+  const { buka } = useCatat();
+  return (
+    <button type="button" className={s.navCatat} aria-label="Catat transaksi" onClick={buka}>
+      <Plus size={28} />
+    </button>
+  );
+}
+
 export function CatatProvider({
-  fab,
   saran,
   children,
 }: {
-  fab: boolean;
   saran: string[];
   children: React.ReactNode;
 }) {
@@ -121,11 +129,6 @@ export function CatatProvider({
               {kabar.draft ? "Benerin" : "Lihat"}
             </button>
           </div>
-        )}
-        {fab && (
-          <button type="button" className={s.fab} aria-label="Catat transaksi" onClick={() => setDialog("catat")}>
-            <Plus size={28} />
-          </button>
         )}
       </div>
 

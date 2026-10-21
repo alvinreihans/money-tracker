@@ -100,7 +100,7 @@ export default function BerandaView({
             <TransactionList
               items={terbaru}
               kaki={
-                <NextLink href="/riwayat" className={s.blokKaki}>
+                <NextLink href="/riwayat" className={`${s.kartuTx} ${s.kartuKaki} ${s.tekan}`}>
                   Lihat semua riwayat
                 </NextLink>
               }
