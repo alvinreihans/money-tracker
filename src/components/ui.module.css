@@ -4,8 +4,10 @@
   max-width: var(--lebar-app);
   margin: 0 auto;
   min-height: 100dvh;
-  /* Ruang untuk navigasi bawah + FAB supaya isi terakhir tidak tertutup. */
-  padding-bottom: calc(var(--tinggi-nav) + 96px + env(safe-area-inset-bottom));
+  /* Ruang untuk navigasi bawah (jaraknya 16px dari tepi) + 16px napas, supaya
+     isi terakhir tidak tertutup. Tombol kembali ke atas boleh menimpa kartu
+     terakhir — ia cuma muncul sesaat. */
+  padding-bottom: calc(var(--tinggi-nav) + 32px + env(safe-area-inset-bottom));
 }
 
 .isi {
