@@ -70,14 +70,14 @@ export default function PengaturanView({
             ikon={Wallet}
             warna="#bf7af0"
             judul="Kantong"
-            ket={jumlahKantong > 0 ? `${jumlahKantong} kantong · saldo awal & tanggalnya` : "Rekening, e-wallet, tunai, dan saldo awalnya"}
+            ket={jumlahKantong > 0 ? `${jumlahKantong} kantong` : "Rekening, e-wallet, tunai"}
           />
           <BarisMenu
             href="/pengaturan/kategori"
             ikon={Shapes}
             warna="#ff9f43"
             judul="Kategori"
-            ket={`${kategori.length} kategori pengeluaran & pemasukan`}
+            ket={`${kategori.filter((k) => k.type === "expense").length} pengeluaran · ${kategori.filter((k) => k.type === "income").length} pemasukan`}
           />
           <BarisMenu
             href="/pengaturan/budget"

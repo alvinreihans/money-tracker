@@ -46,6 +46,19 @@ export const KATEGORI_BAWAAN: Kategori[] = [
 /** Pilihan warna kategori buatan user (abu khusus Lainnya). */
 export const WARNA_KATEGORI = ["#ff9f43", "#5ecb7a", "#3e91ff", "#ff7a9c", "#ff5f5f", "#bf7af0", "#4fc9e0", "#8fa3bf"];
 
+/** Nama warna untuk pembaca layar (bukan kode hex). */
+export const NAMA_WARNA: Record<string, string> = {
+  "#ff9f43": "Oranye",
+  "#5ecb7a": "Hijau",
+  "#3e91ff": "Biru",
+  "#ff7a9c": "Merah muda",
+  "#ff5f5f": "Merah",
+  "#bf7af0": "Ungu",
+  "#4fc9e0": "Toska",
+  "#8fa3bf": "Abu kebiruan",
+  "#9b9b9b": "Abu",
+};
+
 /** Kunci ikon yang boleh dipilih; peta ke komponen ikonnya di components/kategori.ts. */
 export const KUNCI_IKON = [
   "utensils", "coffee", "shopping-basket", "shopping-bag", "shirt", "car", "bus", "fuel", "plane",

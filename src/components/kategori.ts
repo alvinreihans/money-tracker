@@ -86,6 +86,46 @@ export const IKON_KATEGORI: Record<(typeof KUNCI_IKON)[number], LucideIcon> = {
   "circle-ellipsis": CircleEllipsis,
 };
 
+/** Nama ikon untuk pembaca layar. */
+export const NAMA_IKON: Record<(typeof KUNCI_IKON)[number], string> = {
+  utensils: "Sendok garpu",
+  coffee: "Kopi",
+  "shopping-basket": "Keranjang belanja",
+  "shopping-bag": "Tas belanja",
+  shirt: "Baju",
+  car: "Mobil",
+  bus: "Bus",
+  fuel: "Bensin",
+  plane: "Pesawat",
+  home: "Rumah",
+  zap: "Listrik",
+  wifi: "Wi-Fi",
+  smartphone: "HP",
+  receipt: "Struk",
+  coins: "Koin",
+  "heart-pulse": "Kesehatan",
+  pill: "Obat",
+  dumbbell: "Olahraga",
+  clapperboard: "Film",
+  gamepad: "Game",
+  music: "Musik",
+  book: "Buku",
+  "graduation-cap": "Pendidikan",
+  baby: "Anak",
+  "paw-print": "Hewan peliharaan",
+  gift: "Hadiah",
+  "heart-handshake": "Donasi",
+  briefcase: "Kerja",
+  sparkles: "Bonus",
+  store: "Toko",
+  laptop: "Laptop",
+  "badge-percent": "Diskon",
+  "trending-up": "Investasi",
+  "piggy-bank": "Tabungan",
+  wrench: "Perbaikan",
+  "circle-ellipsis": "Lainnya",
+};
+
 const LAINNYA = { ikon: CircleEllipsis, warna: "#9b9b9b" };
 
 /**

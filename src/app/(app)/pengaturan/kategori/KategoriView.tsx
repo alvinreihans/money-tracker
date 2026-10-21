@@ -4,7 +4,7 @@ import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Plus, Tag } from "lucide-react";
 import { useKategori } from "@/components/Catat";
-import { IKON_KATEGORI, tandaKategori } from "@/components/kategori";
+import { IKON_KATEGORI, NAMA_IKON, tandaKategori } from "@/components/kategori";
 import { AppBar, Field, Lembar, Pesan, Spinner } from "@/components/oneui";
 import s from "@/components/ui.module.css";
 import { dbErrorMessage } from "@/lib/errors";
@@ -12,6 +12,7 @@ import {
   kategoriJenis,
   KUNCI_IKON,
   LAINNYA,
+  NAMA_WARNA,
   slugBaru,
   validasiKategori,
   WARNA_KATEGORI,
@@ -93,7 +94,7 @@ export default function KategoriView() {
       .eq("type", edit.type)
       .eq("category", edit.slug);
     setLoading(false);
-    if (err) return setError(dbErrorMessage(err));
+    if (err) return setError("Gagal cek transaksi di kategori ini. Coba lagi.");
     setAkanPindah(count ?? 0);
   }
 
@@ -184,7 +185,7 @@ export default function KategoriView() {
                       type="button"
                       role="radio"
                       aria-checked={dipilih}
-                      aria-label={kunci}
+                      aria-label={NAMA_IKON[kunci]}
                       onClick={() => ubah({ icon: kunci })}
                       style={dipilih ? { background: `color-mix(in srgb, ${edit.color} 22%, transparent)`, color: edit.color, boxShadow: `inset 0 0 0 2px ${edit.color}` } : undefined}
                     >
@@ -204,7 +205,7 @@ export default function KategoriView() {
                     type="button"
                     role="radio"
                     aria-checked={edit.color === w}
-                    aria-label={`Warna ${w}`}
+                    aria-label={NAMA_WARNA[w] ?? w}
                     onClick={() => ubah({ color: w })}
                     style={{ background: w }}
                   >

@@ -102,7 +102,7 @@ export const SOURCE_LABEL: Record<string, string> = {
   receipt: "Foto struk",
   payment_proof: "Bukti pembayaran",
   statement: "Rekening koran",
-  text: "Diketik manual",
+  text: "Diketik",
 };
 
 export const labelSumber = (slug: string) => SOURCE_LABEL[slug] ?? slug;
