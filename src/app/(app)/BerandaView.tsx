@@ -2,16 +2,18 @@
 
 import NextLink from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronRight, Inbox, LogOut, TriangleAlert, UserRound } from "lucide-react";
+import { ChevronRight, Flame, Inbox, LogOut, TriangleAlert, UserRound } from "lucide-react";
 import { useCatat } from "@/components/Catat";
 import KomposisiKategori from "@/components/KomposisiKategori";
 import { AppBar, Kosong, MenuLainnya } from "@/components/oneui";
 import RingkasanBulan from "@/components/RingkasanBulan";
 import TransactionList from "@/components/TransactionList";
+import TrenBulanan from "@/components/TrenBulanan";
 import s from "@/components/ui.module.css";
 import { fmtIDR, namaBulan } from "@/lib/format";
 import { rentangBulan } from "@/lib/periode";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import type { Bulan } from "@/lib/analitik";
 import type { AvgMonthlyExpenseRow, Transaction } from "@/types/transaction";
 
 export default function BerandaView({
@@ -21,6 +23,8 @@ export default function BerandaView({
   terbaru,
   rerata,
   rerataError,
+  tren,
+  streak,
 }: {
   email: string | null;
   ringkasan: { keluar: number; masuk: number; keluarBulanLalu: number };
@@ -28,6 +32,8 @@ export default function BerandaView({
   terbaru: Transaction[];
   rerata: AvgMonthlyExpenseRow[];
   rerataError: string | null;
+  tren: Bulan[];
+  streak: { hari: number; hariIni: boolean };
 }) {
   const router = useRouter();
   const catat = useCatat();
@@ -82,6 +88,25 @@ export default function BerandaView({
       <div className={s.isi}>
         <RingkasanBulan keluar={keluar} masuk={masuk} />
 
+        {/* Penyemangat ala "reward karena rajin isi" di spreadsheet. */}
+        <div className={`${s.blok} ${s.baris}`}>
+          <span className={s.barisIkon} style={{ background: "color-mix(in srgb, #ff8a3d 18%, transparent)", color: "#ff8a3d" }} aria-hidden>
+            <Flame size={20} />
+          </span>
+          <span className={s.barisTeks}>
+            <span className={s.barisJudul}>
+              {streak.hari > 0 ? `${streak.hari} hari berturut-turut mencatat` : "Mulai streak hari ini"}
+            </span>
+            <span className={s.redup}>
+              {streak.hari === 0
+                ? "Catat satu transaksi tiap hari."
+                : streak.hariIni
+                  ? "Hari ini sudah tercatat. Mantap!"
+                  : "Catat hari ini biar nggak putus."}
+            </span>
+          </span>
+        </div>
+
         {draft > 0 && (
           <NextLink href="/riwayat?filter=draft" className={`${s.blok} ${s.baris} ${s.tekan}`}>
             <span className={`${s.barisIkon} ${s.peringatan}`} aria-hidden>
@@ -95,29 +120,33 @@ export default function BerandaView({
           </NextLink>
         )}
 
+        {/* Cuma hari ini & kemarin — Beranda untuk sekilas, riwayat lengkap di
+            tab Riwayat. */}
         {terbaru.length > 0 ? (
-          <>
-            <TransactionList
-              items={terbaru}
-              kaki={
-                <NextLink href="/riwayat" className={`${s.kartuTx} ${s.kartuKaki} ${s.tekan}`}>
-                  Lihat semua riwayat
-                </NextLink>
-              }
-            />
-          </>
+          <TransactionList
+            items={terbaru}
+            kaki={
+              <NextLink href="/riwayat" className={`${s.kartuTx} ${s.kartuKaki} ${s.tekan}`}>
+                Lihat semua riwayat
+              </NextLink>
+            }
+          />
         ) : (
           <div className={s.blok}>
-            <Kosong ikon={Inbox} judul="Belum ada transaksi">
+            <Kosong ikon={Inbox} judul="Belum ada transaksi hari ini">
               Ketik aja, mis. &ldquo;beli makan di warteg 20k shopeepay&rdquo;.
               <br />
               <button type="button" className={s.tombol} style={{ marginTop: 16 }} onClick={catat.buka}>
                 Catat transaksi
               </button>
             </Kosong>
+            <NextLink href="/riwayat" className={s.blokKaki}>
+              Lihat semua riwayat
+            </NextLink>
           </div>
         )}
 
+        <TrenBulanan data={tren} />
         <KomposisiKategori data={rerata} error={rerataError} />
       </div>
     </>
