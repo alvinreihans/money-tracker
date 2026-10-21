@@ -81,7 +81,8 @@ export async function POST(req: NextRequest) {
       {
         success: true,
         transaction: inserted,
-        status: result.status,
+        // Status akhir: bisa jadi draft di simpanTransaksi (kantong tak cocok).
+        status: inserted.status,
         source: result.source,
         supersededStatement,
         // Jejak keputusan pipeline; membantu saat hasilnya meleset.

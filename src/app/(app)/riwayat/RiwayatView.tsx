@@ -98,6 +98,12 @@ export default function RiwayatView({ filter, q, daftar }: { filter: string; q: 
           ))}
         </div>
 
+        {filter === "draft" && (
+          <p className={s.redup} style={{ margin: "0 20px" }}>
+            Yang belum kebaca AI atau kantongnya belum jelas. Benerin manual, ya.
+          </p>
+        )}
+
         {daftar.length > 0 ? (
           <TransactionList items={daftar} />
         ) : (

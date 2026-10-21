@@ -59,7 +59,11 @@ function tanggalSah(v: unknown): v is string {
   return d.getUTCFullYear() === t && d.getUTCMonth() === b - 1 && d.getUTCDate() === h;
 }
 
-export function validasiTransaksi(input: Record<string, unknown>): HasilValidasi {
+/**
+ * `wajibKantong`: user sudah punya kantong, jadi tiap transaksi harus jelas
+ * kantongnya (dan tujuannya, untuk pindah kantong).
+ */
+export function validasiTransaksi(input: Record<string, unknown>, { wajibKantong = false } = {}): HasilValidasi {
   // Dari form, nominal datang sebagai string; dari JSON bisa angka.
   const amount = typeof input.amount === "string" && input.amount.trim() === ""
     ? NaN
@@ -98,8 +102,14 @@ export function validasiTransaksi(input: Record<string, unknown>): HasilValidasi
   if (kantong_id === undefined || kantong_tujuan_id === undefined) {
     return { ok: false, error: "Kantongnya nggak dikenal." };
   }
+  if (wajibKantong && !kantong_id) {
+    return { ok: false, error: type === "transfer" ? "Pilih kantong asalnya dulu." : "Pilih kantongnya dulu." };
+  }
+  if (wajibKantong && type === "transfer" && !kantong_tujuan_id) {
+    return { ok: false, error: "Pilih kantong tujuannya dulu." };
+  }
   if (kantong_id && kantong_id === kantong_tujuan_id) {
-    return { ok: false, error: "Kantong asal dan tujuannya nggak boleh sama." };
+    return { ok: false, error: "Pilih kantong tujuan yang lain." };
   }
 
   return {

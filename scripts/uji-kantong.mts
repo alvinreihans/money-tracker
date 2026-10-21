@@ -4,7 +4,7 @@
  * Pemakaian: npm run uji:kantong
  */
 import assert from "node:assert/strict";
-import { cocokkanKantong, hitungSaldo, type Kantong } from "../src/lib/kantong.ts";
+import { alasanDraft, cocokkanKantong, hitungSaldo, type Kantong } from "../src/lib/kantong.ts";
 
 const bca: Kantong = { id: "bca", name: "BCA", kind: "bank", aliases: [], saldo_awal: "1000000.00", saldo_per: "2026-10-01" };
 const gopay: Kantong = { id: "gopay", name: "GoPay", kind: "ewallet", aliases: null, saldo_awal: 50000, saldo_per: "2026-10-10" };
@@ -42,4 +42,12 @@ assert.deepEqual(saldo, [
 ]);
 assert.deepEqual(hitungSaldo([], []), []);
 
-console.log("✓ kantong: pencocokan metode bayar, saldo");
+// --- Alasan draft ---
+const d = { status: "needs_review", amount: 500000, type: "income", kantong_id: null, kantong_tujuan_id: null };
+assert.equal(alasanDraft(d), "kantong"); // nominal kebaca, kantong tak cocok
+assert.equal(alasanDraft({ ...d, amount: 0 }), "baca"); // nominal tak kebaca
+assert.equal(alasanDraft({ ...d, type: "transfer", kantong_id: "bca" }), "kantong"); // tujuan belum jelas
+assert.equal(alasanDraft({ ...d, kantong_id: "bca" }), "baca");
+assert.equal(alasanDraft({ ...d, status: "confirmed" }), null);
+
+console.log("✓ kantong: pencocokan metode bayar, saldo, alasan draft");

@@ -43,16 +43,17 @@ export async function POST(req: NextRequest) {
   try {
     const { transaction } = await simpanTransaksi(supabase, user.id, {
       ...toTransactionRow(result, user.id),
-      // Teks yang gagal dibaca tetap disimpan apa adanya, supaya draft-nya
-      // bisa dibenerin tanpa harus mengingat lagi apa yang diketik.
-      raw_ocr_text: result.status === "needs_review" ? text : null,
+      // Kalau jadi draft, teks aslinya ikut disimpan supaya bisa dibenerin
+      // tanpa harus mengingat lagi apa yang diketik (dibuang kalau tidak).
+      raw_ocr_text: text,
       source: "text",
     });
 
     return NextResponse.json(
       {
         transaction: transaction as Transaction,
-        status: result.status,
+        // Status akhir: bisa jadi draft di simpanTransaksi (kantong tak cocok).
+        status: (transaction as Transaction).status,
         notes: result.notes,
       },
       { status: 201 },

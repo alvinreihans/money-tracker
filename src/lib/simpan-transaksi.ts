@@ -10,6 +10,9 @@ function shiftDate(iso: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+/** Isian manual tanpa kantong padahal user sudah punya kantong. */
+export class KantongKurang extends Error {}
+
 /**
  * Simpan satu transaksi (dari struk, teks, atau isian manual) sambil
  * menyingkirkan baris rekening koran yang ternyata mewakili transaksi sama.
@@ -41,10 +44,21 @@ export async function simpanTransaksi(
   row.kantong_id = kantong?.id ?? null;
   row.kantong_tujuan_id = tujuan && tujuan.id !== kantong?.id ? tujuan.id : null;
   if (kantong) row.payment_method = kantong.name;
-  // AI bisa menganggap "transfer ke Budi" pindah kantong. Tanpa tujuan yang
-  // jelas kantong sendiri, simpan sebagai pengeluaran — perilaku sebelum ada
-  // kantong, dan lebih aman daripada pengeluaran yang hilang dari hitungan.
-  if (dariAi && row.type === "transfer" && !row.kantong_tujuan_id) row.type = "expense";
+
+  // Begitu user punya kantong, tiap transaksi harus jelas kantongnya — kalau
+  // tidak, saldonya diam-diam meleset (mis. kantong yang disebut sudah
+  // dihapus). Hasil AI yang kantongnya tidak cocok jadi draft "Perlu
+  // dibenerin"; isian manual ditolak karena user-nya ada di depan form.
+  const kurangKantong = !row.kantong_id || (row.type === "transfer" && !row.kantong_tujuan_id);
+  if (daftar.length > 0 && kurangKantong) {
+    if (!dariAi) throw new KantongKurang(row.kantong_id ? "Pilih kantong tujuannya dulu." : "Pilih kantongnya dulu.");
+    row.status = "needs_review";
+  }
+  // Belum punya kantong sama sekali: "transfer" dari AI tidak bisa dipastikan
+  // pindah kantong sendiri, jadi dicatat pengeluaran seperti dulu.
+  if (dariAi && daftar.length === 0 && row.type === "transfer") row.type = "expense";
+  // Teks asli/OCR hanya disimpan untuk draft, sebagai bahan membetulkan.
+  if (row.status === "confirmed") row.raw_ocr_text = null;
 
   const amount = Number(row.amount);
   const date = String(row.transaction_date);

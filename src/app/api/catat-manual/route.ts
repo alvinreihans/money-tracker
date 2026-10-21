@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { simpanTransaksi } from "@/lib/simpan-transaksi";
+import { KantongKurang, simpanTransaksi } from "@/lib/simpan-transaksi";
 import { dbErrorMessage } from "@/lib/errors";
 import { validasiTransaksi } from "@/lib/transaksi-input";
 import type { Transaction } from "@/types/transaction";
@@ -43,6 +43,9 @@ export async function POST(req: NextRequest) {
     });
     return NextResponse.json({ transaction: transaction as Transaction }, { status: 201 });
   } catch (dbError) {
+    if (dbError instanceof KantongKurang) {
+      return NextResponse.json({ error: dbError.message }, { status: 400 });
+    }
     return NextResponse.json({ error: dbErrorMessage(dbError) }, { status: 500 });
   }
 }

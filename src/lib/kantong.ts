@@ -76,6 +76,23 @@ export function cocokkanKantong<K extends Pick<Kantong, "name" | "aliases">>(
   );
 }
 
+/**
+ * Kenapa transaksi jadi draft ("Perlu dibenerin"): nominalnya tidak terbaca,
+ * atau nominalnya terbaca tapi kantongnya (atau tujuan pindah kantong) belum
+ * jelas. Null kalau bukan draft.
+ */
+export function alasanDraft(t: {
+  status: string;
+  amount: number | string;
+  type: string;
+  kantong_id: string | null;
+  kantong_tujuan_id: string | null;
+}): "baca" | "kantong" | null {
+  if (t.status !== "needs_review") return null;
+  const kurangKantong = !t.kantong_id || (t.type === "transfer" && !t.kantong_tujuan_id);
+  return Number(t.amount) > 0 && kurangKantong ? "kantong" : "baca";
+}
+
 export interface BarisSaldo {
   amount: number | string;
   type: string;

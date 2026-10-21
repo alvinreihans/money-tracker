@@ -38,6 +38,13 @@ assert.ok(pindah.ok && pindah.data.kantong_tujuan_id === ID_B);
 const keluar = validasiTransaksi({ ...sah, kantong_id: ID_A, kantong_tujuan_id: ID_B });
 assert.ok(keluar.ok && keluar.data.kantong_id === ID_A && keluar.data.kantong_tujuan_id === null);
 
+// Sudah punya kantong: kantong wajib; pindah kantong wajib dua-duanya.
+const wajib = { wajibKantong: true };
+assert.equal(validasiTransaksi(sah, wajib).ok, false);
+assert.equal(validasiTransaksi({ ...sah, kantong_id: ID_A }, wajib).ok, true);
+assert.equal(validasiTransaksi({ ...sah, type: "transfer", kantong_id: ID_A }, wajib).ok, false);
+assert.equal(validasiTransaksi({ ...sah, type: "transfer", kantong_id: ID_A, kantong_tujuan_id: ID_B }, wajib).ok, true);
+
 const tolak: Array<[string, Record<string, unknown>]> = [
   ["nominal kosong", { ...sah, amount: "" }],
   ["nominal nol", { ...sah, amount: 0 }],

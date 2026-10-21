@@ -6,6 +6,7 @@ import { Camera, CircleCheck, CircleX, Clock, Image as IkonGambar, RotateCcw, Tr
 import ProcessingMessage from "@/components/ProcessingMessage";
 import s from "@/components/ui.module.css";
 import { fmtIDR, fmtTanggal, labelKategori } from "@/lib/format";
+import { alasanDraft } from "@/lib/kantong";
 import type { Transaction } from "@/types/transaction";
 
 interface UploadResponse {
@@ -235,6 +236,17 @@ function HasilItem({ item: i }: { item: Item }) {
         </Status>
         <span className={s.redup}>
           {labelKategori(t.category)} · {fmtTanggal(t.transaction_date)} · via {SUMBER[i.hasil.source]}
+        </span>
+      </>
+    );
+  }
+
+  if (i.status === "draft" && i.hasil && alasanDraft(i.hasil.transaction) === "kantong") {
+    return (
+      <>
+        <Status ikon={TriangleAlert} warna="var(--peringatan)">Kantongnya belum jelas</Status>
+        <span className={s.redup}>
+          {fmtIDR(Number(i.hasil.transaction.amount))} disimpan jadi draft. Pilih kantongnya ya.
         </span>
       </>
     );

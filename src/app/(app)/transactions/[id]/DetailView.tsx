@@ -6,11 +6,13 @@ import EditTransactionForm from "@/components/EditTransactionForm";
 import { tandaTransaksi } from "@/components/kategori";
 import { AppBar, Pesan } from "@/components/oneui";
 import s from "@/components/ui.module.css";
+import { alasanDraft } from "@/lib/kantong";
 import { fmtIDR, fmtTanggal, fmtWaktu, JENIS, labelKategori, labelSumber } from "@/lib/format";
 import type { Transaction } from "@/types/transaction";
 
 export default function DetailView({ t }: { t: Transaction }) {
   const draft = t.status === "needs_review";
+  const alasan = alasanDraft(t);
   const nama = t.merchant ?? "Tanpa nama";
   const { ikon: Ikon, warna } = tandaTransaksi(t);
   const { kantong } = useCatat();
@@ -20,7 +22,8 @@ export default function DetailView({ t }: { t: Transaction }) {
   const rincian = [
     ["Jenis", JENIS[t.type]],
     ["Kategori", labelKategori(t.category)],
-    [pindah ? "Dari kantong" : "Kantong", t.payment_method],
+    // Tanpa kantong tertaut, teksnya cuma metode bayar yang disebut, belum tentu kantong.
+    [t.kantong_id ? (pindah ? "Dari kantong" : "Kantong") : "Metode bayar", t.payment_method],
     ["Ke kantong", pindah ? kantong.find((k) => k.id === t.kantong_tujuan_id)?.name : null],
     ["Rekening", t.account],
     ["Lawan transaksi", t.counterparty],
@@ -55,8 +58,11 @@ export default function DetailView({ t }: { t: Transaction }) {
             judul="Perlu dibenerin"
             aksi={<EditTransactionForm tx={t} />}
           >
-            Struk atau teksnya nggak berhasil dibaca, jadi nominalnya belum benar dan belum ikut
-            dihitung di laporan.
+            {alasan === "kantong"
+              ? t.payment_method
+                ? `Nggak ada kantong yang cocok dengan “${t.payment_method}”. Pilih kantongnya dulu; sampai itu transaksi ini belum ikut dihitung.`
+                : "Kantongnya nggak disebut. Pilih kantongnya dulu; sampai itu transaksi ini belum ikut dihitung."
+              : "Struk atau teksnya nggak berhasil dibaca, jadi nominalnya belum benar dan belum ikut dihitung di laporan."}
           </Pesan>
         )}
 
@@ -69,9 +75,9 @@ export default function DetailView({ t }: { t: Transaction }) {
           ))}
         </dl>
 
-        {draft && (
+        {draft && (alasan === "baca" || t.raw_ocr_text) && (
           <>
-            <h2 className={s.subheader}>Teks yang sempat kebaca</h2>
+            <h2 className={s.subheader}>{alasan === "kantong" ? "Teks aslinya" : "Teks yang sempat kebaca"}</h2>
             <div className={`${s.blok} ${s.blokIsi}`}>
               {t.raw_ocr_text ? (
                 <pre className={s.pre}>{t.raw_ocr_text}</pre>

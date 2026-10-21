@@ -182,9 +182,9 @@ export function toTransactionRow(
     payment_target: e.payment_target,
     transaction_date: e.transaction_date,
     status: result.status,
-    // Teks OCR hanya disimpan saat butuh koreksi manual — kalau ekstraksi
-    // berhasil, menyimpannya cuma menggemukkan tabel tanpa guna.
-    raw_ocr_text: result.status === "needs_review" ? result.rawOcrText : null,
+    // Dibuang lagi oleh simpanTransaksi kalau transaksinya akhirnya tidak
+    // jadi draft — draft bisa juga muncul di sana (kantong tak cocok).
+    raw_ocr_text: result.rawOcrText,
     // Membedakan screenshot bukti bayar dari struk kertas di halaman detail.
     source: e.document_type,
   };

@@ -1,9 +1,10 @@
 "use client";
 
 import NextLink from "next/link";
-import { ArrowDownToLine, Banknote, CalendarDays, ChevronDown, CreditCard, NotebookPen, Shapes, Store, Wallet } from "lucide-react";
+import { ArrowDownToLine, Banknote, CalendarDays, CreditCard, NotebookPen, Shapes, Store, Wallet } from "lucide-react";
 import { useCatat } from "@/components/Catat";
-import { Field, Segmen } from "@/components/oneui";
+import { KATEGORI, TANDA_KANTONG } from "@/components/kategori";
+import { Field, Pilih, Segmen } from "@/components/oneui";
 import s from "@/components/ui.module.css";
 import { CATEGORY_LABEL, isoLokal } from "@/lib/format";
 import { TIPE_TRANSAKSI } from "@/lib/transaksi-input";
@@ -55,27 +56,23 @@ export default function TransactionFields({
 
   // Pilihan kantong. Nama kantong asal ikut disalin ke payment_method, supaya
   // daftar, saran, dan pencarian tetap memakai teks seperti sebelumnya.
+  // Tanpa pilihan "Tanpa kantong": begitu punya kantong, tiap transaksi wajib
+  // jelas kantongnya supaya saldonya benar.
+  const pilihanKantong = kantong.map((k) => ({ id: k.id, label: k.name, ...(TANDA_KANTONG[k.kind] ?? TANDA_KANTONG.bank) }));
   const pilihKantong = (kolom: "kantong_id" | "kantong_tujuan_id", label: string, ikon: React.ElementType) => (
-    <Field label={label} ikon={ikon} kanan={<ChevronDown size={22} />}>
-      <select
-        value={nilai[kolom]}
-        onChange={(e) => {
-          const id = e.target.value;
-          onChange(
-            kolom === "kantong_id"
-              ? { kantong_id: id, payment_method: kantong.find((k) => k.id === id)?.name ?? "" }
-              : { kantong_tujuan_id: id },
-          );
-        }}
-      >
-        <option value="">Tanpa kantong</option>
-        {kantong.map((k) => (
-          <option key={k.id} value={k.id}>
-            {k.name}
-          </option>
-        ))}
-      </select>
-    </Field>
+    <Pilih
+      label={label}
+      ikon={ikon}
+      nilai={nilai[kolom]}
+      pilihan={pilihanKantong}
+      onChange={(id) =>
+        onChange(
+          kolom === "kantong_id"
+            ? { kantong_id: id, payment_method: kantong.find((k) => k.id === id)?.name ?? "" }
+            : { kantong_tujuan_id: id },
+        )
+      }
+    />
   );
 
   return (
@@ -117,15 +114,13 @@ export default function TransactionFields({
           />
         </Field>
 
-        <Field label="Kategori" ikon={Shapes} kanan={<ChevronDown size={22} />}>
-          <select value={nilai.category} onChange={(e) => onChange({ category: e.target.value })}>
-            {Object.entries(CATEGORY_LABEL).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </Field>
+        <Pilih
+          label="Kategori"
+          ikon={Shapes}
+          nilai={nilai.category}
+          pilihan={Object.entries(CATEGORY_LABEL).map(([id, label]) => ({ id, label, ...(KATEGORI[id] ?? KATEGORI.other) }))}
+          onChange={(category) => onChange({ category })}
+        />
 
         {kantong.length > 0 ? (
           <>

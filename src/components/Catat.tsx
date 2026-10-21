@@ -7,7 +7,7 @@ import CameraCapture from "@/components/CameraCapture";
 import { Lembar, Pesan, Spinner } from "@/components/oneui";
 import TransactionFields, { nilaiAwal } from "@/components/TransactionFields";
 import s from "@/components/ui.module.css";
-import type { Kantong } from "@/lib/kantong";
+import { alasanDraft, type Kantong } from "@/lib/kantong";
 import DaftarAntrean, { ACCEPT_STRUK, useAntreanStruk } from "@/components/UploadReceiptForm";
 import { fmtIDR, labelKategori } from "@/lib/format";
 import { TEKS_MAKS, validasiTransaksi } from "@/lib/transaksi-input";
@@ -78,9 +78,11 @@ export function CatatProvider({
   function tersimpan(tx: Transaction, draft: boolean) {
     setDialog(null);
     setKabar({
-      teks: draft
-        ? "Nggak kebaca, disimpan jadi draft"
-        : `Tercatat: ${tx.merchant ?? labelKategori(tx.category)} ${fmtIDR(Number(tx.amount))}`,
+      teks: !draft
+        ? `Tercatat: ${tx.merchant ?? labelKategori(tx.category)} ${fmtIDR(Number(tx.amount))}`
+        : alasanDraft(tx) === "kantong"
+          ? "Kantongnya belum jelas, pilih dulu ya"
+          : "Nggak kebaca, disimpan jadi draft",
       href: `/transactions/${tx.id}`,
       draft,
     });
@@ -321,6 +323,7 @@ function CatatDialog({
 }
 
 function ManualDialog({ onClose, onTersimpan }: { onClose: () => void; onTersimpan: (tx: Transaction) => void }) {
+  const { kantong } = useCatat();
   const [nilai, setNilai] = useState(() => nilaiAwal());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -329,7 +332,7 @@ function ManualDialog({ onClose, onTersimpan }: { onClose: () => void; onTersimp
     e?.preventDefault();
     // Dicek di sini dulu supaya pesan salahnya langsung muncul; server tetap
     // memeriksa ulang dengan fungsi yang sama.
-    const cek = validasiTransaksi({ ...nilai });
+    const cek = validasiTransaksi({ ...nilai }, { wajibKantong: kantong.length > 0 });
     if (!cek.ok) return setError(cek.error);
 
     setLoading(true);
