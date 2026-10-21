@@ -1,9 +1,17 @@
 "use client";
 
-import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Box from "@cloudscape-design/components/box";
+import Button from "@cloudscape-design/components/button";
+import ExpandableSection from "@cloudscape-design/components/expandable-section";
+import FileUpload from "@cloudscape-design/components/file-upload";
+import FormField from "@cloudscape-design/components/form-field";
+import SpaceBetween from "@cloudscape-design/components/space-between";
+import StatusIndicator from "@cloudscape-design/components/status-indicator";
 import CameraCapture from "@/components/CameraCapture";
 import ProcessingMessage from "@/components/ProcessingMessage";
+import { fmtIDR, fmtTanggal, labelKategori } from "@/lib/format";
 import type { Transaction } from "@/types/transaction";
 
 interface UploadResponse {
@@ -39,46 +47,14 @@ interface Item {
   pesan?: string;
 }
 
-const ikon = {
-  width: 24,
-  height: 24,
-  viewBox: "0 0 24 24",
-  fill: "none",
-  stroke: "currentColor",
-  strokeWidth: 1.8,
-  strokeLinecap: "round" as const,
-  strokeLinejoin: "round" as const,
-  "aria-hidden": true,
-};
+const ACCEPT = "image/png,image/jpeg,image/webp,image/heic";
 
-function IconKamera() {
-  return (
-    <svg {...ikon}>
-      <path d="M3 8.5A2 2 0 0 1 5 6.5h2l1.2-2h7.6L17 6.5h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-      <circle cx="12" cy="13" r="3.5" />
-    </svg>
-  );
-}
-
-function IconGaleri() {
-  return (
-    <svg {...ikon} width={22} height={22}>
-      <rect x="3" y="5" width="18" height="14" rx="2.5" />
-      <circle cx="8.5" cy="10" r="1.5" />
-      <path d="m4 17 4.5-4.5 3 3L15 12l5 5" />
-    </svg>
-  );
-}
-
-const fmtIDR = (n: number) =>
-  new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(n);
-
+/** Isi tab "Foto struk": kamera atau galeri, lalu diproses satu per satu. */
 export default function UploadReceiptForm() {
   const router = useRouter();
   const [items, setItems] = useState<Item[]>([]);
   const [berjalan, setBerjalan] = useState(false);
   const [kameraBuka, setKameraBuka] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
 
   // Object URL tidak dibebaskan otomatis; tanpa ini memori terus menumpuk
   // kalau user menambah dan menghapus banyak gambar.
@@ -100,12 +76,6 @@ export default function UploadReceiptForm() {
       };
     });
     setItems((prev) => [...prev, ...baru]);
-  }
-
-  function handlePilih(e: ChangeEvent<HTMLInputElement>) {
-    tambahFiles(Array.from(e.target.files ?? []));
-    // Reset supaya memilih file yang sama dua kali tetap memicu onChange.
-    if (fileRef.current) fileRef.current.value = "";
   }
 
   function lepasPreview(daftar: Item[]) {
@@ -153,10 +123,7 @@ export default function UploadReceiptForm() {
       }
 
       const hasil = data as UploadResponse;
-      ubah(item.id, {
-        status: hasil.status === "confirmed" ? "ok" : "draft",
-        hasil,
-      });
+      ubah(item.id, { status: hasil.status === "confirmed" ? "ok" : "draft", hasil });
     } catch {
       ubah(item.id, { status: "gagal", pesan: "Koneksinya bermasalah." });
     }
@@ -172,15 +139,14 @@ export default function UploadReceiptForm() {
       }
     }
     setBerjalan(false);
-    router.refresh(); // segarkan chart dengan data terbaru
+    router.refresh(); // segarkan ringkasan, daftar, dan chart
   }
 
   const antre = items.filter((i) => i.status === "antre" || i.status === "gagal").length;
   const selesai = items.filter((i) => i.status === "ok" || i.status === "draft").length;
-  const semuaSelesai = items.length > 0 && antre === 0 && !berjalan;
 
   return (
-    <>
+    <SpaceBetween size="l">
       {kameraBuka && (
         <CameraCapture
           onCapture={(file) => {
@@ -191,157 +157,114 @@ export default function UploadReceiptForm() {
         />
       )}
 
-      <div className="w-full rounded-[var(--radius-lg)] border border-border bg-card shadow-sm">
-        <div className="p-4 pb-3">
-          <p className="m-0 text-[13px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
-            Catat transaksi
-          </p>
-        </div>
+      {/* Memotret struk adalah aksi harian di aplikasi ini, jadi tombol
+          kameranya yang primer. */}
+      <Button variant="primary" iconName="video-camera-on" onClick={() => setKameraBuka(true)}>
+        Foto pakai kamera
+      </Button>
 
-        <div className="space-y-4 p-4 pt-0">
-          {/* Memotret struk adalah aksi harian di aplikasi ini, jadi kedua
-              tombolnya dibikin besar dan sejajar — bukan tombol teks kecil. */}
-          <div className="grid grid-cols-2 gap-2.5">
-            <button
-              type="button"
-              onClick={() => setKameraBuka(true)}
-              className="flex flex-col items-center gap-1.5 rounded-[var(--radius)] bg-primary px-3 py-3.5 text-sm font-bold text-primary-foreground transition hover:opacity-90"
-            >
-              <IconKamera />
-              Foto pakai kamera
-            </button>
-            <button
-              type="button"
-              onClick={() => fileRef.current?.click()}
-              className="flex flex-col items-center gap-1.5 rounded-[var(--radius)] border-[1.5px] border-dashed border-border bg-secondary px-3 py-3.5 text-sm font-semibold text-secondary-foreground transition hover:opacity-90"
-            >
-              <IconGaleri />
-              {semuaSelesai ? "Upload lagi" : "Pilih gambar"}
-            </button>
-            <input
-              ref={fileRef}
-              type="file"
-              multiple
-              accept="image/png,image/jpeg,image/webp,image/heic"
-              onChange={handlePilih}
-              className="hidden"
-            />
-          </div>
+      <FormField label="Atau pilih dari galeri" constraintText="PNG, JPG, WEBP, atau HEIC. Maksimal 5 MB per gambar.">
+        {/* value selalu kosong: FileUpload di sini cuma pemilih berkas.
+            Antrean dan hasilnya ditampilkan sendiri di bawah. */}
+        <FileUpload
+          multiple
+          accept={ACCEPT}
+          value={[]}
+          onChange={(e) => tambahFiles(e.detail.value)}
+        />
+      </FormField>
 
-          {items.length > 0 && (
-            <ul className="space-y-2">
-              {items.map((i) => (
-                <li
-                  key={i.id}
-                  className="flex items-start gap-3 rounded-[var(--radius)] border border-border p-2"
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={i.preview}
-                    alt=""
-                    className="h-14 w-14 shrink-0 rounded object-cover"
-                  />
+      {items.length > 0 && (
+        <SpaceBetween size="s">
+          {items.map((i) => (
+            <div key={i.id} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={i.preview}
+                alt=""
+                style={{ width: 56, height: 56, objectFit: "cover", borderRadius: 8, flexShrink: 0 }}
+              />
 
-                  <div className="min-w-0 flex-1 text-sm">
-                    {i.status === "antre" && <p className="text-muted-foreground">Nunggu giliran</p>}
-                    {i.status === "proses" && (
-                      <ProcessingMessage className="text-muted-foreground" />
-                    )}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <HasilItem item={i} />
+              </div>
 
-                    {i.status === "ok" && i.hasil && (
-                      <>
-                        <p className="font-medium text-[var(--success)]">
-                          {i.hasil.transaction.merchant ?? "Tanpa nama"} —{" "}
-                          {fmtIDR(i.hasil.transaction.amount)}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {i.hasil.transaction.category} ·{" "}
-                          {i.hasil.transaction.transaction_date} · via{" "}
-                          {SUMBER[i.hasil.source]}
-                        </p>
-                      </>
-                    )}
-
-                    {i.status === "draft" && (
-                      <>
-                        <p className="font-medium text-[var(--accent)]">Nggak kebaca</p>
-                        <p className="text-xs text-muted-foreground">
-                          Disimpan jadi draft, nominalnya isi manual ya.
-                        </p>
-                        {/* Jejak tahapnya cuma muncul saat gagal, dan terlipat
-                            supaya tidak menghalangi yang cuma mau membenarkan
-                            nominalnya. */}
-                        {i.hasil?.notes?.length ? (
-                          <details className="mt-1">
-                            <summary className="cursor-pointer text-xs text-muted-foreground">
-                              Kenapa gagal?
-                            </summary>
-                            <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
-                              {i.hasil.notes.map((n, idx) => (
-                                <li key={idx} className="break-words">
-                                  · {n}
-                                </li>
-                              ))}
-                            </ul>
-                          </details>
-                        ) : null}
-                      </>
-                    )}
-
-                    {i.status === "gagal" && (
-                      <>
-                        <p className="font-medium text-[var(--danger)]">Gagal</p>
-                        <p className="text-xs text-muted-foreground">{i.pesan}</p>
-                      </>
-                    )}
-                  </div>
-
-                  {!berjalan && (
-                    <button
-                      onClick={() => hapus(i.id)}
-                      className="shrink-0 text-xs text-muted-foreground transition hover:text-[var(--danger)]"
-                    >
-                      Hapus
-                    </button>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-
-          {items.length > 0 && (
-            <div className="flex flex-wrap items-center gap-3">
-              {antre > 0 && (
-                <button
-                  type="button"
-                  onClick={() => void prosesSemua()}
-                  disabled={berjalan}
-                  className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-40"
-                >
-                  {berjalan ? "Lagi diproses..." : `Proses ${antre} gambar`}
-                </button>
-              )}
-
-              {selesai > 0 && (
-                <button
-                  type="button"
-                  onClick={bersihkan}
-                  disabled={berjalan}
-                  className="text-sm text-muted-foreground transition hover:text-foreground disabled:opacity-40"
-                >
-                  Bersihkan daftar
-                </button>
+              {!berjalan && (
+                <Button variant="icon" iconName="close" ariaLabel="Hapus gambar" onClick={() => hapus(i.id)} />
               )}
             </div>
-          )}
+          ))}
+        </SpaceBetween>
+      )}
 
-          {berjalan && (
-            <p className="text-xs text-muted-foreground">
-              Diproses satu per satu biar nggak kena batas kuota.
-            </p>
+      {items.length > 0 && (
+        <SpaceBetween direction="horizontal" size="xs">
+          {antre > 0 && (
+            <Button variant="primary" loading={berjalan} onClick={() => void prosesSemua()}>
+              {berjalan ? "Lagi diproses..." : `Proses ${antre} gambar`}
+            </Button>
           )}
-        </div>
-      </div>
-    </>
+          {selesai > 0 && (
+            <Button disabled={berjalan} onClick={bersihkan}>
+              Bersihkan daftar
+            </Button>
+          )}
+        </SpaceBetween>
+      )}
+
+      {berjalan && (
+        <Box variant="small" color="text-body-secondary">
+          Diproses satu per satu biar nggak kena batas kuota.
+        </Box>
+      )}
+    </SpaceBetween>
+  );
+}
+
+function HasilItem({ item: i }: { item: Item }) {
+  if (i.status === "antre") return <StatusIndicator type="pending">Nunggu giliran</StatusIndicator>;
+  if (i.status === "proses") return <ProcessingMessage />;
+
+  if (i.status === "ok" && i.hasil) {
+    const t = i.hasil.transaction;
+    return (
+      <SpaceBetween size="xxxs">
+        <StatusIndicator type="success">
+          {t.merchant ?? "Tanpa nama"} — {fmtIDR(Number(t.amount))}
+        </StatusIndicator>
+        <Box variant="small" color="text-body-secondary">
+          {labelKategori(t.category)} · {fmtTanggal(t.transaction_date)} · via {SUMBER[i.hasil.source]}
+        </Box>
+      </SpaceBetween>
+    );
+  }
+
+  if (i.status === "draft") {
+    return (
+      <SpaceBetween size="xxxs">
+        <StatusIndicator type="warning">Nggak kebaca</StatusIndicator>
+        <Box variant="small" color="text-body-secondary">
+          Disimpan jadi draft, nominalnya isi manual ya.
+        </Box>
+        {/* Jejak tahapnya cuma muncul saat gagal, dan terlipat supaya tidak
+            menghalangi yang cuma mau membenarkan nominalnya. */}
+        {i.hasil?.notes?.length ? (
+          <ExpandableSection headerText="Kenapa gagal?" variant="footer">
+            <Box variant="small">
+              {i.hasil.notes.map((n, idx) => (
+                <div key={idx}>· {n}</div>
+              ))}
+            </Box>
+          </ExpandableSection>
+        ) : null}
+      </SpaceBetween>
+    );
+  }
+
+  return (
+    <SpaceBetween size="xxxs">
+      <StatusIndicator type="error">Gagal</StatusIndicator>
+      <Box variant="small" color="text-body-secondary">{i.pesan}</Box>
+    </SpaceBetween>
   );
 }

@@ -157,7 +157,9 @@ export async function importStatement(
     .from("transactions")
     .select("amount, transaction_date, payment_method")
     .eq("user_id", userId)
-    .in("source", ["payment_proof", "receipt"])
+    // "text" ikut: transaksi yang diketik ("kopi 25rb gopay") juga akan muncul
+    // lagi di rekening koran.
+    .in("source", ["payment_proof", "receipt", "text"])
     .gte("transaction_date", from)
     .lte("transaction_date", to);
 

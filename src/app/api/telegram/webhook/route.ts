@@ -204,11 +204,11 @@ export async function POST(req: NextRequest) {
 
       // Menyingkirkan baris rekening koran yang mewakili transaksi sama.
       try {
-        await insertFromImage(
-          admin,
-          userId,
-          toTransactionRow(result, userId) as unknown as Record<string, unknown>,
-        );
+        await insertFromImage(admin, userId, {
+          ...toTransactionRow(result, userId),
+          // Pesan teks tidak punya struk; tanpa ini tercatat sebagai "Foto struk".
+          ...(hasPhoto ? {} : { source: "text" }),
+        });
       } catch (dbError) {
         const pesan = dbError instanceof Error ? dbError.message : "Unknown error";
         await sendMessage(chatId, `❌ Gagal nyimpen: ${escapeHtml(pesan)}`);

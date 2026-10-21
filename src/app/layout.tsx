@@ -1,13 +1,7 @@
 import type { Metadata, Viewport } from "next";
-import { Plus_Jakarta_Sans } from "next/font/google";
-import "./globals.css";
-
-// Plus Jakarta Sans memang dirancang untuk Jakarta — pas untuk aplikasi ini.
-const jakarta = Plus_Jakarta_Sans({
-  subsets: ["latin"],
-  variable: "--font-jakarta",
-  display: "swap",
-});
+import "@cloudscape-design/global-styles/index.css";
+import { colorBackgroundLayoutMain } from "@cloudscape-design/design-tokens";
+import Providers from "@/components/Providers";
 
 export const metadata: Metadata = {
   title: "Money Tracker",
@@ -15,17 +9,21 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  // Aplikasi gelap saja, jadi satu warna saja — disamakan dgn header oranye.
-  themeColor: "#f56e0f",
+  // Latar layout Cloudscape mode gelap, supaya bilah status HP menyatu.
+  themeColor: "#0f141a",
 };
 
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="id" className={jakarta.variable}>
-      <body className="min-h-dvh bg-background font-sans text-foreground antialiased">
-        {children}
+    // colorScheme gelap: area di luar AppLayout (overscroll di HP) tidak putih.
+    <html lang="id" style={{ colorScheme: "dark" }}>
+      {/* Class mode gelap Cloudscape dipasang dari server, bukan lewat
+          applyMode() di browser — kalau menunggu JS, halaman sempat berkedip
+          terang dulu. */}
+      <body className="awsui-dark-mode" style={{ margin: 0, background: colorBackgroundLayoutMain }}>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

@@ -1,24 +1,26 @@
-import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import TransactionList from "@/components/TransactionList";
+import TransactionTable from "@/components/TransactionTable";
+import { Box, ContentLayout, Header } from "@/components/ui";
+import FilterRiwayat from "./FilterRiwayat";
 import type { Transaction } from "@/types/transaction";
 
 export const dynamic = "force-dynamic";
 
 const FILTER = [
-  { id: "semua", label: "Semua" },
-  { id: "keluar", label: "Keluar" },
-  { id: "masuk", label: "Masuk" },
-  { id: "pindah", label: "Pindah kantong" },
-  { id: "draft", label: "Perlu dibenerin" },
-] as const;
+  { id: "semua", text: "Semua" },
+  { id: "keluar", text: "Keluar" },
+  { id: "masuk", text: "Masuk" },
+  { id: "pindah", text: "Pindah kantong" },
+  { id: "draft", text: "Perlu dibenerin" },
+];
 
 export default async function RiwayatPage({
   searchParams,
 }: {
   searchParams: Promise<{ filter?: string }>;
 }) {
-  const { filter = "semua" } = await searchParams;
+  const { filter: diminta } = await searchParams;
+  const filter = FILTER.some((f) => f.id === diminta) ? diminta! : "semua";
   const supabase = await createSupabaseServerClient();
 
   let query = supabase
@@ -37,54 +39,28 @@ export default async function RiwayatPage({
   const daftar = (data ?? []) as Transaction[];
 
   return (
-    <main>
-      <div className="px-4 pb-3 pt-10">
-        <h1 className="text-xl font-bold text-foreground">Riwayat</h1>
-        <p className="mt-0.5 text-xs text-muted-foreground">
-          Semua transaksi yang pernah tercatat.
-        </p>
-      </div>
-
-      {/* Filter satu baris di atas daftar, bisa digeser di layar sempit. */}
-      <div className="flex gap-2 overflow-x-auto px-4 pb-3">
-        {FILTER.map((f) => {
-          const aktif = filter === f.id;
-          return (
-            <Link
-              key={f.id}
-              href={f.id === "semua" ? "/riwayat" : `/riwayat?filter=${f.id}`}
-              className="flex min-h-11 shrink-0 items-center rounded-full border px-4 text-xs font-semibold"
-              style={
-                aktif
-                  ? {
-                      background: "var(--primary)",
-                      color: "var(--primary-foreground)",
-                      borderColor: "var(--primary)",
-                    }
-                  : {
-                      background: "var(--card)",
-                      color: "var(--muted-foreground)",
-                      borderColor: "var(--border)",
-                    }
-              }
-            >
-              {f.label}
-            </Link>
-          );
-        })}
-      </div>
-
-      <div className="px-4 pb-4">
-        {daftar.length === 0 ? (
-          <p className="rounded-[var(--radius-lg)] border border-border bg-card px-4 py-10 text-center text-sm text-muted-foreground">
+    <ContentLayout
+      header={
+        <Header variant="h1" description="Semua transaksi yang pernah tercatat.">
+          Riwayat
+        </Header>
+      }
+    >
+      <TransactionTable
+        items={daftar}
+        header={
+          <Header variant="h2" counter={`(${daftar.length})`} actions={<FilterRiwayat aktif={filter} options={FILTER} />}>
+            Transaksi
+          </Header>
+        }
+        empty={
+          <Box textAlign="center" color="inherit">
             {filter === "draft"
               ? "Nggak ada yang perlu dibenerin. Aman."
               : "Belum ada transaksi di sini."}
-          </p>
-        ) : (
-          <TransactionList items={daftar} />
-        )}
-      </div>
-    </main>
+          </Box>
+        }
+      />
+    </ContentLayout>
   );
 }

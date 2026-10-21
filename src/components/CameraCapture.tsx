@@ -1,6 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Alert from "@cloudscape-design/components/alert";
+import Box from "@cloudscape-design/components/box";
+import Button from "@cloudscape-design/components/button";
+import Modal from "@cloudscape-design/components/modal";
+import SpaceBetween from "@cloudscape-design/components/space-between";
 
 /**
  * Kamera dalam aplikasi, bukan sekadar input file dengan atribut `capture`.
@@ -48,7 +53,7 @@ export default function CameraCapture({ onCapture, onClose }: Props) {
           video: { facingMode, width: { ideal: 1920 } },
         });
 
-        // Komponen keburu ditutup sebelum izin diberikan: matikan lagi,
+        // Modal keburu ditutup sebelum izin diberikan: matikan lagi,
         // kalau tidak lampu kameranya menyala terus.
         if (dibatalkan) {
           stream.getTracks().forEach((t) => t.stop());
@@ -92,77 +97,45 @@ export default function CameraCapture({ onCapture, onClose }: Props) {
     canvas.toBlob(
       (blob) => {
         if (!blob) return;
-        const nama = `struk-${Date.now()}.jpg`;
-        onCapture(new File([blob], nama, { type: "image/jpeg" }));
+        onCapture(new File([blob], `struk-${Date.now()}.jpg`, { type: "image/jpeg" }));
       },
       "image/jpeg",
       0.92, // struk butuh detail; kompresi agresif bikin angka pecah
     );
   }
 
-  // Overlay layar penuh harus bisa ditutup dari papan ketik. Tanpa ini,
-  // pengguna keyboard terjebak di kamera tanpa jalan keluar.
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    document.addEventListener("keydown", onKey);
-    // Cegah halaman di belakang ikut tergulir saat kamera terbuka.
-    const overflowAwal = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = overflowAwal;
-    };
-  }, [onClose]);
-
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label="Ambil foto struk"
-      className="fixed inset-0 z-50 flex flex-col bg-black"
-      style={{
-        paddingTop: "env(safe-area-inset-top)",
-        paddingBottom: "env(safe-area-inset-bottom)",
-      }}
+    <Modal
+      visible
+      size="large"
+      header="Foto struk"
+      onDismiss={onClose}
+      footer={
+        <Box float="right">
+          <SpaceBetween direction="horizontal" size="xs">
+            <Button
+              iconName="refresh"
+              onClick={() => setFacingMode((f) => (f === "environment" ? "user" : "environment"))}
+            >
+              Balik kamera
+            </Button>
+            <Button variant="primary" iconName="video-camera-on" disabled={!siap} onClick={jepret}>
+              Jepret
+            </Button>
+          </SpaceBetween>
+        </Box>
+      }
     >
-      <div className="flex items-center justify-between px-4 py-3">
-        <button
-          onClick={onClose}
-          className="rounded-md px-3 py-1.5 text-sm font-medium text-white/80 transition hover:bg-white/10"
-        >
-          Batal
-        </button>
-        <button
-          onClick={() => setFacingMode((f) => (f === "environment" ? "user" : "environment"))}
-          className="rounded-md px-3 py-1.5 text-sm font-medium text-white/80 transition hover:bg-white/10"
-        >
-          Balik kamera
-        </button>
-      </div>
-
-      <div className="relative flex flex-1 items-center justify-center overflow-hidden">
-        {error ? (
-          <p className="max-w-xs px-6 text-center text-sm text-white/80">{error}</p>
-        ) : (
-          <video
-            ref={videoRef}
-            playsInline
-            muted
-            className="h-full w-full object-contain"
-          />
-        )}
-      </div>
-
-      <div className="flex items-center justify-center pb-10 pt-6">
-        <button
-          onClick={jepret}
-          disabled={!siap}
-          aria-label="Ambil foto"
-          className="h-16 w-16 rounded-full border-4 border-white bg-white/20 transition hover:bg-white/40 disabled:opacity-30"
+      {error ? (
+        <Alert type="error">{error}</Alert>
+      ) : (
+        <video
+          ref={videoRef}
+          playsInline
+          muted
+          style={{ display: "block", width: "100%", maxHeight: "60vh", objectFit: "contain", background: "#000" }}
         />
-      </div>
-    </div>
+      )}
+    </Modal>
   );
 }

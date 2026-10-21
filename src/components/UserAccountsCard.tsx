@@ -1,10 +1,20 @@
 "use client";
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
+import Alert from "@cloudscape-design/components/alert";
+import Button from "@cloudscape-design/components/button";
+import ColumnLayout from "@cloudscape-design/components/column-layout";
+import Container from "@cloudscape-design/components/container";
+import FormField from "@cloudscape-design/components/form-field";
+import Header from "@cloudscape-design/components/header";
+import Input from "@cloudscape-design/components/input";
+import Select from "@cloudscape-design/components/select";
+import SpaceBetween from "@cloudscape-design/components/space-between";
+import StatusIndicator from "@cloudscape-design/components/status-indicator";
+import TokenGroup from "@cloudscape-design/components/token-group";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { dbErrorMessage } from "@/lib/errors";
 import type { UserAccount } from "@/types/transaction";
-import { IconTambah } from "@/components/icons";
 
 type Kind = UserAccount["kind"];
 
@@ -13,6 +23,8 @@ const KIND_LABEL: Record<Kind, string> = {
   ewallet: "E-wallet",
   cash: "Tunai",
 };
+
+const OPSI_KIND = Object.entries(KIND_LABEL).map(([value, label]) => ({ value, label }));
 
 // Hanya nama kanoniknya. Variasi penulisan di rekening koran ("BRImo",
 // "myBCA", "Livin") sudah ditangani tabel bawaan di src/lib/accounts.ts —
@@ -89,119 +101,72 @@ export default function UserAccountsCard() {
   );
 
   return (
-    <div className="w-full rounded-[var(--radius-lg)] border border-border bg-card shadow-sm">
-      <div className="flex flex-col space-y-1.5 p-6">
-        <h3 className="text-lg font-semibold tracking-tight text-foreground">
-          Rekening &amp; Dompet Saya
-        </h3>
-        <p className="text-sm text-muted-foreground">
-          Biar pindah-pindah uang antar kantong sendiri nggak kehitung
-          pengeluaran. Topup ShopeePay dari bank itu bukan belanja — uangnya
-          cuma pindah tempat.
-        </p>
-      </div>
-
-      <div className="space-y-5 p-6 pt-0">
+    <Container
+      header={
+        <Header
+          variant="h2"
+          description="Biar pindah-pindah uang antar kantong sendiri nggak kehitung pengeluaran. Topup ShopeePay dari bank itu bukan belanja — uangnya cuma pindah tempat."
+        >
+          Rekening &amp; dompet saya
+        </Header>
+      }
+    >
+      <SpaceBetween size="l">
         {loading ? (
-          <p className="text-sm text-muted-foreground">Memuat...</p>
+          <StatusIndicator type="loading">Memuat...</StatusIndicator>
         ) : accounts.length === 0 ? (
-          <p className="rounded-md bg-[rgba(245,110,15,0.14)] px-3 py-2.5 text-sm text-[var(--accent)]">
-            Masih kosong. Pilih dari bawah — minimal bank sama e-wallet yang kamu
-            pakai sehari-hari.
-          </p>
+          <Alert type="info">
+            Masih kosong. Pilih dari bawah — minimal bank sama e-wallet yang kamu pakai sehari-hari.
+          </Alert>
         ) : (
-          <ul className="divide-y divide-border rounded-[var(--radius)] border border-border">
-            {accounts.map((a) => (
-              <li
-                key={a.id}
-                className="flex items-center justify-between gap-3 px-3 py-2.5"
-              >
-                <div className="flex min-w-0 items-center gap-2">
-                  <span className="truncate text-sm font-medium text-foreground">
-                    {a.name}
-                  </span>
-                  <span className="shrink-0 rounded bg-secondary px-1.5 py-0.5 text-xs text-muted-foreground">
-                    {KIND_LABEL[a.kind]}
-                  </span>
-                </div>
-                <button
-                  onClick={() => void hapus(a.id)}
-                  className="-my-2 flex min-h-11 shrink-0 items-center px-2 text-xs text-muted-foreground transition hover:text-[var(--danger)]"
-                >
-                  Hapus
-                </button>
-              </li>
-            ))}
-          </ul>
+          <TokenGroup
+            items={accounts.map((a) => ({
+              label: a.name,
+              description: KIND_LABEL[a.kind],
+              dismissLabel: `Hapus ${a.name}`,
+            }))}
+            onDismiss={(e) => void hapus(accounts[e.detail.itemIndex].id)}
+          />
         )}
 
         {belumAda.length > 0 && (
-          <div>
-            <p className="mb-2 text-xs font-medium text-muted-foreground">
-              Pilih yang kamu pakai
-            </p>
-            <div className="flex flex-wrap gap-2">
+          <FormField label="Pilih yang kamu pakai">
+            <SpaceBetween direction="horizontal" size="xs">
               {belumAda.map((p) => (
-                <button
-                  key={p.name}
-                  onClick={() => void tambah(p)}
-                  className="rounded-full border border-border px-3 py-1 text-xs text-foreground transition hover:border-[var(--ring)] hover:bg-secondary"
-                >
-                  + {p.name}
-                </button>
+                <Button key={p.name} iconName="add-plus" onClick={() => void tambah(p)}>
+                  {p.name}
+                </Button>
               ))}
-            </div>
-          </div>
+            </SpaceBetween>
+          </FormField>
         )}
 
-        <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-2">
-          <div className="min-w-40 flex-1">
-            <label
-              htmlFor="nama-rekening"
-              className="mb-1 block text-xs font-medium text-muted-foreground"
-            >
-              Nggak ada di daftar?
-            </label>
-            <input
-              id="nama-rekening"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Ketik nama bank atau dompetnya"
-              className="w-full rounded-md border border-border px-2.5 py-1.5 text-sm outline-none focus:border-[var(--ring)] focus:ring-2 focus:ring-[var(--ring)]"
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="jenis-rekening"
-              className="mb-1 block text-xs font-medium text-muted-foreground"
-            >
-              Jenis
-            </label>
-            <select
-              id="jenis-rekening"
-              value={kind}
-              onChange={(e) => setKind(e.target.value as Kind)}
-              className="rounded-md border border-border px-2.5 py-1.5 text-sm outline-none focus:border-[var(--ring)] focus:ring-2 focus:ring-[var(--ring)]"
-            >
-              <option value="bank">Bank</option>
-              <option value="ewallet">E-wallet</option>
-              <option value="cash">Tunai</option>
-            </select>
-          </div>
-          <button
-            type="submit"
-            disabled={!name.trim()}
-            className="flex items-center gap-2 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-40"
-          >
-            <IconTambah />
-            Tambah
-          </button>
+        <form onSubmit={handleSubmit}>
+          <SpaceBetween size="s">
+            <ColumnLayout columns={2}>
+              <FormField stretch label="Nggak ada di daftar?">
+                <Input
+                  value={name}
+                  onChange={(e) => setName(e.detail.value)}
+                  placeholder="Ketik nama bank atau dompetnya"
+                />
+              </FormField>
+              <FormField stretch label="Jenis">
+                <Select
+                  selectedOption={OPSI_KIND.find((o) => o.value === kind) ?? null}
+                  onChange={(e) => setKind(e.detail.selectedOption.value as Kind)}
+                  options={OPSI_KIND}
+                />
+              </FormField>
+            </ColumnLayout>
+            <Button iconName="add-plus" formAction="submit" disabled={!name.trim()}>
+              Tambah
+            </Button>
+          </SpaceBetween>
         </form>
 
-        {error && (
-          <p className="rounded-md border border-[rgba(255,107,91,0.45)] bg-[rgba(255,107,91,0.14)] px-3 py-2 text-sm text-[var(--danger)]">{error}</p>
-        )}
-      </div>
-    </div>
+        {error && <Alert type="error">{error}</Alert>}
+      </SpaceBetween>
+    </Container>
   );
 }

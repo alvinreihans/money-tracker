@@ -46,8 +46,10 @@ tessdata/                           # traineddata Tesseract (ind + eng)
 ## 1. Dependencies
 
 ```bash
-npm install @supabase/ssr @supabase/supabase-js recharts \
-            tesseract.js sharp groq-sdk @google/generative-ai unpdf
+npm install @supabase/ssr @supabase/supabase-js \
+            tesseract.js sharp groq-sdk @google/generative-ai unpdf \
+            @cloudscape-design/components @cloudscape-design/global-styles \
+            @cloudscape-design/design-tokens
 ```
 
 ## 2. Environment

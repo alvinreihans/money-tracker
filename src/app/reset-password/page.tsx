@@ -2,12 +2,18 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
+import Alert from "@cloudscape-design/components/alert";
+import Button from "@cloudscape-design/components/button";
+import Container from "@cloudscape-design/components/container";
+import Form from "@cloudscape-design/components/form";
+import Header from "@cloudscape-design/components/header";
+import SpaceBetween from "@cloudscape-design/components/space-between";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { authErrorMessage } from "@/lib/errors";
 import { passwordValid } from "@/lib/password";
 import PasswordField from "@/components/PasswordField";
 import BrandMark from "@/components/BrandMark";
+import { HalamanPolos, NavButton } from "@/components/ui";
 
 export default function ResetPasswordPage() {
   const router = useRouter();
@@ -49,19 +55,14 @@ export default function ResetPasswordPage() {
     setError(null);
 
     if (!passwordValid(password)) {
-      setError("Passwordnya belum memenuhi semua syarat di bawah kolom.");
-      return;
+      return setError("Passwordnya belum memenuhi semua syarat di bawah kolom.");
     }
-
     if (password !== ulangi) {
-      setError("Password dan ulangannya belum sama.");
-      return;
+      return setError("Password dan ulangannya belum sama.");
     }
 
     setLoading(true);
-
-    const supabase = createSupabaseBrowserClient();
-    const { error: err } = await supabase.auth.updateUser({ password });
+    const { error: err } = await createSupabaseBrowserClient().auth.updateUser({ password });
 
     if (err) {
       setError(authErrorMessage(err));
@@ -73,65 +74,61 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <main className="flex min-h-dvh flex-col items-center justify-center px-4 py-8">
-      <BrandMark />
-
-      <div className="w-full max-w-sm rounded-[var(--radius-lg)] border border-border bg-card p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-foreground">Password baru</h2>
+    <HalamanPolos>
+      <SpaceBetween size="l">
+        <BrandMark />
 
         {punyaSesi === false ? (
-          <>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Tautannya udah nggak berlaku. Tautan reset cuma bisa dipakai sekali
-              dan ada masa berlakunya.
-            </p>
-            <Link
-              href="/login"
-              className="mt-5 block w-full rounded-md bg-primary px-4 py-2 text-center text-sm font-medium text-primary-foreground transition hover:opacity-90"
-            >
-              Minta tautan baru
-            </Link>
-          </>
+          <Alert
+            type="error"
+            header="Tautannya udah nggak berlaku"
+            action={<NavButton href="/login">Minta tautan baru</NavButton>}
+          >
+            Tautan reset cuma bisa dipakai sekali dan ada masa berlakunya.
+          </Alert>
         ) : (
-          <>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Bikin password baru, terus langsung masuk.
-            </p>
-
-            <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-              <PasswordField
-                label="Password baru"
-                value={password}
-                onChange={setPassword}
-                autoComplete="new-password"
-                syarat
-              />
-
-              <PasswordField
-                label="Ulangi password baru"
-                value={ulangi}
-                onChange={setUlangi}
-                autoComplete="new-password"
-                placeholder="Ketik ulang passwordnya"
-              />
-
-              {error && (
-                <p role="alert" className="rounded-md border border-[rgba(255,107,91,0.45)] bg-[rgba(255,107,91,0.14)] px-3 py-2 text-sm text-[var(--danger)]">
-                  {error}
-                </p>
-              )}
-
-              <button
-                type="submit"
-                disabled={loading || !siap || punyaSesi === null}
-                className="w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-60"
+          <Container
+            header={
+              <Header variant="h2" description="Bikin password baru, terus langsung masuk.">
+                Password baru
+              </Header>
+            }
+          >
+            <form onSubmit={handleSubmit}>
+              <Form
+                actions={
+                  <Button
+                    variant="primary"
+                    formAction="submit"
+                    loading={loading}
+                    disabled={!siap || punyaSesi === null}
+                  >
+                    Simpan &amp; masuk
+                  </Button>
+                }
               >
-                {loading ? "Bentar ya..." : "Simpan & masuk"}
-              </button>
+                <SpaceBetween size="l">
+                  <PasswordField
+                    label="Password baru"
+                    value={password}
+                    onChange={setPassword}
+                    autoComplete="new-password"
+                    syarat
+                  />
+                  <PasswordField
+                    label="Ulangi password baru"
+                    value={ulangi}
+                    onChange={setUlangi}
+                    autoComplete="new-password"
+                    placeholder="Ketik ulang passwordnya"
+                  />
+                  {error && <Alert type="error">{error}</Alert>}
+                </SpaceBetween>
+              </Form>
             </form>
-          </>
+          </Container>
         )}
-      </div>
-    </main>
+      </SpaceBetween>
+    </HalamanPolos>
   );
 }

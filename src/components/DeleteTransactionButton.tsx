@@ -2,14 +2,17 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Alert from "@cloudscape-design/components/alert";
+import Box from "@cloudscape-design/components/box";
+import Button from "@cloudscape-design/components/button";
+import Modal from "@cloudscape-design/components/modal";
+import SpaceBetween from "@cloudscape-design/components/space-between";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { dbErrorMessage } from "@/lib/errors";
-import ConfirmDialog from "@/components/ConfirmDialog";
-import { IconHapus } from "@/components/icons";
 
 /**
- * Hapus transaksi. Konfirmasinya lewat dialog yang memutus alur, bukan tombol
- * yang menyelip di bawah — sekali kehapus, struknya harus difoto ulang.
+ * Hapus transaksi. Konfirmasinya lewat modal yang memutus alur — sekali
+ * kehapus, struknya harus difoto ulang.
  */
 export default function DeleteTransactionButton({ id }: { id: string }) {
   const router = useRouter();
@@ -21,8 +24,10 @@ export default function DeleteTransactionButton({ id }: { id: string }) {
     setLoading(true);
     setError(null);
 
-    const supabase = createSupabaseBrowserClient();
-    const { error: err } = await supabase.from("transactions").delete().eq("id", id);
+    const { error: err } = await createSupabaseBrowserClient()
+      .from("transactions")
+      .delete()
+      .eq("id", id);
 
     if (err) {
       setError(dbErrorMessage(err));
@@ -34,34 +39,38 @@ export default function DeleteTransactionButton({ id }: { id: string }) {
     router.refresh();
   }
 
+  function tutup() {
+    if (loading) return;
+    setBuka(false);
+    setError(null);
+  }
+
   return (
     <>
-      {/* Merah terisi penuh. Teksnya Dark Void, bukan putih: putih di atas
-          merah ini cuma 2,70:1, sedangkan Dark Void 6,55:1. */}
-      <button
-        onClick={() => setBuka(true)}
-        className="flex min-h-11 items-center gap-2 rounded-md px-4 text-sm font-semibold transition hover:opacity-90"
-        style={{ background: "var(--danger)", color: "#151419" }}
-      >
-        <IconHapus />
-        Hapus transaksi
-      </button>
+      <Button onClick={() => setBuka(true)}>Hapus</Button>
 
-      {buka && (
-        <ConfirmDialog
-          judul="Hapus transaksi ini?"
-          keterangan="Nggak bisa dibalikin. Kalau ini dari struk, kamu harus foto ulang."
-          labelKonfirmasi={loading ? "Ngapus..." : "Ya, hapus"}
-          ikon={<IconHapus />}
-          loading={loading}
-          error={error}
-          onKonfirmasi={() => void hapus()}
-          onBatal={() => {
-            setBuka(false);
-            setError(null);
-          }}
-        />
-      )}
+      <Modal
+        visible={buka}
+        onDismiss={tutup}
+        header="Hapus transaksi ini?"
+        footer={
+          <Box float="right">
+            <SpaceBetween direction="horizontal" size="xs">
+              <Button variant="link" disabled={loading} onClick={tutup}>
+                Batal
+              </Button>
+              <Button variant="primary" loading={loading} onClick={() => void hapus()}>
+                Ya, hapus
+              </Button>
+            </SpaceBetween>
+          </Box>
+        }
+      >
+        <SpaceBetween size="m">
+          <Box>Nggak bisa dibalikin. Kalau ini dari struk, kamu harus foto ulang.</Box>
+          {error && <Alert type="error">{error}</Alert>}
+        </SpaceBetween>
+      </Modal>
     </>
   );
 }

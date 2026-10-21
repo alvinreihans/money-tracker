@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { Box } from "@/components/ui";
 
 /**
  * Tanda pengenal aplikasi.
@@ -6,35 +7,16 @@ import Image from "next/image";
  * Dipakai di halaman-halaman yang berdiri sendiri (masuk, password baru) yang
  * kalau tidak, cuma tampil sebagai kotak form tanpa identitas — orang tidak
  * tahu sedang masuk ke aplikasi apa.
- *
- * Logonya berlatar transparan dan sudah punya bobot visual sendiri, jadi tidak
- * dibungkus kotak berwarna: menumpuk bentuk di atas bentuk cuma bikin ramai.
  */
-export default function BrandMark({
-  judul = "Money Tracker",
-  subjudul,
-}: {
-  judul?: string;
-  subjudul?: string;
-}) {
+export default function BrandMark({ subjudul }: { subjudul?: string }) {
   return (
-    <div className="mb-6 flex flex-col items-center text-center">
-      <Image
-        src="/logo.png"
-        alt=""
-        width={80}
-        height={80}
-        // Logo di layar pertama; menundanya cuma bikin halaman berkedip.
-        priority
-        className="h-20 w-20"
-      />
-
-      <h1 className="mt-3 text-2xl font-extrabold tracking-tight text-foreground">
-        {judul}
-      </h1>
-      {subjudul && (
-        <p className="mt-1 text-sm text-muted-foreground">{subjudul}</p>
-      )}
-    </div>
+    <Box textAlign="center" padding={{ top: "xxl" }}>
+      {/* Logo di layar pertama; menundanya cuma bikin halaman berkedip. */}
+      <Image src="/logo.png" alt="" width={72} height={72} priority />
+      <Box variant="h1" padding={{ top: "xs" }}>
+        Money Tracker
+      </Box>
+      {subjudul && <Box color="text-body-secondary">{subjudul}</Box>}
+    </Box>
   );
 }

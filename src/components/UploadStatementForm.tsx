@@ -1,9 +1,16 @@
 "use client";
 
-import { useState, type ChangeEvent, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import Alert from "@cloudscape-design/components/alert";
+import Box from "@cloudscape-design/components/box";
+import Button from "@cloudscape-design/components/button";
+import Container from "@cloudscape-design/components/container";
+import ExpandableSection from "@cloudscape-design/components/expandable-section";
+import FileUpload from "@cloudscape-design/components/file-upload";
+import Header from "@cloudscape-design/components/header";
+import SpaceBetween from "@cloudscape-design/components/space-between";
 import ProcessingMessage, { TAHAP_STATEMENT } from "@/components/ProcessingMessage";
-import { IconUnggah } from "@/components/icons";
 
 interface ImportResponse {
   parsed: number;
@@ -16,19 +23,14 @@ interface ImportResponse {
 
 export default function UploadStatementForm() {
   const router = useRouter();
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ImportResponse | null>(null);
 
-  function handleFileChange(e: ChangeEvent<HTMLInputElement>) {
-    setFile(e.target.files?.[0] ?? null);
-    setResult(null);
-    setError(null);
-  }
-
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    const file = files[0];
     if (!file) return;
 
     setLoading(true);
@@ -39,10 +41,7 @@ export default function UploadStatementForm() {
     formData.append("file", file);
 
     try {
-      const res = await fetch("/api/upload-statement", {
-        method: "POST",
-        body: formData,
-      });
+      const res = await fetch("/api/upload-statement", { method: "POST", body: formData });
       const data: unknown = await res.json();
 
       if (!res.ok) {
@@ -53,7 +52,7 @@ export default function UploadStatementForm() {
         setError(msg);
       } else {
         setResult(data as ImportResponse);
-        setFile(null);
+        setFiles([]);
         router.refresh();
       }
     } catch {
@@ -64,73 +63,57 @@ export default function UploadStatementForm() {
   }
 
   return (
-    <div className="w-full rounded-[var(--radius-lg)] border border-border bg-card shadow-sm">
-      <div className="flex flex-col space-y-1.5 p-6">
-        <h3 className="text-lg font-semibold tracking-tight text-foreground">
-          Impor Rekening Koran
-        </h3>
-        <p className="text-sm text-muted-foreground">
-          Upload PDF rekening koran dari aplikasi bank. Pindahan antar kantong
-          sendiri nggak dihitung pengeluaran, dan yang udah ada bukti bayarnya
-          nggak bakal kecatat dua kali.
-        </p>
-      </div>
-
-      <form onSubmit={handleSubmit} className="space-y-4 p-6 pt-0">
-        <input
-          type="file"
-          accept="application/pdf"
-          onChange={handleFileChange}
-          className="block w-full text-sm text-muted-foreground file:mr-4 file:rounded-md file:border-0 file:bg-primary file:px-4 file:py-2 file:text-sm file:font-medium file:text-primary-foreground hover:file:opacity-90"
-        />
-
-        <button
-          type="submit"
-          disabled={!file || loading}
-          className="flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-60"
+    <Container
+      header={
+        <Header
+          variant="h2"
+          description="Upload PDF rekening koran dari aplikasi bank. Pindahan antar kantong sendiri nggak dihitung pengeluaran, dan yang udah ada bukti bayarnya nggak bakal kecatat dua kali."
         >
-          <IconUnggah />
-          {loading ? "Lagi diproses..." : "Impor"}
-        </button>
+          Impor rekening koran
+        </Header>
+      }
+    >
+      <form onSubmit={handleSubmit}>
+        <SpaceBetween size="l">
+          <FileUpload
+            accept="application/pdf"
+            value={files}
+            onChange={(e) => {
+              setFiles(e.detail.value);
+              setResult(null);
+              setError(null);
+            }}
+            showFileSize
+          />
 
-        {loading && (
-          <ProcessingMessage tahap={TAHAP_STATEMENT} className="text-sm text-muted-foreground" />
-        )}
+          <Button variant="primary" iconName="upload" formAction="submit" disabled={!files.length} loading={loading}>
+            Impor
+          </Button>
 
-        {error && (
-          <p className="rounded-md border border-[rgba(255,107,91,0.45)] bg-[rgba(255,107,91,0.14)] px-3 py-2 text-sm text-[var(--danger)]">{error}</p>
-        )}
+          {loading && <ProcessingMessage tahap={TAHAP_STATEMENT} />}
 
-        {result && (
-          <div className="rounded-md border border-[rgba(74,222,128,0.45)] bg-[rgba(74,222,128,0.14)] px-4 py-3 text-sm text-[var(--success)]">
-            <p className="font-medium">
-              {result.inserted} transaksi masuk dari {result.account}
-            </p>
-            <ul className="mt-1 space-y-0.5 text-[var(--success)]">
-              <li>{result.parsed} baris kebaca dari PDF</li>
-              {result.skippedReimport > 0 && (
-                <li>
-                  {result.skippedReimport} dilewatin — udah pernah diimpor
-                </li>
-              )}
-              {result.skippedSuperseded > 0 && (
-                <li>
-                  {result.skippedSuperseded} dilewatin — udah ada bukti
-                  bayarnya
-                </li>
-              )}
-            </ul>
-            <details className="mt-2">
-              <summary className="cursor-pointer text-xs text-[var(--success)]">
-                Rincian per halaman
-              </summary>
-              <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap rounded border border-[rgba(74,222,128,0.45)] bg-[rgba(74,222,128,0.14)] p-2 text-xs">
-                {result.notes.join("\n")}
-              </pre>
-            </details>
-          </div>
-        )}
+          {error && <Alert type="error">{error}</Alert>}
+
+          {result && (
+            <Alert type="success" header={`${result.inserted} transaksi masuk dari ${result.account}`}>
+              <SpaceBetween size="xs">
+                <div>
+                  <div>{result.parsed} baris kebaca dari PDF</div>
+                  {result.skippedReimport > 0 && (
+                    <div>{result.skippedReimport} dilewatin — udah pernah diimpor</div>
+                  )}
+                  {result.skippedSuperseded > 0 && (
+                    <div>{result.skippedSuperseded} dilewatin — udah ada bukti bayarnya</div>
+                  )}
+                </div>
+                <ExpandableSection headerText="Rincian per halaman" variant="footer">
+                  <Box variant="pre">{result.notes.join("\n")}</Box>
+                </ExpandableSection>
+              </SpaceBetween>
+            </Alert>
+          )}
+        </SpaceBetween>
       </form>
-    </div>
+    </Container>
   );
 }

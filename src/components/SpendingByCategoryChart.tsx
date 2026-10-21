@@ -1,167 +1,59 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import { labelKategori } from "@/lib/format";
+import Box from "@cloudscape-design/components/box";
+import Container from "@cloudscape-design/components/container";
+import Header from "@cloudscape-design/components/header";
+import PieChart from "@cloudscape-design/components/pie-chart";
+import { fmtIDR, fmtIDRRingkas, labelKategori } from "@/lib/format";
 import type { AvgMonthlyExpenseRow } from "@/types/transaction";
 
-// Helper format Rupiah (kompak: Rp1,2jt).
-const formatIDR = (value: number): string =>
-  new Intl.NumberFormat("id-ID", {
-    style: "currency",
-    currency: "IDR",
-    notation: "compact",
-    maximumFractionDigits: 1,
-  }).format(value);
+/**
+ * Donat, bukan batang: yang ditanyakan "uangku habis ke mana", yaitu porsi
+ * tiap kategori. Di layar HP, label sumbu chart batang terpotong jadi "...",
+ * sedangkan legenda donat menampilkan nama kategori utuh.
+ */
+export default function SpendingByCategoryChart({
+  data,
+  error,
+}: {
+  data: AvgMonthlyExpenseRow[];
+  error: string | null;
+}) {
+  const total = data.reduce((s, r) => s + Number(r.avg_monthly), 0);
 
-// Props tooltip kustom (recharts v3 tidak lagi expose payload/label di TooltipProps).
-interface ChartTooltipProps {
-  active?: boolean;
-  label?: string | number;
-  payload?: Array<{ value?: number | string }>;
-}
-
-// Tooltip kustom ala shadcn/ui.
-function ChartTooltip({ active, payload, label }: ChartTooltipProps) {
-  if (!active || !payload?.length) return null;
   return (
-    <div className="rounded-[var(--radius)] border border-border bg-card px-3 py-2 text-sm shadow-md">
-      <p className="font-medium capitalize text-foreground">{label}</p>
-      <p className="text-muted-foreground">
-        Rata-rata:{" "}
-        <span className="font-semibold text-foreground">
-          {formatIDR(Number(payload[0].value))}
-        </span>
-      </p>
-    </div>
-  );
-}
-
-export default function SpendingByCategoryChart() {
-  const [data, setData] = useState<AvgMonthlyExpenseRow[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-
-  // Ambil data dari RPC saat mount.
-  useEffect(() => {
-    let cancelled = false;
-
-    async function fetchData() {
-      const supabase = createSupabaseBrowserClient();
-      const { data: rows, error: rpcError } = await supabase.rpc(
-        "get_avg_monthly_expense_by_category",
-      );
-
-      if (cancelled) return;
-
-      if (rpcError) {
-        setError(rpcError.message);
-      } else {
-        setData((rows ?? []) as AvgMonthlyExpenseRow[]);
+    <Container
+      header={
+        <Header variant="h2" description="Rerata bulanan selama 3 bulan penuh terakhir.">
+          Pengeluaran per kategori
+        </Header>
       }
-      setLoading(false);
-    }
-
-    void fetchData();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const totalAvg = useMemo(
-    () => data.reduce((sum, row) => sum + row.avg_monthly, 0),
-    [data],
-  );
-
-  return (
-    <div className="w-full rounded-[var(--radius-lg)] border border-border bg-card shadow-sm">
-      {/* Header kartu */}
-      <div className="flex flex-col space-y-1.5 p-6">
-        <h3 className="text-lg font-semibold leading-none tracking-tight text-foreground">
-          Rata-rata Pengeluaran per Kategori
-        </h3>
-        <p className="text-sm text-muted-foreground">
-          Rerata bulanan selama 3 bulan terakhir
-        </p>
-      </div>
-
-      {/* Konten */}
-      <div className="p-6 pt-0">
-        {loading ? (
-          <div className="flex h-72 items-center justify-center">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-border border-t-[var(--primary)]" />
-          </div>
-        ) : error ? (
-          <div className="flex h-72 items-center justify-center rounded-[var(--radius)] border border-[rgba(255,107,91,0.45)] bg-[rgba(255,107,91,0.14)] text-sm text-[var(--danger)]">
-            Gagal ambil data: {error}
-          </div>
-        ) : data.length === 0 ? (
-          <div className="flex h-72 flex-col items-center justify-center px-6 text-center text-sm text-muted-foreground">
-            <p>Belum ada pengeluaran di rentang ini.</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Chart ini cuma menghitung 3 bulan penuh terakhir, jadi transaksi
-              bulan berjalan belum ikut. Lihat daftar di atas buat yang terbaru.
-            </p>
-          </div>
-        ) : (
-          <>
-            <div className="mb-4">
-              <span className="text-2xl font-bold text-foreground">
-                {formatIDR(totalAvg)}
-              </span>
-              <span className="ml-2 text-sm text-muted-foreground">
-                total rerata / bulan
-              </span>
-            </div>
-
-            <ResponsiveContainer width="100%" height={288}>
-              <BarChart
-                data={data}
-                margin={{ top: 8, right: 8, left: 8, bottom: 8 }}
-              >
-                <CartesianGrid
-                  vertical={false}
-                  strokeDasharray="3 3"
-                  stroke="var(--border)"
-                />
-                <XAxis
-                  dataKey="category"
-                  tickLine={false}
-                  axisLine={false}
-                  tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
-                  tickFormatter={labelKategori}
-                />
-                <YAxis
-                  tickLine={false}
-                  axisLine={false}
-                  width={64}
-                  tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
-                  tickFormatter={(v: number) => formatIDR(v)}
-                />
-                <Tooltip
-                  content={<ChartTooltip />}
-                  cursor={{ fill: "var(--secondary)" }}
-                />
-                <Bar
-                  dataKey="avg_monthly"
-                  fill="var(--primary)"
-                  radius={[6, 6, 0, 0]}
-                  maxBarSize={56}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </>
-        )}
-      </div>
-    </div>
+    >
+      <PieChart
+        variant="donut"
+        ariaLabel="Rata-rata pengeluaran bulanan per kategori"
+        data={data.map((r) => ({ title: labelKategori(r.category), value: Number(r.avg_monthly) }))}
+        innerMetricValue={fmtIDRRingkas(total)}
+        innerMetricDescription="rerata / bulan"
+        detailPopoverContent={(d, sum) => [
+          { key: "Rerata per bulan", value: fmtIDR(d.value) },
+          { key: "Porsi", value: `${Math.round((d.value / sum) * 100)}%` },
+        ]}
+        segmentDescription={(d, sum) => `${fmtIDRRingkas(d.value)} · ${Math.round((d.value / sum) * 100)}%`}
+        hideFilter
+        size="medium"
+        statusType={error ? "error" : "finished"}
+        errorText={`Gagal ambil data: ${error}`}
+        empty={
+          <Box textAlign="center" color="inherit">
+            <b>Belum ada pengeluaran di rentang ini.</b>
+            <Box variant="p" color="inherit">
+              Chart ini cuma menghitung 3 bulan penuh terakhir, jadi transaksi bulan berjalan belum
+              ikut.
+            </Box>
+          </Box>
+        }
+      />
+    </Container>
   );
 }

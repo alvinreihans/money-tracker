@@ -1,3 +1,4 @@
+import type { BadgeProps } from "@cloudscape-design/components/badge";
 import type { TransactionType } from "@/types/transaction";
 
 /** Formatter tampilan, dipakai bersama daftar dan halaman detail. */
@@ -49,10 +50,11 @@ export const fmtWaktu = (iso: string) =>
     minute: "2-digit",
   }).format(new Date(iso));
 
-export const TYPE_BADGE: Record<TransactionType, { label: string; cls: string }> = {
-  expense: { label: "Keluar", cls: "bg-[rgba(245,110,15,0.14)] text-[var(--accent)]" },
-  income: { label: "Masuk", cls: "bg-[rgba(74,222,128,0.12)] text-[var(--success)]" },
-  transfer: { label: "Pindah kantong", cls: "bg-[rgba(125,169,255,0.12)] text-[var(--transfer)]" },
+/** Label dan warna Badge Cloudscape per jenis transaksi. */
+export const JENIS: Record<TransactionType, { label: string; color: BadgeProps["color"] }> = {
+  expense: { label: "Keluar", color: "grey" },
+  income: { label: "Masuk", color: "green" },
+  transfer: { label: "Pindah kantong", color: "blue" },
 };
 
 /** Kategori disimpan sebagai slug Inggris; yang dilihat user harus Indonesia. */

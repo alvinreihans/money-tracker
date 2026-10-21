@@ -56,7 +56,7 @@ export type TransactionSource =
   | "receipt"        // foto struk kertas
   | "payment_proof"  // screenshot bukti bayar e-wallet
   | "statement"      // baris rekening koran
-  | "text";          // pesan teks di Telegram
+  | "text";          // diketik: teks bebas / isian manual di web, pesan teks Telegram
 
 /** Rekening atau dompet milik user; dipakai untuk mengenali transfer internal. */
 export interface UserAccount {

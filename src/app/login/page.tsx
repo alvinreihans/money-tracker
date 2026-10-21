@@ -3,11 +3,22 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
+import Alert from "@cloudscape-design/components/alert";
+import Box from "@cloudscape-design/components/box";
+import Button from "@cloudscape-design/components/button";
+import Container from "@cloudscape-design/components/container";
+import Form from "@cloudscape-design/components/form";
+import FormField from "@cloudscape-design/components/form-field";
+import Header from "@cloudscape-design/components/header";
+import Input from "@cloudscape-design/components/input";
+import Link from "@cloudscape-design/components/link";
+import SpaceBetween from "@cloudscape-design/components/space-between";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { authErrorMessage } from "@/lib/errors";
 import { passwordValid } from "@/lib/password";
 import PasswordField from "@/components/PasswordField";
 import BrandMark from "@/components/BrandMark";
+import { HalamanPolos } from "@/components/ui";
 
 /**
  * "lupa" sengaja jadi mode tersendiri, bukan tombol yang langsung mengirim.
@@ -21,12 +32,13 @@ const ERROR_TAUTAN: Record<string, string> = {
   "tautan-tidak-valid": "Tautannya nggak lengkap. Coba minta yang baru.",
 };
 
-const JUDUL: Record<Mode, { judul: string; sub: string }> = {
-  signin: { judul: "Masuk", sub: "Lanjut ke catatan keuanganmu." },
-  signup: { judul: "Daftar", sub: "Bikin akun dulu, bentar aja." },
+const JUDUL: Record<Mode, { judul: string; sub: string; tombol: string }> = {
+  signin: { judul: "Masuk", sub: "Lanjut ke catatan keuanganmu.", tombol: "Masuk" },
+  signup: { judul: "Daftar", sub: "Bikin akun dulu, bentar aja.", tombol: "Daftar" },
   lupa: {
     judul: "Lupa password",
     sub: "Masukin emailmu, nanti kami kirim tautan buat bikin password baru.",
+    tombol: "Kirim tautan",
   },
 };
 
@@ -62,22 +74,20 @@ export default function LoginPage() {
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setLoading(true);
     setError(null);
     setMessage(null);
 
+    if (!email.trim()) return setError("Emailnya belum diisi.");
+    if (mode !== "lupa" && !password) return setError("Passwordnya belum diisi.");
     if (mode === "signup" && !passwordValid(password)) {
-      setError("Passwordnya belum memenuhi semua syarat di bawah kolom.");
-      setLoading(false);
-      return;
+      return setError("Passwordnya belum memenuhi semua syarat di bawah kolom.");
     }
-
     if (mode === "signup" && password !== ulangi) {
-      setError("Password dan ulangannya belum sama.");
-      setLoading(false);
-      return;
+      return setError("Password dan ulangannya belum sama.");
     }
+    if (mode === "signup" && !phone.trim()) return setError("Nomor HP-nya belum diisi.");
 
+    setLoading(true);
     const supabase = createSupabaseBrowserClient();
 
     if (mode === "lupa") {
@@ -144,55 +154,56 @@ export default function LoginPage() {
     setLoading(false);
   }
 
-  const teksTombol = loading
-    ? "Bentar ya..."
-    : mode === "lupa"
-      ? "Kirim tautan"
-      : mode === "signup"
-        ? "Daftar"
-        : "Masuk";
+  // Yang bisa diklik cuma kata kerjanya; kalimat pengantarnya teks biasa.
+  const ajakan =
+    mode === "signin"
+      ? { teks: "Belum punya akun?", aksi: "Daftar", ke: "signup" as Mode }
+      : { teks: mode === "lupa" ? "Inget passwordnya?" : "Udah punya akun?", aksi: "Masuk", ke: "signin" as Mode };
 
   return (
-    <main className="flex min-h-dvh flex-col items-center justify-center px-4 py-8">
-      <BrandMark subjudul="Foto struk, sisanya otomatis." />
+    <HalamanPolos>
+      <SpaceBetween size="l">
+        <BrandMark subjudul="Foto struk, sisanya otomatis." />
 
-      <div className="w-full max-w-sm rounded-[var(--radius-lg)] border border-border bg-card p-6">
-        <h2 className="text-lg font-semibold text-foreground">{JUDUL[mode].judul}</h2>
-        <p className="mt-0.5 text-sm text-muted-foreground">{JUDUL[mode].sub}</p>
-
-        <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-          <div>
-            <label
-              htmlFor="email"
-              className="mb-1 block text-sm font-medium text-foreground"
+        <Container header={<Header variant="h2" description={JUDUL[mode].sub}>{JUDUL[mode].judul}</Header>}>
+          <form onSubmit={handleSubmit}>
+            <Form
+              actions={
+                <Button variant="primary" formAction="submit" loading={loading} disabled={!siap}>
+                  {JUDUL[mode].tombol}
+                </Button>
+              }
             >
-              Email
-            </label>
-            <input
-              id="email"
-              type="email"
-              required
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm outline-none focus:border-[var(--ring)] focus:ring-2 focus:ring-[var(--ring)]"
-              placeholder="kamu@email.com"
-            />
-          </div>
+              <SpaceBetween size="l">
+                <FormField stretch label="Email">
+                  <Input
+                    type="email"
+                    autoComplete="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.detail.value)}
+                    placeholder="kamu@email.com"
+                  />
+                </FormField>
 
-          {mode !== "lupa" && (
-            <div>
-              <PasswordField
-                label="Password"
-                value={password}
-                onChange={setPassword}
-                autoComplete={mode === "signin" ? "current-password" : "new-password"}
-                syarat={mode === "signup"}
-                minLength={mode === "signin" ? 1 : 8}
-                placeholder={mode === "signin" ? "Password kamu" : "Minimal 8 karakter"}
-              />
-              {mode === "signup" && (
-                <div className="mt-4">
+                {mode !== "lupa" && (
+                  <PasswordField
+                    label="Password"
+                    value={password}
+                    onChange={setPassword}
+                    autoComplete={mode === "signin" ? "current-password" : "new-password"}
+                    syarat={mode === "signup"}
+                    placeholder={mode === "signin" ? "Password kamu" : "Minimal 8 karakter"}
+                    info={
+                      mode === "signin" && (
+                        <Link variant="info" onFollow={() => pindahMode("lupa")}>
+                          Lupa password?
+                        </Link>
+                      )
+                    }
+                  />
+                )}
+
+                {mode === "signup" && (
                   <PasswordField
                     label="Ulangi password"
                     value={ulangi}
@@ -200,111 +211,35 @@ export default function LoginPage() {
                     autoComplete="new-password"
                     placeholder="Ketik ulang passwordnya"
                   />
-                </div>
-              )}
-              {mode === "signin" && (
-                <div className="mt-1.5 flex justify-end">
-                  <button
-                    type="button"
-                    onClick={() => pindahMode("lupa")}
-                    className="text-xs font-semibold text-[var(--accent)] transition hover:opacity-80"
+                )}
+
+                {mode === "signup" && (
+                  <FormField stretch
+                    label="Nomor HP (buat bot Telegram)"
+                    constraintText="Samain sama nomor Telegram kamu."
                   >
-                    Lupa password?
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
+                    <Input
+                      type="text"
+                      inputMode="tel"
+                      autoComplete="tel"
+                      value={phone}
+                      onChange={(e) => setPhone(e.detail.value)}
+                      placeholder="08xxxxxxxxxx"
+                    />
+                  </FormField>
+                )}
 
-          {mode === "signup" && (
-            <div>
-              <label
-                htmlFor="phone"
-                className="mb-1 block text-sm font-medium text-foreground"
-              >
-                Nomor HP (buat bot Telegram)
-              </label>
-              <input
-                id="phone"
-                type="tel"
-                required
-                autoComplete="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm outline-none focus:border-[var(--ring)] focus:ring-2 focus:ring-[var(--ring)]"
-                placeholder="08xxxxxxxxxx"
-              />
-              <p className="mt-1 text-xs text-muted-foreground">
-                Samain sama nomor Telegram kamu.
-              </p>
-            </div>
-          )}
+                {error && <Alert type="error">{error}</Alert>}
+                {message && <Alert type="success">{message}</Alert>}
+              </SpaceBetween>
+            </Form>
+          </form>
+        </Container>
 
-          {error && (
-            <p
-              role="alert"
-              className="rounded-md border border-[rgba(255,107,91,0.45)] bg-[rgba(255,107,91,0.14)] px-3 py-2 text-sm text-[var(--danger)]"
-            >
-              {error}
-            </p>
-          )}
-
-          {message && (
-            <p
-              role="status"
-              className="rounded-md border border-[rgba(74,222,128,0.45)] bg-[rgba(74,222,128,0.14)] px-3 py-2 text-sm text-[var(--success)]"
-            >
-              {message}
-            </p>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading || !siap}
-            className="w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-60"
-          >
-            {teksTombol}
-          </button>
-        </form>
-
-        {/* Yang bisa diklik cuma kata kerjanya; kalimat pengantarnya teks biasa. */}
-        <p className="mt-4 text-center text-sm text-muted-foreground">
-          {mode === "lupa" ? (
-            <>
-              Inget passwordnya?{" "}
-              <button
-                type="button"
-                onClick={() => pindahMode("signin")}
-                className="font-bold text-[var(--accent)] transition hover:opacity-80"
-              >
-                Masuk
-              </button>
-            </>
-          ) : mode === "signin" ? (
-            <>
-              Belum punya akun?{" "}
-              <button
-                type="button"
-                onClick={() => pindahMode("signup")}
-                className="font-bold text-[var(--accent)] transition hover:opacity-80"
-              >
-                Daftar
-              </button>
-            </>
-          ) : (
-            <>
-              Udah punya akun?{" "}
-              <button
-                type="button"
-                onClick={() => pindahMode("signin")}
-                className="font-bold text-[var(--accent)] transition hover:opacity-80"
-              >
-                Masuk
-              </button>
-            </>
-          )}
-        </p>
-      </div>
-    </main>
+        <Box textAlign="center" color="text-body-secondary">
+          {ajakan.teks} <Link onFollow={() => pindahMode(ajakan.ke)}>{ajakan.aksi}</Link>
+        </Box>
+      </SpaceBetween>
+    </HalamanPolos>
   );
 }
