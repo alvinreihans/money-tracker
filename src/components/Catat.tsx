@@ -255,14 +255,19 @@ function CatatDialog({
           </button>
         </form>
 
+        {/* Tanpa keterangan tetap: placeholder-nya sudah memberi contoh, dan
+            panduan One UI membuang teks yang tidak membantu user bertindak.
+            Baris ini hanya muncul untuk status dan galat. */}
         {error ? (
           <span className={s.galat} role="alert">
             {error}
           </span>
         ) : (
-          <span className={s.keterangan}>
-            {loading ? "Lagi dibaca..." : "Nominal, tempat, dan cara bayarnya dibaca otomatis."}
-          </span>
+          loading && (
+            <span className={s.keterangan} role="status">
+              Lagi dibaca...
+            </span>
+          )
         )}
       </div>
     </Lembar>
