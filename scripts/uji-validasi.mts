@@ -4,7 +4,7 @@
  * Pemakaian: npm run uji:validasi
  */
 import assert from "node:assert/strict";
-import { validasiTransaksi } from "../src/lib/transaksi-input.ts";
+import { bersihkanCari, validasiTransaksi } from "../src/lib/transaksi-input.ts";
 
 const sah = {
   amount: "25000",
@@ -46,4 +46,12 @@ for (const [nama, input] of tolak) {
   assert.equal(validasiTransaksi(input).ok, false, `harus ditolak: ${nama}`);
 }
 
-console.log(`✓ validasi transaksi: 1 sah + ${tolak.length} tolak`);
+// Teks cari: karakter sintaks PostgREST dibuang, teks biasa utuh.
+assert.equal(bersihkanCari("  kopi  kenangan "), "kopi kenangan");
+assert.equal(bersihkanCari("x),merchant.eq.y"), "x merchant.eq.y");
+assert.equal(bersihkanCari("50%*"), "50");
+assert.equal(bersihkanCari('a\\b"c:d'), "a b c d");
+assert.equal(bersihkanCari(undefined), "");
+assert.equal(bersihkanCari("x".repeat(80)).length, 50);
+
+console.log(`✓ validasi transaksi: 1 sah + ${tolak.length} tolak; teks cari aman`);

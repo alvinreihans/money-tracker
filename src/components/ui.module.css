@@ -49,10 +49,14 @@
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
 }
 
+/* Setinggi tombol ikon di sebelahnya (48px), supaya kapsul berisi judul saja
+   sama besar dengan kapsul ⋮. */
 .barJudulKecil {
   display: none;
   max-width: 55vw;
-  padding: 0 18px 0 6px;
+  height: 48px;
+  line-height: 48px;
+  padding: 0 20px 0 6px;
   font-size: 17px;
   font-weight: 600;
   white-space: nowrap;
@@ -60,7 +64,7 @@
   text-overflow: ellipsis;
 }
 
-.grupAksi > .barJudulKecil:first-child { padding-left: 18px; }
+.grupAksi > .barJudulKecil:first-child { padding-left: 20px; }
 
 .barAksi[data-ciut="true"] .barJudulKecil { display: block; }
 
@@ -785,6 +789,59 @@ button.blok { background: var(--blok); }
 }
 
 .popover .versi { text-align: left; border-top: 1px solid var(--garis); padding-top: 12px; }
+
+/* Tombol kembali ke atas ala My Files: muncul sebentar saat menggulir, lalu
+   memudar sendiri. */
+.keAtas {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--tinggi-nav) + env(safe-area-inset-bottom) + 28px);
+  z-index: 24;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(60, 60, 60, 0.9);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: var(--teks);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+  transform: translateX(-50%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 250ms ease;
+  cursor: pointer;
+}
+
+.keAtas[data-tampil="true"] { opacity: 1; pointer-events: auto; }
+
+/* Kolom cari ala One UI: kapsul dengan ikon kaca pembesar dan tombol hapus. */
+.cari {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 4px 0 16px;
+  border-radius: 28px;
+  background: var(--blok-2);
+  color: var(--teks-2);
+}
+
+.cari input {
+  flex: 1;
+  min-width: 0;
+  min-height: 48px;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: var(--teks);
+  font-size: 17px;
+}
+
+/* Tombol ✕ bawaan input search disembunyikan; kolom ini punya tombol sendiri. */
+.cari input::-webkit-search-cancel-button { appearance: none; }
 
 /* ---------- Sheet Catat ---------- */
 

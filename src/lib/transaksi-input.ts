@@ -98,3 +98,13 @@ export function validasiTransaksi(input: Record<string, unknown>): HasilValidasi
 
 /** Teks bebas untuk tab "Ketik". Batasnya menjaga prompt Groq tetap kecil. */
 export const TEKS_MAKS = 500;
+
+/**
+ * Teks cari Riwayat yang aman dimasukkan ke filter or() PostgREST: koma,
+ * kurung, titik dua, tanda kutip, garis miring terbalik, dan wildcard punya
+ * arti di sintaksnya, jadi diganti spasi supaya teks cari tidak bisa
+ * membelokkan query.
+ */
+export function bersihkanCari(teks: string | undefined): string {
+  return (teks ?? "").replace(/[,()%*\\:"]/g, " ").replace(/\s+/g, " ").trim().slice(0, 50);
+}

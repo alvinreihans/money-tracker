@@ -4,6 +4,7 @@ import NextLink from "next/link";
 import { usePathname } from "next/navigation";
 import { House, ReceiptText } from "lucide-react";
 import { CatatProvider, TombolCatat } from "@/components/Catat";
+import { KembaliKeAtas } from "@/components/oneui";
 import s from "@/components/ui.module.css";
 
 /**
@@ -32,6 +33,7 @@ export default function AppShell({
   return (
     <CatatProvider saran={saran}>
       <div className={s.app}>{children}</div>
+      <KembaliKeAtas />
 
       <nav className={s.nav} aria-label="Navigasi utama">
         <NextLink href="/" aria-current={!diRiwayat ? "page" : undefined}>

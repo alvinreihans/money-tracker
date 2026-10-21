@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import NextLink from "next/link";
-import { ChevronLeft, CircleCheck, CircleX, EllipsisVertical, Info, TriangleAlert } from "lucide-react";
+import { ChevronLeft, ChevronUp, CircleCheck, CircleX, EllipsisVertical, Info, TriangleAlert } from "lucide-react";
 import s from "@/components/ui.module.css";
 
 /**
@@ -75,6 +75,47 @@ export function AppBar({
         <div className={s.grupAksi}>{aksi}</div>
       </div>
     </>
+  );
+}
+
+/**
+ * Tombol kembali ke atas ala My Files Samsung: muncul begitu halaman digulir
+ * cukup jauh, lalu memudar sendiri setelah sebentar diam — tidak menutupi
+ * daftar terus-menerus.
+ */
+export function KembaliKeAtas() {
+  const [tampil, setTampil] = useState(false);
+
+  useEffect(() => {
+    let jeda: ReturnType<typeof setTimeout> | undefined;
+    const onScroll = () => {
+      clearTimeout(jeda);
+      if (window.scrollY < 600) return setTampil(false);
+      setTampil(true);
+      jeda = setTimeout(() => setTampil(false), 1500);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      clearTimeout(jeda);
+    };
+  }, []);
+
+  return (
+    <button
+      type="button"
+      className={s.keAtas}
+      data-tampil={tampil}
+      aria-label="Kembali ke atas"
+      tabIndex={tampil ? 0 : -1}
+      onClick={() => {
+        const pelan = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        window.scrollTo({ top: 0, behavior: pelan ? "smooth" : "auto" });
+        setTampil(false);
+      }}
+    >
+      <ChevronUp size={24} />
+    </button>
   );
 }
 
