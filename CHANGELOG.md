@@ -27,6 +27,7 @@ Samsung, dan semua cara mencatat kini ada di aplikasi.
   pengeluaran harian.
 - Ikon kategori berwarna, dengan warna yang sama di daftar, porsi kategori,
   dan halaman detail.
+- Logo baru: dompet dan koin di atas kotak biru.
 - Nomor versi tampil di aplikasi.
 
 ### Diubah
