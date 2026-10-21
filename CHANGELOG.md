@@ -10,6 +10,57 @@ Versi yang tampil di aplikasi (menu ⋮ di Beranda dan halaman masuk) dibaca dar
 `version` di `package.json`. Saat merilis, naikkan angka itu dan tambahkan
 bagiannya di sini.
 
+## Rencana
+
+Belum dikerjakan; dicatat supaya tidak lupa.
+
+- **Caching data**, supaya Beranda dan Riwayat tidak menunggu database setiap
+  dibuka.
+- **Terima "Bagikan" dari aplikasi lain di Android** (Web Share Target), mis.
+  membagikan bukti bayar dari aplikasi bank/e-wallet langsung ke Money Tracker.
+  Referensi:
+  - [MDN: Share data between apps](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/How_to/Share_data_between_apps)
+  - [Share data natively from mobile to PWA app](https://dev.to/sefatanam/share-data-natively-from-mobile-to-pwa-app-4o7c)
+- **Pinjam-meminjam & cicilan paylater**: catat uang yang dipinjamkan /
+  dipinjam dan cicilan berjalan.
+- **Push notifikasi**.
+
+## [Unreleased]
+
+### Ditambahkan
+- **Analitik di Beranda:** tren pemasukan & pengeluaran 6 bulan, streak hari
+  mencatat, dan transaksi hari ini & kemarin.
+- **Kantong** (Pengaturan → Kantong): rekening, e-wallet, dan tunai beserta
+  saldo awalnya. Saldo tiap kantong dan **Total aset** tampil di Beranda.
+- **Budget** per kategori (Pengaturan → Budget), dengan kartu di Beranda yang
+  menguning di atas 80% dan memerah kalau lewat.
+- **Kategori sendiri** (Pengaturan → Kategori): tambah, ubah, dan hapus
+  kategori, lengkap dengan ikon dan warna. Kategori bawaan boleh dihapus
+  kecuali "Lainnya"; transaksinya pindah ke "Lainnya". AI memilih dari
+  kategori milikmu.
+- **Form sesuai jenis:** pemasukan punya kategori sendiri (Gaji, Bonus/THR,
+  Usaha/Jualan, …) dan isian "Dari siapa"; pengeluaran bisa dicatat dengan
+  **cashback**; pindah kantong bisa dicatat dengan **biaya admin**.
+- Halaman **Pengaturan** dari menu ⋮.
+- **Cari** di Riwayat, dan tombol **kembali ke atas** yang muncul sebentar
+  saat menggulir.
+- Halaman 404 sendiri.
+- Bisa **dipasang sebagai aplikasi** (Install app) dengan ikon dan warna gelap.
+
+### Diubah
+- Tiap transaksi wajib punya kantong. Teks atau struk yang kantongnya tidak
+  cocok (mis. kantongnya sudah dihapus) masuk ke **Perlu dibenerin**, dengan
+  alasan yang jelas.
+- Pilihan kategori dan kantong berupa daftar dari bawah layar, bukan dropdown.
+- AI lebih paham pemasukan ("dikasih duit ibu 500k ke bri" kini tercatat
+  sebagai pemasukan ke BRI) dan memakai nama bank yang disebut, bukan
+  "Transfer".
+- Tab "Perlu dibenerin" diberi keterangan singkat.
+
+### Diperbaiki
+- Bilah navigasi Android tidak lagi putih di aplikasi yang terpasang.
+- Tidak ada lagi ruang kosong di bawah daftar transaksi.
+
 ## [1.0.0] — 2026-10-21
 
 Tampilan baru mengikuti [One UI](https://developer.samsung.com/one-ui) dari
@@ -87,6 +138,7 @@ Rilis pertama.
 - Edit dan hapus transaksi, termasuk membetulkan draft.
 - Akun: daftar, masuk, dan lupa password, dengan syarat password yang kuat.
 
+[Unreleased]: https://github.com/alvinreihans/money-tracker/compare/v1.0.0...HEAD
 [1.0.0]: https://github.com/alvinreihans/money-tracker/compare/v0.1.2...v1.0.0
 [0.1.2]: https://github.com/alvinreihans/money-tracker/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/alvinreihans/money-tracker/compare/v0.1.0...v0.1.1
