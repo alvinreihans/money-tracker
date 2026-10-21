@@ -554,6 +554,17 @@ button.blok { background: var(--blok); }
 
 .popover .baris { min-height: 52px; }
 
+/* Nomor versi: kecil dan redup, cuma untuk dicari saat melapor masalah. */
+.versi {
+  margin: 0;
+  padding: 8px 20px 4px;
+  color: var(--teks-2);
+  font-size: 12px;
+  text-align: center;
+}
+
+.popover .versi { text-align: left; border-top: 1px solid var(--garis); padding-top: 12px; }
+
 /* ---------- Sheet Catat ---------- */
 
 .pintasan {

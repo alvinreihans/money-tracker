@@ -83,6 +83,13 @@ const standalone =
   process.env.BUILD_STANDALONE === "1";
 
 const nextConfig: NextConfig = {
+  // Nomor versi yang tampil di aplikasi, dari satu sumber: package.json (lihat
+  // CHANGELOG.md). Ditanam saat build, jadi browser tidak perlu memuat
+  // package.json yang berisi daftar dependensi.
+  env: {
+    NEXT_PUBLIC_VERSI: (JSON.parse(fs.readFileSync("./package.json", "utf8")) as { version: string }).version,
+  },
+
   // Dinyalakan lewat `npm run build:standalone` untuk menguji hasil tracing
   // secara lokal. Keluarannya berisi node_modules versi ciut — hanya berkas
   // yang dianggap perlu — jadi berkas yang terlewat langsung ketahuan tanpa

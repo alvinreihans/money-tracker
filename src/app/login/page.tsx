@@ -190,6 +190,8 @@ export default function LoginPage() {
             {ajakan.aksi}
           </button>
         </p>
+
+        <p className={s.versi}>Versi {process.env.NEXT_PUBLIC_VERSI}</p>
       </div>
     </main>
   );

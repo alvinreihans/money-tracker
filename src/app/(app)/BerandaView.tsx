@@ -73,6 +73,7 @@ export default function BerandaView({
                 <LogOut size={20} color="var(--bahaya)" aria-hidden />
                 <span className={s.bahaya}>Keluar</span>
               </button>
+              <div className={s.versi}>Money Tracker {process.env.NEXT_PUBLIC_VERSI}</div>
             </MenuLainnya>
           </>
         }

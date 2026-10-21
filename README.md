@@ -48,9 +48,15 @@ di [SETUP.md](SETUP.md).
 | `npm run test:receipt -- <file/folder>` | Diagnostik jalur gambar |
 | `npm run uji:validasi` | Uji validasi isian transaksi |
 | `npm run uji:tanggal` | Uji hitungan tanggal WIB |
+| `npm run uji:saran` | Uji saran di kolom Catat |
 
 Perintah diagnostik menjalankan kode produksi yang sama, lalu membongkar tiap
 tahapnya supaya hasilnya bisa diperiksa sebelum dipercaya.
+
+## Versi
+
+Riwayat perubahan ada di [CHANGELOG.md](CHANGELOG.md). Nomor versi yang tampil
+di aplikasi dibaca dari `version` di `package.json`.
 
 ## Catatan
 
