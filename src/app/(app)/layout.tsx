@@ -24,7 +24,7 @@ export default async function AppGroupLayout({
 
   if (!user) redirect("/login");
 
-  const [{ count }, { data: terakhir }] = await Promise.all([
+  const [{ count }, { data: terakhir }, { data: kantong }] = await Promise.all([
     // Jumlah draft jadi penanda di menu Riwayat.
     supabase
       .from("transactions")
@@ -40,10 +40,12 @@ export default async function AppGroupLayout({
       .not("merchant", "is", null)
       .order("created_at", { ascending: false })
       .limit(20),
+    // Pilihan kantong di form catat & edit.
+    supabase.from("user_accounts").select("id, name, kind").order("created_at"),
   ]);
 
   return (
-    <AppShell draftCount={count ?? 0} saran={saranCatat(terakhir ?? [])}>
+    <AppShell draftCount={count ?? 0} saran={saranCatat(terakhir ?? [])} kantong={kantong ?? []}>
       {children}
     </AppShell>
   );

@@ -356,6 +356,7 @@ button.blok { background: var(--blok); }
 
 .masuk { color: var(--sukses); }
 .pindah { color: var(--primer); }
+.tautan { color: var(--primer); font-weight: 600; }
 .bahaya { color: var(--bahaya); }
 .peringatan { color: var(--peringatan); }
 

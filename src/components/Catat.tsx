@@ -7,6 +7,7 @@ import CameraCapture from "@/components/CameraCapture";
 import { Lembar, Pesan, Spinner } from "@/components/oneui";
 import TransactionFields, { nilaiAwal } from "@/components/TransactionFields";
 import s from "@/components/ui.module.css";
+import type { Kantong } from "@/lib/kantong";
 import DaftarAntrean, { ACCEPT_STRUK, useAntreanStruk } from "@/components/UploadReceiptForm";
 import { fmtIDR, labelKategori } from "@/lib/format";
 import { TEKS_MAKS, validasiTransaksi } from "@/lib/transaksi-input";
@@ -30,7 +31,10 @@ interface Kabar {
   draft: boolean;
 }
 
-const CatatContext = createContext<{ buka: () => void } | null>(null);
+/** Kantong yang dipilih di form: cukup id, nama, dan jenisnya. */
+export type PilihanKantong = Pick<Kantong, "id" | "name" | "kind">;
+
+const CatatContext = createContext<{ buka: () => void; kantong: PilihanKantong[] } | null>(null);
 
 /** Membuka sheet Catat dari mana saja, mis. dari halaman kosong. */
 export function useCatat() {
@@ -51,9 +55,11 @@ export function TombolCatat() {
 
 export function CatatProvider({
   saran,
+  kantong,
   children,
 }: {
   saran: string[];
+  kantong: PilihanKantong[];
   children: React.ReactNode;
 }) {
   const router = useRouter();
@@ -95,7 +101,7 @@ export function CatatProvider({
       : null;
 
   return (
-    <CatatContext.Provider value={{ buka: () => setDialog("catat") }}>
+    <CatatContext.Provider value={{ buka: () => setDialog("catat"), kantong }}>
       <input
         ref={galeriRef}
         type="file"

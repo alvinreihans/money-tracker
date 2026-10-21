@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ChevronRight, Flame, Inbox, LogOut, Settings, TriangleAlert } from "lucide-react";
 import { useCatat } from "@/components/Catat";
 import KartuBudget from "@/components/KartuBudget";
+import KartuKantong from "@/components/KartuKantong";
 import KomposisiKategori from "@/components/KomposisiKategori";
 import { AppBar, Kosong, MenuLainnya } from "@/components/oneui";
 import RingkasanBulan from "@/components/RingkasanBulan";
@@ -25,6 +26,7 @@ export default function BerandaView({
   rerata,
   rerataError,
   tren,
+  kantong,
   budget,
   streak,
 }: {
@@ -35,6 +37,7 @@ export default function BerandaView({
   rerata: AvgMonthlyExpenseRow[];
   rerataError: string | null;
   tren: Bulan[];
+  kantong: React.ComponentProps<typeof KartuKantong>["data"];
   budget: ProgresBudget[];
   streak: { hari: number; hariIni: boolean };
 }) {
@@ -147,6 +150,7 @@ export default function BerandaView({
           </div>
         )}
 
+        <KartuKantong data={kantong} />
         <KartuBudget data={budget} bulan={namaBulan(awalBulanIni)} />
         <TrenBulanan data={tren} />
         <KomposisiKategori data={rerata} error={rerataError} />

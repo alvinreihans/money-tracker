@@ -2,7 +2,7 @@
 
 import NextLink from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronRight, LogOut, Target, UserRound } from "lucide-react";
+import { ChevronRight, LogOut, Target, UserRound, Wallet } from "lucide-react";
 import { AppBar } from "@/components/oneui";
 import s from "@/components/ui.module.css";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -39,7 +39,15 @@ export function BarisMenu({
  * Pengaturan, dibuka dari menu ⋮ di Beranda. Tidak jadi tab: jarang dibuka,
  * dan navigasi bawah disimpan untuk yang dipakai tiap hari.
  */
-export default function PengaturanView({ email, jumlahBudget }: { email: string | null; jumlahBudget: number }) {
+export default function PengaturanView({
+  email,
+  jumlahKantong,
+  jumlahBudget,
+}: {
+  email: string | null;
+  jumlahKantong: number;
+  jumlahBudget: number;
+}) {
   const router = useRouter();
 
   async function keluar() {
@@ -55,6 +63,13 @@ export default function PengaturanView({ email, jumlahBudget }: { email: string 
       <div className={s.isi}>
         <h2 className={s.subheader}>Keuangan</h2>
         <div className={s.blok}>
+          <BarisMenu
+            href="/pengaturan/kantong"
+            ikon={Wallet}
+            warna="#bf7af0"
+            judul="Kantong"
+            ket={jumlahKantong > 0 ? `${jumlahKantong} kantong · saldo awal & tanggalnya` : "Rekening, e-wallet, tunai, dan saldo awalnya"}
+          />
           <BarisMenu
             href="/pengaturan/budget"
             ikon={Target}

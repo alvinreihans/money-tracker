@@ -48,7 +48,7 @@ alter table user_accounts add column saldo_awal numeric(14,2) not null default 0
 alter table transactions  add column kantong_id uuid references user_accounts on delete set null,
                           add column kantong_tujuan_id uuid references user_accounts on delete set null;
 ```
-- **Saldo kantong** = `saldo_awal` + masuk − keluar − pindah keluar + pindah masuk, untuk transaksi **setelah** `saldo_per`. Tanggal itu mencegah transaksi lama terhitung dua kali kalau saldo awal diisi dengan saldo hari ini.
+- **Saldo kantong** = `saldo_awal` + masuk − keluar − pindah keluar + pindah masuk, untuk transaksi bertanggal `saldo_per` **atau sesudahnya** (`saldo_awal` = saldo di awal tanggal itu). Tanggal itu mencegah transaksi lama terhitung dua kali.
 - **Total aset** = jumlah saldo semua kantong.
 - Form transaksi: field **Kantong** (pilihan) menggantikan **Metode bayar** yang berupa teks bebas. Untuk Pindah kantong ada dua field: **Dari** dan **Ke**.
 - Teks dan struk yang dibaca AI ("kopi 25rb gopay"): `payment_method` hasil AI dicocokkan otomatis ke kantong bernama atau beralias sama, tanpa membedakan huruf besar-kecil. Untuk pindah kantong, `payment_target` dicocokkan ke kantong tujuan.
@@ -72,3 +72,4 @@ alter table transactions  add column kantong_id uuid references user_accounts on
 - Spec dan perubahan database **disetujui**. Migrasi ditulis dan diuji di sini, dan pemakai yang menjalankan `npm run db:migrate` ke produksi.
 - **Metode bayar diganti Kantong** di form. Kolom `payment_method` tetap diisi teks asli di belakang layar.
 - **Pindah kantong dari teks: AI mengisi asal dan tujuan.** Prompt ekstraksi ditambah satu field `payment_target` (kantong tujuan, hanya untuk transfer). Field lain dan alur fallback tidak berubah.
+  - Supaya itu mungkin, `type` di prompt juga boleh `"transfer"` (sebelumnya hanya income/expense). Jaring pengaman di server: transfer dari AI yang tujuannya tidak cocok dengan kantong user disimpan sebagai pengeluaran, sama seperti sebelum ada kantong.

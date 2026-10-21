@@ -1,6 +1,8 @@
 "use client";
 
-import { Banknote, CalendarDays, ChevronDown, CreditCard, NotebookPen, Shapes, Store } from "lucide-react";
+import NextLink from "next/link";
+import { ArrowDownToLine, Banknote, CalendarDays, ChevronDown, CreditCard, NotebookPen, Shapes, Store, Wallet } from "lucide-react";
+import { useCatat } from "@/components/Catat";
 import { Field, Segmen } from "@/components/oneui";
 import s from "@/components/ui.module.css";
 import { CATEGORY_LABEL, isoLokal } from "@/lib/format";
@@ -21,6 +23,8 @@ export interface NilaiTransaksi {
   transaction_date: string;
   merchant: string;
   payment_method: string;
+  kantong_id: string;
+  kantong_tujuan_id: string;
   description: string;
 }
 
@@ -33,6 +37,8 @@ export function nilaiAwal(tx?: Transaction, type: TransactionType = "expense"): 
     transaction_date: tx?.transaction_date ?? isoLokal(new Date()),
     merchant: tx?.merchant ?? "",
     payment_method: tx?.payment_method ?? "",
+    kantong_id: tx?.kantong_id ?? "",
+    kantong_tujuan_id: tx?.kantong_tujuan_id ?? "",
     description: tx?.description ?? "",
   };
 }
@@ -44,6 +50,34 @@ export default function TransactionFields({
   nilai: NilaiTransaksi;
   onChange: (patch: Partial<NilaiTransaksi>) => void;
 }) {
+  const { kantong } = useCatat();
+  const pindah = nilai.type === "transfer";
+
+  // Pilihan kantong. Nama kantong asal ikut disalin ke payment_method, supaya
+  // daftar, saran, dan pencarian tetap memakai teks seperti sebelumnya.
+  const pilihKantong = (kolom: "kantong_id" | "kantong_tujuan_id", label: string, ikon: React.ElementType) => (
+    <Field label={label} ikon={ikon} kanan={<ChevronDown size={22} />}>
+      <select
+        value={nilai[kolom]}
+        onChange={(e) => {
+          const id = e.target.value;
+          onChange(
+            kolom === "kantong_id"
+              ? { kantong_id: id, payment_method: kantong.find((k) => k.id === id)?.name ?? "" }
+              : { kantong_tujuan_id: id },
+          );
+        }}
+      >
+        <option value="">Tanpa kantong</option>
+        {kantong.map((k) => (
+          <option key={k.id} value={k.id}>
+            {k.name}
+          </option>
+        ))}
+      </select>
+    </Field>
+  );
+
   return (
     <div className={s.form}>
       {/* Jenis paling atas dan selalu terlihat: menentukan apakah ini masuk
@@ -92,19 +126,38 @@ export default function TransactionFields({
             ))}
           </select>
         </Field>
+
+        {kantong.length > 0 ? (
+          <>
+            {pilihKantong("kantong_id", pindah ? "Dari kantong" : "Kantong", Wallet)}
+            {pindah && pilihKantong("kantong_tujuan_id", "Ke kantong", ArrowDownToLine)}
+          </>
+        ) : (
+          // Belum punya kantong: tetap bisa menulis metode bayar seperti dulu.
+          <Field
+            label="Metode bayar"
+            ikon={CreditCard}
+            keterangan={
+              <>
+                <NextLink href="/pengaturan/kantong" className={s.tautan}>
+                  Tambah kantong
+                </NextLink>{" "}
+                biar saldonya ikut kehitung.
+              </>
+            }
+          >
+            <input
+              value={nilai.payment_method}
+              onChange={(e) => onChange({ payment_method: e.target.value })}
+              placeholder="Metode bayar"
+            />
+          </Field>
+        )}
       </div>
 
       <div className={`${s.blok} ${s.blokForm}`}>
         <Field label="Merchant" ikon={Store}>
           <input value={nilai.merchant} onChange={(e) => onChange({ merchant: e.target.value })} placeholder="Merchant" />
-        </Field>
-
-        <Field label="Metode bayar" ikon={CreditCard}>
-          <input
-            value={nilai.payment_method}
-            onChange={(e) => onChange({ payment_method: e.target.value })}
-            placeholder="Metode bayar"
-          />
         </Field>
 
         <Field label="Keterangan" ikon={NotebookPen}>

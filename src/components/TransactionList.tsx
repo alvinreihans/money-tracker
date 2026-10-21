@@ -1,4 +1,7 @@
+"use client";
+
 import NextLink from "next/link";
+import { useCatat } from "@/components/Catat";
 import { tandaTransaksi } from "@/components/kategori";
 import s from "@/components/ui.module.css";
 import { fmtIDR, fmtIDRRingkas, fmtTanggal, kelompokWaktu, labelKategori } from "@/lib/format";
@@ -31,7 +34,10 @@ function Kartu({ t, kelompok }: { t: Transaction; kelompok: string }) {
   const { ikon: Ikon, warna } = tandaTransaksi(t);
   // Di "Hari ini"/"Kemarin" tanggalnya sudah jelas dari subheader.
   const tanggal = kelompok === "Hari ini" || kelompok === "Kemarin" ? null : fmtTanggal(t.transaction_date);
-  const rincian = [tanggal, labelKategori(t.category), t.payment_method].filter(Boolean).join(" · ");
+  const { kantong } = useCatat();
+  const tujuan = t.type === "transfer" ? kantong.find((k) => k.id === t.kantong_tujuan_id)?.name : undefined;
+  const lewat = tujuan ? `${t.payment_method ?? "?"} → ${tujuan}` : t.payment_method;
+  const rincian = [tanggal, labelKategori(t.category), lewat].filter(Boolean).join(" · ");
 
   return (
     <NextLink href={`/transactions/${t.id}`} className={`${s.kartuTx} ${s.tekan}`}>

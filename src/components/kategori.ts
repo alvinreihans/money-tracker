@@ -1,16 +1,20 @@
 import {
   ArrowDownLeft,
   ArrowLeftRight,
+  Banknote,
   Car,
   CircleEllipsis,
   Clapperboard,
   HeartPulse,
+  Landmark,
   Receipt,
   ShoppingBag,
   ShoppingBasket,
   Utensils,
+  Wallet,
   type LucideIcon,
 } from "lucide-react";
+import type { JenisKantong } from "@/lib/kantong";
 import type { Transaction } from "@/types/transaction";
 
 /**
@@ -36,3 +40,10 @@ export function tandaTransaksi(t: Pick<Transaction, "type" | "category" | "statu
   if (t.type === "transfer") return { ikon: ArrowLeftRight, warna: "#3e91ff" };
   return KATEGORI[t.category] ?? KATEGORI.other;
 }
+
+/** Ikon & warna per jenis kantong. */
+export const TANDA_KANTONG: Record<JenisKantong, { ikon: LucideIcon; warna: string }> = {
+  bank: { ikon: Landmark, warna: "#3e91ff" },
+  ewallet: { ikon: Wallet, warna: "#bf7af0" },
+  cash: { ikon: Banknote, warna: "#5ecb7a" },
+};

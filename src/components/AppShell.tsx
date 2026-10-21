@@ -3,7 +3,7 @@
 import NextLink from "next/link";
 import { usePathname } from "next/navigation";
 import { House, ReceiptText } from "lucide-react";
-import { CatatProvider, TombolCatat } from "@/components/Catat";
+import { CatatProvider, TombolCatat, type PilihanKantong } from "@/components/Catat";
 import { KembaliKeAtas } from "@/components/oneui";
 import s from "@/components/ui.module.css";
 
@@ -18,9 +18,11 @@ import s from "@/components/ui.module.css";
 export default function AppShell({
   draftCount,
   saran,
+  kantong,
   children,
 }: {
   draftCount: number;
+  kantong: PilihanKantong[];
   /** Teks transaksi terakhir untuk chip saran di kolom "Catat". */
   saran: string[];
   children: React.ReactNode;
@@ -31,7 +33,7 @@ export default function AppShell({
   const diRiwayat = pathname.startsWith("/riwayat") || pathname.startsWith("/transactions");
 
   return (
-    <CatatProvider saran={saran}>
+    <CatatProvider saran={saran} kantong={kantong}>
       <div className={s.app}>{children}</div>
       <KembaliKeAtas />
 

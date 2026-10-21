@@ -30,12 +30,13 @@ Kembalikan HANYA objek JSON valid sesuai skema.
 Skema:
 {
   "amount": number,
-  "type": "income" | "expense",
+  "type": "income" | "expense" | "transfer",
   "merchant": string | null,
   "category": string,
   "transaction_date": "YYYY-MM-DD",
   "description": string | null,
   "payment_method": string | null,
+  "payment_target": string | null,
   "document_type": "receipt" | "payment_proof"
 }
 
@@ -61,6 +62,10 @@ Aturan:
   mengambil angka promo/cashback ("Cashback up to ..."), sisa saldo, nomor
   kartu, PAN, RRN, atau ID transaksi.
 - type: "expense" untuk pengeluaran (default), "income" untuk pemasukan/gaji/transfer masuk.
+  "transfer" HANYA untuk memindahkan uang antar rekening/dompet milik sendiri:
+  topup e-wallet ("topup gopay 100rb dari bca"), tarik tunai, atau "pindahin
+  500rb dari bca ke seabank". Transfer ke orang lain atau bayar tagihan tetap
+  "expense". Untuk "transfer", category = "other".
 - category: WAJIB salah satu dari: ${CATEGORIES.join(", ")}.
   Petunjuk: makan/jajan/kopi/gorengan=food; belanja bulanan/indomaret/supermarket=groceries;
   gojek/grab/bensin/parkir/tol=transport; baju/elektronik/tokopedia/shopee=shopping;
@@ -73,6 +78,10 @@ Aturan:
   "sopipay"/"spay"/"shopee pay"=ShopeePay; "gopay"=GoPay; "ovo"=OVO; "dana"=DANA;
   "qris"=QRIS; "cash"/"tunai"/"cod"=Tunai; "transfer"/"tf"/"m-banking"=Transfer;
   "kartu"/"debit"/"kredit"/"visa"=Kartu. Jika tidak disebut null.
+  Untuk "transfer", ini rekening/dompet ASAL uangnya ("tarik tunai dari bca" -> BCA).
+- payment_target: HANYA untuk "transfer", rekening/dompet TUJUAN dengan
+  normalisasi yang sama ("topup gopay dari bca" -> GoPay; tarik tunai -> Tunai).
+  Selain transfer null.
 - document_type: "payment_proof" bila ini tangkapan layar bukti bayar dari
   aplikasi (ShopeePay/GoPay/OVO/DANA/QRIS/m-banking), "receipt" bila ini struk
   kertas dari mesin kasir. Dipakai untuk mencegah transaksi tercatat dua kali
@@ -99,7 +108,8 @@ export function normalize(parsed: Partial<ExtractedReceipt>): ExtractedReceipt {
       ? parsed.category.toLowerCase()
       : "other";
 
-  const type: TransactionType = parsed.type === "income" ? "income" : "expense";
+  const type: TransactionType =
+    parsed.type === "income" || parsed.type === "transfer" ? parsed.type : "expense";
 
   return {
     amount: Number(parsed.amount) || 0,
@@ -108,6 +118,7 @@ export function normalize(parsed: Partial<ExtractedReceipt>): ExtractedReceipt {
     merchant: parsed.merchant?.toString().trim() || null,
     description: parsed.description?.toString().trim() || null,
     payment_method: parsed.payment_method?.toString().trim() || null,
+    payment_target: type === "transfer" ? parsed.payment_target?.toString().trim() || null : null,
     document_type: parsed.document_type === "payment_proof" ? "payment_proof" : "receipt",
     transaction_date:
       typeof parsed.transaction_date === "string" && parsed.transaction_date
@@ -162,12 +173,13 @@ const geminiSchema: GenerationConfig["responseSchema"] = {
   type: SchemaType.OBJECT,
   properties: {
     amount: { type: SchemaType.NUMBER },
-    type: { type: SchemaType.STRING, format: "enum", enum: ["income", "expense"] },
+    type: { type: SchemaType.STRING, format: "enum", enum: ["income", "expense", "transfer"] },
     merchant: { type: SchemaType.STRING, nullable: true },
     category: { type: SchemaType.STRING },
     transaction_date: { type: SchemaType.STRING },
     description: { type: SchemaType.STRING, nullable: true },
     payment_method: { type: SchemaType.STRING, nullable: true },
+    payment_target: { type: SchemaType.STRING, nullable: true },
     document_type: { type: SchemaType.STRING, format: "enum", enum: ["receipt", "payment_proof"] },
   },
   required: ["amount", "type", "category", "transaction_date"],

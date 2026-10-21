@@ -17,7 +17,8 @@
     "uji:validasi": "tsx scripts/uji-validasi.mts",
     "uji:tanggal": "tsx scripts/uji-tanggal.mts",
     "uji:saran": "tsx scripts/uji-saran.mts",
-    "uji:analitik": "tsx scripts/uji-analitik.mts"
+    "uji:analitik": "tsx scripts/uji-analitik.mts",
+    "uji:kantong": "tsx scripts/uji-kantong.mts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

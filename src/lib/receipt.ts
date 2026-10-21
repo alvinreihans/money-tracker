@@ -37,6 +37,8 @@ export interface TransactionRow {
   merchant: string | null;
   description: string | null;
   payment_method: string | null;
+  /** Bukan kolom: dicocokkan ke kantong_tujuan_id oleh simpanTransaksi lalu dibuang. */
+  payment_target: string | null;
   transaction_date: string;
   status: ReceiptStatus;
   raw_ocr_text: string | null;
@@ -57,6 +59,7 @@ function emptyDraft(): ExtractedReceipt {
     merchant: null,
     description: null,
     payment_method: null,
+    payment_target: null,
     transaction_date: today(),
     document_type: "receipt",
   };
@@ -176,6 +179,7 @@ export function toTransactionRow(
     merchant: e.merchant,
     description: e.description,
     payment_method: e.payment_method,
+    payment_target: e.payment_target,
     transaction_date: e.transaction_date,
     status: result.status,
     // Teks OCR hanya disimpan saat butuh koreksi manual — kalau ekstraksi

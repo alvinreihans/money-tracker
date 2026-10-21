@@ -1,4 +1,5 @@
 import { CATEGORY_LABEL } from "@/lib/format";
+import { JENIS_KANTONG, type JenisKantong } from "@/lib/kantong";
 import type { TransactionType } from "@/types/transaction";
 
 /**
@@ -25,6 +26,8 @@ export interface TransaksiValid {
   transaction_date: string;
   merchant: string | null;
   payment_method: string | null;
+  kantong_id: string | null;
+  kantong_tujuan_id: string | null;
   description: string | null;
 }
 
@@ -38,6 +41,14 @@ function teksOpsional(v: unknown, maks: number): string | null | undefined {
   const bersih = v.trim();
   if (bersih.length > maks) return undefined;
   return bersih || null;
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Id kantong: kosong → null, bukan uuid → undefined (ditolak). */
+function idOpsional(v: unknown): string | null | undefined {
+  if (v === undefined || v === null || v === "") return null;
+  return typeof v === "string" && UUID.test(v) ? v : undefined;
 }
 
 /** Tanggal kalender yang benar-benar ada, bukan sekadar berpola YYYY-MM-DD. */
@@ -81,6 +92,16 @@ export function validasiTransaksi(input: Record<string, unknown>): HasilValidasi
     return { ok: false, error: "Ada isian yang kepanjangan." };
   }
 
+  const kantong_id = idOpsional(input.kantong_id);
+  // Kantong tujuan hanya bermakna untuk pindah kantong.
+  const kantong_tujuan_id = type === "transfer" ? idOpsional(input.kantong_tujuan_id) : null;
+  if (kantong_id === undefined || kantong_tujuan_id === undefined) {
+    return { ok: false, error: "Kantongnya nggak dikenal." };
+  }
+  if (kantong_id && kantong_id === kantong_tujuan_id) {
+    return { ok: false, error: "Kantong asal dan tujuannya nggak boleh sama." };
+  }
+
   return {
     ok: true,
     data: {
@@ -91,6 +112,8 @@ export function validasiTransaksi(input: Record<string, unknown>): HasilValidasi
       transaction_date: input.transaction_date,
       merchant,
       payment_method,
+      kantong_id,
+      kantong_tujuan_id,
       description,
     },
   };
@@ -130,4 +153,30 @@ export function rapikanBudget(isian: Record<string, string>): HasilBudget {
     simpan.push({ category, amount: Math.round(n) });
   }
   return { ok: true, simpan, hapus };
+}
+
+export type HasilKantong =
+  | { ok: true; data: { name: string; kind: JenisKantong; saldo_awal: number; saldo_per: string } }
+  | { ok: false; error: string };
+
+/** Isian tambah/ubah kantong. Saldo awal boleh minus (paylater, kartu kredit). */
+export function validasiKantong(input: Record<string, unknown>): HasilKantong {
+  const name = typeof input.name === "string" ? input.name.trim() : "";
+  if (!name) return { ok: false, error: "Namanya diisi dulu." };
+  if (name.length > 40) return { ok: false, error: "Namanya kepanjangan, maksimal 40 huruf." };
+
+  const kind = input.kind;
+  if (!JENIS_KANTONG.some((j) => j.id === kind)) return { ok: false, error: "Jenis kantongnya nggak dikenal." };
+
+  const mentah = typeof input.saldo_awal === "string" ? input.saldo_awal.trim() : input.saldo_awal;
+  const saldo_awal = mentah === "" || mentah === undefined || mentah === null ? 0 : Number(mentah);
+  if (!Number.isFinite(saldo_awal)) return { ok: false, error: "Saldo awalnya harus angka." };
+  if (Math.abs(saldo_awal) >= NOMINAL_MAKS) return { ok: false, error: "Saldo awalnya kebesaran." };
+
+  if (!tanggalSah(input.saldo_per)) return { ok: false, error: "Tanggal saldonya nggak valid." };
+
+  return {
+    ok: true,
+    data: { name, kind: kind as JenisKantong, saldo_awal: Math.round(saldo_awal), saldo_per: input.saldo_per },
+  };
 }

@@ -10,10 +10,12 @@ export default async function PengaturanPage() {
       data: { user },
     },
     { count: jumlahBudget },
+    { count: jumlahKantong },
   ] = await Promise.all([
     supabase.auth.getUser(),
     supabase.from("budgets").select("category", { count: "exact", head: true }),
+    supabase.from("user_accounts").select("id", { count: "exact", head: true }),
   ]);
 
-  return <PengaturanView email={user?.email ?? null} jumlahBudget={jumlahBudget ?? 0} />;
+  return <PengaturanView email={user?.email ?? null} jumlahKantong={jumlahKantong ?? 0} jumlahBudget={jumlahBudget ?? 0} />;
 }

@@ -1,6 +1,7 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { hitungStreak, progresBudget, trenBulanan } from "@/lib/analitik";
 import { geserHari, isoLokal } from "@/lib/format";
+import { ambilKantong } from "@/lib/kantong";
 import { rentangBulan } from "@/lib/periode";
 import BerandaView from "./BerandaView";
 import type { AvgMonthlyExpenseRow, Transaction } from "@/types/transaction";
@@ -39,6 +40,7 @@ export default async function BerandaPage() {
     { data: barisTren },
     { data: catatan },
     { data: budgets },
+    { kantong, saldo },
   ] = await Promise.all([
     supabase.auth.getUser(),
     // Beranda cuma hari ini & kemarin; selebihnya di Riwayat.
@@ -83,6 +85,7 @@ export default async function BerandaPage() {
       .select("created_at")
       .gte("created_at", new Date(sekarang.getTime() - HARI_STREAK * 86_400_000).toISOString()),
     supabase.from("budgets").select("category, amount"),
+    ambilKantong(supabase),
   ]);
 
   return (
@@ -98,6 +101,7 @@ export default async function BerandaPage() {
       rerata={(rerata ?? []) as AvgMonthlyExpenseRow[]}
       rerataError={rerataError?.message ?? null}
       tren={trenBulanan(barisTren ?? [], sekarang, BULAN_TREN)}
+      kantong={kantong.map((k) => ({ id: k.id, name: k.name, kind: k.kind, saldo: saldo.get(k.id) ?? 0 }))}
       budget={progresBudget(budgets ?? [], keluarIni ?? [])}
       streak={hitungStreak((catatan ?? []).map((c) => c.created_at as string), sekarang)}
     />

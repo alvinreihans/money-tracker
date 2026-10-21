@@ -16,6 +16,10 @@ export interface Transaction {
   merchant: string | null;
   description: string | null;
   payment_method: string | null;
+  /** Kantong (user_accounts) tempat uang bergerak; untuk pindah kantong: asalnya. */
+  kantong_id: string | null;
+  /** Hanya untuk pindah kantong: kantong tujuannya. */
+  kantong_tujuan_id: string | null;
   transaction_date: string; // ISO date: "YYYY-MM-DD"
   status: TransactionStatus;
   /** Rekening/dompet tempat uang bergerak, mis. "SeaBank". */
@@ -39,6 +43,8 @@ export interface ExtractedReceipt {
   transaction_date: string; // "YYYY-MM-DD"
   description: string | null;
   payment_method: string | null;
+  /** Hanya untuk transfer: kantong tujuan, mis. "GoPay" pada "topup gopay dari bca". */
+  payment_target: string | null;
   /** Membedakan screenshot bukti bayar dari struk kertas kasir. */
   document_type: "receipt" | "payment_proof";
 }

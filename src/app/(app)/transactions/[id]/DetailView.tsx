@@ -1,5 +1,6 @@
 "use client";
 
+import { useCatat } from "@/components/Catat";
 import DeleteTransactionButton from "@/components/DeleteTransactionButton";
 import EditTransactionForm from "@/components/EditTransactionForm";
 import { tandaTransaksi } from "@/components/kategori";
@@ -12,12 +13,15 @@ export default function DetailView({ t }: { t: Transaction }) {
   const draft = t.status === "needs_review";
   const nama = t.merchant ?? "Tanpa nama";
   const { ikon: Ikon, warna } = tandaTransaksi(t);
+  const { kantong } = useCatat();
+  const pindah = t.type === "transfer";
 
   // Baris kosong dilewati: label tanpa isi cuma bikin rincian terlihat bolong.
   const rincian = [
     ["Jenis", JENIS[t.type]],
     ["Kategori", labelKategori(t.category)],
-    ["Metode bayar", t.payment_method],
+    [pindah ? "Dari kantong" : "Kantong", t.payment_method],
+    ["Ke kantong", pindah ? kantong.find((k) => k.id === t.kantong_tujuan_id)?.name : null],
     ["Rekening", t.account],
     ["Lawan transaksi", t.counterparty],
     ["Keterangan", t.description],
