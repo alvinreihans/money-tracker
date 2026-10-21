@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import AppShell from "@/components/AppShell";
 import { saranCatat } from "@/lib/saran";
+import { ambilKategori } from "@/lib/kategori-server";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +25,7 @@ export default async function AppGroupLayout({
 
   if (!user) redirect("/login");
 
-  const [{ count }, { data: terakhir }, { data: kantong }] = await Promise.all([
+  const [{ count }, { data: terakhir }, { data: kantong }, kategori] = await Promise.all([
     // Jumlah draft jadi penanda di menu Riwayat.
     supabase
       .from("transactions")
@@ -42,10 +43,13 @@ export default async function AppGroupLayout({
       .limit(20),
     // Pilihan kantong di form catat & edit.
     supabase.from("user_accounts").select("id, name, kind").order("created_at"),
+    ambilKategori(supabase),
   ]);
 
   return (
-    <AppShell draftCount={count ?? 0} saran={saranCatat(terakhir ?? [])} kantong={kantong ?? []}>
+    <AppShell draftCount={count ?? 0} saran={saranCatat(terakhir ?? [])} kantong={kantong ?? []}
+      kategori={kategori}
+    >
       {children}
     </AppShell>
   );

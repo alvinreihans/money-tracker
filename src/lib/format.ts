@@ -95,41 +95,7 @@ export const JENIS: Record<TransactionType, string> = {
   transfer: "Pindah kantong",
 };
 
-/**
- * Kategori disimpan sebagai slug Inggris; yang dilihat user harus Indonesia.
- * Pengeluaran dan pemasukan punya daftar sendiri; "other" ada di keduanya.
- * Pindah kantong tidak berkategori (disimpan "other").
- */
-export const KATEGORI_KELUAR: Record<string, string> = {
-  food: "Makan",
-  groceries: "Belanja harian",
-  transport: "Transportasi",
-  shopping: "Belanja",
-  health: "Kesehatan",
-  entertainment: "Hiburan",
-  bills: "Tagihan",
-  fees: "Biaya admin",
-  other: "Lainnya",
-};
-
-export const KATEGORI_MASUK: Record<string, string> = {
-  salary: "Gaji",
-  bonus: "Bonus/THR",
-  business: "Usaha/Jualan",
-  freelance: "Freelance/Proyek",
-  gift: "Pemberian",
-  refund: "Cashback/Refund",
-  investment: "Bunga/Investasi",
-  other: "Lainnya",
-};
-
-export const CATEGORY_LABEL: Record<string, string> = { ...KATEGORI_KELUAR, ...KATEGORI_MASUK };
-
-/** Daftar kategori yang sah untuk satu jenis transaksi. */
-export const kategoriUntuk = (type: TransactionType): Record<string, string> =>
-  type === "income" ? KATEGORI_MASUK : type === "expense" ? KATEGORI_KELUAR : { other: "Lainnya" };
-
-export const labelKategori = (slug: string) => CATEGORY_LABEL[slug] ?? slug;
+// Nama & ikon kategori: lib/kategori.ts (milik user, dari database).
 
 /** Dari mana transaksi ini masuk — dijelaskan dengan bahasa user, bukan slug. */
 export const SOURCE_LABEL: Record<string, string> = {

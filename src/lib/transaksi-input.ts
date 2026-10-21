@@ -1,4 +1,4 @@
-import { KATEGORI_KELUAR, kategoriUntuk } from "@/lib/format";
+import { KATEGORI_BAWAAN, kategoriJenis, type Kategori } from "@/lib/kategori";
 import { JENIS_KANTONG, type JenisKantong } from "@/lib/kantong";
 import type { TransactionType } from "@/types/transaction";
 
@@ -73,9 +73,13 @@ function tanggalSah(v: unknown): v is string {
 
 /**
  * `wajibKantong`: user sudah punya kantong, jadi tiap transaksi harus jelas
- * kantongnya (dan tujuannya, untuk pindah kantong).
+ * kantongnya (dan tujuannya, untuk pindah kantong). `kategori`: kategori
+ * milik user; kategorinya harus salah satu dari itu, sesuai jenisnya.
  */
-export function validasiTransaksi(input: Record<string, unknown>, { wajibKantong = false } = {}): HasilValidasi {
+export function validasiTransaksi(
+  input: Record<string, unknown>,
+  { wajibKantong = false, kategori = KATEGORI_BAWAAN }: { wajibKantong?: boolean; kategori?: Kategori[] } = {},
+): HasilValidasi {
   // Dari form, nominal datang sebagai string; dari JSON bisa angka.
   const amount = typeof input.amount === "string" && input.amount.trim() === ""
     ? NaN
@@ -95,7 +99,10 @@ export function validasiTransaksi(input: Record<string, unknown>, { wajibKantong
   // Pengeluaran dan pemasukan punya daftar kategori sendiri; pindah kantong
   // tidak berkategori.
   const category = type === "transfer" ? "other" : input.category;
-  if (typeof category !== "string" || !(category in kategoriUntuk(type as TransactionType))) {
+  if (
+    typeof category !== "string" ||
+    (type !== "transfer" && !kategoriJenis(kategori, type as TransactionType).some((k) => k.slug === category))
+  ) {
     return { ok: false, error: "Kategorinya nggak cocok dengan jenis transaksinya." };
   }
 
@@ -225,11 +232,11 @@ export type HasilBudget =
   | { ok: false; error: string };
 
 /** Isian Pengaturan → Budget: yang berisi disimpan, yang dikosongkan dihapus targetnya. */
-export function rapikanBudget(isian: Record<string, string>): HasilBudget {
+export function rapikanBudget(isian: Record<string, string>, kategori: Kategori[] = KATEGORI_BAWAAN): HasilBudget {
   const simpan: { category: string; amount: number }[] = [];
   const hapus: string[] = [];
   for (const [category, teks] of Object.entries(isian)) {
-    const label = KATEGORI_KELUAR[category];
+    const label = kategoriJenis(kategori, "expense").find((k) => k.slug === category)?.name;
     if (!label) return { ok: false, error: "Kategorinya nggak dikenal." };
     if (teks.trim() === "") {
       hapus.push(category);

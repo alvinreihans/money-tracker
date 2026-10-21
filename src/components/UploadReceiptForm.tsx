@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import { Camera, CircleCheck, CircleX, Clock, Image as IkonGambar, RotateCcw, TriangleAlert, X } from "lucide-react";
 import ProcessingMessage from "@/components/ProcessingMessage";
 import s from "@/components/ui.module.css";
-import { fmtIDR, fmtTanggal, labelKategori } from "@/lib/format";
+import { useKategori } from "@/components/Catat";
+import { fmtIDR, fmtTanggal } from "@/lib/format";
+import { namaKategori } from "@/lib/kategori";
 import { alasanDraft } from "@/lib/kantong";
 import type { Transaction } from "@/types/transaction";
 
@@ -224,6 +226,7 @@ function Status({ ikon: Ikon, warna, children }: { ikon: React.ElementType; warn
 }
 
 function HasilItem({ item: i }: { item: Item }) {
+  const kategori = useKategori();
   if (i.status === "antre") return <Status ikon={Clock} warna="var(--teks-2)">Nunggu giliran</Status>;
   if (i.status === "proses") return <ProcessingMessage />;
 
@@ -235,7 +238,7 @@ function HasilItem({ item: i }: { item: Item }) {
           {t.merchant ?? "Tanpa nama"} — {fmtIDR(Number(t.amount))}
         </Status>
         <span className={s.redup}>
-          {labelKategori(t.category)} · {fmtTanggal(t.transaction_date)} · via {SUMBER[i.hasil.source]}
+          {namaKategori(kategori, t.category, t.type)} · {fmtTanggal(t.transaction_date)} · via {SUMBER[i.hasil.source]}
         </span>
       </>
     );

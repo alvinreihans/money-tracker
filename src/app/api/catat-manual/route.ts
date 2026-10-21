@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { ambilKategori } from "@/lib/kategori-server";
 import { KantongKurang, simpanTransaksi } from "@/lib/simpan-transaksi";
 import { dbErrorMessage } from "@/lib/errors";
 import { validasiTransaksi } from "@/lib/transaksi-input";
@@ -27,7 +28,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Isiannya nggak kebaca." }, { status: 400 });
   }
 
-  const hasil = validasiTransaksi(body as Record<string, unknown>);
+  const hasil = validasiTransaksi(body as Record<string, unknown>, { kategori: await ambilKategori(supabase) });
   if (!hasil.ok) {
     return NextResponse.json({ error: hasil.error }, { status: 400 });
   }

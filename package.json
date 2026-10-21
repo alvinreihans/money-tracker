@@ -19,7 +19,8 @@
     "uji:tanggal": "tsx scripts/uji-tanggal.mts",
     "uji:saran": "tsx scripts/uji-saran.mts",
     "uji:analitik": "tsx scripts/uji-analitik.mts",
-    "uji:kantong": "tsx scripts/uji-kantong.mts"
+    "uji:kantong": "tsx scripts/uji-kantong.mts",
+    "uji:kategori": "tsx scripts/uji-kategori.mts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

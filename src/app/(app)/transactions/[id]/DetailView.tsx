@@ -1,27 +1,29 @@
 "use client";
 
-import { useCatat } from "@/components/Catat";
+import { useCatat, useKategori } from "@/components/Catat";
 import DeleteTransactionButton from "@/components/DeleteTransactionButton";
 import EditTransactionForm from "@/components/EditTransactionForm";
 import { tandaTransaksi } from "@/components/kategori";
 import { AppBar, Pesan } from "@/components/oneui";
 import s from "@/components/ui.module.css";
 import { alasanDraft } from "@/lib/kantong";
-import { fmtIDR, fmtTanggal, fmtWaktu, JENIS, labelKategori, labelSumber } from "@/lib/format";
+import { namaKategori } from "@/lib/kategori";
+import { fmtIDR, fmtTanggal, fmtWaktu, JENIS, labelSumber } from "@/lib/format";
 import type { Transaction } from "@/types/transaction";
 
 export default function DetailView({ t, ikutan }: { t: Transaction; ikutan: { id: string; amount: number } | null }) {
   const draft = t.status === "needs_review";
   const alasan = alasanDraft(t);
   const nama = t.merchant ?? "Tanpa nama";
-  const { ikon: Ikon, warna } = tandaTransaksi(t);
+  const kategori = useKategori();
+  const { ikon: Ikon, warna } = tandaTransaksi(t, kategori);
   const { kantong } = useCatat();
   const pindah = t.type === "transfer";
 
   // Baris kosong dilewati: label tanpa isi cuma bikin rincian terlihat bolong.
   const rincian = [
     ["Jenis", JENIS[t.type]],
-    ["Kategori", pindah ? null : labelKategori(t.category)],
+    ["Kategori", pindah ? null : namaKategori(kategori, t.category, t.type)],
     // Tanpa kantong tertaut, teksnya cuma metode bayar yang disebut, belum tentu kantong.
     [t.kantong_id ? (pindah ? "Dari kantong" : "Kantong") : "Metode bayar", t.payment_method],
     ["Ke kantong", pindah ? kantong.find((k) => k.id === t.kantong_tujuan_id)?.name : null],

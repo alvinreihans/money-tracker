@@ -4,6 +4,7 @@ import {
   extractWithGeminiVision,
   isValidExtraction,
 } from "@/lib/extract";
+import { KATEGORI_BAWAAN, type Kategori } from "@/lib/kategori";
 import type { ExtractedReceipt } from "@/types/transaction";
 
 /**
@@ -80,6 +81,7 @@ function emptyDraft(): ExtractedReceipt {
 export async function processReceiptImage(
   image: Buffer,
   mimeType: string,
+  kategori: Kategori[] = KATEGORI_BAWAAN,
 ): Promise<ProcessedReceipt> {
   const notes: string[] = [];
   let ocr: OcrResult | null = null;
@@ -105,9 +107,9 @@ export async function processReceiptImage(
   // bisa menyelamatkan teks rusak, dia hanya akan menebak dengan percaya diri.
   if (ocr && isOcrUsable(ocr)) {
     try {
-      const { extracted, model } = await extractWithGroq(ocr.text);
+      const { extracted, model } = await extractWithGroq(ocr.text, kategori);
       best = extracted;
-      if (isValidExtraction(extracted)) {
+      if (isValidExtraction(extracted, kategori)) {
         notes.push(`Ekstraksi berhasil via Groq (${model})`);
         return done("confirmed", extracted, ocr, "groq", notes);
       }
@@ -132,9 +134,10 @@ export async function processReceiptImage(
     const extracted = await extractWithGeminiVision(
       image.toString("base64"),
       mimeType,
+      kategori,
     );
     best = extracted;
-    if (isValidExtraction(extracted)) {
+    if (isValidExtraction(extracted, kategori)) {
       notes.push("Ekstraksi berhasil via Gemini Vision");
       return done("confirmed", extracted, ocr, "gemini_vision", notes);
     }
@@ -153,12 +156,13 @@ export async function processReceiptImage(
  */
 export async function processReceiptText(
   text: string,
+  kategori: Kategori[] = KATEGORI_BAWAAN,
 ): Promise<ProcessedReceipt> {
   const notes: string[] = [];
 
   try {
-    const { extracted, model } = await extractWithGroq(text);
-    if (isValidExtraction(extracted)) {
+    const { extracted, model } = await extractWithGroq(text, kategori);
+    if (isValidExtraction(extracted, kategori)) {
       notes.push(`Ekstraksi berhasil via Groq (${model})`);
       return done("confirmed", extracted, null, "groq", notes);
     }

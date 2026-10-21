@@ -8,8 +8,9 @@ import { Lembar, Pesan, Spinner } from "@/components/oneui";
 import TransactionFields, { nilaiAwal } from "@/components/TransactionFields";
 import s from "@/components/ui.module.css";
 import { alasanDraft, type Kantong } from "@/lib/kantong";
+import { namaKategori, type Kategori } from "@/lib/kategori";
 import DaftarAntrean, { ACCEPT_STRUK, useAntreanStruk } from "@/components/UploadReceiptForm";
-import { fmtIDR, labelKategori } from "@/lib/format";
+import { fmtIDR } from "@/lib/format";
 import { TEKS_MAKS, validasiTransaksi } from "@/lib/transaksi-input";
 import type { Transaction } from "@/types/transaction";
 
@@ -34,13 +35,18 @@ interface Kabar {
 /** Kantong yang dipilih di form: cukup id, nama, dan jenisnya. */
 export type PilihanKantong = Pick<Kantong, "id" | "name" | "kind">;
 
-const CatatContext = createContext<{ buka: () => void; kantong: PilihanKantong[] } | null>(null);
+const CatatContext = createContext<{ buka: () => void; kantong: PilihanKantong[]; kategori: Kategori[] } | null>(null);
 
 /** Membuka sheet Catat dari mana saja, mis. dari halaman kosong. */
 export function useCatat() {
   const api = useContext(CatatContext);
   if (!api) throw new Error("useCatat dipakai di luar CatatProvider");
   return api;
+}
+
+/** Kategori milik user (urut), untuk form dan tampilan. */
+export function useKategori() {
+  return useCatat().kategori;
 }
 
 /** Tombol + di tengah kapsul navigasi bawah. */
@@ -56,10 +62,12 @@ export function TombolCatat() {
 export function CatatProvider({
   saran,
   kantong,
+  kategori,
   children,
 }: {
   saran: string[];
   kantong: PilihanKantong[];
+  kategori: Kategori[];
   children: React.ReactNode;
 }) {
   const router = useRouter();
@@ -79,7 +87,7 @@ export function CatatProvider({
     setDialog(null);
     setKabar({
       teks: !draft
-        ? `Tercatat: ${tx.merchant ?? labelKategori(tx.category)} ${fmtIDR(Number(tx.amount))}`
+        ? `Tercatat: ${tx.merchant ?? namaKategori(kategori, tx.category, tx.type)} ${fmtIDR(Number(tx.amount))}`
         : alasanDraft(tx) === "kantong"
           ? "Kantongnya belum jelas, pilih dulu ya"
           : "Nggak kebaca, disimpan jadi draft",
@@ -103,7 +111,7 @@ export function CatatProvider({
       : null;
 
   return (
-    <CatatContext.Provider value={{ buka: () => setDialog("catat"), kantong }}>
+    <CatatContext.Provider value={{ buka: () => setDialog("catat"), kantong, kategori }}>
       <input
         ref={galeriRef}
         type="file"
@@ -323,7 +331,7 @@ function CatatDialog({
 }
 
 function ManualDialog({ onClose, onTersimpan }: { onClose: () => void; onTersimpan: (tx: Transaction) => void }) {
-  const { kantong } = useCatat();
+  const { kantong, kategori } = useCatat();
   const [nilai, setNilai] = useState(() => nilaiAwal());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -332,7 +340,7 @@ function ManualDialog({ onClose, onTersimpan }: { onClose: () => void; onTersimp
     e?.preventDefault();
     // Dicek di sini dulu supaya pesan salahnya langsung muncul; server tetap
     // memeriksa ulang dengan fungsi yang sama.
-    const cek = validasiTransaksi({ ...nilai }, { wajibKantong: kantong.length > 0 });
+    const cek = validasiTransaksi({ ...nilai }, { wajibKantong: kantong.length > 0, kategori });
     if (!cek.ok) return setError(cek.error);
 
     setLoading(true);

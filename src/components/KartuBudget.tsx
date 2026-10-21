@@ -1,8 +1,10 @@
 import NextLink from "next/link";
 import { ChevronRight, Target } from "lucide-react";
-import { KATEGORI } from "@/components/kategori";
+import { useKategori } from "@/components/Catat";
+import { tandaKategori } from "@/components/kategori";
 import s from "@/components/ui.module.css";
-import { fmtIDR, fmtIDRRingkas, labelKategori } from "@/lib/format";
+import { fmtIDR, fmtIDRRingkas } from "@/lib/format";
+import { cariKategori, namaKategori } from "@/lib/kategori";
 import type { ProgresBudget } from "@/lib/analitik";
 
 const WARNA_STATUS = { waspada: "var(--peringatan)", lewat: "var(--bahaya)" } as const;
@@ -13,6 +15,7 @@ const WARNA_STATUS = { waspada: "var(--peringatan)", lewat: "var(--bahaya)" } as
  * kalau lewat — dan statusnya juga ditulis, bukan warna saja.
  */
 export default function KartuBudget({ data, bulan }: { data: ProgresBudget[]; bulan: string }) {
+  const kategori = useKategori();
   if (data.length === 0) {
     return (
       <NextLink href="/pengaturan/budget" className={`${s.blok} ${s.baris} ${s.tekan}`}>
@@ -41,7 +44,8 @@ export default function KartuBudget({ data, bulan }: { data: ProgresBudget[]; bu
       </div>
 
       {data.map((b) => {
-        const { ikon: Ikon, warna } = KATEGORI[b.kategori] ?? KATEGORI.other;
+        const { ikon: Ikon, warna } = tandaKategori(cariKategori(kategori, b.kategori, "expense"));
+        const nama = namaKategori(kategori, b.kategori, "expense");
         const warnaBar = b.status === "aman" ? warna : WARNA_STATUS[b.status];
         return (
           <div key={b.kategori} className={s.baris} style={{ alignItems: "flex-start" }}>
@@ -50,13 +54,13 @@ export default function KartuBudget({ data, bulan }: { data: ProgresBudget[]; bu
             </span>
             <span className={s.barisTeks}>
               <span className={s.budgetAtas}>
-                <span className={s.barisJudul}>{labelKategori(b.kategori)}</span>
+                <span className={s.barisJudul}>{nama}</span>
                 <span className={s.nominal}>{fmtIDR(b.aktual)}</span>
               </span>
               <span
                 className={s.progres}
                 role="progressbar"
-                aria-label={`${labelKategori(b.kategori)}: ${b.persen}% dari budget`}
+                aria-label={`${nama}: ${b.persen}% dari budget`}
                 aria-valuenow={b.persen}
                 aria-valuemin={0}
                 aria-valuemax={100}

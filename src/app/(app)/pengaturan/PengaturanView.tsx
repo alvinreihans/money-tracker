@@ -2,7 +2,8 @@
 
 import NextLink from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronRight, LogOut, Target, UserRound, Wallet } from "lucide-react";
+import { ChevronRight, LogOut, Shapes, Target, UserRound, Wallet } from "lucide-react";
+import { useKategori } from "@/components/Catat";
 import { AppBar } from "@/components/oneui";
 import s from "@/components/ui.module.css";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -49,6 +50,7 @@ export default function PengaturanView({
   jumlahBudget: number;
 }) {
   const router = useRouter();
+  const kategori = useKategori();
 
   async function keluar() {
     await createSupabaseBrowserClient().auth.signOut();
@@ -69,6 +71,13 @@ export default function PengaturanView({
             warna="#bf7af0"
             judul="Kantong"
             ket={jumlahKantong > 0 ? `${jumlahKantong} kantong · saldo awal & tanggalnya` : "Rekening, e-wallet, tunai, dan saldo awalnya"}
+          />
+          <BarisMenu
+            href="/pengaturan/kategori"
+            ikon={Shapes}
+            warna="#ff9f43"
+            judul="Kategori"
+            ket={`${kategori.length} kategori pengeluaran & pemasukan`}
           />
           <BarisMenu
             href="/pengaturan/budget"

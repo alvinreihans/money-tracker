@@ -2,11 +2,12 @@
 
 import NextLink from "next/link";
 import { ArrowDownToLine, BadgePercent, Banknote, CalendarDays, Coins, CreditCard, NotebookPen, Shapes, Store, UserRound, Wallet } from "lucide-react";
-import { useCatat } from "@/components/Catat";
-import { KATEGORI, TANDA_KANTONG } from "@/components/kategori";
+import { useCatat, useKategori } from "@/components/Catat";
+import { tandaKategori, TANDA_KANTONG } from "@/components/kategori";
 import { Field, Pilih, Segmen } from "@/components/oneui";
 import s from "@/components/ui.module.css";
-import { isoLokal, kategoriUntuk } from "@/lib/format";
+import { isoLokal } from "@/lib/format";
+import { kategoriJenis, LAINNYA } from "@/lib/kategori";
 import { TIPE_TRANSAKSI } from "@/lib/transaksi-input";
 import type { Transaction, TransactionType } from "@/types/transaction";
 
@@ -59,6 +60,7 @@ export default function TransactionFields({
   onChange: (patch: Partial<NilaiTransaksi>) => void;
 }) {
   const { kantong } = useCatat();
+  const kategori = useKategori();
   const { type } = nilai;
 
   // Pilihan kantong. Nama kantong asal ikut disalin ke payment_method, supaya
@@ -109,7 +111,10 @@ export default function TransactionFields({
         nilai={type}
         onChange={(baru) =>
           // Kategori pengeluaran tidak berlaku untuk pemasukan dan sebaliknya.
-          onChange({ type: baru, ...(nilai.category in kategoriUntuk(baru) ? {} : { category: "other" }) })
+          onChange({
+            type: baru,
+            ...(kategoriJenis(kategori, baru).some((k) => k.slug === nilai.category) ? {} : { category: LAINNYA }),
+          })
         }
       />
       {type === "transfer" && <span className={s.keterangan}>Pindah kantong tidak dihitung sebagai pengeluaran.</span>}
@@ -143,11 +148,7 @@ export default function TransactionFields({
             label="Kategori"
             ikon={Shapes}
             nilai={nilai.category}
-            pilihan={Object.entries(kategoriUntuk(type)).map(([id, label]) => ({
-              id,
-              label,
-              ...(KATEGORI[id] ?? KATEGORI.other),
-            }))}
+            pilihan={kategoriJenis(kategori, type).map((k) => ({ id: k.slug, label: k.name, ...tandaKategori(k) }))}
             onChange={(category) => onChange({ category })}
           />
         )}

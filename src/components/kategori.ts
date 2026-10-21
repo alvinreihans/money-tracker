@@ -1,64 +1,111 @@
 import {
   ArrowDownLeft,
   ArrowLeftRight,
+  Baby,
   BadgePercent,
   Banknote,
+  Book,
   Briefcase,
+  Bus,
   Car,
   CircleEllipsis,
   Clapperboard,
+  Coffee,
   Coins,
+  Dumbbell,
+  Fuel,
+  Gamepad2,
   Gift,
+  GraduationCap,
+  HeartHandshake,
   HeartPulse,
+  House,
   Landmark,
   Laptop,
+  Music,
+  PawPrint,
+  PiggyBank,
+  Pill,
+  Plane,
   Receipt,
+  Shirt,
   ShoppingBag,
   ShoppingBasket,
+  Smartphone,
   Sparkles,
   Store,
   TrendingUp,
   Utensils,
   Wallet,
+  Wifi,
+  Wrench,
+  Zap,
   type LucideIcon,
 } from "lucide-react";
+import { cariKategori, type Kategori, type KUNCI_IKON } from "@/lib/kategori";
 import type { JenisKantong } from "@/lib/kantong";
 import type { Transaction } from "@/types/transaction";
 
-const MASUK = "#5ecb7a";
-
-/**
- * Ikon dan warna per kategori — satu sumber untuk daftar transaksi, bar
- * komposisi, dan halaman detail, supaya "Makan" selalu oranye di mana pun
- * (seperti ikon berwadah berwarna di Pengaturan One UI).
- */
-export const KATEGORI: Record<string, { ikon: LucideIcon; warna: string }> = {
-  food: { ikon: Utensils, warna: "#ff9f43" },
-  groceries: { ikon: ShoppingBasket, warna: "#5ecb7a" },
-  transport: { ikon: Car, warna: "#3e91ff" },
-  shopping: { ikon: ShoppingBag, warna: "#ff7a9c" },
-  health: { ikon: HeartPulse, warna: "#ff5f5f" },
-  entertainment: { ikon: Clapperboard, warna: "#bf7af0" },
-  bills: { ikon: Receipt, warna: "#4fc9e0" },
-  fees: { ikon: Coins, warna: "#8fa3bf" },
-  other: { ikon: CircleEllipsis, warna: "#9b9b9b" },
-  // Pemasukan: semuanya hijau, supaya "uang masuk = hijau" tetap berlaku;
-  // bedanya di ikon.
-  salary: { ikon: Briefcase, warna: MASUK },
-  bonus: { ikon: Sparkles, warna: MASUK },
-  business: { ikon: Store, warna: MASUK },
-  freelance: { ikon: Laptop, warna: MASUK },
-  gift: { ikon: Gift, warna: MASUK },
-  refund: { ikon: BadgePercent, warna: MASUK },
-  investment: { ikon: TrendingUp, warna: MASUK },
+/** Kunci ikon kategori (disimpan di database) → komponen ikonnya. */
+export const IKON_KATEGORI: Record<(typeof KUNCI_IKON)[number], LucideIcon> = {
+  utensils: Utensils,
+  coffee: Coffee,
+  "shopping-basket": ShoppingBasket,
+  "shopping-bag": ShoppingBag,
+  shirt: Shirt,
+  car: Car,
+  bus: Bus,
+  fuel: Fuel,
+  plane: Plane,
+  home: House,
+  zap: Zap,
+  wifi: Wifi,
+  smartphone: Smartphone,
+  receipt: Receipt,
+  coins: Coins,
+  "heart-pulse": HeartPulse,
+  pill: Pill,
+  dumbbell: Dumbbell,
+  clapperboard: Clapperboard,
+  gamepad: Gamepad2,
+  music: Music,
+  book: Book,
+  "graduation-cap": GraduationCap,
+  baby: Baby,
+  "paw-print": PawPrint,
+  gift: Gift,
+  "heart-handshake": HeartHandshake,
+  briefcase: Briefcase,
+  sparkles: Sparkles,
+  store: Store,
+  laptop: Laptop,
+  "badge-percent": BadgePercent,
+  "trending-up": TrendingUp,
+  "piggy-bank": PiggyBank,
+  wrench: Wrench,
+  "circle-ellipsis": CircleEllipsis,
 };
 
-/** Ikon & warna untuk satu transaksi: pemasukan dan pindah kantong punya tanda sendiri. */
-export function tandaTransaksi(t: Pick<Transaction, "type" | "category" | "status">) {
-  if (t.status === "needs_review") return { ikon: KATEGORI.other.ikon, warna: "#ff5f5f" };
-  if (t.type === "income") return { ikon: t.category === "other" ? ArrowDownLeft : (KATEGORI[t.category]?.ikon ?? ArrowDownLeft), warna: MASUK };
+const LAINNYA = { ikon: CircleEllipsis, warna: "#9b9b9b" };
+
+/**
+ * Ikon dan warna satu kategori — satu sumber untuk daftar transaksi, bar
+ * komposisi, budget, dan halaman detail, supaya "Makan" selalu oranye di mana
+ * pun (seperti ikon berwadah berwarna di Pengaturan One UI).
+ */
+export function tandaKategori(k: Pick<Kategori, "icon" | "color"> | undefined): { ikon: LucideIcon; warna: string } {
+  if (!k) return LAINNYA;
+  return { ikon: IKON_KATEGORI[k.icon as keyof typeof IKON_KATEGORI] ?? CircleEllipsis, warna: k.color };
+}
+
+/** Ikon & warna untuk satu transaksi: draft dan pindah kantong punya tanda sendiri. */
+export function tandaTransaksi(t: Pick<Transaction, "type" | "category" | "status">, daftar: Kategori[]) {
+  if (t.status === "needs_review") return { ikon: CircleEllipsis, warna: "#ff5f5f" };
   if (t.type === "transfer") return { ikon: ArrowLeftRight, warna: "#3e91ff" };
-  return KATEGORI[t.category] ?? KATEGORI.other;
+  const k = cariKategori(daftar, t.category, t.type);
+  // Pemasukan tanpa kategori jelas tetap bertanda panah masuk hijau.
+  if (t.type === "income" && (!k || k.slug === "other")) return { ikon: ArrowDownLeft, warna: "#5ecb7a" };
+  return tandaKategori(k);
 }
 
 /** Ikon & warna per jenis kantong. */

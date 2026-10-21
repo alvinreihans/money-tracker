@@ -2,11 +2,13 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { KATEGORI } from "@/components/kategori";
+import { useKategori } from "@/components/Catat";
+import { tandaKategori } from "@/components/kategori";
 import { AppBar, Field, Pesan, Spinner } from "@/components/oneui";
 import s from "@/components/ui.module.css";
 import { dbErrorMessage } from "@/lib/errors";
-import { fmtIDR, KATEGORI_KELUAR } from "@/lib/format";
+import { fmtIDR } from "@/lib/format";
+import { kategoriJenis } from "@/lib/kategori";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { rapikanBudget } from "@/lib/transaksi-input";
 
@@ -25,8 +27,10 @@ export default function BudgetView({
   rerata: Record<string, number>;
 }) {
   const router = useRouter();
+  const kategori = useKategori();
+  const keluar = kategoriJenis(kategori, "expense");
   const [isian, setIsian] = useState<Record<string, string>>(() =>
-    Object.fromEntries(Object.keys(KATEGORI_KELUAR).map((k) => [k, awal[k] ? String(awal[k]) : ""])),
+    Object.fromEntries(keluar.map((k) => [k.slug, awal[k.slug] ? String(awal[k.slug]) : ""])),
   );
   const [loading, setLoading] = useState(false);
   const [pesan, setPesan] = useState<{ jenis: "sukses" | "bahaya"; teks: string } | null>(null);
@@ -35,7 +39,7 @@ export default function BudgetView({
   async function simpan(e: FormEvent) {
     e.preventDefault();
     setPesan(null);
-    const cek = rapikanBudget(isian);
+    const cek = rapikanBudget(isian, kategori);
     if (!cek.ok) return setPesan({ jenis: "bahaya", teks: cek.error });
 
     setLoading(true);
@@ -64,18 +68,18 @@ export default function BudgetView({
         </p>
 
         <div className={`${s.blok} ${s.blokForm}`}>
-          {Object.entries(KATEGORI_KELUAR).map(([k, label]) => (
+          {keluar.map(({ slug: k, name: label, ...gaya }) => (
             <Field
               key={k}
               label={label}
-              ikon={(KATEGORI[k] ?? KATEGORI.other).ikon}
+              ikon={tandaKategori(gaya).ikon}
               keterangan={rerata[k] ? `Rerata ${fmtIDR(rerata[k])}/bulan, 3 bulan terakhir` : undefined}
             >
               <input
                 type="number"
                 inputMode="numeric"
                 min={1}
-                value={isian[k]}
+                value={isian[k] ?? ""}
                 onChange={(e) => setIsian((v) => ({ ...v, [k]: e.target.value }))}
                 placeholder={label}
               />

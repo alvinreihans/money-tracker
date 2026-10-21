@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronRight, PencilLine } from "lucide-react";
-import { useCatat } from "@/components/Catat";
+import { useCatat, useKategori } from "@/components/Catat";
 import { Lembar, Pesan, Spinner } from "@/components/oneui";
 import TransactionFields, { nilaiAwal } from "@/components/TransactionFields";
 import s from "@/components/ui.module.css";
@@ -31,6 +31,7 @@ export default function EditTransactionForm({
   const router = useRouter();
   const draft = tx.status === "needs_review";
   const { kantong } = useCatat();
+  const kategori = useKategori();
   const [buka, setBuka] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,7 +47,7 @@ export default function EditTransactionForm({
     e?.preventDefault();
     setError(null);
 
-    const cek = validasiTransaksi({ ...nilai }, { wajibKantong: kantong.length > 0 });
+    const cek = validasiTransaksi({ ...nilai }, { wajibKantong: kantong.length > 0, kategori });
     if (!cek.ok) return setError(cek.error);
 
     setLoading(true);

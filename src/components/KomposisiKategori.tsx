@@ -1,8 +1,10 @@
 import { ChartPie } from "lucide-react";
-import { KATEGORI } from "@/components/kategori";
+import { useKategori } from "@/components/Catat";
+import { tandaKategori } from "@/components/kategori";
 import { Kosong } from "@/components/oneui";
 import s from "@/components/ui.module.css";
-import { fmtIDR, fmtIDRRingkas, labelKategori } from "@/lib/format";
+import { fmtIDR, fmtIDRRingkas } from "@/lib/format";
+import { cariKategori, namaKategori } from "@/lib/kategori";
 import type { AvgMonthlyExpenseRow } from "@/types/transaction";
 
 /**
@@ -26,7 +28,8 @@ export default function KomposisiKategori({
     .sort((a, b) => b.nilai - a.nilai);
   const total = baris.reduce((t, r) => t + r.nilai, 0);
   const persen = (n: number) => Math.round((n / total) * 100);
-  const warna = (k: string) => (KATEGORI[k] ?? KATEGORI.other).warna;
+  const kategori = useKategori();
+  const warna = (k: string) => tandaKategori(cariKategori(kategori, k, "expense")).warna;
 
   // Satu kartu dengan judul di dalamnya, seperti kartu "My wallet" di
   // Samsung Wallet: judul besar, keterangan abu, lalu isinya.
@@ -64,7 +67,7 @@ export default function KomposisiKategori({
         <div key={r.kategori} className={s.baris} style={{ minHeight: 52 }}>
           <span className={s.titik} style={{ background: warna(r.kategori) }} aria-hidden />
           <span className={s.barisTeks}>
-            <span>{labelKategori(r.kategori)}</span>
+            <span>{namaKategori(kategori, r.kategori, "expense")}</span>
           </span>
           <span className={s.redup}>{persen(r.nilai)}%</span>
           <span className={s.nominal}>{fmtIDR(r.nilai)}</span>

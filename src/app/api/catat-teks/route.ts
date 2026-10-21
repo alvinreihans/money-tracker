@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { processReceiptText, toTransactionRow } from "@/lib/receipt";
+import { ambilKategori } from "@/lib/kategori-server";
 import { simpanTransaksi } from "@/lib/simpan-transaksi";
 import { dbErrorMessage } from "@/lib/errors";
 import { TEKS_MAKS } from "@/lib/transaksi-input";
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const result = await processReceiptText(text);
+  const result = await processReceiptText(text, await ambilKategori(supabase));
 
   try {
     const { transaction } = await simpanTransaksi(supabase, user.id, {
