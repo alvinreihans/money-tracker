@@ -489,9 +489,16 @@ button.blok { background: var(--blok); }
   height: 100dvh;
   max-height: none;
   margin: 0;
+  padding-top: env(safe-area-inset-top);
   border-radius: 0;
   background: #000;
 }
+
+.dialogPenuh .dialogJudul { padding: 20px 24px 12px; font-size: 24px; font-weight: 700; }
+.dialogPenuh .dialogBadan { padding: 8px 12px 16px; }
+
+/* Ruang di bawah isi supaya baris terakhir tidak tertutup kapsul tombol. */
+.dialogBadan.dialogBadanPil { padding-bottom: calc(100px + env(safe-area-inset-bottom)); }
 
 .dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
 
@@ -510,19 +517,132 @@ button.blok { background: var(--blok); }
 
 .form { display: flex; flex-direction: column; gap: 16px; }
 
-.field { display: flex; flex-direction: column; gap: 6px; }
-
-.label { font-size: 14px; color: var(--teks-2); padding: 0 4px; }
-
 .keterangan { font-size: 13px; color: var(--teks-2); padding: 0 4px; }
 
 .galat { font-size: 13px; color: var(--bahaya); padding: 0 4px; }
 
-.dua { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+/*
+ * Isian ala Kontak Samsung (One UI 8): tanpa kotak, ikon garis di kiri, garis
+ * bawah tipis abu. Saat aktif garisnya putih dan menebal, label kecil di
+ * atasnya serta ikonnya jadi biru. Label hanya muncul begitu ada isinya —
+ * sebelum itu, nama field tampil sebagai placeholder.
+ */
+.fieldBaris {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 6px 20px;
+}
 
-.isianDenganAksi { position: relative; }
-.isianDenganAksi input { padding-right: 52px; }
-.isianDenganAksi button { position: absolute; top: 0; right: 0; }
+/* Ikon sejajar tengah isian (label 18px + isian 44px), bukan dasar kolom,
+   supaya tetap lurus walau ada keterangan di bawahnya. */
+.fieldIkon {
+  width: 24px;
+  flex-shrink: 0;
+  display: flex;
+  justify-content: center;
+  padding-top: 29px;
+  color: var(--teks-2);
+}
+
+.fieldKolom {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  box-shadow: inset 0 -1px 0 #3d3d3d;
+  transition: box-shadow 150ms ease;
+}
+
+.fieldLabel {
+  min-height: 18px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--teks-2);
+}
+
+.fieldKolom > input,
+.fieldKolom > select,
+.fieldKolom > textarea {
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 32px 10px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  font-size: 18px;
+  appearance: none;
+}
+
+.fieldKolom > textarea { min-height: 44px; resize: none; field-sizing: content; }
+
+/* Label mengambang: tersembunyi selama isian kosong (placeholder-nya sudah
+   menyebut nama field). visibility, bukan display, supaya tinggi tidak lompat. */
+.fieldKolom:has(> input:placeholder-shown) > .fieldLabel,
+.fieldKolom:has(> textarea:placeholder-shown) > .fieldLabel { visibility: hidden; }
+
+.fieldBaris:focus-within .fieldKolom { box-shadow: inset 0 -2px 0 #fafafa; }
+.fieldBaris:focus-within .fieldLabel,
+.fieldBaris:focus-within .fieldIkon { color: var(--primer); }
+
+.fieldGalat .fieldKolom,
+.fieldGalat:focus-within .fieldKolom { box-shadow: inset 0 -2px 0 var(--bahaya); }
+
+/* Aksi di kanan isian: chevron pilihan, tombol intip password. */
+.fieldKanan {
+  position: absolute;
+  right: -10px;
+  bottom: 0;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  color: var(--teks-2);
+  pointer-events: none;
+}
+
+.fieldKanan button { pointer-events: auto; }
+
+.fieldBawah { padding: 6px 0 0; }
+
+/* Kartu berisi isian: jarak atas-bawah supaya baris pertama & terakhir lega. */
+.blokForm { padding: 10px 0 14px; }
+
+/* Tombol simpan/batal ala Kontak Samsung: kapsul melayang di tengah bawah,
+   dua tombol teks dipisah garis tegak — senada dengan navigasi bawah. */
+.pil {
+  position: absolute;
+  left: 50%;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  padding: 6px;
+  border-radius: 999px;
+  background: #262626;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.pil button {
+  min-width: 116px;
+  height: 52px;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--teks);
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.pil button:active { background: #3d3d3d; }
+.pil button:disabled { opacity: 0.4; cursor: default; }
+
+.pilPemisah { width: 1px; height: 26px; background: #4a4a4a; flex-shrink: 0; }
 
 .pesan {
   display: flex;

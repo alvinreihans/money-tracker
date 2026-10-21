@@ -341,17 +341,12 @@ function ManualDialog({ onClose, onTersimpan }: { onClose: () => void; onTersimp
             ? "Catat pindah kantong"
             : "Catat pengeluaran"
       }
+      posisi="penuh"
       onClose={() => !loading && onClose()}
-      tombol={
-        <>
-          <button type="button" className={s.flat} disabled={loading} onClick={onClose}>
-            Batal
-          </button>
-          <button type="button" className={s.flat} disabled={loading} onClick={() => void simpan()}>
-            {loading ? <Spinner /> : "Simpan"}
-          </button>
-        </>
-      }
+      pil={[
+        { label: "Batal", onClick: onClose, disabled: loading },
+        { label: loading ? <Spinner /> : "Simpan", onClick: () => void simpan(), disabled: loading },
+      ]}
     >
       <form onSubmit={simpan} className={s.form}>
         <TransactionFields nilai={nilai} onChange={(p) => setNilai((v) => ({ ...v, ...p }))} />

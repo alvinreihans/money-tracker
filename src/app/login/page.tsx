@@ -3,6 +3,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
+import { Mail } from "lucide-react";
 import { Field, Pesan, Spinner } from "@/components/oneui";
 import PasswordField from "@/components/PasswordField";
 import BrandMark from "@/components/BrandMark";
@@ -143,8 +144,8 @@ export default function LoginPage() {
         {message && <Pesan jenis="sukses">{message}</Pesan>}
 
         <form onSubmit={handleSubmit} className={s.form}>
-          <div className={`${s.blok} ${s.blokIsi} ${s.form}`}>
-            <Field label="Email">
+          <div className={`${s.blok} ${s.blokForm}`}>
+            <Field label="Email" ikon={Mail}>
               <input
                 type="email"
                 required
@@ -152,7 +153,7 @@ export default function LoginPage() {
                 inputMode="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="kamu@email.com"
+                placeholder="Email"
               />
             </Field>
 

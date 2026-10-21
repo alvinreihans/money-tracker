@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import NextLink from "next/link";
 import { ChevronLeft, CircleCheck, CircleX, EllipsisVertical, Info, TriangleAlert } from "lucide-react";
 import s from "@/components/ui.module.css";
@@ -83,6 +83,7 @@ export function Lembar({
   posisi = "bawah",
   daftar = false,
   tombol,
+  pil,
   onClose,
   children,
 }: {
@@ -92,6 +93,11 @@ export function Lembar({
   /** Isi berupa daftar baris: tanpa padding samping. */
   daftar?: boolean;
   tombol?: React.ReactNode;
+  /**
+   * Tombol sebagai kapsul melayang di tengah bawah ("Batal | Simpan"), pola
+   * form Kontak Samsung. Untuk form halaman penuh, sebagai ganti `tombol`.
+   */
+  pil?: { label: React.ReactNode; onClick: () => void; disabled?: boolean }[];
   onClose: () => void;
   children: React.ReactNode;
 }) {
@@ -132,8 +138,20 @@ export function Lembar({
     >
       {judul && <h2 className={s.dialogJudul}>{judul}</h2>}
       {sub && <p className={s.dialogSub}>{sub}</p>}
-      <div className={daftar ? s.dialogBadanDaftar : s.dialogBadan}>{children}</div>
+      <div className={daftar ? s.dialogBadanDaftar : `${s.dialogBadan} ${pil ? s.dialogBadanPil : ""}`}>{children}</div>
       {tombol && <div className={s.dialogTombol}>{tombol}</div>}
+      {pil && (
+        <div className={s.pil}>
+          {pil.map((p, i) => (
+            <Fragment key={i}>
+              {i > 0 && <span className={s.pilPemisah} aria-hidden />}
+              <button type="button" onClick={p.onClick} disabled={p.disabled}>
+                {p.label}
+              </button>
+            </Fragment>
+          ))}
+        </div>
+      )}
     </dialog>
   );
 }
@@ -157,29 +175,53 @@ export function MenuLainnya({ children }: { children: React.ReactNode }) {
   );
 }
 
-/** Label + isian + keterangan/galat. Label membungkus isian, jadi otomatis terhubung. */
+/**
+ * Satu baris isian ala Kontak Samsung: ikon di kiri, isian bergaris bawah,
+ * label kecil di atasnya yang muncul begitu ada isi. Isian kosong menampilkan
+ * nama field sebagai placeholder, jadi `placeholder` sebaiknya diisi sama
+ * dengan `label`. Label membungkus isian, jadi keduanya otomatis terhubung.
+ */
 export function Field({
   label,
+  ikon: Ikon,
+  kanan,
   keterangan,
   galat,
   children,
 }: {
   label: string;
+  ikon?: React.ElementType;
+  /** Di ujung kanan isian: chevron pilihan, tombol intip, dll. */
+  kanan?: React.ReactNode;
   keterangan?: React.ReactNode;
   galat?: string | null;
   children: React.ReactNode;
 }) {
   return (
-    <label className={s.field}>
-      <span className={s.label}>{label}</span>
-      {children}
-      {galat ? (
-        <span className={s.galat} role="alert">
-          {galat}
+    <label className={`${s.fieldBaris} ${galat ? s.fieldGalat : ""}`}>
+      {Ikon && (
+        <span className={s.fieldIkon} aria-hidden>
+          <Ikon size={22} />
         </span>
-      ) : (
-        keterangan && <span className={s.keterangan}>{keterangan}</span>
       )}
+      <span style={{ flex: 1, minWidth: 0 }}>
+        <span className={s.fieldKolom}>
+          <span className={s.fieldLabel}>{label}</span>
+          {children}
+          {kanan && <span className={s.fieldKanan}>{kanan}</span>}
+        </span>
+        {(galat || keterangan) && (
+          <span className={s.fieldBawah} style={{ display: "block" }}>
+            {galat ? (
+              <span className={s.galat} role="alert">
+                {galat}
+              </span>
+            ) : (
+              <span className={s.keterangan}>{keterangan}</span>
+            )}
+          </span>
+        )}
+      </span>
     </label>
   );
 }

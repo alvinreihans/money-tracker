@@ -1,5 +1,6 @@
 "use client";
 
+import { Banknote, CalendarDays, ChevronDown, CreditCard, NotebookPen, Shapes, Store } from "lucide-react";
 import { Field, Segmen } from "@/components/oneui";
 import s from "@/components/ui.module.css";
 import { CATEGORY_LABEL, isoLokal } from "@/lib/format";
@@ -7,8 +8,10 @@ import { TIPE_TRANSAKSI } from "@/lib/transaksi-input";
 import type { Transaction, TransactionType } from "@/types/transaction";
 
 /**
- * Isian rincian transaksi. Dipakai bersama oleh catat manual dan form edit,
- * supaya keduanya tidak pelan-pelan berbeda.
+ * Isian rincian transaksi ala form Kontak Samsung: baris berikon dengan garis
+ * bawah, dikelompokkan dalam kartu — yang wajib di kartu pertama, pelengkap
+ * di kartu kedua. Dipakai bersama oleh catat manual dan form edit, supaya
+ * keduanya tidak pelan-pelan berbeda.
  */
 
 export interface NilaiTransaksi {
@@ -57,20 +60,20 @@ export default function TransactionFields({
         <span className={s.keterangan}>Pindah kantong tidak dihitung sebagai pengeluaran.</span>
       )}
 
-      <Field label="Nominal (Rp)">
-        <input
-          type="number"
-          inputMode="numeric"
-          min={1}
-          required
-          value={nilai.amount}
-          onChange={(e) => onChange({ amount: e.target.value })}
-          placeholder="25000"
-        />
-      </Field>
+      <div className={`${s.blok} ${s.blokForm}`}>
+        <Field label="Nominal (Rp)" ikon={Banknote}>
+          <input
+            type="number"
+            inputMode="numeric"
+            min={1}
+            required
+            value={nilai.amount}
+            onChange={(e) => onChange({ amount: e.target.value })}
+            placeholder="Nominal (Rp)"
+          />
+        </Field>
 
-      <div className={s.dua}>
-        <Field label="Tanggal">
+        <Field label="Tanggal" ikon={CalendarDays}>
           {/* Input tanggal bawaan: di HP muncul kalender sistem. */}
           <input
             type="date"
@@ -79,7 +82,8 @@ export default function TransactionFields({
             onChange={(e) => onChange({ transaction_date: e.target.value })}
           />
         </Field>
-        <Field label="Kategori">
+
+        <Field label="Kategori" ikon={Shapes} kanan={<ChevronDown size={22} />}>
           <select value={nilai.category} onChange={(e) => onChange({ category: e.target.value })}>
             {Object.entries(CATEGORY_LABEL).map(([value, label]) => (
               <option key={value} value={value}>
@@ -90,29 +94,28 @@ export default function TransactionFields({
         </Field>
       </div>
 
-      <Field label="Merchant" keterangan="Opsional">
-        <input
-          value={nilai.merchant}
-          onChange={(e) => onChange({ merchant: e.target.value })}
-          placeholder="Nama toko atau tempat"
-        />
-      </Field>
+      <div className={`${s.blok} ${s.blokForm}`}>
+        <Field label="Merchant" ikon={Store}>
+          <input value={nilai.merchant} onChange={(e) => onChange({ merchant: e.target.value })} placeholder="Merchant" />
+        </Field>
 
-      <Field label="Metode bayar" keterangan="Opsional">
-        <input
-          value={nilai.payment_method}
-          onChange={(e) => onChange({ payment_method: e.target.value })}
-          placeholder="Tunai, QRIS, ShopeePay..."
-        />
-      </Field>
+        <Field label="Metode bayar" ikon={CreditCard}>
+          <input
+            value={nilai.payment_method}
+            onChange={(e) => onChange({ payment_method: e.target.value })}
+            placeholder="Metode bayar"
+          />
+        </Field>
 
-      <Field label="Keterangan" keterangan="Opsional">
-        <textarea
-          rows={2}
-          value={nilai.description}
-          onChange={(e) => onChange({ description: e.target.value })}
-        />
-      </Field>
+        <Field label="Keterangan" ikon={NotebookPen}>
+          <textarea
+            rows={1}
+            value={nilai.description}
+            onChange={(e) => onChange({ description: e.target.value })}
+            placeholder="Keterangan"
+          />
+        </Field>
+      </div>
     </div>
   );
 }

@@ -89,7 +89,7 @@ export default function ResetPasswordPage() {
           <>
             {error && <Pesan jenis="bahaya">{error}</Pesan>}
             <form onSubmit={handleSubmit} className={s.form}>
-              <div className={`${s.blok} ${s.blokIsi} ${s.form}`}>
+              <div className={`${s.blok} ${s.blokForm}`}>
                 <PasswordField label="Password baru" value={password} onChange={setPassword} autoComplete="new-password" syarat />
                 <PasswordField label="Ulangi password baru" value={ulangi} onChange={setUlangi} autoComplete="new-password" />
               </div>
