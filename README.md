@@ -34,7 +34,7 @@ npm run db:migrate           # jalankan migrasi database
 npm run dev
 ```
 
-Langkah lengkap, termasuk jebakan koneksi Supabase dan setup bot Telegram, ada
+Langkah lengkap, termasuk jebakan koneksi Supabase, ada
 di [SETUP.md](SETUP.md).
 
 ## Perintah

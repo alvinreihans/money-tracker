@@ -9,14 +9,13 @@ Alur ekstraksi lengkap beserta strategi fallback-nya ada di [FALLBACK.md](FALLBA
 
 ```
 supabase/migrations/20260716000000_init_transactions.sql   # tabel + RLS + RPC
-supabase/migrations/20260722000000_telegram_profiles.sql   # profiles + telegram_links
+supabase/migrations/20260722000000_telegram_profiles.sql   # profiles + telegram_links (bot dihapus, tabel dibiarkan)
 supabase/migrations/20260919000000_fallback_pipeline.sql   # status draft + dedupe
 supabase/migrations/20260919120000_statements_and_transfers.sql # rekening koran (fitur dihapus, data lama tetap)
 
 src/types/transaction.ts            # tipe domain bersama
 src/lib/supabase/client.ts          # client (browser)
 src/lib/supabase/server.ts          # client (server/route)
-src/lib/supabase/admin.ts           # client service-role (webhook Telegram)
 
 src/lib/ocr.ts                      # sharp + Tesseract -> teks + confidence
 src/lib/groq.ts                     # client Groq + rantai model + throttle
@@ -26,12 +25,10 @@ src/lib/receipt.ts                  # orkestrasi pipeline gambar
 src/lib/simpan-transaksi.ts         # simpan + singkirkan baris rekening koran lama yang dobel
 src/lib/transaksi-input.ts          # validasi isian manual (browser & server)
 src/lib/format.ts                   # format rupiah & tanggal (WIB)
-src/lib/telegram.ts                 # helper Telegram Bot API
 
 src/app/api/upload-receipt/route.ts   # jalur web (gambar)
 src/app/api/catat-teks/route.ts       # jalur web (teks bebas)
 src/app/api/catat-manual/route.ts     # jalur web (form)
-src/app/api/telegram/webhook/route.ts # jalur Telegram
 src/components/oneui.tsx              # komponen dasar One UI (app bar, dialog, field)
 src/components/ui.module.css          # gaya komponen; token warna di app/globals.css
 src/components/Catat.tsx              # tombol "+", sheet ketik, kamera, form
@@ -155,9 +152,6 @@ Sudah diatur lewat `vercel.json`.
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | |
 | `GROQ_API_KEY` | |
 | `GEMINI_API_KEY` | |
-| `SUPABASE_SERVICE_ROLE_KEY` | server-only, bypass RLS |
-| `TELEGRAM_BOT_TOKEN` | kalau bot dipakai |
-| `TELEGRAM_WEBHOOK_SECRET` | kalau bot dipakai |
 
 **JANGAN** memasukkan `SUPABASE_DB_URL` — itu koneksi Postgres yang hanya
 dipakai menjalankan migrasi dari mesin lokal. Aplikasinya tidak memakainya, dan
@@ -175,30 +169,18 @@ password dan konfirmasi email akan ditolak saat diklik.
 - Ganti daftar model Groq di `src/lib/groq.ts` bila dashboard berubah — model
   yang tidak dikenal menghasilkan 404 dan otomatis dilewati rantai.
 
-## Bot Telegram (multi-user)
+## Bot Telegram (dihapus)
 
-Alur: user daftar di web app dengan nomor telepon -> sekali bagikan kontak ke bot ->
-`telegram_links` menyimpan chat_id -> user_id -> kirim foto/teks langsung tersimpan.
+Bot Telegram dihapus pada Oktober 2026 — mencatat lewat teks, foto, dan form kini
+semuanya ada di aplikasi. Tabel `profiles`, `telegram_links`, dan `telegram_updates`
+dibiarkan di database; pendaftaran tidak lagi meminta nomor HP.
 
-Webhook membalas 200 lebih dulu lalu memproses lewat `after()`, dan melakukan
-dedupe berdasarkan `update_id` supaya retry Telegram tidak membuat transaksi ganda.
-
-### Langkah
-
-1. Jalankan ketiga migration di Supabase SQL Editor.
-2. Buat bot di Telegram via **@BotFather** -> `/newbot` -> salin token -> isi `TELEGRAM_BOT_TOKEN`.
-3. Buat string acak untuk `TELEGRAM_WEBHOOK_SECRET` (mis. `openssl rand -hex 16`).
-4. Isi `SUPABASE_SERVICE_ROLE_KEY` dengan secret key Supabase (server-only, bypass RLS).
-5. Deploy ke Vercel (webhook butuh URL publik). Masukkan semua env di Vercel.
-6. Daftarkan webhook (ganti TOKEN, URL, SECRET):
+Kalau webhook bot lama masih terdaftar, lepaskan supaya Telegram berhenti
+memanggil route yang sudah tidak ada:
 
 ```bash
-curl "https://api.telegram.org/bot<TOKEN>/setWebhook" \
-  -d "url=https://<app>.vercel.app/api/telegram/webhook" \
-  -d "secret_token=<TELEGRAM_WEBHOOK_SECRET>"
+curl "https://api.telegram.org/bot<TOKEN>/deleteWebhook"
 ```
 
-7. Buka bot -> bagikan nomor -> mulai kirim struk/teks.
-
-Catatan keamanan: webhook memverifikasi header `x-telegram-bot-api-secret-token`
-agar hanya request dari Telegram (dengan secret yang benar) yang diproses.
+Env `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, dan `SUPABASE_SERVICE_ROLE_KEY`
+tidak dipakai lagi dan sebaiknya dihapus dari Vercel.

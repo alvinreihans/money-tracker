@@ -104,31 +104,10 @@ flowchart TD
 
 ---
 
-## Jalur Telegram
+## Jalur Telegram (dihapus)
 
-Telegram melakukan retry kalau webhook tidak membalas cepat. Karena OCR bisa
-memakan beberapa detik, webhook harus membalas duluan lalu memproses di belakang.
-
-```mermaid
-flowchart TD
-    TG([Update dari Telegram]) --> SEC{"Cek header<br/>x-telegram-bot-api-secret-token"}
-    SEC -->|Salah| R401([Balas 401])
-    SEC -->|Benar| DEDUP{"update_id sudah<br/>pernah diproses?"}
-
-    DEDUP -->|Sudah| R200A([Balas 200, abaikan])
-    DEDUP -->|Belum| ACK["Catat update_id<br/>Balas 200 SEKARANG"]
-
-    ACK --> AFTER["Proses di background<br/>pakai after dari next/server"]
-    AFTER --> ACKMSG["Kirim pesan: memproses struk"]
-    ACKMSG --> PIPE["Jalankan pipeline utama<br/>lihat diagram pertama"]
-
-    PIPE -->|Tersimpan| OKMSG["Kirim ringkasan transaksi"]
-    PIPE -->|Jadi draft| FIXMSG["Kirim teks OCR mentah<br/>+ minta user ketik manual"]
-```
-
-**Dedupe itu wajib.** Tanpa mencatat `update_id`, retry dari Telegram akan
-membuat satu struk tersimpan dua kali — dan karena pemrosesannya lambat,
-retry justru jadi lebih mungkin terjadi.
+Bot Telegram dihapus pada Oktober 2026; semua jalur masuk kini lewat aplikasi web
+(foto struk, teks bebas, isian manual).
 
 ---
 
@@ -160,11 +139,9 @@ Hal yang perlu disiapkan sebelum pipeline ini bisa jalan:
 - **Migration baru**: kolom `status` pada `transactions` bernilai
   `confirmed` / `needs_review`, plus kolom `raw_ocr_text` untuk menyimpan
   teks mentah saat jatuh ke draft.
-- **Tabel dedupe Telegram**: menyimpan `update_id` yang sudah diproses.
 - **Interface OCR yang bersih**: `buffer masuk → { text, confidence } keluar`.
   Dengan begitu menukar Tesseract ke PP-OCR nanti cukup mengganti isi satu file,
   tanpa menyentuh Groq maupun kedua route.
 - **Fungsi bersama** `processReceipt(buffer)` yang dipanggil oleh
-  `/api/upload-receipt` dan webhook Telegram — bukan webhook memanggil endpoint
-  lewat HTTP.
+  `/api/upload-receipt`, supaya logika pipeline hanya ada di satu tempat.
 - **`maxDuration`** pada route yang menjalankan OCR.

@@ -9,9 +9,8 @@ import type { ExtractedReceipt } from "@/types/transaction";
 /**
  * Orkestrasi pipeline ekstraksi struk sesuai FALLBACK.md.
  *
- * Fungsi di file ini adalah SATU-SATUNYA jalur logika; route web dan webhook
- * Telegram sama-sama memanggilnya. Webhook sengaja tidak memanggil endpoint
- * upload lewat HTTP: itu hanya menambah latensi dan satu invocation serverless.
+ * Fungsi di file ini adalah SATU-SATUNYA jalur logika ekstraksi; route
+ * upload struk dan catat-teks sama-sama memanggilnya.
  */
 
 export type ReceiptStatus = "confirmed" | "needs_review";
@@ -79,10 +78,9 @@ export async function processReceiptImage(
   let best: ExtractedReceipt | null = null;
 
   // --- 1. OCR ---
-  // Ukuran gambar ikut dicatat karena sumbernya berbeda-beda: Telegram
-  // mengompres foto sebelum meneruskannya, sedangkan unggahan web memakai
-  // berkas aslinya. Kalau hasilnya berbeda antar jalur, angka inilah yang
-  // membedakan "gambarnya sudah telanjur kecil" dari "OCR-nya yang bermasalah".
+  // Ukuran gambar ikut dicatat: foto kamera dan screenshot galeri bisa
+  // berbeda jauh. Angka inilah yang membedakan "gambarnya sudah telanjur
+  // kecil" dari "OCR-nya yang bermasalah".
   notes.push(`Gambar masuk: ${Math.round(image.byteLength / 1024)} KB, ${mimeType}`);
 
   try {
@@ -142,7 +140,7 @@ export async function processReceiptImage(
 }
 
 /**
- * Pipeline untuk input TEKS (mis. pesan Telegram "kopi 25rb gopay").
+ * Pipeline untuk input TEKS (mis. "kopi 25rb gopay" di kolom Catat).
  * Tidak ada OCR dan tidak ada fallback vision — tidak ada gambar untuk dibaca.
  */
 export async function processReceiptText(

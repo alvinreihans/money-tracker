@@ -13,8 +13,8 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
 /**
- * Catat transaksi dari teks bebas ("kopi 25rb gopay"). Pipeline-nya sama
- * dengan pesan teks di bot Telegram; kegagalan turun jadi draft, bukan error.
+ * Catat transaksi dari teks bebas ("kopi 25rb gopay"). Kegagalan turun jadi
+ * draft, bukan error.
  */
 export async function POST(req: NextRequest) {
   const supabase = await createSupabaseServerClient();

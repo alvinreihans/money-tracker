@@ -19,7 +19,7 @@ const DEP_TESSERACT = Object.keys(
 ).map((nama) => `./node_modules/${nama}/**`);
 
 /**
- * Berkas yang harus ikut ter-deploy bersama kedua route OCR.
+ * Berkas yang harus ikut ter-deploy bersama route OCR.
  *
  * Tracing Next hanya mengikuti `import`/`require` statis. Semua yang ada di
  * sini justru dimuat lewat jalan lain, sehingga tak terlihat oleh tracing dan
@@ -112,7 +112,6 @@ const nextConfig: NextConfig = {
 
   outputFileTracingIncludes: {
     "/api/upload-receipt": BERKAS_OCR,
-    "/api/telegram/webhook": BERKAS_OCR,
   },
 };
 

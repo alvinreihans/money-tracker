@@ -24,7 +24,7 @@ const ERROR_TAUTAN: Record<string, string> = {
 };
 
 const JUDUL: Record<Mode, { judul: string; sub: string; tombol: string }> = {
-  signin: { judul: "Masuk", sub: "Foto struk, sisanya otomatis.", tombol: "Masuk" },
+  signin: { judul: "Masuk", sub: "Ketik atau foto struk, sisanya otomatis.", tombol: "Masuk" },
   signup: { judul: "Bikin akun", sub: "Bentar aja, cuma tiga isian.", tombol: "Daftar" },
   lupa: { judul: "Lupa password", sub: "Kami kirim tautan buat bikin password baru.", tombol: "Kirim tautan" },
 };
@@ -35,7 +35,6 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [ulangi, setUlangi] = useState("");
-  const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -91,21 +90,10 @@ export default function LoginPage() {
       if (err) setError(authErrorMessage(err));
       else setMessage(`Tautan dikirim ke ${email}. Cek inbox dan folder spam ya.`);
     } else if (mode === "signup") {
-      const { data, error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { data: { phone } }, // disimpan ke profiles via trigger DB
-      });
+      const { data, error: signUpError } = await supabase.auth.signUp({ email, password });
 
       if (signUpError) {
-        // Error dari trigger handle_new_user disamarkan Supabase jadi pesan umum
-        // ini. Satu-satunya yang bisa gagal di sana: profiles.phone unique, yaitu
-        // nomornya sudah dipakai akun lain.
-        setError(
-          signUpError.message === "Database error saving new user"
-            ? "Nomor HP ini udah dipakai akun lain."
-            : authErrorMessage(signUpError),
-        );
+        setError(authErrorMessage(signUpError));
       } else if (data.user && data.user.identities?.length === 0) {
         // Supabase membalas "sukses" untuk email yang sudah terdaftar biar orang
         // luar nggak bisa nebak email mana yang ada. Penandanya identities kosong.
@@ -189,18 +177,6 @@ export default function LoginPage() {
               <PasswordField label="Ulangi password" value={ulangi} onChange={setUlangi} autoComplete="new-password" />
             )}
 
-            {mode === "signup" && (
-              <Field label="Nomor HP (buat bot Telegram)" keterangan="Samain sama nomor Telegram kamu.">
-                <input
-                  type="tel"
-                  required
-                  autoComplete="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="08xxxxxxxxxx"
-                />
-              </Field>
-            )}
           </div>
 
           <button type="submit" className={`${s.tombol} ${s.tombolPenuh}`} disabled={loading || !siap}>

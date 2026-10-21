@@ -56,4 +56,4 @@ export type TransactionSource =
   | "receipt"        // foto struk kertas
   | "payment_proof"  // screenshot bukti bayar e-wallet
   | "statement"      // baris rekening koran (impor lama; fiturnya sudah dihapus)
-  | "text";          // diketik: teks bebas / isian manual di web, pesan teks Telegram
+  | "text";          // diketik: teks bebas atau isian manual (dulu juga pesan teks Telegram)
