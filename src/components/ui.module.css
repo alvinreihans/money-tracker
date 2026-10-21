@@ -392,6 +392,27 @@ button.blok { background: var(--blok); }
   margin: 12px 0 16px;
 }
 
+/* Bar progres budget: lintasan abu, isinya warna kategori/status. */
+.progres {
+  display: block;
+  height: 8px;
+  margin: 6px 0 4px;
+  border-radius: 4px;
+  background: var(--blok-2);
+  overflow: hidden;
+}
+
+.progres > span { display: block; height: 100%; border-radius: 4px; }
+
+.budgetAtas,
+.budgetBawah {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.budgetBawah { color: var(--teks-2); font-size: 14px; }
+
 .titik {
   width: 10px;
   height: 10px;

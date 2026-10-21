@@ -4,7 +4,7 @@
  * Pemakaian: npm run uji:validasi
  */
 import assert from "node:assert/strict";
-import { bersihkanCari, validasiTransaksi } from "../src/lib/transaksi-input.ts";
+import { bersihkanCari, rapikanBudget, validasiTransaksi } from "../src/lib/transaksi-input.ts";
 
 const sah = {
   amount: "25000",
@@ -54,4 +54,18 @@ assert.equal(bersihkanCari('a\\b"c:d'), "a b c d");
 assert.equal(bersihkanCari(undefined), "");
 assert.equal(bersihkanCari("x".repeat(80)).length, 50);
 
-console.log(`✓ validasi transaksi: 1 sah + ${tolak.length} tolak; teks cari aman`);
+// Budget: kosong = hapus target, isi = simpan (dibulatkan ke rupiah).
+assert.deepEqual(rapikanBudget({ food: "1500000", transport: " ", bills: "250000.4" }), {
+  ok: true,
+  simpan: [
+    { category: "food", amount: 1500000 },
+    { category: "bills", amount: 250000 },
+  ],
+  hapus: ["transport"],
+});
+assert.equal(rapikanBudget({ food: "0" }).ok, false);
+assert.equal(rapikanBudget({ food: "-5" }).ok, false);
+assert.equal(rapikanBudget({ food: "1e12" }).ok, false);
+assert.equal(rapikanBudget({ judi: "5000" }).ok, false);
+
+console.log(`✓ validasi transaksi: 1 sah + ${tolak.length} tolak; teks cari aman; budget`);

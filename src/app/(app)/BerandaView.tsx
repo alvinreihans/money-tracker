@@ -4,6 +4,7 @@ import NextLink from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronRight, Flame, Inbox, LogOut, Settings, TriangleAlert } from "lucide-react";
 import { useCatat } from "@/components/Catat";
+import KartuBudget from "@/components/KartuBudget";
 import KomposisiKategori from "@/components/KomposisiKategori";
 import { AppBar, Kosong, MenuLainnya } from "@/components/oneui";
 import RingkasanBulan from "@/components/RingkasanBulan";
@@ -13,7 +14,7 @@ import s from "@/components/ui.module.css";
 import { fmtIDR, namaBulan } from "@/lib/format";
 import { rentangBulan } from "@/lib/periode";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import type { Bulan } from "@/lib/analitik";
+import type { Bulan, ProgresBudget } from "@/lib/analitik";
 import type { AvgMonthlyExpenseRow, Transaction } from "@/types/transaction";
 
 export default function BerandaView({
@@ -24,6 +25,7 @@ export default function BerandaView({
   rerata,
   rerataError,
   tren,
+  budget,
   streak,
 }: {
   email: string | null;
@@ -33,6 +35,7 @@ export default function BerandaView({
   rerata: AvgMonthlyExpenseRow[];
   rerataError: string | null;
   tren: Bulan[];
+  budget: ProgresBudget[];
   streak: { hari: number; hariIni: boolean };
 }) {
   const router = useRouter();
@@ -144,6 +147,7 @@ export default function BerandaView({
           </div>
         )}
 
+        <KartuBudget data={budget} bulan={namaBulan(awalBulanIni)} />
         <TrenBulanan data={tren} />
         <KomposisiKategori data={rerata} error={rerataError} />
       </div>

@@ -2,7 +2,7 @@
 
 import NextLink from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronRight, LogOut, UserRound } from "lucide-react";
+import { ChevronRight, LogOut, Target, UserRound } from "lucide-react";
 import { AppBar } from "@/components/oneui";
 import s from "@/components/ui.module.css";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -39,7 +39,7 @@ export function BarisMenu({
  * Pengaturan, dibuka dari menu ⋮ di Beranda. Tidak jadi tab: jarang dibuka,
  * dan navigasi bawah disimpan untuk yang dipakai tiap hari.
  */
-export default function PengaturanView({ email, children }: { email: string | null; children?: React.ReactNode }) {
+export default function PengaturanView({ email, jumlahBudget }: { email: string | null; jumlahBudget: number }) {
   const router = useRouter();
 
   async function keluar() {
@@ -53,7 +53,16 @@ export default function PengaturanView({ email, children }: { email: string | nu
       <AppBar judul="Pengaturan" kembali="/" />
 
       <div className={s.isi}>
-        {children}
+        <h2 className={s.subheader}>Keuangan</h2>
+        <div className={s.blok}>
+          <BarisMenu
+            href="/pengaturan/budget"
+            ikon={Target}
+            warna="#3e91ff"
+            judul="Budget"
+            ket={jumlahBudget > 0 ? `${jumlahBudget} kategori dibatasi` : "Batas pengeluaran per kategori"}
+          />
+        </div>
 
         <h2 className={s.subheader}>Akun</h2>
         <div className={s.blok}>

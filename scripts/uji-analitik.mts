@@ -4,7 +4,7 @@
  * Pemakaian: npm run uji:analitik
  */
 import assert from "node:assert/strict";
-import { hitungStreak, trenBulanan } from "../src/lib/analitik.ts";
+import { hitungStreak, progresBudget, trenBulanan } from "../src/lib/analitik.ts";
 
 // 22 Okt 2026, 10.00 WIB.
 const sekarang = new Date("2026-10-22T03:00:00Z");
@@ -43,4 +43,31 @@ assert.deepEqual(hitungStreak([wib("2026-10-20")], sekarang), { hari: 0, hariIni
 assert.deepEqual(hitungStreak([wib("2026-10-22", "00:30"), wib("2026-10-21")], sekarang), { hari: 2, hariIni: true });
 assert.deepEqual(hitungStreak([], sekarang), { hari: 0, hariIni: false });
 
-console.log("✓ analitik: tren bulanan, streak");
+// --- Budget ---
+const budget = progresBudget(
+  [
+    { category: "food", amount: "1000000.00" },
+    { category: "transport", amount: 500000 },
+    { category: "bills", amount: 200000 },
+    { category: "health", amount: 300000 }, // belum ada pengeluaran
+  ],
+  [
+    { category: "food", amount: 600000, type: "expense" },
+    { category: "food", amount: "250000", type: "expense" }, // 85% → waspada
+    { category: "transport", amount: 400000, type: "expense" }, // tepat 80% → aman
+    { category: "bills", amount: 250000, type: "expense" }, // 125% → lewat
+    { category: "food", amount: 999999, type: "income" }, // bukan pengeluaran
+    { category: "shopping", amount: 70000, type: "expense" }, // tanpa target, tidak tampil
+  ],
+);
+assert.deepEqual(budget.map((b) => [b.kategori, b.status, b.persen]), [
+  ["bills", "lewat", 125],
+  ["food", "waspada", 85],
+  ["transport", "aman", 80],
+  ["health", "aman", 0],
+]);
+assert.equal(budget[0].sisa, -50000);
+assert.equal(budget[1].sisa, 150000);
+assert.deepEqual(progresBudget([], [{ category: "food", amount: 1 }]), []);
+
+console.log("✓ analitik: tren bulanan, streak, budget");

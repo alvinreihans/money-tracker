@@ -1,5 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { hitungStreak, trenBulanan } from "@/lib/analitik";
+import { hitungStreak, progresBudget, trenBulanan } from "@/lib/analitik";
 import { geserHari, isoLokal } from "@/lib/format";
 import { rentangBulan } from "@/lib/periode";
 import BerandaView from "./BerandaView";
@@ -38,6 +38,7 @@ export default async function BerandaPage() {
     { data: rerata, error: rerataError },
     { data: barisTren },
     { data: catatan },
+    { data: budgets },
   ] = await Promise.all([
     supabase.auth.getUser(),
     // Beranda cuma hari ini & kemarin; selebihnya di Riwayat.
@@ -49,7 +50,7 @@ export default async function BerandaPage() {
       .order("created_at", { ascending: false }),
     supabase
       .from("transactions")
-      .select("amount")
+      .select("amount, category")
       .eq("type", "expense")
       .eq("status", "confirmed")
       .gte("transaction_date", awalBulanIni),
@@ -81,6 +82,7 @@ export default async function BerandaPage() {
       .from("transactions")
       .select("created_at")
       .gte("created_at", new Date(sekarang.getTime() - HARI_STREAK * 86_400_000).toISOString()),
+    supabase.from("budgets").select("category, amount"),
   ]);
 
   return (
@@ -96,6 +98,7 @@ export default async function BerandaPage() {
       rerata={(rerata ?? []) as AvgMonthlyExpenseRow[]}
       rerataError={rerataError?.message ?? null}
       tren={trenBulanan(barisTren ?? [], sekarang, BULAN_TREN)}
+      budget={progresBudget(budgets ?? [], keluarIni ?? [])}
       streak={hitungStreak((catatan ?? []).map((c) => c.created_at as string), sekarang)}
     />
   );

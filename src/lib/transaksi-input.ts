@@ -108,3 +108,26 @@ export const TEKS_MAKS = 500;
 export function bersihkanCari(teks: string | undefined): string {
   return (teks ?? "").replace(/[,()%*\\:"]/g, " ").replace(/\s+/g, " ").trim().slice(0, 50);
 }
+
+export type HasilBudget =
+  | { ok: true; simpan: { category: string; amount: number }[]; hapus: string[] }
+  | { ok: false; error: string };
+
+/** Isian Pengaturan → Budget: yang berisi disimpan, yang dikosongkan dihapus targetnya. */
+export function rapikanBudget(isian: Record<string, string>): HasilBudget {
+  const simpan: { category: string; amount: number }[] = [];
+  const hapus: string[] = [];
+  for (const [category, teks] of Object.entries(isian)) {
+    const label = CATEGORY_LABEL[category];
+    if (!label) return { ok: false, error: "Kategorinya nggak dikenal." };
+    if (teks.trim() === "") {
+      hapus.push(category);
+      continue;
+    }
+    const n = Number(teks);
+    if (!Number.isFinite(n) || n < 1) return { ok: false, error: `Budget ${label} harus lebih dari nol.` };
+    if (n >= NOMINAL_MAKS) return { ok: false, error: `Budget ${label} kebesaran.` };
+    simpan.push({ category, amount: Math.round(n) });
+  }
+  return { ok: true, simpan, hapus };
+}

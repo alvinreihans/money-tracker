@@ -65,3 +65,40 @@ export function hitungStreak(waktuCatat: string[], sekarang = new Date()): { har
   }
   return { hari, hariIni: adaHariIni };
 }
+
+export interface ProgresBudget {
+  kategori: string;
+  target: number;
+  aktual: number;
+  /** Negatif kalau sudah lewat target. */
+  sisa: number;
+  /** Aktual ÷ target × 100, dibulatkan; bisa lebih dari 100. */
+  persen: number;
+  /** aman ≤ 80%, waspada > 80%, lewat > 100%. */
+  status: "aman" | "waspada" | "lewat";
+}
+
+/**
+ * Aktual vs target bulan ini untuk tiap kategori yang punya target, yang
+ * paling mendekati/melewati target di atas. `keluar` cukup baris pengeluaran
+ * terkonfirmasi bulan ini; baris jenis lain diabaikan.
+ */
+export function progresBudget(
+  target: { category: string; amount: number | string }[],
+  keluar: { category: string; amount: number | string; type?: string }[],
+): ProgresBudget[] {
+  const aktual = new Map<string, number>();
+  for (const k of keluar) {
+    if (k.type && k.type !== "expense") continue;
+    aktual.set(k.category, (aktual.get(k.category) ?? 0) + Number(k.amount));
+  }
+  return target
+    .map(({ category, amount }) => {
+      const t = Number(amount);
+      const a = aktual.get(category) ?? 0;
+      const persen = Math.round((a / t) * 100);
+      const status: ProgresBudget["status"] = a > t ? "lewat" : a > t * 0.8 ? "waspada" : "aman";
+      return { kategori: category, target: t, aktual: a, sisa: t - a, persen, status };
+    })
+    .sort((x, y) => y.aktual / y.target - x.aktual / x.target);
+}
