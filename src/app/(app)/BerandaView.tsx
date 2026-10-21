@@ -97,14 +97,14 @@ export default function BerandaView({
 
         {terbaru.length > 0 ? (
           <>
-            <TransactionList items={terbaru} />
-            <NextLink
-              href="/riwayat"
-              className={`${s.blok} ${s.baris} ${s.tekan}`}
-              style={{ minHeight: 52, justifyContent: "center" }}
-            >
-              Lihat semua riwayat
-            </NextLink>
+            <TransactionList
+              items={terbaru}
+              kaki={
+                <NextLink href="/riwayat" className={s.blokKaki}>
+                  Lihat semua riwayat
+                </NextLink>
+              }
+            />
           </>
         ) : (
           <div className={s.blok}>

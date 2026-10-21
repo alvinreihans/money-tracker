@@ -18,10 +18,10 @@ Rombak UI mengikuti [One UI Design Guidelines](https://developer.samsung.com/one
 | Layar dibagi **area tampilan** (atas) dan **area interaksi** (bawah), supaya kontrol terjangkau jempol | Tiap halaman dibuka dengan judul besar di tengah, tanpa tombol. Semua kontrol ada di bawahnya. |
 | **App bar extended** mengecil saat di-scroll. Judul dinamis boleh berupa kalimat informasi penting. | Beranda: judulnya pengeluaran bulan ini (mis. "Rp 15.000"). Saat di-scroll, judul kecil muncul di bilah atas. |
 | Aksi app bar maksimal 3 | Detail: tombol kembali dan hapus saja. |
-| **Navigasi bawah** berupa tab teks, sebaiknya kurang dari 4 | Beranda · Riwayat, teks saja. Titik merah kalau ada draft. |
+| **Navigasi bawah** sebaiknya kurang dari 4 tab | Kapsul melayang ala Samsung Wallet (One UI 8): ikon di atas label, tab aktif berlatar kapsul lebih terang. Titik oranye di ikon Riwayat kalau ada draft. |
 | Primary `#0381fe` dipakai untuk **FAB** | Tombol **+** melayang di kanan bawah (Beranda dan Riwayat). Langsung membuka sheet berisi kolom ketik yang sudah fokus ("beli makan di warteg 20k shopeepay" lalu kirim). Pintasan Kamera, Galeri, dan Manual ada di atas kolomnya. |
 | **Dialog pilihan/konfirmasi di bawah layar**, info/progres di tengah | Semua form dan konfirmasi hapus berupa dialog bawah (`<dialog>` bawaan browser). |
-| Konten dikelompokkan dalam **focus block** membulat, dengan **subheader** | Blok bersudut 26px. Semua daftar dikelompokkan per hari ("Hari ini", "Kemarin", tanggal), dan subheader-nya membawa total pengeluaran hari itu. |
+| Konten dikelompokkan dalam **focus block** membulat, dengan **subheader** | Blok bersudut 26px. Subheader abu-abu ala Samsung Wallet. Semua daftar dikelompokkan per hari ("Hari ini ······· −Rp 61.000", dengan titik penuntun ke total pengeluaran hari itu). Garis antarbaris menjorok sejajar teks. Kartu boleh berjudul di dalam ("Pengeluaran per kategori") dan ditutup aksi abu-abu di tengah ("Lihat semua riwayat"). |
 | Daftar berkelompok dengan **ikon berwadah** | Ikon kategori dalam wadah berwarna tipis. Warnanya sama di daftar, bar komposisi, dan detail. |
 | **Toast/snackbar** untuk kabar kecil, maksimal satu aksi | Kabar "Tercatat" dan status antrean struk berupa snackbar dengan satu aksi ("Lihat"). |
 | Satu gaya tombol per layar. Tombol berujung bulat (18dp). | Tombol contained untuk aksi utama, tombol flat di dalam dialog. |

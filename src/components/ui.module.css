@@ -184,16 +184,46 @@
 
 .blokIsi { padding: 20px; }
 
+.blokJudul { margin: 0; font-size: 24px; font-weight: 700; line-height: 1.2; }
+.blokSub { margin: 4px 0 0; color: var(--teks-2); font-size: 15px; }
+
+/* Aksi penutup kartu ala Samsung Wallet ("Close", "More things you can
+   add"): teks abu di tengah, dipisah garis tipis dari isi kartu. */
+.blokKaki {
+  display: block;
+  width: calc(100% - 40px);
+  margin: 0 20px;
+  padding: 16px 0;
+  border: 0;
+  border-top: 1px solid var(--garis);
+  background: none;
+  color: var(--teks-2);
+  font-size: 16px;
+  text-align: center;
+  cursor: pointer;
+}
+
+/* Subheader ala Samsung Wallet: abu-abu, semi-tebal, sejajar isi kartu. */
 .subheader {
-  margin: 8px 0 -8px;
+  margin: 12px 0 -6px;
   padding: 0 20px;
-  color: var(--primer);
-  font-size: 14px;
+  color: var(--teks-2);
+  font-size: 15px;
   font-weight: 600;
 }
 
-.subheaderBaris { display: flex; justify-content: space-between; gap: 12px; }
-.subheaderNilai { color: var(--teks-2); font-variant-numeric: tabular-nums; }
+.subheaderBaris { display: flex; align-items: center; gap: 12px; }
+.subheaderNilai { font-variant-numeric: tabular-nums; }
+
+/* Titik-titik penuntun ("More things you can add ·······") — di sini
+   menyambung label hari ke totalnya, seperti baris di struk. */
+.titikTitik {
+  flex: 1;
+  height: 4px;
+  background-image: radial-gradient(circle, var(--titik) 1.2px, transparent 1.7px);
+  background-size: 8px 4px;
+  background-repeat: repeat-x;
+}
 
 .kelompok { display: flex; flex-direction: column; gap: 16px; }
 
@@ -214,7 +244,21 @@
   color: inherit;
 }
 
-.baris + .baris { border-top: 1px solid var(--garis); }
+.baris { position: relative; }
+
+/* Garis antarbaris menjorok: mulai sejajar teks, bukan dari bawah ikon
+   (daftar "Partners" di Samsung Wallet). */
+.baris + .baris::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 20px;
+  right: 20px;
+  border-top: 1px solid var(--garis);
+}
+
+.baris:has(> .barisIkon) + .baris:has(> .barisIkon)::before { left: 76px; }
+.baris:has(> .thumb) + .baris:has(> .thumb)::before { left: 84px; }
 
 a.baris:active, button.baris:active { background: var(--blok-2); }
 
@@ -313,45 +357,57 @@ button.blok { background: var(--blok); }
 
 /* ---------- Navigasi bawah & FAB ---------- */
 
+/* Bottom bar ala Samsung Wallet: kapsul melayang di tengah bawah. Tab aktif
+   ditandai kapsul yang lebih terang di belakangnya. */
 .nav {
   position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  left: 50%;
+  bottom: calc(16px + env(safe-area-inset-bottom));
   z-index: 30;
-  max-width: var(--lebar-app);
-  margin: 0 auto;
-  height: calc(var(--tinggi-nav) + env(safe-area-inset-bottom));
-  padding-bottom: env(safe-area-inset-bottom);
+  transform: translateX(-50%);
   display: flex;
-  background: var(--bg);
-  border-top: 1px solid var(--garis);
+  gap: 4px;
+  padding: 6px;
+  border-radius: 999px;
+  background: #262626;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
 }
 
 .nav a {
-  flex: 1;
+  min-width: 120px;
+  height: 56px;
+  padding: 0 20px;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 2px;
+  border-radius: 999px;
   color: var(--teks-2);
-  font-size: 15px;
+  font-size: 13px;
+  transition: background-color 150ms ease;
 }
 
-.nav a[aria-current="page"] { color: var(--teks); font-weight: 700; }
+.nav a[aria-current="page"] { background: #3d3d3d; color: var(--teks); font-weight: 600; }
 
+.navIkon { position: relative; display: flex; }
+
+/* Titik oranye di pojok ikon, seperti penanda notifikasi Samsung Wallet. */
 .navTitik {
-  width: 6px;
-  height: 6px;
+  position: absolute;
+  top: -2px;
+  right: -5px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
-  background: var(--bahaya);
+  background: #ff6a1a;
 }
 
 .lapisBawah {
   position: fixed;
   left: 0;
   right: 0;
-  bottom: calc(var(--tinggi-nav) + env(safe-area-inset-bottom) + 16px);
+  bottom: calc(var(--tinggi-nav) + env(safe-area-inset-bottom) + 32px);
   z-index: 25;
   max-width: var(--lebar-app);
   margin: 0 auto;

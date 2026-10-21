@@ -52,7 +52,14 @@ function Baris({ t }: { t: Transaction }) {
   );
 }
 
-export default function TransactionList({ items }: { items: Transaction[] }) {
+export default function TransactionList({
+  items,
+  kaki,
+}: {
+  items: Transaction[];
+  /** Aksi penutup di dasar kartu terakhir, mis. "Lihat semua riwayat". */
+  kaki?: React.ReactNode;
+}) {
   // Data sudah terurut menurut tanggal dari query, jadi cukup dipecah urut.
   const kelompok: { tanggal: string; isi: Transaction[] }[] = [];
   for (const t of items) {
@@ -61,7 +68,7 @@ export default function TransactionList({ items }: { items: Transaction[] }) {
     else kelompok.push({ tanggal: t.transaction_date, isi: [t] });
   }
 
-  return kelompok.map((k) => {
+  return kelompok.map((k, i) => {
     // Draft belum punya nominal yang benar; pindah kantong bukan pengeluaran.
     const keluar = k.isi
       .filter((t) => t.type === "expense" && t.status === "confirmed")
@@ -71,12 +78,18 @@ export default function TransactionList({ items }: { items: Transaction[] }) {
       <section key={k.tanggal} className={s.kelompok}>
         <h2 className={`${s.subheader} ${s.subheaderBaris}`}>
           <span>{fmtHari(k.tanggal)}</span>
-          {keluar > 0 && <span className={s.subheaderNilai}>−{fmtIDRRingkas(keluar)}</span>}
+          {keluar > 0 && (
+            <>
+              <span className={s.titikTitik} aria-hidden />
+              <span className={s.subheaderNilai}>−{fmtIDRRingkas(keluar)}</span>
+            </>
+          )}
         </h2>
         <div className={s.blok}>
           {k.isi.map((t) => (
             <Baris key={t.id} t={t} />
           ))}
+          {i === kelompok.length - 1 && kaki}
         </div>
       </section>
     );

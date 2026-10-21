@@ -1,6 +1,6 @@
 import { ChartPie } from "lucide-react";
 import { KATEGORI } from "@/components/kategori";
-import { Kosong, Pesan } from "@/components/oneui";
+import { Kosong } from "@/components/oneui";
 import s from "@/components/ui.module.css";
 import { fmtIDR, fmtIDRRingkas, labelKategori } from "@/lib/format";
 import type { AvgMonthlyExpenseRow } from "@/types/transaction";
@@ -28,24 +28,21 @@ export default function KomposisiKategori({
   const persen = (n: number) => Math.round((n / total) * 100);
   const warna = (k: string) => (KATEGORI[k] ?? KATEGORI.other).warna;
 
+  // Satu kartu dengan judul di dalamnya, seperti kartu "My wallet" di
+  // Samsung Wallet: judul besar, keterangan abu, lalu isinya.
   return (
-    <>
-      <h2 className={s.subheader}>Pengeluaran per kategori</h2>
-      {error ? (
-        <Pesan jenis="bahaya" judul="Gagal ambil data">
-          {error}
-        </Pesan>
-      ) : baris.length === 0 ? (
-        <div className={s.blok}>
-          <Kosong ikon={ChartPie} judul="Belum ada pengeluaran di rentang ini">
-            Ini cuma menghitung 3 bulan penuh terakhir, jadi bulan berjalan belum ikut.
-          </Kosong>
-        </div>
-      ) : (
-        <section className={s.blok}>
-          <div className={s.blokIsi} style={{ paddingBottom: 4 }}>
-            <span className={s.redup}>Rerata per bulan, 3 bulan penuh terakhir</span>
-            <div className={s.nominal} style={{ fontSize: 24, marginTop: 4 }}>
+    <section className={s.blok}>
+      <div className={s.blokIsi} style={{ paddingBottom: baris.length ? 4 : 20 }}>
+        <h2 className={s.blokJudul}>Pengeluaran per kategori</h2>
+        <p className={s.blokSub}>Rerata per bulan, 3 bulan penuh terakhir.</p>
+
+        {error ? (
+          <p className={s.bahaya} role="alert" style={{ margin: "16px 0 0" }}>
+            Gagal ambil data: {error}
+          </p>
+        ) : baris.length > 0 ? (
+          <>
+            <div className={s.nominal} style={{ fontSize: 28, marginTop: 16 }}>
               {fmtIDRRingkas(total)}
             </div>
             <div className={s.bar} role="img" aria-label="Porsi pengeluaran per kategori">
@@ -53,19 +50,26 @@ export default function KomposisiKategori({
                 <span key={r.kategori} style={{ flex: r.nilai, background: warna(r.kategori) }} />
               ))}
             </div>
-          </div>
-          {baris.map((r) => (
-            <div key={r.kategori} className={s.baris} style={{ minHeight: 52 }}>
-              <span className={s.titik} style={{ background: warna(r.kategori) }} aria-hidden />
-              <span className={s.barisTeks}>
-                <span>{labelKategori(r.kategori)}</span>
-              </span>
-              <span className={s.redup}>{persen(r.nilai)}%</span>
-              <span className={s.nominal}>{fmtIDR(r.nilai)}</span>
-            </div>
-          ))}
-        </section>
+          </>
+        ) : null}
+      </div>
+
+      {!error && baris.length === 0 && (
+        <Kosong ikon={ChartPie} judul="Belum ada pengeluaran di rentang ini">
+          Ini cuma menghitung 3 bulan penuh terakhir, jadi bulan berjalan belum ikut.
+        </Kosong>
       )}
-    </>
+
+      {baris.map((r) => (
+        <div key={r.kategori} className={s.baris} style={{ minHeight: 52 }}>
+          <span className={s.titik} style={{ background: warna(r.kategori) }} aria-hidden />
+          <span className={s.barisTeks}>
+            <span>{labelKategori(r.kategori)}</span>
+          </span>
+          <span className={s.redup}>{persen(r.nilai)}%</span>
+          <span className={s.nominal}>{fmtIDR(r.nilai)}</span>
+        </div>
+      ))}
+    </section>
   );
 }
