@@ -9,6 +9,9 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   // Latar hitam One UI, supaya bilah status HP menyatu.
   themeColor: "#000000",
+  // Aplikasinya gelap saja; diumumkan sebelum CSS termuat, supaya browser
+  // dan bilah sistem tidak sempat memakai tema terang.
+  colorScheme: "dark",
   // Konten boleh sampai ke bawah notch/gesture bar; padding-nya diatur lewat
   // env(safe-area-inset-*) di navigasi bawah.
   viewportFit: "cover",
