@@ -1,40 +1,21 @@
-import Image from "next/image";
+import s from "@/components/ui.module.css";
 
 /**
- * Tanda pengenal aplikasi.
+ * Area tampilan halaman yang berdiri sendiri (masuk, password baru): logo dan
+ * judul besar di tengah. Tanpa ini, halaman cuma tampil sebagai kotak form
+ * tanpa identitas — orang tidak tahu sedang masuk ke aplikasi apa.
  *
- * Dipakai di halaman-halaman yang berdiri sendiri (masuk, password baru) yang
- * kalau tidak, cuma tampil sebagai kotak form tanpa identitas — orang tidak
- * tahu sedang masuk ke aplikasi apa.
- *
- * Logonya berlatar transparan dan sudah punya bobot visual sendiri, jadi tidak
- * dibungkus kotak berwarna: menumpuk bentuk di atas bentuk cuma bikin ramai.
+ * Alamat logonya membawa nomor versi: begitu versi naik, browser mengambil
+ * berkas baru, bukan logo lama dari cache. Tidak lewat next/image karena
+ * hasil optimasinya disimpan per alamat dan ikut menahan logo lama.
  */
-export default function BrandMark({
-  judul = "Money Tracker",
-  subjudul,
-}: {
-  judul?: string;
-  subjudul?: string;
-}) {
+export default function BrandMark({ judul, sub }: { judul: string; sub?: string }) {
   return (
-    <div className="mb-6 flex flex-col items-center text-center">
-      <Image
-        src="/logo.png"
-        alt=""
-        width={80}
-        height={80}
-        // Logo di layar pertama; menundanya cuma bikin halaman berkedip.
-        priority
-        className="h-20 w-20"
-      />
-
-      <h1 className="mt-3 text-2xl font-extrabold tracking-tight text-foreground">
-        {judul}
-      </h1>
-      {subjudul && (
-        <p className="mt-1 text-sm text-muted-foreground">{subjudul}</p>
-      )}
-    </div>
+    <header className={s.viewing}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={`/logo.png?v=${process.env.NEXT_PUBLIC_VERSI}`} alt="" width={64} height={64} />
+      <h1 className={s.judulBesar}>{judul}</h1>
+      {sub && <p className={s.judulSub}>{sub}</p>}
+    </header>
   );
 }

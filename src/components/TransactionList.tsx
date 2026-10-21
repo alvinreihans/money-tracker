@@ -1,80 +1,116 @@
-import Link from "next/link";
-import { fmtIDR, fmtTanggal, labelKategori } from "@/lib/format";
-import type { Transaction, TransactionType } from "@/types/transaction";
+"use client";
+
+import NextLink from "next/link";
+import { useCatat, useKategori } from "@/components/Catat";
+import { tandaTransaksi } from "@/components/kategori";
+import { namaKategori } from "@/lib/kategori";
+import s from "@/components/ui.module.css";
+import { fmtIDR, fmtIDRRingkas, fmtTanggal, kelompokWaktu } from "@/lib/format";
+import type { Transaction } from "@/types/transaction";
 
 /**
- * Daftar transaksi yang bisa diklik. Dipakai di beranda (dipotong) maupun di
- * halaman Riwayat (penuh).
+ * Daftar transaksi ala Voice Recorder Samsung: satu transaksi satu kartu,
+ * dikelompokkan dengan subheader waktu yang makin kasar ke belakang ("Hari
+ * ini", "Kemarin", "Minggu ini", nama bulan, tahun). Keterangan transaksi
+ * tampil di bawah garis putus-putus di dalam kartunya, seperti ringkasan
+ * rekaman.
+ *
+ * Subheader membawa total pengeluaran kelompoknya — pertanyaan paling umum
+ * saat membuka riwayat adalah "kemarin habis berapa".
  */
-
-const CHIPS: Record<TransactionType, { label: string; warna: string; bg: string }> = {
-  expense: { label: "Keluar", warna: "var(--accent)", bg: "rgba(245,110,15,0.14)" },
-  income: { label: "Masuk", warna: "var(--success)", bg: "rgba(74,222,128,0.12)" },
-  transfer: { label: "Pindah kantong", warna: "var(--transfer)", bg: "rgba(125,169,255,0.12)" },
-};
 
 /**
- * Warna nominal. Pengeluaran sengaja memakai warna teks biasa, bukan merah:
- * belanja bukan kesalahan, dan mewarnai semuanya merah membuat penanda merah
- * yang sungguhan penting — draft yang salah baca — jadi tidak terlihat.
+ * Pengeluaran sengaja memakai warna teks biasa, bukan merah: belanja bukan
+ * kesalahan, dan mewarnai semuanya merah membuat penanda yang sungguhan
+ * penting — draft yang salah baca — jadi tidak terlihat.
  */
-function warnaNominal(t: Transaction): string {
-  if (t.status === "needs_review") return "var(--danger)";
-  if (t.type === "income") return "var(--success)";
-  if (t.type === "transfer") return "var(--transfer)";
-  return "var(--foreground)";
+function kelasNominal(t: Transaction): string {
+  if (t.status === "needs_review") return s.bahaya;
+  if (t.type === "income") return s.masuk;
+  if (t.type === "transfer") return s.pindah;
+  return "";
 }
 
-export default function TransactionList({ items }: { items: Transaction[] }) {
+function Kartu({ t, kelompok }: { t: Transaction; kelompok: string }) {
+  const kategori = useKategori();
+  const { ikon: Ikon, warna } = tandaTransaksi(t, kategori);
+  // Di "Hari ini"/"Kemarin" tanggalnya sudah jelas dari subheader.
+  const tanggal = kelompok === "Hari ini" || kelompok === "Kemarin" ? null : fmtTanggal(t.transaction_date);
+  const { kantong } = useCatat();
+  const tujuan = t.type === "transfer" ? kantong.find((k) => k.id === t.kantong_tujuan_id)?.name : undefined;
+  const lewat = tujuan ? `${t.payment_method ?? "?"} → ${tujuan}` : t.payment_method;
+  // Pindah kantong tidak berkategori; arahnya sudah cukup.
+  const rincian = [tanggal, t.type === "transfer" ? null : namaKategori(kategori, t.category, t.type), lewat].filter(Boolean).join(" · ");
+
   return (
-    <ul className="overflow-hidden rounded-[var(--radius-lg)] border border-border">
-      {items.map((t, i) => {
-        const chip = CHIPS[t.type] ?? CHIPS.expense;
-        const draft = t.status === "needs_review";
+    <NextLink href={`/transactions/${t.id}`} className={`${s.kartuTx} ${s.tekan}`}>
+      <span className={s.baris}>
+        <span
+          className={s.barisIkon}
+          // Wadah diwarnai tipis, ikonnya warna penuh: tetap tenang di layar gelap.
+          style={{ background: `color-mix(in srgb, ${warna} 18%, transparent)`, color: warna }}
+          aria-hidden
+        >
+          <Ikon size={20} />
+        </span>
+        <span className={s.barisTeks}>
+          <span className={s.barisJudul}>{t.merchant ?? "Tanpa nama"}</span>
+          <span className={s.redup}>{rincian}</span>
+          {t.status === "needs_review" && <span className={`${s.lencana} ${s.lencanaBahaya}`}>Perlu dibenerin</span>}
+        </span>
+        <span className={`${s.nominal} ${kelasNominal(t)}`}>
+          {t.type === "income" ? "+" : ""}
+          {fmtIDR(Number(t.amount))}
+        </span>
+      </span>
+      {t.description && <span className={s.kartuCatatan} style={{ display: "block" }}>{t.description}</span>}
+    </NextLink>
+  );
+}
+
+export default function TransactionList({
+  items,
+  kaki,
+}: {
+  items: Transaction[];
+  /** Aksi penutup di bawah daftar, mis. "Lihat semua riwayat". */
+  kaki?: React.ReactNode;
+}) {
+  // Data sudah terurut menurut tanggal dari query, jadi cukup dipecah urut.
+  const kelompok: { label: string; isi: Transaction[] }[] = [];
+  for (const t of items) {
+    const label = kelompokWaktu(t.transaction_date);
+    const akhir = kelompok[kelompok.length - 1];
+    if (akhir?.label === label) akhir.isi.push(t);
+    else kelompok.push({ label, isi: [t] });
+  }
+
+  return (
+    <>
+      {kelompok.map((k) => {
+        // Draft belum punya nominal yang benar; pindah kantong bukan pengeluaran.
+        const keluar = k.isi
+          .filter((t) => t.type === "expense" && t.status === "confirmed")
+          .reduce((n, t) => n + Number(t.amount), 0);
 
         return (
-          <li key={t.id} className={i > 0 ? "border-t border-border" : ""}>
-            <Link
-              href={`/transactions/${t.id}`}
-              className="flex items-start justify-between gap-3 bg-card px-4 py-3 hover:bg-secondary"
-            >
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="truncate text-sm font-semibold text-card-foreground">
-                    {t.merchant ?? "Tanpa nama"}
-                  </span>
-                  <span
-                    className="shrink-0 rounded-md px-2 py-0.5 text-[11px] font-semibold"
-                    style={{ color: chip.warna, background: chip.bg }}
-                  >
-                    {chip.label}
-                  </span>
-                  {draft && (
-                    <span
-                      className="shrink-0 rounded-md px-2 py-0.5 text-[11px] font-bold"
-                      style={{ color: "var(--danger)", background: "rgba(255,107,91,0.14)" }}
-                    >
-                      Perlu dibenerin
-                    </span>
-                  )}
-                </div>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  {fmtTanggal(t.transaction_date)} · {labelKategori(t.category)}
-                  {t.payment_method ? ` · ${t.payment_method}` : ""}
-                </p>
-              </div>
-
-              <span
-                className="shrink-0 text-sm font-semibold tabular-nums"
-                style={{ color: warnaNominal(t) }}
-              >
-                {t.type === "income" ? "+" : ""}
-                {fmtIDR(Number(t.amount))}
-              </span>
-            </Link>
-          </li>
+          <section key={k.label} className={s.kelompok}>
+            <h2 className={`${s.subheader} ${s.subheaderTebal} ${s.subheaderBaris}`}>
+              <span>{k.label}</span>
+              {keluar > 0 && (
+                <>
+                  <span className={s.titikTitik} aria-hidden />
+                  <span className={`${s.subheaderNilai} ${s.redup}`}>−{fmtIDRRingkas(keluar)}</span>
+                </>
+              )}
+            </h2>
+            {k.isi.map((t) => (
+              <Kartu key={t.id} t={t} kelompok={k.label} />
+            ))}
+          </section>
         );
       })}
-    </ul>
+      {kaki}
+    </>
   );
 }

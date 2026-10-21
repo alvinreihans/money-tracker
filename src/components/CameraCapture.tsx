@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Lembar, Pesan } from "@/components/oneui";
+import s from "@/components/ui.module.css";
 
 /**
  * Kamera dalam aplikasi, bukan sekadar input file dengan atribut `capture`.
@@ -48,7 +50,7 @@ export default function CameraCapture({ onCapture, onClose }: Props) {
           video: { facingMode, width: { ideal: 1920 } },
         });
 
-        // Komponen keburu ditutup sebelum izin diberikan: matikan lagi,
+        // Dialog keburu ditutup sebelum izin diberikan: matikan lagi,
         // kalau tidak lampu kameranya menyala terus.
         if (dibatalkan) {
           stream.getTracks().forEach((t) => t.stop());
@@ -92,77 +94,55 @@ export default function CameraCapture({ onCapture, onClose }: Props) {
     canvas.toBlob(
       (blob) => {
         if (!blob) return;
-        const nama = `struk-${Date.now()}.jpg`;
-        onCapture(new File([blob], nama, { type: "image/jpeg" }));
+        onCapture(new File([blob], `struk-${Date.now()}.jpg`, { type: "image/jpeg" }));
       },
       "image/jpeg",
       0.92, // struk butuh detail; kompresi agresif bikin angka pecah
     );
   }
 
-  // Overlay layar penuh harus bisa ditutup dari papan ketik. Tanpa ini,
-  // pengguna keyboard terjebak di kamera tanpa jalan keluar.
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    document.addEventListener("keydown", onKey);
-    // Cegah halaman di belakang ikut tergulir saat kamera terbuka.
-    const overflowAwal = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = overflowAwal;
-    };
-  }, [onClose]);
-
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label="Ambil foto struk"
-      className="fixed inset-0 z-50 flex flex-col bg-black"
-      style={{
-        paddingTop: "env(safe-area-inset-top)",
-        paddingBottom: "env(safe-area-inset-bottom)",
-      }}
-    >
-      <div className="flex items-center justify-between px-4 py-3">
-        <button
-          onClick={onClose}
-          className="rounded-md px-3 py-1.5 text-sm font-medium text-white/80 transition hover:bg-white/10"
-        >
-          Batal
-        </button>
-        <button
-          onClick={() => setFacingMode((f) => (f === "environment" ? "user" : "environment"))}
-          className="rounded-md px-3 py-1.5 text-sm font-medium text-white/80 transition hover:bg-white/10"
-        >
-          Balik kamera
-        </button>
-      </div>
-
-      <div className="relative flex flex-1 items-center justify-center overflow-hidden">
-        {error ? (
-          <p className="max-w-xs px-6 text-center text-sm text-white/80">{error}</p>
-        ) : (
-          <video
-            ref={videoRef}
-            playsInline
-            muted
-            className="h-full w-full object-contain"
+    <Lembar
+      posisi="penuh"
+      judul="Foto struk"
+      onClose={onClose}
+      tombol={
+        <>
+          <button type="button" className={s.flat} onClick={onClose}>
+            Batal
+          </button>
+          {/* Tombol jepret di tengah, besar, di area jempol. */}
+          <button
+            type="button"
+            aria-label="Jepret"
+            disabled={!siap}
+            onClick={jepret}
+            style={{
+              width: 72,
+              height: 72,
+              flexShrink: 0,
+              borderRadius: "50%",
+              border: "4px solid #fff",
+              background: "rgba(255,255,255,0.2)",
+              opacity: siap ? 1 : 0.3,
+              cursor: "pointer",
+            }}
           />
-        )}
-      </div>
-
-      <div className="flex items-center justify-center pb-10 pt-6">
-        <button
-          onClick={jepret}
-          disabled={!siap}
-          aria-label="Ambil foto"
-          className="h-16 w-16 rounded-full border-4 border-white bg-white/20 transition hover:bg-white/40 disabled:opacity-30"
-        />
-      </div>
-    </div>
+          <button
+            type="button"
+            className={s.flat}
+            onClick={() => setFacingMode((f) => (f === "environment" ? "user" : "environment"))}
+          >
+            Balik
+          </button>
+        </>
+      }
+    >
+      {error ? (
+        <Pesan jenis="bahaya">{error}</Pesan>
+      ) : (
+        <video ref={videoRef} playsInline muted className={s.video} style={{ height: "100%" }} />
+      )}
+    </Lembar>
   );
 }

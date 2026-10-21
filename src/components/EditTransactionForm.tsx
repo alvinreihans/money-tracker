@@ -2,247 +2,125 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { ChevronRight, PencilLine } from "lucide-react";
+import { useCatat, useKategori } from "@/components/Catat";
+import { Lembar, Pesan, Spinner } from "@/components/oneui";
+import TransactionFields, { nilaiAwal } from "@/components/TransactionFields";
+import s from "@/components/ui.module.css";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { dbErrorMessage } from "@/lib/errors";
-import { CATEGORY_LABEL } from "@/lib/format";
-import type { Transaction, TransactionType } from "@/types/transaction";
-import { IconEdit, IconSimpan, IconBatal } from "@/components/icons";
+import { barisIkutan, validasiTransaksi } from "@/lib/transaksi-input";
+import type { Transaction } from "@/types/transaction";
 
 /**
- * Menyunting rincian transaksi.
+ * Menyunting rincian transaksi di halaman penuh ala form Kontak Samsung.
  *
- * Ini yang menutup lingkaran untuk draft: sebelumnya struk yang gagal dibaca
- * tersimpan bertanda "Perlu dibenerin" tapi tidak ada cara membenerinnya —
- * satu-satunya jalan adalah menghapus lalu mencatat ulang dari nol.
+ * Ini yang menutup lingkaran untuk draft: tanpa ini, struk yang gagal dibaca
+ * tersimpan bertanda "Perlu dibenerin" tapi tidak ada cara membenerinnya.
+ * Untuk draft pemicunya tombol berwarna (aksi utama halaman itu), selain itu
+ * cukup baris daftar.
  */
-
-const TIPE: { id: TransactionType; label: string }[] = [
-  { id: "expense", label: "Keluar" },
-  { id: "income", label: "Masuk" },
-  { id: "transfer", label: "Pindah kantong" },
-];
-
-const input =
-  "w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm text-foreground outline-none focus:border-[var(--ring)] focus:ring-2 focus:ring-[var(--ring)]";
-
-function Kolom({
-  label,
-  htmlFor,
-  children,
-  bantuan,
+export default function EditTransactionForm({
+  tx,
+  ikutan,
 }: {
-  label: string;
-  htmlFor: string;
-  children: React.ReactNode;
-  bantuan?: string;
+  tx: Transaction;
+  /** Biaya admin / cashback yang menempel ke transaksi ini, kalau ada. */
+  ikutan?: { id: string; amount: number } | null;
 }) {
-  return (
-    <div>
-      <label htmlFor={htmlFor} className="mb-1 block text-sm font-medium text-foreground">
-        {label}
-      </label>
-      {children}
-      {bantuan && <p className="mt-1 text-xs text-muted-foreground">{bantuan}</p>}
-    </div>
-  );
-}
-
-export default function EditTransactionForm({ tx }: { tx: Transaction }) {
   const router = useRouter();
+  const draft = tx.status === "needs_review";
+  const { kantong } = useCatat();
+  const kategori = useKategori();
   const [buka, setBuka] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [nilai, setNilai] = useState(() => nilaiAwal(tx, undefined, ikutan?.amount));
 
-  const [amount, setAmount] = useState(String(tx.amount));
-  const [type, setType] = useState<TransactionType>(tx.type);
-  const [category, setCategory] = useState(tx.category);
-  const [merchant, setMerchant] = useState(tx.merchant ?? "");
-  const [paymentMethod, setPaymentMethod] = useState(tx.payment_method ?? "");
-  const [tanggal, setTanggal] = useState(tx.transaction_date);
-  const [description, setDescription] = useState(tx.description ?? "");
+  function bukaForm() {
+    setNilai(nilaiAwal(tx, undefined, ikutan?.amount));
+    setError(null);
+    setBuka(true);
+  }
 
-  const draft = tx.status === "needs_review";
-
-  async function simpan(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
+  async function simpan(e?: FormEvent) {
+    e?.preventDefault();
     setError(null);
 
-    const nominal = Number(amount);
-    if (!Number.isFinite(nominal) || nominal <= 0) {
-      setError("Nominalnya harus lebih dari nol.");
-      return;
-    }
+    const cek = validasiTransaksi({ ...nilai }, { wajibKantong: kantong.length > 0, kategori });
+    if (!cek.ok) return setError(cek.error);
 
     setLoading(true);
-    const supabase = createSupabaseBrowserClient();
-
-    const { error: err } = await supabase
-      .from("transactions")
-      .update({
-        amount: nominal,
-        type,
-        category,
-        merchant: merchant.trim() || null,
-        payment_method: paymentMethod.trim() || null,
-        transaction_date: tanggal,
-        description: description.trim() || null,
-        // Begitu dibetulkan manual, nominalnya sudah bisa dipercaya — jadi
-        // ikut dihitung di laporan dan penanda merahnya dilepas.
-        status: "confirmed",
-        raw_ocr_text: null,
-      })
-      .eq("id", tx.id);
-
+    const db = createSupabaseBrowserClient();
+    const { biaya_admin, cashback, ...kolom } = cek.data;
+    const baru = {
+      ...kolom,
+      // Begitu dibetulkan manual, nominalnya sudah bisa dipercaya — jadi
+      // ikut dihitung di laporan dan penanda merahnya dilepas.
+      status: "confirmed",
+      raw_ocr_text: null,
+    };
+    const { error: err } = await db.from("transactions").update(baru).eq("id", tx.id);
     if (err) {
-      setError(dbErrorMessage(err));
       setLoading(false);
-      return;
+      return setError(dbErrorMessage(err));
     }
 
-    setBuka(false);
+    // Samakan transaksi ikutan dengan isian: ubah, tambah, atau hapus.
+    const tujuan = kantong.find((k) => k.id === kolom.kantong_tujuan_id)?.name;
+    const harus = barisIkutan({ ...tx, ...baru }, { biaya_admin, cashback }, tujuan);
+    const { error: errIkutan } = harus
+      ? ikutan
+        ? await db.from("transactions").update(harus).eq("id", ikutan.id)
+        : await db.from("transactions").insert(harus)
+      : ikutan
+        ? await db.from("transactions").delete().eq("id", ikutan.id)
+        : { error: null };
     setLoading(false);
+
+    if (errIkutan) return setError(dbErrorMessage(errIkutan));
+
+    setBuka(false);
     router.refresh();
   }
 
-  if (!buka) {
-    return (
-      <button
-        onClick={() => setBuka(true)}
-        className="flex min-h-11 items-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:opacity-90"
-      >
-        <IconEdit />
-        {draft ? "Betulkan transaksi" : "Edit transaksi"}
-      </button>
-    );
-  }
-
   return (
-    <form onSubmit={simpan} className="space-y-4">
-      <Kolom label="Nominal" htmlFor="f-amount">
-        <input
-          id="f-amount"
-          type="number"
-          inputMode="numeric"
-          min={1}
-          step="1"
-          required
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-          className={input}
-        />
-      </Kolom>
-
-      <Kolom
-        label="Jenis"
-        htmlFor="f-type"
-        bantuan="Pindah kantong tidak dihitung sebagai pengeluaran."
-      >
-        <select
-          id="f-type"
-          value={type}
-          onChange={(e) => setType(e.target.value as TransactionType)}
-          className={input}
-        >
-          {TIPE.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.label}
-            </option>
-          ))}
-        </select>
-      </Kolom>
-
-      <Kolom label="Kategori" htmlFor="f-category">
-        <select
-          id="f-category"
-          value={category}
-          onChange={(e) => setCategory(e.target.value)}
-          className={input}
-        >
-          {Object.entries(CATEGORY_LABEL).map(([slug, label]) => (
-            <option key={slug} value={slug}>
-              {label}
-            </option>
-          ))}
-        </select>
-      </Kolom>
-
-      <Kolom label="Tanggal" htmlFor="f-date">
-        <input
-          id="f-date"
-          type="date"
-          required
-          value={tanggal}
-          onChange={(e) => setTanggal(e.target.value)}
-          className={input}
-        />
-      </Kolom>
-
-      <Kolom label="Merchant" htmlFor="f-merchant">
-        <input
-          id="f-merchant"
-          value={merchant}
-          onChange={(e) => setMerchant(e.target.value)}
-          placeholder="Nama toko atau tempat"
-          className={input}
-        />
-      </Kolom>
-
-      <Kolom label="Metode bayar" htmlFor="f-method">
-        <input
-          id="f-method"
-          value={paymentMethod}
-          onChange={(e) => setPaymentMethod(e.target.value)}
-          placeholder="Tunai, QRIS, ShopeePay..."
-          className={input}
-        />
-      </Kolom>
-
-      <Kolom label="Keterangan" htmlFor="f-desc">
-        <textarea
-          id="f-desc"
-          rows={2}
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          placeholder="Opsional"
-          className={input}
-        />
-      </Kolom>
-
-      {draft && (
-        <p className="rounded-md border border-[rgba(74,222,128,0.45)] bg-[rgba(74,222,128,0.14)] px-3 py-2 text-xs text-[var(--success)]">
-          Begitu disimpan, tanda &ldquo;Perlu dibenerin&rdquo; hilang dan
-          transaksinya ikut dihitung di laporan.
-        </p>
+    <>
+      {draft ? (
+        <button type="button" className={s.tombol} onClick={bukaForm}>
+          Betulkan sekarang
+        </button>
+      ) : (
+        <button type="button" className={`${s.blok} ${s.baris}`} onClick={bukaForm}>
+          <span className={s.barisIkon} aria-hidden>
+            <PencilLine size={20} />
+          </span>
+          <span className={s.barisTeks}>
+            <span className={s.barisJudul}>Edit transaksi</span>
+            <span className={s.redup}>Ada yang kebaca salah?</span>
+          </span>
+          <ChevronRight size={20} color="var(--teks-2)" aria-hidden />
+        </button>
       )}
 
-      {error && (
-        <p
-          role="alert"
-          className="rounded-md border border-[rgba(255,107,91,0.45)] bg-[rgba(255,107,91,0.14)] px-3 py-2 text-sm text-[var(--danger)]"
+      {buka && (
+        <Lembar
+          judul={draft ? "Betulkan transaksi" : "Edit transaksi"}
+          sub={draft ? "Begitu disimpan, transaksinya ikut dihitung di laporan." : undefined}
+          posisi="penuh"
+          onClose={() => !loading && setBuka(false)}
+          pil={[
+            { label: "Batal", onClick: () => setBuka(false), disabled: loading },
+            { label: loading ? <Spinner /> : "Simpan", onClick: () => void simpan(), disabled: loading },
+          ]}
         >
-          {error}
-        </p>
+          <form onSubmit={simpan} className={s.form}>
+            <TransactionFields nilai={nilai} onChange={(p) => setNilai((v) => ({ ...v, ...p }))} />
+            {error && <Pesan jenis="bahaya">{error}</Pesan>}
+            <button type="submit" hidden />
+          </form>
+        </Lembar>
       )}
-
-      <div className="flex gap-2">
-        <button
-          type="submit"
-          disabled={loading}
-          className="flex min-h-11 items-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-60"
-        >
-          <IconSimpan />
-          {loading ? "Nyimpen..." : "Simpan"}
-        </button>
-        <button
-          type="button"
-          onClick={() => setBuka(false)}
-          disabled={loading}
-          className="flex min-h-11 items-center gap-2 rounded-md border border-border px-4 text-sm font-medium text-foreground transition hover:bg-secondary disabled:opacity-60"
-        >
-          <IconBatal />
-          Batal
-        </button>
-      </div>
-    </form>
+    </>
   );
 }

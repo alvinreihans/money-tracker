@@ -1,32 +1,31 @@
 import type { Metadata, Viewport } from "next";
-import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
-
-// Plus Jakarta Sans memang dirancang untuk Jakarta — pas untuk aplikasi ini.
-const jakarta = Plus_Jakarta_Sans({
-  subsets: ["latin"],
-  variable: "--font-jakarta",
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   title: "Money Tracker",
-  description: "Pencatatan keuangan otomatis dari struk dan rekening koran.",
+  description: "Catat pengeluaran dari struk, teks, atau isian sendiri.",
 };
 
 export const viewport: Viewport = {
-  // Aplikasi gelap saja, jadi satu warna saja — disamakan dgn header oranye.
-  themeColor: "#f56e0f",
+  // Latar hitam One UI, supaya bilah status HP menyatu.
+  themeColor: "#000000",
+  // Aplikasinya gelap saja; diumumkan sebelum CSS termuat, supaya browser
+  // dan bilah sistem tidak sempat memakai tema terang.
+  colorScheme: "dark",
+  // Konten boleh sampai ke bawah notch/gesture bar; padding-nya diatur lewat
+  // env(safe-area-inset-*) di navigasi bawah.
+  viewportFit: "cover",
+  // Saat keyboard HP muncul, tata letak ikut menyusut — sheet "Catat" yang
+  // menempel di bawah layar naik ke atas keyboard, bukan tertutup olehnya.
+  interactiveWidget: "resizes-content",
 };
 
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="id" className={jakarta.variable}>
-      <body className="min-h-dvh bg-background font-sans text-foreground antialiased">
-        {children}
-      </body>
+    <html lang="id">
+      <body>{children}</body>
     </html>
   );
 }

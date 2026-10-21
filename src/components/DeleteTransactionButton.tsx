@@ -2,14 +2,15 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Trash2 } from "lucide-react";
+import { Lembar, Pesan, Spinner } from "@/components/oneui";
+import s from "@/components/ui.module.css";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { dbErrorMessage } from "@/lib/errors";
-import ConfirmDialog from "@/components/ConfirmDialog";
-import { IconHapus } from "@/components/icons";
 
 /**
- * Hapus transaksi. Konfirmasinya lewat dialog yang memutus alur, bukan tombol
- * yang menyelip di bawah — sekali kehapus, struknya harus difoto ulang.
+ * Hapus transaksi. Konfirmasinya lewat dialog di bawah layar (panduan One UI
+ * untuk dialog konfirmasi) — sekali kehapus, struknya harus difoto ulang.
  */
 export default function DeleteTransactionButton({ id }: { id: string }) {
   const router = useRouter();
@@ -21,8 +22,7 @@ export default function DeleteTransactionButton({ id }: { id: string }) {
     setLoading(true);
     setError(null);
 
-    const supabase = createSupabaseBrowserClient();
-    const { error: err } = await supabase.from("transactions").delete().eq("id", id);
+    const { error: err } = await createSupabaseBrowserClient().from("transactions").delete().eq("id", id);
 
     if (err) {
       setError(dbErrorMessage(err));
@@ -34,33 +34,40 @@ export default function DeleteTransactionButton({ id }: { id: string }) {
     router.refresh();
   }
 
+  function tutup() {
+    if (loading) return;
+    setBuka(false);
+    setError(null);
+  }
+
   return (
     <>
-      {/* Merah terisi penuh. Teksnya Dark Void, bukan putih: putih di atas
-          merah ini cuma 2,70:1, sedangkan Dark Void 6,55:1. */}
-      <button
-        onClick={() => setBuka(true)}
-        className="flex min-h-11 items-center gap-2 rounded-md px-4 text-sm font-semibold transition hover:opacity-90"
-        style={{ background: "var(--danger)", color: "#151419" }}
-      >
-        <IconHapus />
-        Hapus transaksi
+      <button type="button" className={s.ikonTombol} aria-label="Hapus transaksi" onClick={() => setBuka(true)}>
+        <Trash2 size={22} />
       </button>
 
       {buka && (
-        <ConfirmDialog
+        <Lembar
           judul="Hapus transaksi ini?"
-          keterangan="Nggak bisa dibalikin. Kalau ini dari struk, kamu harus foto ulang."
-          labelKonfirmasi={loading ? "Ngapus..." : "Ya, hapus"}
-          ikon={<IconHapus />}
-          loading={loading}
-          error={error}
-          onKonfirmasi={() => void hapus()}
-          onBatal={() => {
-            setBuka(false);
-            setError(null);
-          }}
-        />
+          onClose={tutup}
+          tombol={
+            <>
+              <button type="button" className={s.flat} disabled={loading} onClick={tutup}>
+                Batal
+              </button>
+              <button type="button" className={`${s.flat} ${s.flatBahaya}`} disabled={loading} onClick={() => void hapus()}>
+                {loading ? <Spinner /> : "Hapus"}
+              </button>
+            </>
+          }
+        >
+          <span className={s.redup}>Nggak bisa dibalikin. Kalau ini dari struk, kamu harus foto ulang.</span>
+          {error && (
+            <div style={{ marginTop: 12 }}>
+              <Pesan jenis="bahaya">{error}</Pesan>
+            </div>
+          )}
+        </Lembar>
       )}
     </>
   );

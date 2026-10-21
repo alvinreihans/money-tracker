@@ -9,36 +9,34 @@ Alur ekstraksi lengkap beserta strategi fallback-nya ada di [FALLBACK.md](FALLBA
 
 ```
 supabase/migrations/20260716000000_init_transactions.sql   # tabel + RLS + RPC
-supabase/migrations/20260722000000_telegram_profiles.sql   # profiles + telegram_links
+supabase/migrations/20260722000000_telegram_profiles.sql   # profiles + telegram_links (bot dihapus, tabel dibiarkan)
 supabase/migrations/20260919000000_fallback_pipeline.sql   # status draft + dedupe
-supabase/migrations/20260919120000_statements_and_transfers.sql # rekening koran
+supabase/migrations/20260919120000_statements_and_transfers.sql # rekening koran (fitur dihapus, data lama tetap)
 
 src/types/transaction.ts            # tipe domain bersama
 src/lib/supabase/client.ts          # client (browser)
 src/lib/supabase/server.ts          # client (server/route)
-src/lib/supabase/admin.ts           # client service-role (webhook Telegram)
 
 src/lib/ocr.ts                      # sharp + Tesseract -> teks + confidence
 src/lib/groq.ts                     # client Groq + rantai model + throttle
 src/lib/gemini.ts                   # client Gemini (fallback vision)
 src/lib/extract.ts                  # prompt, normalisasi, validasi, rantai LLM
 src/lib/receipt.ts                  # orkestrasi pipeline gambar
-src/lib/pdf.ts                      # PDF -> teks per halaman
-src/lib/statement.ts                # teks PDF -> daftar transaksi
-src/lib/statement-import.ts         # dedup + simpan ke database
-src/lib/telegram.ts                 # helper Telegram Bot API
+src/lib/simpan-transaksi.ts         # simpan + singkirkan baris rekening koran lama yang dobel
+src/lib/transaksi-input.ts          # validasi isian manual (browser & server)
+src/lib/format.ts                   # format rupiah & tanggal (WIB)
 
 src/app/api/upload-receipt/route.ts   # jalur web (gambar)
-src/app/api/upload-statement/route.ts # jalur rekening koran (PDF)
-src/app/api/telegram/webhook/route.ts # jalur Telegram
-src/components/SpendingByCategoryChart.tsx
-src/components/UploadReceiptForm.tsx
-src/components/UploadStatementForm.tsx
-src/components/UserAccountsCard.tsx
+src/app/api/catat-teks/route.ts       # jalur web (teks bebas)
+src/app/api/catat-manual/route.ts     # jalur web (form)
+src/components/oneui.tsx              # komponen dasar One UI (app bar, dialog, field)
+src/components/ui.module.css          # gaya komponen; token warna di app/globals.css
+src/components/Catat.tsx              # tombol "+", sheet ketik, kamera, form
 src/proxy.ts                        # refresh session Supabase (dulu middleware.ts)
 scripts/migrate.mjs                 # runner migrasi
 scripts/test-receipt.mts            # diagnostik jalur gambar
-scripts/test-statement.mts          # diagnostik jalur rekening koran
+scripts/uji-validasi.mts            # uji validasi isian transaksi
+scripts/uji-tanggal.mts             # uji hitungan tanggal WIB
 tessdata/                           # traineddata Tesseract (ind + eng)
 .env.example                        # template env
 ```
@@ -46,8 +44,8 @@ tessdata/                           # traineddata Tesseract (ind + eng)
 ## 1. Dependencies
 
 ```bash
-npm install @supabase/ssr @supabase/supabase-js recharts \
-            tesseract.js sharp groq-sdk @google/generative-ai unpdf
+npm install @supabase/ssr @supabase/supabase-js \
+            tesseract.js sharp groq-sdk @google/generative-ai lucide-react
 ```
 
 ## 2. Environment
@@ -122,43 +120,20 @@ Poin penting:
 - **RPC** mengabaikan bulan berjalan dan baris `needs_review` agar rata-rata
   tidak bias.
 
-## Rekening koran (PDF)
+## Rekening koran (dihapus)
 
-Jalur terpisah dari gambar, dengan tiga persoalan yang tidak ada di jalur struk.
-
-**1. Satu file = puluhan transaksi.** Diproses per halaman, bukan sekaligus:
-batas Groq 8K token/menit, dan model lebih jarang melewatkan baris di tengah
-daftar panjang. Ada jeda 2,5 detik antar halaman plus retry yang menghormati
-saran tunggu dari pesan 429 Groq — tanpa itu statement panjang gagal di tengah.
-
-**2. Transfer bukan pengeluaran.** Topup ShopeePay dari bank hanya memindahkan
-uang antar kantong sendiri. Tabel `user_accounts` memberi tahu sistem mana
-rekening milik user; tanpa itu topup salah tercatat sebagai pengeluaran dan
-laporan membengkak palsu.
-
-Pembedanya halus dan mudah terbalik: baris **"ShopeePay / Pembayaran"** di
-rekening bank justru PENGELUARAN — itu fitur bayar instan, ShopeePay cuma
-jalurnya dan uangnya langsung ditarik bank untuk membayar merchant. Sedangkan
-**"Top Up Shopee"** adalah transfer.
-
-**3. Satu transaksi bisa muncul dua kali.** Dedup dua lapis di
-`statement-import.ts`: `external_id` mencegah impor ulang file yang sama, dan
-baris yang sudah punya bukti pembayaran (nominal sama, selisih <=2 hari)
-dilewati. Bukti bayar yang menang karena memuat nama merchant, sementara baris
-statement cuma tertulis "Pembayaran".
-
-Struktur tabel tiap bank berbeda (SeaBank, BRImo, Jago yang bahkan punya konsep
-"kantong"), jadi pembacaan strukturnya diserahkan ke LLM alih-alih parser per
-bank — bank keempat tidak butuh kode baru.
+Impor PDF rekening koran dihapus pada Oktober 2026. Transaksi lama hasil impor
+(`source = 'statement'`) tetap tersimpan dan tampil, dan tabel `user_accounts`
+dibiarkan di database. `simpanTransaksi` masih menyingkirkan baris lama itu
+kalau transaksi yang sama dicatat ulang (nominal sama, selisih <=2 hari).
 
 ## Diagnostik
 
 ```bash
-npm run test:receipt   -- <file/folder> [--limit=N] [--no-vision] [--compare]
-npm run test:statement -- <file.pdf atau folder>
+npm run test:receipt -- <file/folder> [--limit=N] [--no-vision] [--compare]
 ```
 
-Keduanya menjalankan kode produksi, bukan salinan, lalu membongkar tiap tahap
+Perintah ini menjalankan kode produksi, bukan salinan, lalu membongkar tiap tahap
 supaya hasilnya bisa diperiksa mata sebelum dipercaya. `--no-vision` menguji
 mutu Tesseract+Groq telanjang tanpa memakai kuota Gemini.
 
@@ -177,9 +152,6 @@ Sudah diatur lewat `vercel.json`.
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | |
 | `GROQ_API_KEY` | |
 | `GEMINI_API_KEY` | |
-| `SUPABASE_SERVICE_ROLE_KEY` | server-only, bypass RLS |
-| `TELEGRAM_BOT_TOKEN` | kalau bot dipakai |
-| `TELEGRAM_WEBHOOK_SECRET` | kalau bot dipakai |
 
 **JANGAN** memasukkan `SUPABASE_DB_URL` — itu koneksi Postgres yang hanya
 dipakai menjalankan migrasi dari mesin lokal. Aplikasinya tidak memakainya, dan
@@ -197,30 +169,18 @@ password dan konfirmasi email akan ditolak saat diklik.
 - Ganti daftar model Groq di `src/lib/groq.ts` bila dashboard berubah — model
   yang tidak dikenal menghasilkan 404 dan otomatis dilewati rantai.
 
-## Bot Telegram (multi-user)
+## Bot Telegram (dihapus)
 
-Alur: user daftar di web app dengan nomor telepon -> sekali bagikan kontak ke bot ->
-`telegram_links` menyimpan chat_id -> user_id -> kirim foto/teks langsung tersimpan.
+Bot Telegram dihapus pada Oktober 2026 — mencatat lewat teks, foto, dan form kini
+semuanya ada di aplikasi. Tabel `profiles`, `telegram_links`, dan `telegram_updates`
+dibiarkan di database; pendaftaran tidak lagi meminta nomor HP.
 
-Webhook membalas 200 lebih dulu lalu memproses lewat `after()`, dan melakukan
-dedupe berdasarkan `update_id` supaya retry Telegram tidak membuat transaksi ganda.
-
-### Langkah
-
-1. Jalankan ketiga migration di Supabase SQL Editor.
-2. Buat bot di Telegram via **@BotFather** -> `/newbot` -> salin token -> isi `TELEGRAM_BOT_TOKEN`.
-3. Buat string acak untuk `TELEGRAM_WEBHOOK_SECRET` (mis. `openssl rand -hex 16`).
-4. Isi `SUPABASE_SERVICE_ROLE_KEY` dengan secret key Supabase (server-only, bypass RLS).
-5. Deploy ke Vercel (webhook butuh URL publik). Masukkan semua env di Vercel.
-6. Daftarkan webhook (ganti TOKEN, URL, SECRET):
+Kalau webhook bot lama masih terdaftar, lepaskan supaya Telegram berhenti
+memanggil route yang sudah tidak ada:
 
 ```bash
-curl "https://api.telegram.org/bot<TOKEN>/setWebhook" \
-  -d "url=https://<app>.vercel.app/api/telegram/webhook" \
-  -d "secret_token=<TELEGRAM_WEBHOOK_SECRET>"
+curl "https://api.telegram.org/bot<TOKEN>/deleteWebhook"
 ```
 
-7. Buka bot -> bagikan nomor -> mulai kirim struk/teks.
-
-Catatan keamanan: webhook memverifikasi header `x-telegram-bot-api-secret-token`
-agar hanya request dari Telegram (dengan secret yang benar) yang diproses.
+Env `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, dan `SUPABASE_SERVICE_ROLE_KEY`
+tidak dipakai lagi dan sebaiknya dihapus dari Vercel.

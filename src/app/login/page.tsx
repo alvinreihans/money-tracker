@@ -2,11 +2,15 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { createClient } from "@supabase/supabase-js";
+import { Mail } from "lucide-react";
+import { Field, Pesan, Spinner } from "@/components/oneui";
+import PasswordField from "@/components/PasswordField";
+import BrandMark from "@/components/BrandMark";
+import s from "@/components/ui.module.css";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { authErrorMessage } from "@/lib/errors";
 import { passwordValid } from "@/lib/password";
-import PasswordField from "@/components/PasswordField";
-import BrandMark from "@/components/BrandMark";
 
 /**
  * "lupa" sengaja jadi mode tersendiri, bukan tombol yang langsung mengirim.
@@ -20,13 +24,10 @@ const ERROR_TAUTAN: Record<string, string> = {
   "tautan-tidak-valid": "Tautannya nggak lengkap. Coba minta yang baru.",
 };
 
-const JUDUL: Record<Mode, { judul: string; sub: string }> = {
-  signin: { judul: "Masuk", sub: "Lanjut ke catatan keuanganmu." },
-  signup: { judul: "Daftar", sub: "Bikin akun dulu, bentar aja." },
-  lupa: {
-    judul: "Lupa password",
-    sub: "Masukin emailmu, nanti kami kirim tautan buat bikin password baru.",
-  },
+const JUDUL: Record<Mode, { judul: string; sub: string; tombol: string }> = {
+  signin: { judul: "Masuk", sub: "Ketik atau foto struk, sisanya otomatis.", tombol: "Masuk" },
+  signup: { judul: "Bikin akun", sub: "Bentar aja, cuma tiga isian.", tombol: "Daftar" },
+  lupa: { judul: "Lupa password", sub: "Kami kirim tautan buat bikin password baru.", tombol: "Kirim tautan" },
 };
 
 export default function LoginPage() {
@@ -35,7 +36,6 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [ulangi, setUlangi] = useState("");
-  const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -61,36 +61,37 @@ export default function LoginPage() {
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setLoading(true);
     setError(null);
     setMessage(null);
 
     if (mode === "signup" && !passwordValid(password)) {
-      setError("Passwordnya belum memenuhi semua syarat di bawah kolom.");
-      setLoading(false);
-      return;
+      return setError("Passwordnya belum memenuhi semua syarat di bawah kolom.");
     }
-
     if (mode === "signup" && password !== ulangi) {
-      setError("Password dan ulangannya belum sama.");
-      setLoading(false);
-      return;
+      return setError("Password dan ulangannya belum sama.");
     }
 
+    setLoading(true);
     const supabase = createSupabaseBrowserClient();
 
     if (mode === "lupa") {
-      const { error: err } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
+      // Sengaja flow implicit, bukan PKCE bawaan @supabase/ssr: tautan PKCE butuh
+      // cookie code-verifier dari browser yang meminta, jadi "kedaluwarsa" kalau
+      // dibuka di app email atau perangkat lain. Implicit membawa token di hash
+      // URL, lalu /reset-password memasangnya sendiri. (Mengganti template email
+      // ke token_hash butuh SMTP sendiri di Supabase.)
+      const implicit = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        { auth: { flowType: "implicit", persistSession: false } },
+      );
+      const { error: err } = await implicit.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
       });
       if (err) setError(authErrorMessage(err));
       else setMessage(`Tautan dikirim ke ${email}. Cek inbox dan folder spam ya.`);
     } else if (mode === "signup") {
-      const { data, error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { data: { phone } }, // disimpan ke profiles via trigger DB
-      });
+      const { data, error: signUpError } = await supabase.auth.signUp({ email, password });
 
       if (signUpError) {
         setError(authErrorMessage(signUpError));
@@ -126,166 +127,72 @@ export default function LoginPage() {
     setLoading(false);
   }
 
-  const teksTombol = loading
-    ? "Bentar ya..."
-    : mode === "lupa"
-      ? "Kirim tautan"
-      : mode === "signup"
-        ? "Daftar"
-        : "Masuk";
+  // Yang bisa diketuk cuma kata kerjanya; kalimat pengantarnya teks biasa.
+  const ajakan =
+    mode === "signin"
+      ? { teks: "Belum punya akun?", aksi: "Daftar", ke: "signup" as Mode }
+      : { teks: mode === "lupa" ? "Inget passwordnya?" : "Udah punya akun?", aksi: "Masuk", ke: "signin" as Mode };
+
+  const tautan = { background: "none", border: 0, padding: 0, color: "var(--primer)", fontWeight: 600, cursor: "pointer" };
 
   return (
-    <main className="flex min-h-dvh flex-col items-center justify-center px-4 py-8">
-      <BrandMark subjudul="Foto struk, sisanya otomatis." />
+    <main className={s.app} style={{ paddingBottom: 32 }}>
+      <BrandMark judul={JUDUL[mode].judul} sub={JUDUL[mode].sub} />
 
-      <div className="w-full max-w-sm rounded-[var(--radius-lg)] border border-border bg-card p-6">
-        <h2 className="text-lg font-semibold text-foreground">{JUDUL[mode].judul}</h2>
-        <p className="mt-0.5 text-sm text-muted-foreground">{JUDUL[mode].sub}</p>
+      <div className={s.isi}>
+        {error && <Pesan jenis="bahaya">{error}</Pesan>}
+        {message && <Pesan jenis="sukses">{message}</Pesan>}
 
-        <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-          <div>
-            <label
-              htmlFor="email"
-              className="mb-1 block text-sm font-medium text-foreground"
-            >
-              Email
-            </label>
-            <input
-              id="email"
-              type="email"
-              required
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm outline-none focus:border-[var(--ring)] focus:ring-2 focus:ring-[var(--ring)]"
-              placeholder="kamu@email.com"
-            />
-          </div>
+        <form onSubmit={handleSubmit} className={s.form}>
+          <div className={`${s.blok} ${s.blokForm}`}>
+            <Field label="Email" ikon={Mail}>
+              <input
+                type="email"
+                required
+                autoComplete="email"
+                inputMode="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Email"
+              />
+            </Field>
 
-          {mode !== "lupa" && (
-            <div>
+            {mode !== "lupa" && (
               <PasswordField
                 label="Password"
                 value={password}
                 onChange={setPassword}
                 autoComplete={mode === "signin" ? "current-password" : "new-password"}
                 syarat={mode === "signup"}
-                minLength={mode === "signin" ? 1 : 8}
-                placeholder={mode === "signin" ? "Password kamu" : "Minimal 8 karakter"}
+                caption={
+                  mode === "signin" && (
+                    <button type="button" style={{ ...tautan, alignSelf: "flex-end", padding: "4px" }} onClick={() => pindahMode("lupa")}>
+                      Lupa password?
+                    </button>
+                  )
+                }
               />
-              {mode === "signup" && (
-                <div className="mt-4">
-                  <PasswordField
-                    label="Ulangi password"
-                    value={ulangi}
-                    onChange={setUlangi}
-                    autoComplete="new-password"
-                    placeholder="Ketik ulang passwordnya"
-                  />
-                </div>
-              )}
-              {mode === "signin" && (
-                <div className="mt-1.5 flex justify-end">
-                  <button
-                    type="button"
-                    onClick={() => pindahMode("lupa")}
-                    className="text-xs font-semibold text-[var(--accent)] transition hover:opacity-80"
-                  >
-                    Lupa password?
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
+            )}
 
-          {mode === "signup" && (
-            <div>
-              <label
-                htmlFor="phone"
-                className="mb-1 block text-sm font-medium text-foreground"
-              >
-                Nomor HP (buat bot Telegram)
-              </label>
-              <input
-                id="phone"
-                type="tel"
-                required
-                autoComplete="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm outline-none focus:border-[var(--ring)] focus:ring-2 focus:ring-[var(--ring)]"
-                placeholder="08xxxxxxxxxx"
-              />
-              <p className="mt-1 text-xs text-muted-foreground">
-                Samain sama nomor Telegram kamu.
-              </p>
-            </div>
-          )}
+            {mode === "signup" && (
+              <PasswordField label="Ulangi password" value={ulangi} onChange={setUlangi} autoComplete="new-password" />
+            )}
 
-          {error && (
-            <p
-              role="alert"
-              className="rounded-md border border-[rgba(255,107,91,0.45)] bg-[rgba(255,107,91,0.14)] px-3 py-2 text-sm text-[var(--danger)]"
-            >
-              {error}
-            </p>
-          )}
+          </div>
 
-          {message && (
-            <p
-              role="status"
-              className="rounded-md border border-[rgba(74,222,128,0.45)] bg-[rgba(74,222,128,0.14)] px-3 py-2 text-sm text-[var(--success)]"
-            >
-              {message}
-            </p>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading || !siap}
-            className="w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-60"
-          >
-            {teksTombol}
+          <button type="submit" className={`${s.tombol} ${s.tombolPenuh}`} disabled={loading || !siap}>
+            {loading ? <Spinner /> : JUDUL[mode].tombol}
           </button>
         </form>
 
-        {/* Yang bisa diklik cuma kata kerjanya; kalimat pengantarnya teks biasa. */}
-        <p className="mt-4 text-center text-sm text-muted-foreground">
-          {mode === "lupa" ? (
-            <>
-              Inget passwordnya?{" "}
-              <button
-                type="button"
-                onClick={() => pindahMode("signin")}
-                className="font-bold text-[var(--accent)] transition hover:opacity-80"
-              >
-                Masuk
-              </button>
-            </>
-          ) : mode === "signin" ? (
-            <>
-              Belum punya akun?{" "}
-              <button
-                type="button"
-                onClick={() => pindahMode("signup")}
-                className="font-bold text-[var(--accent)] transition hover:opacity-80"
-              >
-                Daftar
-              </button>
-            </>
-          ) : (
-            <>
-              Udah punya akun?{" "}
-              <button
-                type="button"
-                onClick={() => pindahMode("signin")}
-                className="font-bold text-[var(--accent)] transition hover:opacity-80"
-              >
-                Masuk
-              </button>
-            </>
-          )}
+        <p className={s.redup} style={{ textAlign: "center", margin: 0 }}>
+          {ajakan.teks}{" "}
+          <button type="button" style={tautan} onClick={() => pindahMode(ajakan.ke)}>
+            {ajakan.aksi}
+          </button>
         </p>
+
+        <p className={s.versi}>Versi {process.env.NEXT_PUBLIC_VERSI}</p>
       </div>
     </main>
   );

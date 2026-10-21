@@ -16,6 +16,12 @@ export interface Transaction {
   merchant: string | null;
   description: string | null;
   payment_method: string | null;
+  /** Kantong (user_accounts) tempat uang bergerak; untuk pindah kantong: asalnya. */
+  kantong_id: string | null;
+  /** Hanya untuk pindah kantong: kantong tujuannya. */
+  kantong_tujuan_id: string | null;
+  /** Transaksi ikutan (biaya admin / cashback): id transaksi induknya. */
+  induk_id: string | null;
   transaction_date: string; // ISO date: "YYYY-MM-DD"
   status: TransactionStatus;
   /** Rekening/dompet tempat uang bergerak, mis. "SeaBank". */
@@ -39,6 +45,12 @@ export interface ExtractedReceipt {
   transaction_date: string; // "YYYY-MM-DD"
   description: string | null;
   payment_method: string | null;
+  /** Hanya untuk transfer: kantong tujuan, mis. "GoPay" pada "topup gopay dari bca". */
+  payment_target: string | null;
+  /** Hanya untuk transfer: biaya admin yang disebut. */
+  fee: number | null;
+  /** Hanya untuk expense: cashback yang benar-benar didapat. */
+  cashback: number | null;
   /** Membedakan screenshot bukti bayar dari struk kertas kasir. */
   document_type: "receipt" | "payment_proof";
 }
@@ -55,25 +67,5 @@ export interface AvgMonthlyExpenseRow {
 export type TransactionSource =
   | "receipt"        // foto struk kertas
   | "payment_proof"  // screenshot bukti bayar e-wallet
-  | "statement"      // baris rekening koran
-  | "text";          // pesan teks di Telegram
-
-/** Rekening atau dompet milik user; dipakai untuk mengenali transfer internal. */
-export interface UserAccount {
-  id: string;
-  user_id: string;
-  name: string;
-  kind: "bank" | "ewallet" | "cash";
-  aliases: string[];
-}
-
-/** Satu baris transaksi hasil parsing rekening koran. */
-export interface StatementLine {
-  transaction_date: string; // "YYYY-MM-DD"
-  description: string;
-  counterparty: string | null;
-  amount: number;
-  type: TransactionType;
-  category: string;
-  payment_method: string | null;
-}
+  | "statement"      // baris rekening koran (impor lama; fiturnya sudah dihapus)
+  | "text";          // diketik: teks bebas atau isian manual (dulu juga pesan teks Telegram)

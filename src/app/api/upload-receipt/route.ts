@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { processReceiptImage, toTransactionRow } from "@/lib/receipt";
-import { insertFromImage } from "@/lib/statement-import";
+import { ambilKategori } from "@/lib/kategori-server";
+import { simpanTransaksi } from "@/lib/simpan-transaksi";
 import { dbErrorMessage } from "@/lib/errors";
 import type { Transaction } from "@/types/transaction";
 
@@ -54,14 +55,14 @@ export async function POST(req: NextRequest) {
     // 3. Pipeline bersama: OCR -> Groq -> Gemini Vision (lihat FALLBACK.md).
     //    Tidak pernah melempar; kegagalan turun menjadi status needs_review.
     const image = Buffer.from(await file.arrayBuffer());
-    const result = await processReceiptImage(image, file.type);
+    const result = await processReceiptImage(image, file.type, await ambilKategori(supabase));
 
     // 4. Simpan. Bila baris rekening koran untuk transaksi yang sama sudah
     //    terlanjur masuk, baris itu disingkirkan — bukti bayar lebih lengkap.
     let inserted: Transaction;
     let supersededStatement = false;
     try {
-      const hasil = await insertFromImage(
+      const hasil = await simpanTransaksi(
         supabase,
         user.id,
         toTransactionRow(result, user.id) as unknown as Record<string, unknown>,
@@ -81,7 +82,8 @@ export async function POST(req: NextRequest) {
       {
         success: true,
         transaction: inserted,
-        status: result.status,
+        // Status akhir: bisa jadi draft di simpanTransaksi (kantong tak cocok).
+        status: inserted.status,
         source: result.source,
         supersededStatement,
         // Jejak keputusan pipeline; membantu saat hasilnya meleset.
