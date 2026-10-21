@@ -186,7 +186,7 @@ async function kirimJson(url: string, body: unknown) {
 const PINTASAN = [
   { id: "kamera", label: "Kamera", ikon: Camera, warna: "#3e91ff" },
   { id: "galeri", label: "Galeri", ikon: IkonGambar, warna: "#5ecb7a" },
-  { id: "form", label: "Isi form", ikon: ClipboardPen, warna: "#ff9f43" },
+  { id: "form", label: "Manual", ikon: ClipboardPen, warna: "#ff9f43" },
 ] as const;
 
 function CatatDialog({
