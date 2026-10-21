@@ -14,9 +14,12 @@ import s from "@/components/ui.module.css";
  */
 export default function AppShell({
   draftCount,
+  saran,
   children,
 }: {
   draftCount: number;
+  /** Teks transaksi terakhir untuk chip saran di kolom "Catat". */
+  saran: string[];
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -28,7 +31,7 @@ export default function AppShell({
   const fab = pathname === "/" || pathname === "/riwayat";
 
   return (
-    <CatatProvider fab={fab}>
+    <CatatProvider fab={fab} saran={saran}>
       <div className={s.app}>{children}</div>
 
       <nav className={s.nav} aria-label="Navigasi utama">

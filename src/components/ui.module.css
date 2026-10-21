@@ -586,6 +586,23 @@ button.blok { background: var(--blok); }
   border-radius: 50%;
 }
 
+/* Chip saran: satu baris yang bisa digeser, keluar sampai tepi dialog. */
+.saran {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  margin: 0 -24px;
+  padding: 0 24px;
+}
+
+.saran .chip {
+  min-height: 36px;
+  padding: 0 14px;
+  font-size: 14px;
+  color: var(--teks-2);
+}
+
 .ketik {
   display: flex;
   align-items: center;

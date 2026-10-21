@@ -108,7 +108,7 @@ export default function BerandaView({
         ) : (
           <div className={s.blok}>
             <Kosong ikon={Inbox} judul="Belum ada transaksi">
-              Ketik aja, mis. &ldquo;beli makan warteg 20k&rdquo;.
+              Ketik aja, mis. &ldquo;beli makan di warteg 20k shopeepay&rdquo;.
               <br />
               <button type="button" className={s.tombol} style={{ marginTop: 16 }} onClick={catat.buka}>
                 Catat transaksi

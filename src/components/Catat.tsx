@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowUp, Camera, ClipboardPen, Image as IkonGambar, Plus } from "lucide-react";
+import { ArrowUp, Camera, ClipboardPen, History, Image as IkonGambar, Plus } from "lucide-react";
 import CameraCapture from "@/components/CameraCapture";
 import { Lembar, Pesan, Spinner } from "@/components/oneui";
 import TransactionFields, { nilaiAwal } from "@/components/TransactionFields";
@@ -14,7 +14,7 @@ import type { Transaction } from "@/types/transaction";
 
 /**
  * Pintu mencatat. Tombol "+" melayang (FAB) langsung membuka kolom ketik
- * yang sudah siap diketik — "beli makan warteg 20k" lalu kirim, selesai.
+ * yang sudah siap diketik — "beli makan di warteg 20k shopeepay" lalu kirim, selesai.
  * Mengetik adalah cara tercepat, jadi itu yang langsung muncul; kamera,
  * galeri, dan form isian ada sebagai pintasan di atas kolomnya.
  *
@@ -39,7 +39,15 @@ export function useCatat() {
   return api;
 }
 
-export function CatatProvider({ fab, children }: { fab: boolean; children: React.ReactNode }) {
+export function CatatProvider({
+  fab,
+  saran,
+  children,
+}: {
+  fab: boolean;
+  saran: string[];
+  children: React.ReactNode;
+}) {
   const router = useRouter();
   const antrean = useAntreanStruk();
   const [dialog, setDialog] = useState<DialogAktif>(null);
@@ -123,6 +131,7 @@ export function CatatProvider({ fab, children }: { fab: boolean; children: React
 
       {dialog === "catat" && (
         <CatatDialog
+          saran={saran}
           onClose={() => setDialog(null)}
           onTersimpan={tersimpan}
           onKamera={() => setDialog("kamera")}
@@ -190,12 +199,14 @@ const PINTASAN = [
 ] as const;
 
 function CatatDialog({
+  saran,
   onClose,
   onTersimpan,
   onKamera,
   onGaleri,
   onForm,
 }: {
+  saran: string[];
   onClose: () => void;
   onTersimpan: (tx: Transaction, draft: boolean) => void;
   onKamera: () => void;
@@ -205,6 +216,7 @@ function CatatDialog({
   const [teks, setTeks] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   async function kirim(e?: FormEvent) {
     e?.preventDefault();
@@ -237,15 +249,40 @@ function CatatDialog({
           ))}
         </div>
 
+        {/* Saran hanya sebelum mengetik, seperti saran pencarian One UI.
+            Ketukan mengisi kolom — tidak langsung mengirim: nominalnya sering
+            beda sedikit, dan salah ketuk berarti transaksi tercatat dua kali. */}
+        {saran.length > 0 && !teks && (
+          <div className={s.saran} role="group" aria-label="Transaksi terakhir">
+            {saran.map((x) => (
+              <button
+                key={x}
+                type="button"
+                className={`${s.chip} ${s.tekan}`}
+                disabled={loading}
+                onClick={() => {
+                  setTeks(x);
+                  setError(null);
+                  inputRef.current?.focus();
+                }}
+              >
+                <History size={14} aria-hidden />
+                {x}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Kolom ketik di paling bawah sheet: paling dekat dengan keyboard dan
             jempol, seperti kolom pesan di aplikasi chat. */}
         <form onSubmit={kirim} className={s.ketik}>
           <input
+            ref={inputRef}
             data-autofocus
             aria-label="Tulis transaksinya"
             value={teks}
             onChange={(e) => setTeks(e.target.value)}
-            placeholder="beli makan warteg 20k"
+            placeholder="beli makan di warteg 20k shopeepay"
             disabled={loading}
             enterKeyHint="send"
             autoComplete="off"

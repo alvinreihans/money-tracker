@@ -19,7 +19,7 @@ Rombak UI mengikuti [One UI Design Guidelines](https://developer.samsung.com/one
 | **App bar extended** mengecil saat di-scroll. Judul dinamis boleh berupa kalimat informasi penting. | Beranda: judulnya pengeluaran bulan ini (mis. "Rp 15.000"). Saat di-scroll, judul kecil muncul di bilah atas. |
 | Aksi app bar maksimal 3 | Detail: tombol kembali dan hapus saja. |
 | **Navigasi bawah** berupa tab teks, sebaiknya kurang dari 4 | Beranda · Riwayat, teks saja. Titik merah kalau ada draft. |
-| Primary `#0381fe` dipakai untuk **FAB** | Tombol **+** melayang di kanan bawah (Beranda dan Riwayat). Langsung membuka sheet berisi kolom ketik yang sudah fokus ("beli makan warteg 20k" lalu kirim). Pintasan Kamera, Galeri, dan Manual ada di atas kolomnya. |
+| Primary `#0381fe` dipakai untuk **FAB** | Tombol **+** melayang di kanan bawah (Beranda dan Riwayat). Langsung membuka sheet berisi kolom ketik yang sudah fokus ("beli makan di warteg 20k shopeepay" lalu kirim). Pintasan Kamera, Galeri, dan Manual ada di atas kolomnya. |
 | **Dialog pilihan/konfirmasi di bawah layar**, info/progres di tengah | Semua form dan konfirmasi hapus berupa dialog bawah (`<dialog>` bawaan browser). |
 | Konten dikelompokkan dalam **focus block** membulat, dengan **subheader** | Blok bersudut 26px. Semua daftar dikelompokkan per hari ("Hari ini", "Kemarin", tanggal), dan subheader-nya membawa total pengeluaran hari itu. |
 | Daftar berkelompok dengan **ikon berwadah** | Ikon kategori dalam wadah berwarna tipis. Warnanya sama di daftar, bar komposisi, dan detail. |

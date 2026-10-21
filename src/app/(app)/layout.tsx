@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import AppShell from "@/components/AppShell";
+import { saranCatat } from "@/lib/saran";
 
 export const dynamic = "force-dynamic";
 
@@ -23,14 +24,26 @@ export default async function AppGroupLayout({
 
   if (!user) redirect("/login");
 
-  // Jumlah draft jadi badge di menu Riwayat.
-  const { count } = await supabase
-    .from("transactions")
-    .select("id", { count: "exact", head: true })
-    .eq("status", "needs_review");
+  const [{ count }, { data: terakhir }] = await Promise.all([
+    // Jumlah draft jadi penanda di menu Riwayat.
+    supabase
+      .from("transactions")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "needs_review"),
+    // Bahan saran di kolom "Catat". Dua puluh baris cukup untuk dapat lima
+    // yang berbeda; pemasukan dan pindah kantong jarang diulang persis.
+    supabase
+      .from("transactions")
+      .select("merchant, amount, payment_method")
+      .eq("type", "expense")
+      .eq("status", "confirmed")
+      .not("merchant", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(20),
+  ]);
 
   return (
-    <AppShell draftCount={count ?? 0}>
+    <AppShell draftCount={count ?? 0} saran={saranCatat(terakhir ?? [])}>
       {children}
     </AppShell>
   );

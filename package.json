@@ -15,7 +15,8 @@
     "build:standalone": "next build",
     "uji:bundle": "node scripts/uji-bundle.mjs",
     "uji:validasi": "tsx scripts/uji-validasi.mts",
-    "uji:tanggal": "tsx scripts/uji-tanggal.mts"
+    "uji:tanggal": "tsx scripts/uji-tanggal.mts",
+    "uji:saran": "tsx scripts/uji-saran.mts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

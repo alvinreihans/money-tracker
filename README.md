@@ -1,6 +1,6 @@
 # Money Tracker
 
-Pencatat keuangan pribadi. Ketik seperti chat ("beli makan warteg 20k"), foto
+Pencatat keuangan pribadi. Ketik seperti chat ("beli makan di warteg 20k shopeepay"), foto
 struk atau bukti bayar e-wallet, atau isi form sendiri — isinya dibaca otomatis
 lalu tersimpan sebagai transaksi.
 
