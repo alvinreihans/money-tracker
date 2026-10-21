@@ -10,6 +10,6 @@ for (const teks of process.argv.slice(2)) {
   const r = await processReceiptText(teks);
   const e = r.extracted;
   console.log(
-    `${teks}\n  → ${e?.type} ${e?.amount} · ${e?.category} · merchant=${e?.merchant} · dari=${e?.payment_method} · ke=${e?.payment_target}  [${r.status}; ${r.notes.at(-1)}]`,
+    `${teks}\n  → ${e?.type} ${e?.amount} · ${e?.category} · merchant=${e?.merchant} · dari=${e?.payment_method} · ke=${e?.payment_target} · admin=${e?.fee} · cashback=${e?.cashback}  [${r.status}; ${r.notes.at(-1)}]`,
   );
 }

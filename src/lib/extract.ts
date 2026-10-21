@@ -1,19 +1,15 @@
 import { SchemaType, type GenerationConfig } from "@google/generative-ai";
 import { getGeminiClient, GEMINI_MODEL } from "@/lib/gemini";
 import { runGroqChain, parseJsonLoose } from "@/lib/groq";
+import { KATEGORI_KELUAR, KATEGORI_MASUK, kategoriUntuk } from "@/lib/format";
 import type { ExtractedReceipt, TransactionType } from "@/types/transaction";
 
-// Kategori yang diizinkan (harus konsisten dgn UI & analitik).
-export const CATEGORIES = [
-  "food",
-  "groceries",
-  "transport",
-  "shopping",
-  "health",
-  "entertainment",
-  "bills",
-  "other",
-] as const;
+// Kategori yang diizinkan — sumbernya sama dengan UI (lib/format.ts).
+const KAT_KELUAR = Object.keys(KATEGORI_KELUAR).join(", ");
+const KAT_MASUK = Object.keys(KATEGORI_MASUK).join(", ");
+
+/** Nominal pelengkap dari model (biaya admin, cashback): angka > 0 atau null. */
+const nominalAtauNull = (v: unknown) => (Number(v) > 0 ? Math.round(Number(v)) : null);
 
 function toISODate(d: Date): string {
   return d.toISOString().slice(0, 10);
@@ -37,6 +33,8 @@ Skema:
   "description": string | null,
   "payment_method": string | null,
   "payment_target": string | null,
+  "fee": number | null,
+  "cashback": number | null,
   "document_type": "receipt" | "payment_proof"
 }
 
@@ -69,12 +67,18 @@ Aturan:
   "transfer" HANYA untuk memindahkan uang antar rekening/dompet milik sendiri:
   topup e-wallet ("topup gopay 100rb dari bca"), tarik tunai, atau "pindahin
   500rb dari bca ke seabank". Transfer ke orang lain atau bayar tagihan tetap
-  "expense". Untuk "transfer", category = "other".
-- category: WAJIB salah satu dari: ${CATEGORIES.join(", ")}.
-  Petunjuk: makan/jajan/kopi/gorengan=food; belanja bulanan/indomaret/supermarket=groceries;
-  gojek/grab/bensin/parkir/tol=transport; baju/elektronik/tokopedia/shopee=shopping;
-  obat/dokter/rumah sakit=health; nonton/game/langganan=entertainment;
-  listrik/pln/air/pulsa/internet/wifi=bills; sisanya=other.
+  "expense".
+- category: tergantung type.
+  Untuk "expense" WAJIB salah satu dari: ${KAT_KELUAR}.
+    Petunjuk: makan/jajan/kopi/gorengan=food; belanja bulanan/indomaret/supermarket=groceries;
+    gojek/grab/bensin/parkir/tol=transport; baju/elektronik/tokopedia/shopee=shopping;
+    obat/dokter/rumah sakit=health; nonton/game/langganan=entertainment;
+    listrik/pln/air/pulsa/internet/wifi=bills; biaya admin/biaya transfer=fees; sisanya=other.
+  Untuk "income" WAJIB salah satu dari: ${KAT_MASUK}.
+    Petunjuk: gaji/gajian=salary; bonus/THR/insentif=bonus; jualan/usaha/omzet=business;
+    freelance/proyek/dibayar klien=freelance; dikasih/hadiah/angpao/kiriman ortu=gift;
+    cashback/refund/pengembalian dana=refund; bunga/dividen/hasil investasi=investment; sisanya=other.
+  Untuk "transfer" selalu "other".
 - merchant: nama toko/tempat/lokasi bila ada, jika tidak null. Untuk
   "income": sumber uangnya bila disebut ("Ibu", "Kantor"). Nama bank/dompet
   BUKAN merchant — itu payment_method.
@@ -91,6 +95,11 @@ Aturan:
 - payment_target: HANYA untuk "transfer", rekening/dompet TUJUAN dengan
   normalisasi yang sama ("topup gopay dari bca" -> GoPay; tarik tunai -> Tunai).
   Selain transfer null.
+- fee: HANYA untuk "transfer": biaya admin yang disebut ("admin 1000", "biaya 2,5rb"
+  -> 2500). Selain itu null.
+- cashback: HANYA untuk "expense": cashback yang BENAR-BENAR didapat dari belanja
+  itu ("cashback 5rb", "dapet koin 2rb"). BUKAN promo "Cashback up to ...". Selain itu null.
+  Cashback tanpa belanja ("dapet cashback 5rb") adalah "income" kategori refund.
 - document_type: "payment_proof" bila ini tangkapan layar bukti bayar dari
   aplikasi (ShopeePay/GoPay/OVO/DANA/QRIS/m-banking), "receipt" bila ini struk
   kertas dari mesin kasir. Dipakai untuk mencegah transaksi tercatat dua kali
@@ -102,6 +111,8 @@ Contoh teks ketikan (field lain mengikuti aturan di atas):
 - "topup gopay 100rb dari bca" -> type "transfer", payment_method "BCA", payment_target "GoPay"
 - "transfer ke budi 50rb pake bca" -> type "expense", merchant "Budi", payment_method "BCA"
 - "kopi 25rb gopay" -> type "expense", category "food", payment_method "GoPay"
+- "beli pulsa 50rb shopeepay cashback 5rb" -> type "expense", category "bills", payment_method "ShopeePay", cashback 5000
+- "topup gopay 100rb dari bca admin 1000" -> type "transfer", payment_method "BCA", payment_target "GoPay", fee 1000
 
 Jangan menambahkan teks/penjelasan/markdown di luar JSON.`;
 }
@@ -118,14 +129,11 @@ benar-benar tidak dapat ditentukan, kembalikan amount 0.`;
 
 /** Rapikan hasil mentah model menjadi ExtractedReceipt yang konsisten. */
 export function normalize(parsed: Partial<ExtractedReceipt>): ExtractedReceipt {
-  const category =
-    typeof parsed.category === "string" &&
-    (CATEGORIES as readonly string[]).includes(parsed.category.toLowerCase())
-      ? parsed.category.toLowerCase()
-      : "other";
-
   const type: TransactionType =
     parsed.type === "income" || parsed.type === "transfer" ? parsed.type : "expense";
+
+  const kategori = typeof parsed.category === "string" ? parsed.category.toLowerCase() : "";
+  const category = kategori in kategoriUntuk(type) ? kategori : "other";
 
   return {
     amount: Number(parsed.amount) || 0,
@@ -135,6 +143,8 @@ export function normalize(parsed: Partial<ExtractedReceipt>): ExtractedReceipt {
     description: parsed.description?.toString().trim() || null,
     payment_method: parsed.payment_method?.toString().trim() || null,
     payment_target: type === "transfer" ? parsed.payment_target?.toString().trim() || null : null,
+    fee: type === "transfer" ? nominalAtauNull(parsed.fee) : null,
+    cashback: type === "expense" ? nominalAtauNull(parsed.cashback) : null,
     document_type: parsed.document_type === "payment_proof" ? "payment_proof" : "receipt",
     transaction_date:
       typeof parsed.transaction_date === "string" && parsed.transaction_date
@@ -160,7 +170,7 @@ export function isValidExtraction(r: ExtractedReceipt): boolean {
   const batasBawah = new Date("2000-01-01T00:00:00Z");
   if (date > besok || date < batasBawah) return false;
 
-  return (CATEGORIES as readonly string[]).includes(r.category);
+  return r.category in kategoriUntuk(r.type);
 }
 
 // ---------------------------------------------------------------------------
@@ -196,6 +206,8 @@ const geminiSchema: GenerationConfig["responseSchema"] = {
     description: { type: SchemaType.STRING, nullable: true },
     payment_method: { type: SchemaType.STRING, nullable: true },
     payment_target: { type: SchemaType.STRING, nullable: true },
+    fee: { type: SchemaType.NUMBER, nullable: true },
+    cashback: { type: SchemaType.NUMBER, nullable: true },
     document_type: { type: SchemaType.STRING, format: "enum", enum: ["receipt", "payment_proof"] },
   },
   required: ["amount", "type", "category", "transaction_date"],

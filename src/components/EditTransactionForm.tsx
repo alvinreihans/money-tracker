@@ -9,7 +9,7 @@ import TransactionFields, { nilaiAwal } from "@/components/TransactionFields";
 import s from "@/components/ui.module.css";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { dbErrorMessage } from "@/lib/errors";
-import { validasiTransaksi } from "@/lib/transaksi-input";
+import { barisIkutan, validasiTransaksi } from "@/lib/transaksi-input";
 import type { Transaction } from "@/types/transaction";
 
 /**
@@ -20,17 +20,24 @@ import type { Transaction } from "@/types/transaction";
  * Untuk draft pemicunya tombol berwarna (aksi utama halaman itu), selain itu
  * cukup baris daftar.
  */
-export default function EditTransactionForm({ tx }: { tx: Transaction }) {
+export default function EditTransactionForm({
+  tx,
+  ikutan,
+}: {
+  tx: Transaction;
+  /** Biaya admin / cashback yang menempel ke transaksi ini, kalau ada. */
+  ikutan?: { id: string; amount: number } | null;
+}) {
   const router = useRouter();
   const draft = tx.status === "needs_review";
   const { kantong } = useCatat();
   const [buka, setBuka] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [nilai, setNilai] = useState(() => nilaiAwal(tx));
+  const [nilai, setNilai] = useState(() => nilaiAwal(tx, undefined, ikutan?.amount));
 
   function bukaForm() {
-    setNilai(nilaiAwal(tx));
+    setNilai(nilaiAwal(tx, undefined, ikutan?.amount));
     setError(null);
     setBuka(true);
   }
@@ -43,19 +50,34 @@ export default function EditTransactionForm({ tx }: { tx: Transaction }) {
     if (!cek.ok) return setError(cek.error);
 
     setLoading(true);
-    const { error: err } = await createSupabaseBrowserClient()
-      .from("transactions")
-      .update({
-        ...cek.data,
-        // Begitu dibetulkan manual, nominalnya sudah bisa dipercaya — jadi
-        // ikut dihitung di laporan dan penanda merahnya dilepas.
-        status: "confirmed",
-        raw_ocr_text: null,
-      })
-      .eq("id", tx.id);
+    const db = createSupabaseBrowserClient();
+    const { biaya_admin, cashback, ...kolom } = cek.data;
+    const baru = {
+      ...kolom,
+      // Begitu dibetulkan manual, nominalnya sudah bisa dipercaya — jadi
+      // ikut dihitung di laporan dan penanda merahnya dilepas.
+      status: "confirmed",
+      raw_ocr_text: null,
+    };
+    const { error: err } = await db.from("transactions").update(baru).eq("id", tx.id);
+    if (err) {
+      setLoading(false);
+      return setError(dbErrorMessage(err));
+    }
+
+    // Samakan transaksi ikutan dengan isian: ubah, tambah, atau hapus.
+    const tujuan = kantong.find((k) => k.id === kolom.kantong_tujuan_id)?.name;
+    const harus = barisIkutan({ ...tx, ...baru }, { biaya_admin, cashback }, tujuan);
+    const { error: errIkutan } = harus
+      ? ikutan
+        ? await db.from("transactions").update(harus).eq("id", ikutan.id)
+        : await db.from("transactions").insert(harus)
+      : ikutan
+        ? await db.from("transactions").delete().eq("id", ikutan.id)
+        : { error: null };
     setLoading(false);
 
-    if (err) return setError(dbErrorMessage(err));
+    if (errIkutan) return setError(dbErrorMessage(errIkutan));
 
     setBuka(false);
     router.refresh();

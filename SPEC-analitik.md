@@ -73,3 +73,9 @@ alter table transactions  add column kantong_id uuid references user_accounts on
 - **Metode bayar diganti Kantong** di form. Kolom `payment_method` tetap diisi teks asli di belakang layar.
 - **Pindah kantong dari teks: AI mengisi asal dan tujuan.** Prompt ekstraksi ditambah satu field `payment_target` (kantong tujuan, hanya untuk transfer). Field lain dan alur fallback tidak berubah.
   - Supaya itu mungkin, `type` di prompt juga boleh `"transfer"` (sebelumnya hanya income/expense). Jaring pengaman di server: transfer dari AI yang tujuannya tidak cocok dengan kantong user disimpan sebagai pengeluaran, sama seperti sebelum ada kantong.
+
+## Keputusan (22 Okt 2026, lanjutan)
+
+- **Form per jenis.** Keluar: kategori pengeluaran, "Bayar pakai", merchant, cashback (opsional). Masuk: 8 kategori pemasukan (Gaji, Bonus/THR, Usaha/Jualan, Freelance/Proyek, Pemberian, Cashback/Refund, Bunga/Investasi, Lainnya), "Masuk ke", "Dari siapa". Pindah: tanpa kategori & merchant, Dari/Ke, biaya admin (opsional). Kategori pengeluaran ditambah "Biaya admin" (`fees`).
+- **Biaya admin & cashback = transaksi ikutan** (`transactions.induk_id`, on delete cascade): biaya admin = pengeluaran `fees` dari kantong asal; cashback = pemasukan `refund` ke kantong yang sama. Semua hitungan ikut tanpa diubah.
+- **Tiap transaksi wajib berkantong** (bila user punya kantong). Hasil AI yang kantongnya tak cocok → "Perlu dibenerin".

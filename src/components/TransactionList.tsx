@@ -37,7 +37,8 @@ function Kartu({ t, kelompok }: { t: Transaction; kelompok: string }) {
   const { kantong } = useCatat();
   const tujuan = t.type === "transfer" ? kantong.find((k) => k.id === t.kantong_tujuan_id)?.name : undefined;
   const lewat = tujuan ? `${t.payment_method ?? "?"} → ${tujuan}` : t.payment_method;
-  const rincian = [tanggal, labelKategori(t.category), lewat].filter(Boolean).join(" · ");
+  // Pindah kantong tidak berkategori; arahnya sudah cukup.
+  const rincian = [tanggal, t.type === "transfer" ? null : labelKategori(t.category), lewat].filter(Boolean).join(" · ");
 
   return (
     <NextLink href={`/transactions/${t.id}`} className={`${s.kartuTx} ${s.tekan}`}>

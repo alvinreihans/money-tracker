@@ -1,12 +1,12 @@
 "use client";
 
 import NextLink from "next/link";
-import { ArrowDownToLine, Banknote, CalendarDays, CreditCard, NotebookPen, Shapes, Store, Wallet } from "lucide-react";
+import { ArrowDownToLine, BadgePercent, Banknote, CalendarDays, Coins, CreditCard, NotebookPen, Shapes, Store, UserRound, Wallet } from "lucide-react";
 import { useCatat } from "@/components/Catat";
 import { KATEGORI, TANDA_KANTONG } from "@/components/kategori";
 import { Field, Pilih, Segmen } from "@/components/oneui";
 import s from "@/components/ui.module.css";
-import { CATEGORY_LABEL, isoLokal } from "@/lib/format";
+import { isoLokal, kategoriUntuk } from "@/lib/format";
 import { TIPE_TRANSAKSI } from "@/lib/transaksi-input";
 import type { Transaction, TransactionType } from "@/types/transaction";
 
@@ -27,9 +27,14 @@ export interface NilaiTransaksi {
   kantong_id: string;
   kantong_tujuan_id: string;
   description: string;
+  /** Hanya pindah kantong; tersimpan sebagai transaksi ikutan. */
+  biaya_admin: string;
+  /** Hanya pengeluaran; tersimpan sebagai transaksi ikutan. */
+  cashback: string;
 }
 
-export function nilaiAwal(tx?: Transaction, type: TransactionType = "expense"): NilaiTransaksi {
+/** `ikutan`: nominal biaya admin/cashback yang sudah menempel ke `tx`. */
+export function nilaiAwal(tx?: Transaction, type: TransactionType = "expense", ikutan?: number): NilaiTransaksi {
   return {
     // Draft yang gagal dibaca bernominal 0; kolom kosong lebih jujur.
     amount: tx && Number(tx.amount) > 0 ? String(tx.amount) : "",
@@ -41,6 +46,8 @@ export function nilaiAwal(tx?: Transaction, type: TransactionType = "expense"): 
     kantong_id: tx?.kantong_id ?? "",
     kantong_tujuan_id: tx?.kantong_tujuan_id ?? "",
     description: tx?.description ?? "",
+    biaya_admin: tx?.type === "transfer" && ikutan ? String(ikutan) : "",
+    cashback: tx?.type === "expense" && ikutan ? String(ikutan) : "",
   };
 }
 
@@ -52,7 +59,7 @@ export default function TransactionFields({
   onChange: (patch: Partial<NilaiTransaksi>) => void;
 }) {
   const { kantong } = useCatat();
-  const pindah = nilai.type === "transfer";
+  const { type } = nilai;
 
   // Pilihan kantong. Nama kantong asal ikut disalin ke payment_method, supaya
   // daftar, saran, dan pencarian tetap memakai teks seperti sebelumnya.
@@ -65,6 +72,7 @@ export default function TransactionFields({
       ikon={ikon}
       nilai={nilai[kolom]}
       pilihan={pilihanKantong}
+      kosong="Pilih kantong"
       onChange={(id) =>
         onChange(
           kolom === "kantong_id"
@@ -75,21 +83,36 @@ export default function TransactionFields({
     />
   );
 
+  // Isian nominal pelengkap (cashback, biaya admin) — opsional.
+  const nominalPelengkap = (kolom: "cashback" | "biaya_admin", label: string, ikon: React.ElementType, ket: string) => (
+    <Field label={label} ikon={ikon} keterangan={ket}>
+      <input
+        type="number"
+        inputMode="numeric"
+        min={0}
+        value={nilai[kolom]}
+        onChange={(e) => onChange({ [kolom]: e.target.value })}
+        placeholder={label}
+      />
+    </Field>
+  );
+
   return (
     <div className={s.form}>
-      {/* Jenis paling atas dan selalu terlihat: menentukan apakah ini masuk
-          hitungan pengeluaran atau pemasukan. */}
+      {/* Jenis paling atas dan selalu terlihat: menentukan isian di bawahnya
+          dan apakah ini masuk hitungan pengeluaran atau pemasukan. */}
       <Segmen
         label="Jenis transaksi"
         // "Pindah kantong" terlalu panjang untuk sepertiga lebar HP; artinya
         // dijelaskan di keterangan di bawahnya begitu dipilih.
         pilihan={TIPE_TRANSAKSI.map((t) => (t.id === "transfer" ? { ...t, label: "Pindah" } : t))}
-        nilai={nilai.type}
-        onChange={(type) => onChange({ type })}
+        nilai={type}
+        onChange={(baru) =>
+          // Kategori pengeluaran tidak berlaku untuk pemasukan dan sebaliknya.
+          onChange({ type: baru, ...(nilai.category in kategoriUntuk(baru) ? {} : { category: "other" }) })
+        }
       />
-      {nilai.type === "transfer" && (
-        <span className={s.keterangan}>Pindah kantong tidak dihitung sebagai pengeluaran.</span>
-      )}
+      {type === "transfer" && <span className={s.keterangan}>Pindah kantong tidak dihitung sebagai pengeluaran.</span>}
 
       <div className={`${s.blok} ${s.blokForm}`}>
         <Field label="Nominal (Rp)" ikon={Banknote}>
@@ -114,19 +137,30 @@ export default function TransactionFields({
           />
         </Field>
 
-        <Pilih
-          label="Kategori"
-          ikon={Shapes}
-          nilai={nilai.category}
-          pilihan={Object.entries(CATEGORY_LABEL).map(([id, label]) => ({ id, label, ...(KATEGORI[id] ?? KATEGORI.other) }))}
-          onChange={(category) => onChange({ category })}
-        />
+        {/* Pindah kantong tidak berkategori. */}
+        {type !== "transfer" && (
+          <Pilih
+            label="Kategori"
+            ikon={Shapes}
+            nilai={nilai.category}
+            pilihan={Object.entries(kategoriUntuk(type)).map(([id, label]) => ({
+              id,
+              label,
+              ...(KATEGORI[id] ?? KATEGORI.other),
+            }))}
+            onChange={(category) => onChange({ category })}
+          />
+        )}
 
         {kantong.length > 0 ? (
-          <>
-            {pilihKantong("kantong_id", pindah ? "Dari kantong" : "Kantong", Wallet)}
-            {pindah && pilihKantong("kantong_tujuan_id", "Ke kantong", ArrowDownToLine)}
-          </>
+          type === "transfer" ? (
+            <>
+              {pilihKantong("kantong_id", "Dari kantong", Wallet)}
+              {pilihKantong("kantong_tujuan_id", "Ke kantong", ArrowDownToLine)}
+            </>
+          ) : (
+            pilihKantong("kantong_id", type === "income" ? "Masuk ke" : "Bayar pakai", Wallet)
+          )
         ) : (
           // Belum punya kantong: tetap bisa menulis metode bayar seperti dulu.
           <Field
@@ -151,9 +185,21 @@ export default function TransactionFields({
       </div>
 
       <div className={`${s.blok} ${s.blokForm}`}>
-        <Field label="Merchant" ikon={Store}>
-          <input value={nilai.merchant} onChange={(e) => onChange({ merchant: e.target.value })} placeholder="Merchant" />
-        </Field>
+        {type === "expense" && (
+          <Field label="Merchant / toko" ikon={Store}>
+            <input value={nilai.merchant} onChange={(e) => onChange({ merchant: e.target.value })} placeholder="Merchant / toko" />
+          </Field>
+        )}
+        {type === "income" && (
+          <Field label="Dari siapa" ikon={UserRound}>
+            <input value={nilai.merchant} onChange={(e) => onChange({ merchant: e.target.value })} placeholder="Dari siapa" />
+          </Field>
+        )}
+
+        {type === "expense" &&
+          nominalPelengkap("cashback", "Cashback (Rp)", BadgePercent, "Opsional. Dicatat sebagai pemasukan ke kantong yang sama.")}
+        {type === "transfer" &&
+          nominalPelengkap("biaya_admin", "Biaya admin (Rp)", Coins, "Opsional. Dicatat sebagai pengeluaran dari kantong asal.")}
 
         <Field label="Keterangan" ikon={NotebookPen}>
           <textarea

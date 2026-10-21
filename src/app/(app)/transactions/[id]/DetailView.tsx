@@ -10,7 +10,7 @@ import { alasanDraft } from "@/lib/kantong";
 import { fmtIDR, fmtTanggal, fmtWaktu, JENIS, labelKategori, labelSumber } from "@/lib/format";
 import type { Transaction } from "@/types/transaction";
 
-export default function DetailView({ t }: { t: Transaction }) {
+export default function DetailView({ t, ikutan }: { t: Transaction; ikutan: { id: string; amount: number } | null }) {
   const draft = t.status === "needs_review";
   const alasan = alasanDraft(t);
   const nama = t.merchant ?? "Tanpa nama";
@@ -21,10 +21,11 @@ export default function DetailView({ t }: { t: Transaction }) {
   // Baris kosong dilewati: label tanpa isi cuma bikin rincian terlihat bolong.
   const rincian = [
     ["Jenis", JENIS[t.type]],
-    ["Kategori", labelKategori(t.category)],
+    ["Kategori", pindah ? null : labelKategori(t.category)],
     // Tanpa kantong tertaut, teksnya cuma metode bayar yang disebut, belum tentu kantong.
     [t.kantong_id ? (pindah ? "Dari kantong" : "Kantong") : "Metode bayar", t.payment_method],
     ["Ke kantong", pindah ? kantong.find((k) => k.id === t.kantong_tujuan_id)?.name : null],
+    [pindah ? "Biaya admin" : "Cashback", ikutan ? fmtIDR(ikutan.amount) : null],
     ["Rekening", t.account],
     ["Lawan transaksi", t.counterparty],
     ["Keterangan", t.description],
@@ -56,7 +57,7 @@ export default function DetailView({ t }: { t: Transaction }) {
           <Pesan
             jenis="peringatan"
             judul="Perlu dibenerin"
-            aksi={<EditTransactionForm tx={t} />}
+            aksi={<EditTransactionForm tx={t} ikutan={ikutan} />}
           >
             {alasan === "kantong"
               ? t.payment_method
@@ -88,7 +89,7 @@ export default function DetailView({ t }: { t: Transaction }) {
           </>
         )}
 
-        {!draft && <EditTransactionForm tx={t} />}
+        {!draft && <EditTransactionForm tx={t} ikutan={ikutan} />}
       </div>
     </>
   );

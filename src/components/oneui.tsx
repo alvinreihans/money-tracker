@@ -315,11 +315,14 @@ export function Pilih<T extends string>({
   ikon,
   nilai,
   pilihan,
+  kosong,
   onChange,
 }: {
   label: string;
   ikon?: React.ElementType;
   nilai: T;
+  /** Teks saat belum ada yang dipilih; bawaannya "Pilih <label>". */
+  kosong?: string;
   pilihan: { id: T; label: string; ikon?: React.ElementType; warna?: string }[];
   onChange: (id: T) => void;
 }) {
@@ -329,7 +332,7 @@ export function Pilih<T extends string>({
     <>
       <Field label={label} ikon={ikon} kanan={<ChevronDown size={22} />}>
         <button type="button" aria-haspopup="dialog" onClick={() => setBuka(true)}>
-          {pilihan.find((p) => p.id === nilai)?.label ?? <span style={{ color: "var(--teks-2)" }}>Pilih {label.toLowerCase()}</span>}
+          {pilihan.find((p) => p.id === nilai)?.label ?? <span style={{ color: "var(--teks-2)" }}>{kosong ?? `Pilih ${label.toLowerCase()}`}</span>}
         </button>
       </Field>
 

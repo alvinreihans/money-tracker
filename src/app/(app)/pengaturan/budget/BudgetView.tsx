@@ -6,7 +6,7 @@ import { KATEGORI } from "@/components/kategori";
 import { AppBar, Field, Pesan, Spinner } from "@/components/oneui";
 import s from "@/components/ui.module.css";
 import { dbErrorMessage } from "@/lib/errors";
-import { CATEGORY_LABEL, fmtIDR } from "@/lib/format";
+import { fmtIDR, KATEGORI_KELUAR } from "@/lib/format";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { rapikanBudget } from "@/lib/transaksi-input";
 
@@ -26,7 +26,7 @@ export default function BudgetView({
 }) {
   const router = useRouter();
   const [isian, setIsian] = useState<Record<string, string>>(() =>
-    Object.fromEntries(Object.keys(CATEGORY_LABEL).map((k) => [k, awal[k] ? String(awal[k]) : ""])),
+    Object.fromEntries(Object.keys(KATEGORI_KELUAR).map((k) => [k, awal[k] ? String(awal[k]) : ""])),
   );
   const [loading, setLoading] = useState(false);
   const [pesan, setPesan] = useState<{ jenis: "sukses" | "bahaya"; teks: string } | null>(null);
@@ -64,7 +64,7 @@ export default function BudgetView({
         </p>
 
         <div className={`${s.blok} ${s.blokForm}`}>
-          {Object.entries(CATEGORY_LABEL).map(([k, label]) => (
+          {Object.entries(KATEGORI_KELUAR).map(([k, label]) => (
             <Field
               key={k}
               label={label}

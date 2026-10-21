@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { cocokkanKantong, type Kantong } from "@/lib/kantong";
+import { barisIkutan } from "@/lib/transaksi-input";
 
 /** Toleransi selisih tanggal saat mencocokkan dengan baris rekening koran lama. */
 const DEDUPE_DAY_WINDOW = 2;
@@ -28,7 +29,7 @@ export async function simpanTransaksi(
   userId: string,
   input: Record<string, unknown>,
 ): Promise<{ supersededStatement: boolean; transaction: unknown }> {
-  const { payment_target, ...row } = input;
+  const { payment_target, biaya_admin, cashback, ...row } = input;
   const dariAi = "payment_target" in input;
 
   // Tautkan ke kantong. Form mengirim id-nya langsung (dicek memang milik
@@ -89,6 +90,16 @@ export async function simpanTransaksi(
   const { data: tersimpan, error } = await supabase.from("transactions").insert(row).select().single();
 
   if (error) throw new Error(error.message);
+
+  // Biaya admin / cashback: baris sendiri yang menempel ke induknya. Kalau
+  // gagal, induknya tetap tersimpan — lebih baik kurang satu ikutan daripada
+  // transaksi utamanya hilang.
+  const ikutan = barisIkutan(
+    tersimpan,
+    { biaya_admin: biaya_admin as number | null, cashback: cashback as number | null },
+    tujuan?.name,
+  );
+  if (ikutan) await supabase.from("transactions").insert(ikutan);
 
   return { supersededStatement, transaction: tersimpan };
 }

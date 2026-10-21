@@ -39,6 +39,9 @@ export interface TransactionRow {
   payment_method: string | null;
   /** Bukan kolom: dicocokkan ke kantong_tujuan_id oleh simpanTransaksi lalu dibuang. */
   payment_target: string | null;
+  /** Bukan kolom: jadi transaksi ikutan oleh simpanTransaksi (barisIkutan). */
+  biaya_admin: number | null;
+  cashback: number | null;
   transaction_date: string;
   status: ReceiptStatus;
   raw_ocr_text: string | null;
@@ -60,6 +63,8 @@ function emptyDraft(): ExtractedReceipt {
     description: null,
     payment_method: null,
     payment_target: null,
+    fee: null,
+    cashback: null,
     transaction_date: today(),
     document_type: "receipt",
   };
@@ -180,6 +185,8 @@ export function toTransactionRow(
     description: e.description,
     payment_method: e.payment_method,
     payment_target: e.payment_target,
+    biaya_admin: e.fee,
+    cashback: e.cashback,
     transaction_date: e.transaction_date,
     status: result.status,
     // Dibuang lagi oleh simpanTransaksi kalau transaksinya akhirnya tidak

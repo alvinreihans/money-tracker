@@ -1,4 +1,4 @@
-import { CATEGORY_LABEL } from "@/lib/format";
+import { KATEGORI_KELUAR, kategoriUntuk } from "@/lib/format";
 import { JENIS_KANTONG, type JenisKantong } from "@/lib/kantong";
 import type { TransactionType } from "@/types/transaction";
 
@@ -29,6 +29,10 @@ export interface TransaksiValid {
   kantong_id: string | null;
   kantong_tujuan_id: string | null;
   description: string | null;
+  /** Hanya pindah kantong. Bukan kolom: jadi transaksi ikutan (barisIkutan). */
+  biaya_admin: number | null;
+  /** Hanya pengeluaran. Bukan kolom: jadi transaksi ikutan (barisIkutan). */
+  cashback: number | null;
 }
 
 export type HasilValidasi =
@@ -49,6 +53,14 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function idOpsional(v: unknown): string | null | undefined {
   if (v === undefined || v === null || v === "") return null;
   return typeof v === "string" && UUID.test(v) ? v : undefined;
+}
+
+/** Nominal pelengkap (biaya admin, cashback): kosong/0 → null, salah → undefined. */
+function nominalOpsional(v: unknown): number | null | undefined {
+  if (v === undefined || v === null || (typeof v === "string" && v.trim() === "")) return null;
+  const n = Number(v);
+  if (!Number.isFinite(n) || n < 0 || n >= NOMINAL_MAKS) return undefined;
+  return n === 0 ? null : Math.round(n);
 }
 
 /** Tanggal kalender yang benar-benar ada, bukan sekadar berpola YYYY-MM-DD. */
@@ -80,9 +92,11 @@ export function validasiTransaksi(input: Record<string, unknown>, { wajibKantong
     return { ok: false, error: "Jenis transaksinya nggak dikenal." };
   }
 
-  const category = input.category;
-  if (typeof category !== "string" || !(category in CATEGORY_LABEL)) {
-    return { ok: false, error: "Kategorinya nggak dikenal." };
+  // Pengeluaran dan pemasukan punya daftar kategori sendiri; pindah kantong
+  // tidak berkategori.
+  const category = type === "transfer" ? "other" : input.category;
+  if (typeof category !== "string" || !(category in kategoriUntuk(type as TransactionType))) {
+    return { ok: false, error: "Kategorinya nggak cocok dengan jenis transaksinya." };
   }
 
   if (!tanggalSah(input.transaction_date)) {
@@ -112,6 +126,12 @@ export function validasiTransaksi(input: Record<string, unknown>, { wajibKantong
     return { ok: false, error: "Pilih kantong tujuan yang lain." };
   }
 
+  const biaya_admin = type === "transfer" ? nominalOpsional(input.biaya_admin) : null;
+  const cashback = type === "expense" ? nominalOpsional(input.cashback) : null;
+  if (biaya_admin === undefined) return { ok: false, error: "Biaya adminnya harus angka." };
+  if (cashback === undefined) return { ok: false, error: "Cashback-nya harus angka." };
+  if (cashback && cashback > amount) return { ok: false, error: "Cashback-nya maksimal sebesar nominal belanjanya." };
+
   return {
     ok: true,
     data: {
@@ -125,8 +145,66 @@ export function validasiTransaksi(input: Record<string, unknown>, { wajibKantong
       kantong_id,
       kantong_tujuan_id,
       description,
+      biaya_admin,
+      cashback,
     },
   };
+}
+
+/**
+ * Transaksi "ikutan" yang menempel pada induknya lewat kolom induk_id: biaya
+ * admin pindah kantong dicatat sebagai pengeluaran dari kantong asal, cashback
+ * belanja sebagai pemasukan ke kantong yang sama. Dengan begitu keduanya
+ * otomatis ikut ringkasan, budget, grafik, dan saldo, dan ikut terhapus
+ * bersama induknya. Null kalau tidak ada yang perlu dicatat.
+ */
+export function barisIkutan(
+  induk: {
+    id: string;
+    user_id: string;
+    type: string;
+    transaction_date: string;
+    kantong_id: string | null;
+    payment_method: string | null;
+    merchant: string | null;
+    status: string;
+    source: string;
+  },
+  { biaya_admin, cashback }: { biaya_admin?: number | null; cashback?: number | null },
+  namaTujuan?: string | null,
+): Record<string, unknown> | null {
+  const sama = {
+    user_id: induk.user_id,
+    transaction_date: induk.transaction_date,
+    kantong_id: induk.kantong_id,
+    kantong_tujuan_id: null,
+    payment_method: induk.payment_method,
+    status: induk.status,
+    source: induk.source,
+    raw_ocr_text: null,
+    induk_id: induk.id,
+  };
+  if (induk.type === "transfer" && biaya_admin) {
+    return {
+      ...sama,
+      type: "expense",
+      category: "fees",
+      amount: biaya_admin,
+      merchant: "Biaya admin",
+      description: namaTujuan ? `Pindah ke ${namaTujuan}` : "Pindah kantong",
+    };
+  }
+  if (induk.type === "expense" && cashback) {
+    return {
+      ...sama,
+      type: "income",
+      category: "refund",
+      amount: cashback,
+      merchant: "Cashback",
+      description: induk.merchant ? `Dari belanja di ${induk.merchant}` : null,
+    };
+  }
+  return null;
 }
 
 /** Teks bebas untuk tab "Ketik". Batasnya menjaga prompt Groq tetap kecil. */
@@ -151,7 +229,7 @@ export function rapikanBudget(isian: Record<string, string>): HasilBudget {
   const simpan: { category: string; amount: number }[] = [];
   const hapus: string[] = [];
   for (const [category, teks] of Object.entries(isian)) {
-    const label = CATEGORY_LABEL[category];
+    const label = KATEGORI_KELUAR[category];
     if (!label) return { ok: false, error: "Kategorinya nggak dikenal." };
     if (teks.trim() === "") {
       hapus.push(category);

@@ -4,7 +4,7 @@
  * Pemakaian: npm run uji:validasi
  */
 import assert from "node:assert/strict";
-import { bersihkanCari, rapikanBudget, validasiKantong, validasiTransaksi } from "../src/lib/transaksi-input.ts";
+import { barisIkutan, bersihkanCari, rapikanBudget, validasiKantong, validasiTransaksi } from "../src/lib/transaksi-input.ts";
 
 const sah = {
   amount: "25000",
@@ -28,6 +28,8 @@ assert.deepEqual(hasil.data, {
   kantong_id: null,
   kantong_tujuan_id: null,
   description: null,
+  biaya_admin: null,
+  cashback: null,
 });
 
 // Kantong: id harus uuid; tujuan hanya untuk pindah kantong dan tidak boleh sama dengan asal.
@@ -37,6 +39,29 @@ const pindah = validasiTransaksi({ ...sah, type: "transfer", kantong_id: ID_A, k
 assert.ok(pindah.ok && pindah.data.kantong_tujuan_id === ID_B);
 const keluar = validasiTransaksi({ ...sah, kantong_id: ID_A, kantong_tujuan_id: ID_B });
 assert.ok(keluar.ok && keluar.data.kantong_id === ID_A && keluar.data.kantong_tujuan_id === null);
+
+// Kategori per jenis; pindah kantong selalu "other". Biaya admin hanya untuk
+// pindah kantong, cashback hanya untuk pengeluaran.
+const gaji = validasiTransaksi({ ...sah, type: "income", category: "salary" });
+assert.ok(gaji.ok && gaji.data.category === "salary");
+const pindahBiaya = validasiTransaksi({ ...sah, type: "transfer", category: "food", biaya_admin: "1000", cashback: "500" });
+assert.ok(pindahBiaya.ok && pindahBiaya.data.category === "other" && pindahBiaya.data.biaya_admin === 1000 && pindahBiaya.data.cashback === null);
+const belanjaCb = validasiTransaksi({ ...sah, cashback: "5000", biaya_admin: "1000" });
+assert.ok(belanjaCb.ok && belanjaCb.data.cashback === 5000 && belanjaCb.data.biaya_admin === null);
+const nol = validasiTransaksi({ ...sah, cashback: "0" });
+assert.ok(nol.ok && nol.data.cashback === null);
+
+// Transaksi ikutan.
+const induk = { id: "p", user_id: "u", transaction_date: "2026-10-21", kantong_id: ID_A, payment_method: "BCA", merchant: "Kopi", status: "confirmed", source: "text" };
+assert.deepEqual(barisIkutan({ ...induk, type: "transfer" }, { biaya_admin: 1000 }, "GoPay"), {
+  user_id: "u", transaction_date: "2026-10-21", kantong_id: ID_A, kantong_tujuan_id: null, payment_method: "BCA",
+  status: "confirmed", source: "text", raw_ocr_text: null, induk_id: "p",
+  type: "expense", category: "fees", amount: 1000, merchant: "Biaya admin", description: "Pindah ke GoPay",
+});
+const cb = barisIkutan({ ...induk, type: "expense" }, { cashback: 5000 });
+assert.ok(cb && cb.type === "income" && cb.category === "refund" && cb.amount === 5000 && cb.kantong_id === ID_A);
+assert.equal(barisIkutan({ ...induk, type: "expense" }, { biaya_admin: 1000 }), null); // biaya admin bukan untuk belanja
+assert.equal(barisIkutan({ ...induk, type: "income" }, { cashback: 5000 }), null);
 
 // Sudah punya kantong: kantong wajib; pindah kantong wajib dua-duanya.
 const wajib = { wajibKantong: true };
@@ -58,6 +83,10 @@ const tolak: Array<[string, Record<string, unknown>]> = [
   ["merchant bukan teks", { ...sah, merchant: 123 }],
   ["keterangan kepanjangan", { ...sah, description: "x".repeat(501) }],
   ["kantong bukan uuid", { ...sah, kantong_id: "bca" }],
+  ["kategori pemasukan untuk pengeluaran", { ...sah, category: "salary" }],
+  ["kategori pengeluaran untuk pemasukan", { ...sah, type: "income", category: "food" }],
+  ["cashback lebih besar dari belanja", { ...sah, cashback: "30000" }],
+  ["biaya admin bukan angka", { ...sah, type: "transfer", biaya_admin: "seribu" }],
   ["kantong asal = tujuan", { ...sah, type: "transfer", kantong_id: ID_A, kantong_tujuan_id: ID_A }],
 ];
 
