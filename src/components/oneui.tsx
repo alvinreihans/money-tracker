@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import NextLink from "next/link";
-import { ChevronLeft, ChevronUp, CircleCheck, CircleX, EllipsisVertical, Info, TriangleAlert } from "lucide-react";
+import { Check, ChevronDown, ChevronLeft, ChevronUp, CircleCheck, CircleX, EllipsisVertical, Info, TriangleAlert } from "lucide-react";
 import s from "@/components/ui.module.css";
 
 /**
@@ -301,6 +301,69 @@ export function Field({
         )}
       </span>
     </label>
+  );
+}
+
+/**
+ * Isian pilihan ala One UI: baris isian yang membuka daftar pilihan di
+ * dialog bawah ("Choice and confirmation dialogs appear at the bottom of the
+ * screen"). Pengganti <select> bawaan, yang daftarnya tampil beda-beda di
+ * tiap browser dan tidak bisa diberi ikon.
+ */
+export function Pilih<T extends string>({
+  label,
+  ikon,
+  nilai,
+  pilihan,
+  onChange,
+}: {
+  label: string;
+  ikon?: React.ElementType;
+  nilai: T;
+  pilihan: { id: T; label: string; ikon?: React.ElementType; warna?: string }[];
+  onChange: (id: T) => void;
+}) {
+  const [buka, setBuka] = useState(false);
+
+  return (
+    <>
+      <Field label={label} ikon={ikon} kanan={<ChevronDown size={22} />}>
+        <button type="button" aria-haspopup="dialog" onClick={() => setBuka(true)}>
+          {pilihan.find((p) => p.id === nilai)?.label ?? <span style={{ color: "var(--teks-2)" }}>Pilih {label.toLowerCase()}</span>}
+        </button>
+      </Field>
+
+      {buka && (
+        <Lembar judul={label} daftar onClose={() => setBuka(false)}>
+          <div role="radiogroup" aria-label={label}>
+            {pilihan.map(({ id, label: teks, ikon: Ikon, warna = "var(--teks-2)" }) => (
+              <button
+                key={id}
+                type="button"
+                role="radio"
+                aria-checked={id === nilai}
+                data-autofocus={id === nilai || undefined}
+                className={s.baris}
+                onClick={() => {
+                  onChange(id);
+                  setBuka(false);
+                }}
+              >
+                {Ikon && (
+                  <span className={s.barisIkon} style={{ background: `color-mix(in srgb, ${warna} 18%, transparent)`, color: warna }} aria-hidden>
+                    <Ikon size={20} />
+                  </span>
+                )}
+                <span className={s.barisTeks}>
+                  <span className={`${s.barisJudul} ${id === nilai ? s.pilihAktif : ""}`}>{teks}</span>
+                </span>
+                {id === nilai && <Check size={22} color="var(--primer)" aria-hidden />}
+              </button>
+            ))}
+          </div>
+        </Lembar>
+      )}
+    </>
   );
 }
 

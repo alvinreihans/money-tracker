@@ -637,6 +637,7 @@ button.blok { background: var(--blok); }
 
 .fieldKolom > input,
 .fieldKolom > select,
+.fieldKolom > button,
 .fieldKolom > textarea {
   width: 100%;
   min-height: 44px;
@@ -649,6 +650,11 @@ button.blok { background: var(--blok); }
 }
 
 .fieldKolom > textarea { min-height: 44px; resize: none; field-sizing: content; }
+
+/* Isian pilihan (Pilih): tombol yang tampil seperti isian teks. */
+.fieldKolom > button { color: var(--teks); text-align: left; cursor: pointer; }
+
+.pilihAktif { color: var(--primer); font-weight: 600; }
 
 /* Label mengambang: tersembunyi selama isian kosong (placeholder-nya sudah
    menyebut nama field). visibility, bukan display, supaya tinggi tidak lompat. */
