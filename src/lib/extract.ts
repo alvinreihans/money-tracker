@@ -61,7 +61,11 @@ Aturan:
   utama transaksi yang biasanya tercetak paling besar di bagian atas. JANGAN
   mengambil angka promo/cashback ("Cashback up to ..."), sisa saldo, nomor
   kartu, PAN, RRN, atau ID transaksi.
-- type: "expense" untuk pengeluaran (default), "income" untuk pemasukan/gaji/transfer masuk.
+- type: arah uang dari sudut pandang PEMILIK catatan.
+  "income" bila uang MASUK ke pemilik: gaji/gajian, THR, bonus, cashback,
+  refund, bunga, hasil jual barang, atau uang yang dikasih/dikirim/ditransfer
+  orang lain ("dikasih ibu", "dapet dari teman", "terima transferan", "dibayar klien").
+  "expense" bila uang KELUAR untuk membeli, membayar, atau memberi ke orang lain (default).
   "transfer" HANYA untuk memindahkan uang antar rekening/dompet milik sendiri:
   topup e-wallet ("topup gopay 100rb dari bca"), tarik tunai, atau "pindahin
   500rb dari bca ke seabank". Transfer ke orang lain atau bayar tagihan tetap
@@ -71,13 +75,18 @@ Aturan:
   gojek/grab/bensin/parkir/tol=transport; baju/elektronik/tokopedia/shopee=shopping;
   obat/dokter/rumah sakit=health; nonton/game/langganan=entertainment;
   listrik/pln/air/pulsa/internet/wifi=bills; sisanya=other.
-- merchant: nama toko/tempat/lokasi bila ada, jika tidak null.
+- merchant: nama toko/tempat/lokasi bila ada, jika tidak null. Untuk
+  "income": sumber uangnya bila disebut ("Ibu", "Kantor"). Nama bank/dompet
+  BUKAN merchant — itu payment_method.
 - transaction_date: format "YYYY-MM-DD". Jika tidak disebut, gunakan hari ini: ${todayISO}.
 - description: ringkasan singkat isi transaksi, boleh null.
 - payment_method: metode bayar bila disebut, normalkan istilah gaul/singkatan:
   "sopipay"/"spay"/"shopee pay"=ShopeePay; "gopay"=GoPay; "ovo"=OVO; "dana"=DANA;
   "qris"=QRIS; "cash"/"tunai"/"cod"=Tunai; "transfer"/"tf"/"m-banking"=Transfer;
   "kartu"/"debit"/"kredit"/"visa"=Kartu. Jika tidak disebut null.
+  Kalau nama bank/dompet disebut, pakai NAMA itu, bukan "Transfer"/"Kartu":
+  "tf mandiri" -> Mandiri; "masuk seabank" -> SeaBank; "debit bca" -> BCA.
+  Untuk "income", ini rekening/dompet tempat uang MASUK ("masuk bca", "ke bri" -> BRI).
   Untuk "transfer", ini rekening/dompet ASAL uangnya ("tarik tunai dari bca" -> BCA).
 - payment_target: HANYA untuk "transfer", rekening/dompet TUJUAN dengan
   normalisasi yang sama ("topup gopay dari bca" -> GoPay; tarik tunai -> Tunai).
@@ -86,6 +95,13 @@ Aturan:
   aplikasi (ShopeePay/GoPay/OVO/DANA/QRIS/m-banking), "receipt" bila ini struk
   kertas dari mesin kasir. Dipakai untuk mencegah transaksi tercatat dua kali
   saat rekening koran diimpor.
+
+Contoh teks ketikan (field lain mengikuti aturan di atas):
+- "dikasih duit ibu 500k ke bri" -> type "income", amount 500000, merchant "Ibu", payment_method "BRI", payment_target null
+- "gajian 8jt masuk bca" -> type "income", amount 8000000, merchant null, payment_method "BCA"
+- "topup gopay 100rb dari bca" -> type "transfer", payment_method "BCA", payment_target "GoPay"
+- "transfer ke budi 50rb pake bca" -> type "expense", merchant "Budi", payment_method "BCA"
+- "kopi 25rb gopay" -> type "expense", category "food", payment_method "GoPay"
 
 Jangan menambahkan teks/penjelasan/markdown di luar JSON.`;
 }

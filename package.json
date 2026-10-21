@@ -11,6 +11,7 @@
     "db:status": "node --env-file-if-exists=.env.local scripts/migrate.mjs --status",
     "db:baseline": "node --env-file-if-exists=.env.local scripts/migrate.mjs --baseline",
     "test:receipt": "tsx --env-file-if-exists=.env.local scripts/test-receipt.mts",
+    "test:teks": "tsx --env-file-if-exists=.env.local scripts/test-teks.mts",
     "ukur:ocr": "tsx --env-file-if-exists=.env.local scripts/ukur-ocr.mts",
     "build:standalone": "next build",
     "uji:bundle": "node scripts/uji-bundle.mjs",
