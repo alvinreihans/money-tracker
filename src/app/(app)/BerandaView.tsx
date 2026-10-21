@@ -2,7 +2,7 @@
 
 import NextLink from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronRight, Flame, Inbox, LogOut, TriangleAlert, UserRound } from "lucide-react";
+import { ChevronRight, Flame, Inbox, LogOut, Settings, TriangleAlert } from "lucide-react";
 import { useCatat } from "@/components/Catat";
 import KomposisiKategori from "@/components/KomposisiKategori";
 import { AppBar, Kosong, MenuLainnya } from "@/components/oneui";
@@ -69,17 +69,15 @@ export default function BerandaView({
         aksi={
           <>
             <MenuLainnya>
-              {email && (
-                <div className={s.baris} style={{ minHeight: 52 }}>
-                  <UserRound size={20} color="var(--teks-2)" aria-hidden />
-                  <span className={`${s.barisTeks} ${s.redup}`}>{email}</span>
-                </div>
-              )}
+              <NextLink href="/pengaturan" className={s.baris}>
+                <Settings size={20} color="var(--teks-2)" aria-hidden />
+                <span>Pengaturan</span>
+              </NextLink>
               <button type="button" className={s.baris} onClick={() => void keluarAkun()}>
                 <LogOut size={20} color="var(--bahaya)" aria-hidden />
                 <span className={s.bahaya}>Keluar</span>
               </button>
-              <div className={s.versi}>Money Tracker {process.env.NEXT_PUBLIC_VERSI}</div>
+              {email && <div className={s.versi}>{email}</div>}
             </MenuLainnya>
           </>
         }

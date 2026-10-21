@@ -1,0 +1,83 @@
+"use client";
+
+import NextLink from "next/link";
+import { useRouter } from "next/navigation";
+import { ChevronRight, LogOut, UserRound } from "lucide-react";
+import { AppBar } from "@/components/oneui";
+import s from "@/components/ui.module.css";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+
+/** Satu baris pengaturan yang membuka halaman lain, ala Pengaturan Samsung. */
+export function BarisMenu({
+  href,
+  ikon: Ikon,
+  warna,
+  judul,
+  ket,
+}: {
+  href: string;
+  ikon: React.ElementType;
+  warna: string;
+  judul: string;
+  ket: string;
+}) {
+  return (
+    <NextLink href={href} className={`${s.baris} ${s.tekan}`}>
+      <span className={s.barisIkon} style={{ background: `color-mix(in srgb, ${warna} 18%, transparent)`, color: warna }} aria-hidden>
+        <Ikon size={20} />
+      </span>
+      <span className={s.barisTeks}>
+        <span className={s.barisJudul}>{judul}</span>
+        <span className={s.redup}>{ket}</span>
+      </span>
+      <ChevronRight size={20} color="var(--teks-2)" aria-hidden />
+    </NextLink>
+  );
+}
+
+/**
+ * Pengaturan, dibuka dari menu ⋮ di Beranda. Tidak jadi tab: jarang dibuka,
+ * dan navigasi bawah disimpan untuk yang dipakai tiap hari.
+ */
+export default function PengaturanView({ email, children }: { email: string | null; children?: React.ReactNode }) {
+  const router = useRouter();
+
+  async function keluar() {
+    await createSupabaseBrowserClient().auth.signOut();
+    router.push("/login");
+    router.refresh();
+  }
+
+  return (
+    <>
+      <AppBar judul="Pengaturan" kembali="/" />
+
+      <div className={s.isi}>
+        {children}
+
+        <h2 className={s.subheader}>Akun</h2>
+        <div className={s.blok}>
+          {email && (
+            <div className={s.baris}>
+              <span className={s.barisIkon} aria-hidden>
+                <UserRound size={20} />
+              </span>
+              <span className={s.barisTeks}>
+                <span className={s.barisJudul}>{email}</span>
+                <span className={s.redup}>Email masuk</span>
+              </span>
+            </div>
+          )}
+          <button type="button" className={`${s.baris} ${s.tekan}`} onClick={() => void keluar()}>
+            <span className={`${s.barisIkon} ${s.bahaya}`} aria-hidden>
+              <LogOut size={20} />
+            </span>
+            <span className={`${s.barisJudul} ${s.bahaya}`}>Keluar</span>
+          </button>
+        </div>
+
+        <p className={s.versi}>Money Tracker {process.env.NEXT_PUBLIC_VERSI}</p>
+      </div>
+    </>
+  );
+}
