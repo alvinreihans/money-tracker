@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Spinner, Stack, Text } from "@primer/react";
+import { Spinner } from "@/components/oneui";
 
 /**
  * Spinner + pesan yang berganti tiap 25 detik dan mengulang dari awal.
@@ -40,12 +40,5 @@ export default function ProcessingMessage({ tahap = TAHAP_STRUK }: { tahap?: str
   }, []);
 
   // Modulo yang membuatnya berputar kembali ke pesan pertama.
-  const pesan = tahap[Math.floor(detik / GANTI_TIAP_DETIK) % tahap.length];
-
-  return (
-    <Stack direction="horizontal" gap="condensed" align="center">
-      <Spinner size="small" />
-      <Text size="small">{pesan}</Text>
-    </Stack>
-  );
+  return <Spinner label={tahap[Math.floor(detik / GANTI_TIAP_DETIK) % tahap.length]} />;
 }

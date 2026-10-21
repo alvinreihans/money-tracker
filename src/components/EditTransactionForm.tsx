@@ -2,8 +2,8 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { Banner, Button, Heading, Stack } from "@primer/react";
-import { PencilIcon } from "@primer/octicons-react";
+import { ChevronRight, PencilLine } from "lucide-react";
+import { Lembar, Pesan, Spinner } from "@/components/oneui";
 import TransactionFields, { nilaiAwal } from "@/components/TransactionFields";
 import s from "@/components/ui.module.css";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -12,23 +12,29 @@ import { validasiTransaksi } from "@/lib/transaksi-input";
 import type { Transaction } from "@/types/transaction";
 
 /**
- * Menyunting rincian transaksi.
+ * Menyunting rincian transaksi lewat dialog bawah.
  *
  * Ini yang menutup lingkaran untuk draft: tanpa ini, struk yang gagal dibaca
- * tersimpan bertanda "Perlu dibenerin" tapi tidak ada cara membenerinnya —
- * satu-satunya jalan adalah menghapus lalu mencatat ulang dari nol. Karena
- * itu, untuk draft form-nya langsung terbuka.
+ * tersimpan bertanda "Perlu dibenerin" tapi tidak ada cara membenerinnya.
+ * Untuk draft pemicunya tombol berwarna (aksi utama halaman itu), selain itu
+ * cukup baris daftar.
  */
 export default function EditTransactionForm({ tx }: { tx: Transaction }) {
   const router = useRouter();
   const draft = tx.status === "needs_review";
-  const [buka, setBuka] = useState(draft);
+  const [buka, setBuka] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [nilai, setNilai] = useState(() => nilaiAwal(tx));
 
-  async function simpan(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
+  function bukaForm() {
+    setNilai(nilaiAwal(tx));
+    setError(null);
+    setBuka(true);
+  }
+
+  async function simpan(e?: FormEvent) {
+    e?.preventDefault();
     setError(null);
 
     const cek = validasiTransaksi({ ...nilai });
@@ -53,53 +59,48 @@ export default function EditTransactionForm({ tx }: { tx: Transaction }) {
     router.refresh();
   }
 
-  function batal() {
-    setNilai(nilaiAwal(tx));
-    setError(null);
-    setBuka(false);
-  }
-
   return (
-    <section className={s.kotak}>
-      <div className={s.kotakKepala}>
-        <Heading as="h2" variant="small">
-          {draft ? "Betulkan transaksi" : "Edit transaksi"}
-        </Heading>
-        {!buka && (
-          <Button size="small" leadingVisual={PencilIcon} onClick={() => setBuka(true)}>
-            Edit
-          </Button>
-        )}
-      </div>
+    <>
+      {draft ? (
+        <button type="button" className={s.tombol} onClick={bukaForm}>
+          Betulkan sekarang
+        </button>
+      ) : (
+        <button type="button" className={`${s.blok} ${s.baris}`} onClick={bukaForm}>
+          <span className={s.barisIkon} aria-hidden>
+            <PencilLine size={20} />
+          </span>
+          <span className={s.barisTeks}>
+            <span className={s.barisJudul}>Edit transaksi</span>
+            <span className={s.redup}>Ada yang kebaca salah?</span>
+          </span>
+          <ChevronRight size={20} color="var(--teks-2)" aria-hidden />
+        </button>
+      )}
 
-      <div className={s.kotakIsi}>
-        {buka ? (
-          <form onSubmit={simpan}>
-            <Stack gap="normal">
-              <TransactionFields nilai={nilai} onChange={(p) => setNilai((v) => ({ ...v, ...p }))} />
-              {draft && (
-                <Banner
-                  variant="info"
-                  title="Info"
-                  hideTitle
-                  description="Begitu disimpan, tanda “Perlu dibenerin” hilang dan transaksinya ikut dihitung di laporan."
-                />
-              )}
-              {error && <Banner variant="critical" title="Gagal" hideTitle description={error} />}
-              <Stack direction="horizontal" gap="condensed" justify="end">
-                <Button type="button" onClick={batal} disabled={loading}>
-                  Batal
-                </Button>
-                <Button type="submit" variant="primary" loading={loading}>
-                  Simpan
-                </Button>
-              </Stack>
-            </Stack>
+      {buka && (
+        <Lembar
+          judul={draft ? "Betulkan transaksi" : "Edit transaksi"}
+          sub={draft ? "Begitu disimpan, transaksinya ikut dihitung di laporan." : undefined}
+          onClose={() => !loading && setBuka(false)}
+          tombol={
+            <>
+              <button type="button" className={s.flat} disabled={loading} onClick={() => setBuka(false)}>
+                Batal
+              </button>
+              <button type="button" className={s.flat} disabled={loading} onClick={() => void simpan()}>
+                {loading ? <Spinner /> : "Simpan"}
+              </button>
+            </>
+          }
+        >
+          <form onSubmit={simpan} className={s.form}>
+            <TransactionFields nilai={nilai} onChange={(p) => setNilai((v) => ({ ...v, ...p }))} />
+            {error && <Pesan jenis="bahaya">{error}</Pesan>}
+            <button type="submit" hidden />
           </form>
-        ) : (
-          <span className={s.redup}>Ada yang kebaca salah? Betulkan lewat tombol Edit.</span>
-        )}
-      </div>
-    </section>
+        </Lembar>
+      )}
+    </>
   );
 }

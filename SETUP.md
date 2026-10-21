@@ -48,7 +48,7 @@ tessdata/                           # traineddata Tesseract (ind + eng)
 ```bash
 npm install @supabase/ssr @supabase/supabase-js \
             tesseract.js sharp groq-sdk @google/generative-ai unpdf \
-            @primer/react @primer/primitives @primer/octicons-react react-is
+            lucide-react
 ```
 
 ## 2. Environment

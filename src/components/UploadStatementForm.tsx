@@ -2,8 +2,8 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Banner, Button, Stack, Text } from "@primer/react";
-import { FileIcon, UploadIcon } from "@primer/octicons-react";
+import { FileText } from "lucide-react";
+import { Pesan } from "@/components/oneui";
 import ProcessingMessage, { TAHAP_STATEMENT } from "@/components/ProcessingMessage";
 import s from "@/components/ui.module.css";
 
@@ -16,10 +16,9 @@ interface ImportResponse {
   notes: string[];
 }
 
-/** Isi dialog "Impor rekening koran". */
-export default function UploadStatementForm() {
+/** Isi dialog "Impor rekening koran". Tombol Impor-nya ada di kaki dialog. */
+export function useImporRekeningKoran() {
   const router = useRouter();
-  const inputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,12 +56,24 @@ export default function UploadStatementForm() {
     }
   }
 
+  function pilih(f: File | null) {
+    setFile(f);
+    setResult(null);
+    setError(null);
+  }
+
+  return { file, loading, error, result, impor, pilih };
+}
+
+export default function UploadStatementForm({ impor }: { impor: ReturnType<typeof useImporRekeningKoran> }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
   return (
-    <Stack gap="normal">
-      <Text className={s.redup}>
+    <div className={s.form}>
+      <span className={s.redup}>
         PDF dari aplikasi bank. Pindahan antar kantong sendiri nggak dihitung pengeluaran, dan yang
         udah ada bukti bayarnya nggak bakal kecatat dua kali.
-      </Text>
+      </span>
 
       <input
         ref={inputRef}
@@ -70,45 +81,41 @@ export default function UploadStatementForm() {
         accept="application/pdf"
         hidden
         onChange={(e) => {
-          setFile(e.target.files?.[0] ?? null);
-          setResult(null);
-          setError(null);
+          impor.pilih(e.target.files?.[0] ?? null);
           e.target.value = "";
         }}
       />
 
-      <Stack direction="horizontal" gap="condensed" align="center" wrap="wrap">
-        <Button leadingVisual={FileIcon} onClick={() => inputRef.current?.click()} disabled={loading}>
-          {file ? "Ganti PDF" : "Pilih PDF"}
-        </Button>
-        {file && <Text size="small">{file.name}</Text>}
-      </Stack>
+      <button
+        type="button"
+        className={`${s.baris} ${s.blok}`}
+        style={{ background: "var(--blok-2)" }}
+        onClick={() => inputRef.current?.click()}
+        disabled={impor.loading}
+      >
+        <span className={s.barisIkon} style={{ background: "var(--blok)" }}>
+          <FileText size={20} />
+        </span>
+        <span className={s.barisTeks}>
+          <span className={s.barisJudul}>{impor.file ? impor.file.name : "Pilih PDF"}</span>
+          <span className={s.redup}>{impor.file ? "Ketuk buat ganti" : "Dari penyimpanan HP"}</span>
+        </span>
+      </button>
 
-      <Button variant="primary" leadingVisual={UploadIcon} disabled={!file} loading={loading} onClick={() => void impor()}>
-        Impor
-      </Button>
+      {impor.loading && <ProcessingMessage tahap={TAHAP_STATEMENT} />}
+      {impor.error && <Pesan jenis="bahaya">{impor.error}</Pesan>}
 
-      {loading && <ProcessingMessage tahap={TAHAP_STATEMENT} />}
-
-      {error && <Banner variant="critical" title="Gagal" hideTitle description={error} />}
-
-      {result && (
-        <Banner
-          variant="success"
-          title={`${result.inserted} transaksi masuk dari ${result.account}`}
-          description={
-            <>
-              <div>{result.parsed} baris kebaca dari PDF</div>
-              {result.skippedReimport > 0 && <div>{result.skippedReimport} dilewatin — udah pernah diimpor</div>}
-              {result.skippedSuperseded > 0 && <div>{result.skippedSuperseded} dilewatin — udah ada bukti bayarnya</div>}
-              <details>
-                <summary>Rincian per halaman</summary>
-                <pre className={s.pre}>{result.notes.join("\n")}</pre>
-              </details>
-            </>
-          }
-        />
+      {impor.result && (
+        <Pesan jenis="sukses" judul={`${impor.result.inserted} transaksi masuk dari ${impor.result.account}`}>
+          {impor.result.parsed} baris kebaca dari PDF
+          {impor.result.skippedReimport > 0 && <>, {impor.result.skippedReimport} udah pernah diimpor</>}
+          {impor.result.skippedSuperseded > 0 && <>, {impor.result.skippedSuperseded} udah ada bukti bayarnya</>}.
+          <details>
+            <summary>Rincian per halaman</summary>
+            <pre className={s.pre}>{impor.result.notes.join("\n")}</pre>
+          </details>
+        </Pesan>
       )}
-    </Stack>
+    </div>
   );
 }

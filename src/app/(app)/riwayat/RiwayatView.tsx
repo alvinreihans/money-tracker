@@ -1,9 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { PageHeader, SegmentedControl } from "@primer/react";
-import { Blankslate } from "@primer/react/experimental";
-import { InboxIcon } from "@primer/octicons-react";
+import { Inbox } from "lucide-react";
+import { AppBar, Kosong } from "@/components/oneui";
 import TransactionList from "@/components/TransactionList";
 import s from "@/components/ui.module.css";
 import type { Transaction } from "@/types/transaction";
@@ -12,56 +11,44 @@ const FILTER = [
   { id: "semua", label: "Semua" },
   { id: "keluar", label: "Keluar" },
   { id: "masuk", label: "Masuk" },
-  { id: "pindah", label: "Pindah" },
+  { id: "pindah", label: "Pindah kantong" },
   { id: "draft", label: "Perlu dibenerin" },
-] as const;
+];
 
-/** Filter disimpan di URL, jadi tautan "Benerin" dari beranda langsung jatuh di sini. */
+/** Filter disimpan di URL, jadi tautan dari beranda langsung jatuh di sini. */
 export default function RiwayatView({ filter, daftar }: { filter: string; daftar: Transaction[] }) {
   const router = useRouter();
 
   return (
     <>
-      <PageHeader>
-        <PageHeader.TitleArea>
-          <PageHeader.Title>Riwayat</PageHeader.Title>
-        </PageHeader.TitleArea>
-        <PageHeader.Description>{daftar.length} transaksi tercatat di sini.</PageHeader.Description>
-      </PageHeader>
+      <AppBar judul="Riwayat" sub={`${daftar.length} transaksi`} />
 
-      {/* Di layar sempit lima pilihan tidak muat sebaris, jadi Primer
-          menggantinya dengan dropdown. */}
-      <SegmentedControl
-        aria-label="Saring transaksi"
-        fullWidth={{ narrow: true, regular: false }}
-        variant={{ narrow: "dropdown", regular: "default" }}
-        onChange={(i) => {
-          const id = FILTER[i].id;
-          router.push(id === "semua" ? "/riwayat" : `/riwayat?filter=${id}`);
-        }}
-      >
-        {FILTER.map((f) => (
-          <SegmentedControl.Button key={f.id} selected={filter === f.id}>
-            {f.label}
-          </SegmentedControl.Button>
-        ))}
-      </SegmentedControl>
+      <div className={s.isi}>
+        {/* Satu baris yang bisa digeser: lima pilihan tidak muat di layar HP. */}
+        <div className={s.chips} role="group" aria-label="Saring transaksi">
+          {FILTER.map((f) => (
+            <button
+              key={f.id}
+              type="button"
+              className={s.chip}
+              aria-pressed={filter === f.id}
+              onClick={() => router.push(f.id === "semua" ? "/riwayat" : `/riwayat?filter=${f.id}`)}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
 
-      <section className={s.kotak}>
         {daftar.length > 0 ? (
-          <TransactionList items={daftar} />
+          <TransactionList items={daftar} perTanggal />
         ) : (
-          <Blankslate>
-            <Blankslate.Visual>
-              <InboxIcon size="medium" />
-            </Blankslate.Visual>
-            <Blankslate.Heading>
-              {filter === "draft" ? "Nggak ada yang perlu dibenerin" : "Belum ada transaksi di sini"}
-            </Blankslate.Heading>
-            {filter === "draft" && <Blankslate.Description>Aman.</Blankslate.Description>}
-          </Blankslate>
+          <div className={s.blok}>
+            <Kosong ikon={Inbox} judul={filter === "draft" ? "Nggak ada yang perlu dibenerin" : "Belum ada transaksi di sini"}>
+              {filter === "draft" ? "Aman." : undefined}
+            </Kosong>
+          </div>
         )}
-      </section>
+      </div>
     </>
   );
 }

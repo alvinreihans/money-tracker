@@ -22,7 +22,7 @@ Rancangan lengkap beserta alasan tiap keputusan fallback ada di
 ## Stack
 
 Next.js 16 · Supabase (Postgres + Auth + RLS) · Tesseract.js · Groq ·
-Gemini (fallback vision) · [Primer](https://primer.style/) (design system GitHub)
+Gemini (fallback vision) · UI mengikuti [One UI](https://developer.samsung.com/one-ui) (dibangun sendiri, ikon lucide)
 
 Deploy ke Vercel. Semua layanan dipakai di tier gratisnya.
 

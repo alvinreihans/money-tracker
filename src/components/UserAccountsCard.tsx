@@ -1,21 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import {
-  Banner,
-  Button,
-  FormControl,
-  Heading,
-  IconButton,
-  Label,
-  PageHeader,
-  Select,
-  Spinner,
-  Stack,
-  Text,
-  TextInput,
-} from "@primer/react";
-import { PlusIcon, TrashIcon } from "@primer/octicons-react";
+import { useRouter } from "next/navigation";
+import { Banknote, Landmark, LogOut, Plus, Wallet, X } from "lucide-react";
+import { AppBar, Field, Pesan, Spinner } from "@/components/oneui";
 import s from "@/components/ui.module.css";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { dbErrorMessage } from "@/lib/errors";
@@ -23,10 +11,10 @@ import type { UserAccount } from "@/types/transaction";
 
 type Kind = UserAccount["kind"];
 
-const KIND_LABEL: Record<Kind, string> = {
-  bank: "Bank",
-  ewallet: "E-wallet",
-  cash: "Tunai",
+const KIND: Record<Kind, { label: string; ikon: React.ElementType }> = {
+  bank: { label: "Bank", ikon: Landmark },
+  ewallet: { label: "E-wallet", ikon: Wallet },
+  cash: { label: "Tunai", ikon: Banknote },
 };
 
 // Hanya nama kanoniknya. Variasi penulisan di rekening koran ("BRImo",
@@ -46,8 +34,9 @@ const PRESET: Array<{ name: string; kind: Kind }> = [
   { name: "Tunai", kind: "cash" },
 ];
 
-/** Halaman Rekening: daftar rekening & dompet milik user. */
+/** Halaman Rekening: rekening & dompet milik user, lalu urusan akun. */
 export default function UserAccountsCard({ email }: { email: string | null }) {
+  const router = useRouter();
   const [accounts, setAccounts] = useState<UserAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -100,104 +89,103 @@ export default function UserAccountsCard({ email }: { email: string | null }) {
     setName("");
   }
 
+  async function keluar() {
+    await createSupabaseBrowserClient().auth.signOut();
+    router.push("/login");
+    router.refresh();
+  }
+
   const belumAda = PRESET.filter(
     (p) => !accounts.some((a) => a.name.toLowerCase() === p.name.toLowerCase()),
   );
 
   return (
     <>
-      <PageHeader>
-        <PageHeader.TitleArea>
-          <PageHeader.Title>Rekening</PageHeader.Title>
-        </PageHeader.TitleArea>
-        {email && <PageHeader.Description>{email}</PageHeader.Description>}
-      </PageHeader>
+      <AppBar judul="Rekening" sub={email ?? undefined} />
 
-      <Text className={s.redup}>
-        Biar pindah-pindah uang antar kantong sendiri nggak kehitung pengeluaran. Topup ShopeePay
-        dari bank itu bukan belanja — uangnya cuma pindah tempat.
-      </Text>
+      <div className={s.isi}>
+        <span className={s.redup} style={{ padding: "0 4px" }}>
+          Biar pindah-pindah uang antar kantong sendiri nggak kehitung pengeluaran. Topup ShopeePay
+          dari bank itu bukan belanja — uangnya cuma pindah tempat.
+        </span>
 
-      {error && <Banner variant="critical" title="Gagal" hideTitle description={error} />}
+        {error && <Pesan jenis="bahaya">{error}</Pesan>}
 
-      <section className={s.kotak}>
-        <div className={s.kotakKepala}>
-          <Heading as="h2" variant="small">
-            Rekening &amp; dompet saya
-          </Heading>
-        </div>
-        {loading ? (
-          <div className={`${s.kotakIsi} ${s.tengah}`}>
-            <Spinner size="small" />
-          </div>
-        ) : accounts.length === 0 ? (
-          <div className={s.kotakIsi}>
-            <span className={s.redup}>
-              Masih kosong. Pilih dari bawah — minimal bank sama e-wallet yang kamu pakai sehari-hari.
-            </span>
-          </div>
-        ) : (
-          accounts.map((a) => (
-            <div key={a.id} className={s.baris} style={{ alignItems: "center" }}>
-              <Stack direction="horizontal" gap="condensed" align="center">
-                <Text weight="semibold">{a.name}</Text>
-                <Label>{KIND_LABEL[a.kind]}</Label>
-              </Stack>
-              <IconButton
-                icon={TrashIcon}
-                variant="invisible"
-                size="small"
-                aria-label={`Hapus ${a.name}`}
-                onClick={() => void hapus(a.id)}
-              />
+        <h2 className={s.subheader}>Rekening &amp; dompet saya</h2>
+        <div className={s.blok}>
+          {loading ? (
+            <div className={s.blokIsi}>
+              <Spinner label="Memuat..." />
             </div>
-          ))
+          ) : accounts.length === 0 ? (
+            <div className={s.blokIsi}>
+              <span className={s.redup}>
+                Masih kosong. Pilih dari bawah — minimal bank sama e-wallet yang kamu pakai sehari-hari.
+              </span>
+            </div>
+          ) : (
+            accounts.map((a) => {
+              const Ikon = KIND[a.kind].ikon;
+              return (
+                <div key={a.id} className={s.baris}>
+                  <span className={s.barisIkon} aria-hidden>
+                    <Ikon size={20} />
+                  </span>
+                  <span className={s.barisTeks}>
+                    <span className={s.barisJudul}>{a.name}</span>
+                    <span className={s.redup}>{KIND[a.kind].label}</span>
+                  </span>
+                  <button type="button" className={s.ikonTombol} aria-label={`Hapus ${a.name}`} onClick={() => void hapus(a.id)}>
+                    <X size={20} />
+                  </button>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {belumAda.length > 0 && (
+          <>
+            <h2 className={s.subheader}>Tambah cepat</h2>
+            <div className={s.chipsBungkus}>
+              {belumAda.map((p) => (
+                <button key={p.name} type="button" className={s.chip} onClick={() => void tambah(p)}>
+                  <Plus size={16} /> {p.name}
+                </button>
+              ))}
+            </div>
+          </>
         )}
-      </section>
 
-      {belumAda.length > 0 && (
-        <Stack gap="condensed">
-          <Text weight="semibold">Pilih yang kamu pakai</Text>
-          <Stack direction="horizontal" gap="condensed" wrap="wrap">
-            {belumAda.map((p) => (
-              <Button key={p.name} size="small" leadingVisual={PlusIcon} onClick={() => void tambah(p)}>
-                {p.name}
-              </Button>
-            ))}
-          </Stack>
-        </Stack>
-      )}
+        <h2 className={s.subheader}>Nggak ada di daftar?</h2>
+        <form onSubmit={handleSubmit} className={`${s.blok} ${s.blokIsi} ${s.form}`}>
+          <Field label="Nama">
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nama bank atau dompetnya" />
+          </Field>
+          <Field label="Jenis">
+            <select value={kind} onChange={(e) => setKind(e.target.value as Kind)}>
+              {Object.entries(KIND).map(([value, k]) => (
+                <option key={value} value={value}>
+                  {k.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <button type="submit" className={s.tombol} disabled={!name.trim()}>
+            Tambah
+          </button>
+        </form>
 
-      <form onSubmit={handleSubmit}>
-        <Stack gap="condensed">
-          <div className={s.formGrid}>
-            <FormControl>
-              <FormControl.Label>Nggak ada di daftar?</FormControl.Label>
-              <TextInput
-                block
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Ketik nama bank atau dompetnya"
-              />
-            </FormControl>
-            <FormControl>
-              <FormControl.Label>Jenis</FormControl.Label>
-              <Select block value={kind} onChange={(e) => setKind(e.target.value as Kind)}>
-                {Object.entries(KIND_LABEL).map(([value, label]) => (
-                  <Select.Option key={value} value={value}>
-                    {label}
-                  </Select.Option>
-                ))}
-              </Select>
-            </FormControl>
-          </div>
-          <div>
-            <Button type="submit" leadingVisual={PlusIcon} disabled={!name.trim()}>
-              Tambah
-            </Button>
-          </div>
-        </Stack>
-      </form>
+        <h2 className={s.subheader}>Akun</h2>
+        <div className={s.blok}>
+          <button type="button" className={s.baris} onClick={() => void keluar()}>
+            <span className={`${s.barisIkon} ${s.bahaya}`} aria-hidden>
+              <LogOut size={20} />
+            </span>
+            <span className={`${s.barisJudul} ${s.bahaya}`}>Keluar</span>
+          </button>
+        </div>
+      </div>
     </>
   );
 }

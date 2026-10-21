@@ -1,16 +1,14 @@
 "use client";
 
 import NextLink from "next/link";
-import { useRouter } from "next/navigation";
-import { Banner, Heading, Link, PageHeader } from "@primer/react";
-import { Blankslate } from "@primer/react/experimental";
-import { NoteIcon } from "@primer/octicons-react";
-import { MenuCatat } from "@/components/Catat";
+import { ChevronRight, Inbox, TriangleAlert } from "lucide-react";
+import { useCatat } from "@/components/Catat";
 import KomposisiKategori from "@/components/KomposisiKategori";
+import { AppBar, Kosong } from "@/components/oneui";
 import RingkasanBulan from "@/components/RingkasanBulan";
 import TransactionList from "@/components/TransactionList";
 import s from "@/components/ui.module.css";
-import { namaBulan } from "@/lib/format";
+import { fmtIDR, namaBulan } from "@/lib/format";
 import type { AvgMonthlyExpenseRow, Transaction } from "@/types/transaction";
 
 export default function BerandaView({
@@ -26,65 +24,74 @@ export default function BerandaView({
   rerata: AvgMonthlyExpenseRow[];
   rerataError: string | null;
 }) {
-  const router = useRouter();
+  const catat = useCatat();
+  const { keluar, masuk, keluarBulanLalu } = ringkasan;
+
   const sekarang = new Date();
+  const bulanLalu = new Date();
+  bulanLalu.setDate(1);
+  bulanLalu.setMonth(bulanLalu.getMonth() - 1);
+  const persen = keluarBulanLalu > 0 ? Math.round(((keluar - keluarBulanLalu) / keluarBulanLalu) * 100) : 0;
 
   return (
     <>
-      <PageHeader>
-        <PageHeader.TitleArea>
-          <PageHeader.Title>Beranda</PageHeader.Title>
-        </PageHeader.TitleArea>
-        <PageHeader.Description>
-          {namaBulan(sekarang)} {sekarang.getFullYear()}
-        </PageHeader.Description>
-        <PageHeader.Actions>
-          <MenuCatat utama />
-        </PageHeader.Actions>
-      </PageHeader>
+      {/* Judul dinamis: yang paling ingin dilihat saat membuka aplikasi —
+          berapa yang sudah keluar bulan ini — jadi judul besar. Arah
+          perubahannya dibawa panah dan teks, bukan warna saja. */}
+      <AppBar
+        judul={fmtIDR(keluar)}
+        judulKecil="Beranda"
+        sub={
+          <>
+            keluar di {namaBulan(sekarang)}
+            {persen !== 0 && (
+              <>
+                <br />
+                {persen > 0 ? "↑ naik" : "↓ turun"} {Math.abs(persen)}% dari {namaBulan(bulanLalu)}
+              </>
+            )}
+          </>
+        }
+      />
 
-      <RingkasanBulan {...ringkasan} />
+      <div className={s.isi}>
+        <RingkasanBulan keluar={keluar} masuk={masuk} />
 
-      {draft > 0 && (
-        <Banner
-          variant="warning"
-          title={`${draft} transaksi perlu dibenerin`}
-          description="Nominalnya belum kebaca, jadi belum ikut dihitung di ringkasan."
-          primaryAction={
-            <Banner.PrimaryAction onClick={() => router.push("/riwayat?filter=draft")}>
-              Benerin
-            </Banner.PrimaryAction>
-          }
-        />
-      )}
-
-      <section className={s.kotak}>
-        <div className={s.kotakKepala}>
-          <Heading as="h2" variant="small">
-            Transaksi terbaru
-          </Heading>
-          {terbaru.length > 0 && (
-            <Link as={NextLink} href="/riwayat">
-              Lihat semua
-            </Link>
-          )}
-        </div>
-        {terbaru.length > 0 ? (
-          <TransactionList items={terbaru} />
-        ) : (
-          <Blankslate>
-            <Blankslate.Visual>
-              <NoteIcon size="medium" />
-            </Blankslate.Visual>
-            <Blankslate.Heading>Belum ada transaksi</Blankslate.Heading>
-            <Blankslate.Description>
-              Tekan Catat buat mulai — dari foto struk, ketik, atau isi sendiri.
-            </Blankslate.Description>
-          </Blankslate>
+        {draft > 0 && (
+          <NextLink href="/riwayat?filter=draft" className={`${s.blok} ${s.baris}`}>
+            <span className={`${s.barisIkon} ${s.peringatan}`} aria-hidden>
+              <TriangleAlert size={20} />
+            </span>
+            <span className={s.barisTeks}>
+              <span className={s.barisJudul}>{draft} transaksi perlu dibenerin</span>
+              <span className={s.redup}>Belum ikut dihitung di ringkasan.</span>
+            </span>
+            <ChevronRight size={20} color="var(--teks-2)" aria-hidden />
+          </NextLink>
         )}
-      </section>
 
-      <KomposisiKategori data={rerata} error={rerataError} />
+        <h2 className={s.subheader}>Terbaru</h2>
+        {terbaru.length > 0 ? (
+          <>
+            <TransactionList items={terbaru} />
+            <NextLink href="/riwayat" className={`${s.blok} ${s.baris}`} style={{ minHeight: 52, justifyContent: "center" }}>
+              Lihat semua riwayat
+            </NextLink>
+          </>
+        ) : (
+          <div className={s.blok}>
+            <Kosong ikon={Inbox} judul="Belum ada transaksi">
+              Foto struk, ketik, atau isi sendiri.
+              <br />
+              <button type="button" className={s.tombol} style={{ marginTop: 16 }} onClick={catat.buka}>
+                Catat transaksi
+              </button>
+            </Kosong>
+          </div>
+        )}
+
+        <KomposisiKategori data={rerata} error={rerataError} />
+      </div>
     </>
   );
 }

@@ -4,6 +4,8 @@ import type { Transaction } from "@/types/transaction";
 
 export const dynamic = "force-dynamic";
 
+// Sama dengan pilihan di RiwayatView; konstanta dari berkas "use client" tidak
+// bisa dibaca di server, jadi ditulis ulang di sini.
 const FILTER_SAH = ["semua", "keluar", "masuk", "pindah", "draft"];
 
 export default async function RiwayatPage({

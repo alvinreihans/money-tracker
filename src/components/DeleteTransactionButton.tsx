@@ -2,37 +2,31 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button, useConfirm } from "@primer/react";
-import { TrashIcon } from "@primer/octicons-react";
+import { Trash2 } from "lucide-react";
+import { Lembar, Pesan, Spinner } from "@/components/oneui";
+import s from "@/components/ui.module.css";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { dbErrorMessage } from "@/lib/errors";
 
 /**
- * Hapus transaksi. Konfirmasinya lewat dialog yang memutus alur — sekali
- * kehapus, struknya harus difoto ulang.
+ * Hapus transaksi. Konfirmasinya lewat dialog di bawah layar (panduan One UI
+ * untuk dialog konfirmasi) — sekali kehapus, struknya harus difoto ulang.
  */
 export default function DeleteTransactionButton({ id }: { id: string }) {
   const router = useRouter();
-  const confirm = useConfirm();
+  const [buka, setBuka] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function hapus() {
-    const yakin = await confirm({
-      title: "Hapus transaksi ini?",
-      content: "Nggak bisa dibalikin. Kalau ini dari struk, kamu harus foto ulang.",
-      confirmButtonContent: "Ya, hapus",
-      cancelButtonContent: "Batal",
-      confirmButtonType: "danger",
-    });
-    if (!yakin) return;
-
     setLoading(true);
-    const { error } = await createSupabaseBrowserClient().from("transactions").delete().eq("id", id);
+    setError(null);
 
-    if (error) {
+    const { error: err } = await createSupabaseBrowserClient().from("transactions").delete().eq("id", id);
+
+    if (err) {
+      setError(dbErrorMessage(err));
       setLoading(false);
-      // Dialog konfirmasi sudah tertutup; kabarkan lewat dialog kedua yang sama.
-      await confirm({ title: "Gagal ngapus", content: dbErrorMessage(error), confirmButtonContent: "Oke" });
       return;
     }
 
@@ -40,9 +34,41 @@ export default function DeleteTransactionButton({ id }: { id: string }) {
     router.refresh();
   }
 
+  function tutup() {
+    if (loading) return;
+    setBuka(false);
+    setError(null);
+  }
+
   return (
-    <Button variant="danger" leadingVisual={TrashIcon} loading={loading} onClick={() => void hapus()}>
-      Hapus
-    </Button>
+    <>
+      <button type="button" className={s.ikonTombol} aria-label="Hapus transaksi" onClick={() => setBuka(true)}>
+        <Trash2 size={22} />
+      </button>
+
+      {buka && (
+        <Lembar
+          judul="Hapus transaksi ini?"
+          onClose={tutup}
+          tombol={
+            <>
+              <button type="button" className={s.flat} disabled={loading} onClick={tutup}>
+                Batal
+              </button>
+              <button type="button" className={`${s.flat} ${s.flatBahaya}`} disabled={loading} onClick={() => void hapus()}>
+                {loading ? <Spinner /> : "Hapus"}
+              </button>
+            </>
+          }
+        >
+          <span className={s.redup}>Nggak bisa dibalikin. Kalau ini dari struk, kamu harus foto ulang.</span>
+          {error && (
+            <div style={{ marginTop: 12 }}>
+              <Pesan jenis="bahaya">{error}</Pesan>
+            </div>
+          )}
+        </Lembar>
+      )}
+    </>
   );
 }

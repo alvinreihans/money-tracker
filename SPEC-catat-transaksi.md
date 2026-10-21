@@ -1,30 +1,35 @@
-# Spec: UI Primer + alur "+" untuk mencatat transaksi
+# Spec: UI One UI (mobile first)
 
-Status: **selesai, menunggu uji di perangkat asli** (21 Okt 2026). Branch: `feat/ui-primer`, dibuat dari `feat/catat-teks-manual` (varian Cloudscape).
+Status: **selesai, menunggu uji di perangkat asli** (21 Okt 2026). Branch: `feat/ui-oneui`, dibuat dari `feat/ui-primer`.
+Varian lain: Cloudscape (`feat/catat-teks-manual`) dan Primer (`feat/ui-primer`).
 
 ## Objective
 
-1. **Rombak seluruh UI ke [Primer](https://primer.style/)** (design system GitHub). Kalau ada pilihan desain, condongkan ke pola dan komponen Primer.
-2. **Rancang ulang alur mencatat.** Semua cara mencatat dikumpulkan di satu tombol **+**, mengikuti pola tombol "+" di header GitHub.
-3. Backend dari varian Cloudscape dipakai apa adanya: `/api/catat-teks`, `/api/catat-manual`, `validasiTransaksi`, sumber `"text"`, dan anti-dobel rekening koran.
+Rombak UI mengikuti [One UI Design Guidelines](https://developer.samsung.com/one-ui) dari Samsung. Panduan ini memang dibuat untuk aplikasi HP, cocok dengan aplikasi yang hampir selalu dibuka dari HP. Alur dan backend dari varian Primer dipakai ulang: satu tombol **+**, antrean struk di tingkat aplikasi, dan seluruh API.
 
-## Keputusan
+**Catatan:** Samsung tidak merilis pustaka komponen web untuk One UI. OneUI-CSS milik tim Samsung Internet tidak terawat (tanpa rilis, puluhan PR terbuka). Karena itu komponennya dibangun sendiri, tanpa framework UI, mengikuti panduan resminya.
 
-| Topik | Keputusan | Alasan |
-|---|---|---|
-| Shell | `Header` gelap ala GitHub: logo, tombol **+**, dan menu akun. Di bawahnya `UnderlineNav`: Beranda / Riwayat (counter draft) / Rekening. | Pola halaman repo GitHub. Navigasi selalu terlihat, satu tap, juga di HP. |
-| Tema | `data-color-mode="dark"`, tema `dark` dari `@primer/primitives` | Aplikasi sebelumnya gelap. Atribut dipasang di server, jadi tidak berkedip. |
-| Mencatat | Tombol **+** (di header dan di judul Beranda) membuka `ActionMenu` dengan grup: **Dari struk** (Foto, Upload gambar), **Catat sendiri** (Ketik cepat, Pengeluaran, Pemasukan), **Impor** (Rekening koran PDF). | Satu pintu untuk semua cara mencatat. Pemasukan jadi pilihan yang terlihat jelas, tidak tersembunyi di dropdown jenis. Beranda jadi lebih ringkas. |
-| Form | `Dialog` yang muncul sebagai bottom sheet di HP (`position={{ narrow: "bottom" }}`) | Jempol tidak perlu menjangkau tengah layar. |
-| Antrean struk | Disimpan di provider. Dialog boleh ditutup lalu dibuka lagi. | Proses OCR bisa puluhan detik. Menutup dialog tidak membuang antrean. |
-| Kabar sukses | `Banner` sukses di atas konten, dengan tautan "Lihat" | Primer tidak punya toast. |
-| Chart | `ProgressBar` multi-segmen + legenda (seperti bar bahasa di halaman repo GitHub) | Primer tidak punya chart. Ini pola visual GitHub sendiri, dan terbaca di layar sempit. |
-| Daftar transaksi | Daftar baris dalam kotak berbingkai (seperti daftar issue GitHub), dengan `Label` jenis | Tabel memaksa scroll horizontal di HP. |
-| Kosong | `Blankslate` | Pola Primer. |
-| Hapus | `useConfirm` | Konfirmasi bawaan Primer. |
-| Tanggal | `<TextInput type="date">` | Primer tidak punya date picker. Input tanggal bawaan HP lebih nyaman. |
-| Styling | Satu CSS Module memakai token `@primer/primitives` | Primer v38 tidak lagi memakai `sx`. |
-| Render | SSR penuh | Komponen Primer tidak bergantung lebar layar untuk render pertama. Dicek lewat log hydration. |
+## Prinsip dari panduan, dan penerapannya
+
+| Panduan One UI | Penerapan |
+|---|---|
+| Layar dibagi **area tampilan** (atas) dan **area interaksi** (bawah), supaya kontrol terjangkau jempol | Tiap halaman dibuka dengan judul besar di tengah, tanpa tombol. Semua kontrol ada di bawahnya. |
+| **App bar extended** mengecil saat di-scroll. Judul dinamis boleh berupa kalimat informasi penting. | Beranda: judulnya pengeluaran bulan ini (mis. "Rp 15.000"). Saat di-scroll, judul kecil muncul di bilah atas. |
+| Aksi app bar maksimal 3 | Detail: tombol kembali dan hapus saja. |
+| **Navigasi bawah** berupa tab teks, sebaiknya kurang dari 4 | Beranda · Riwayat · Rekening, teks saja. Titik merah kalau ada draft. |
+| Primary `#0381fe` dipakai untuk **FAB** | Tombol **+** melayang di kanan bawah (Beranda dan Riwayat). Membuka dialog pilihan di bawah layar. |
+| **Dialog pilihan/konfirmasi di bawah layar**, info/progres di tengah | Semua form dan konfirmasi hapus berupa dialog bawah (`<dialog>` bawaan browser). |
+| Konten dikelompokkan dalam **focus block** membulat, dengan **subheader** | Blok bersudut 26px. Riwayat dikelompokkan per tanggal dengan subheader. |
+| **Toast/snackbar** untuk kabar kecil, maksimal satu aksi | Kabar "Tercatat" dan status antrean struk berupa snackbar dengan satu aksi ("Lihat"). |
+| Satu gaya tombol per layar. Tombol berujung bulat (18dp). | Tombol contained untuk aksi utama, tombol flat di dalam dialog. |
+| Area luas tenang, warna cerah hanya untuk aksen | Latar hitam pekat, blok abu gelap, biru hanya untuk aksi dan nilai aktif. |
+| Keluar akun dan pengaturan sebagai daftar | "Keluar" jadi baris di halaman Rekening, bukan tersembunyi di menu. |
+
+Kontras: teks putih di atas `#3e91ff` cuma 3:1, jadi tombol contained memakai `#0072de` (primary dark versi tema terang) dengan rasio 4,9:1.
+
+## Layar lebar
+
+Satu kolom selebar maksimal 600px di tengah. Navigasi bawah dan FAB ikut kolom itu. Tata letak khusus layar lebar (navigation rail) belum dibuat.
 
 ## Commands
 
@@ -38,9 +43,9 @@ Uji bundle:   npm run build:standalone && npm run uji:bundle
 
 ## Success Criteria
 
-- [ ] Semua halaman memakai Primer. Cloudscape tidak lagi ada di dependensi.
-- [ ] Tombol **+** bisa dibuka dari semua halaman yang butuh login. Keenam opsinya berfungsi.
-- [ ] "Pemasukan" membuka form dengan jenis Masuk sudah terpilih.
-- [ ] Menutup dialog struk saat antrean sedang diproses tidak membatalkan prosesnya.
-- [ ] Tidak ada hydration error dan tidak ada scroll horizontal di 375px maupun 1280px.
-- [ ] Login, daftar, lupa password, edit, hapus, kelola rekening, dan filter riwayat tetap berfungsi.
+- [ ] Tidak ada lagi dependensi framework UI. Yang tersisa hanya `lucide-react` untuk ikon.
+- [ ] Judul besar mengecil ke bilah atas saat di-scroll, tanpa hydration error.
+- [ ] FAB membuka dialog pilihan di bawah layar. Keenam cara mencatat berfungsi.
+- [ ] Hapus transaksi dikonfirmasi lewat dialog bawah.
+- [ ] Tidak ada scroll horizontal di 375px maupun 1280px.
+- [ ] Login, daftar, lupa password, edit, kelola rekening, keluar, dan filter riwayat tetap berfungsi.

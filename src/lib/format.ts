@@ -1,4 +1,3 @@
-import type { LabelProps } from "@primer/react";
 import type { TransactionType } from "@/types/transaction";
 
 /** Formatter tampilan, dipakai bersama daftar dan halaman detail. */
@@ -50,11 +49,11 @@ export const fmtWaktu = (iso: string) =>
     minute: "2-digit",
   }).format(new Date(iso));
 
-/** Teks dan varian Label Primer per jenis transaksi. */
-export const JENIS: Record<TransactionType, { label: string; variant: LabelProps["variant"] }> = {
-  expense: { label: "Keluar", variant: "secondary" },
-  income: { label: "Masuk", variant: "success" },
-  transfer: { label: "Pindah kantong", variant: "accent" },
+/** Nama jenis transaksi dalam bahasa user. */
+export const JENIS: Record<TransactionType, string> = {
+  expense: "Keluar",
+  income: "Masuk",
+  transfer: "Pindah kantong",
 };
 
 /** Kategori disimpan sebagai slug Inggris; yang dilihat user harus Indonesia. */

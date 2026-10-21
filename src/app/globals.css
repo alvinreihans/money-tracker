@@ -1,9 +1,74 @@
-/* Token warna, ukuran, dan tipografi Primer. Hanya tema gelap yang dimuat —
-   aplikasi ini memang gelap saja. */
-@import "@primer/primitives/dist/css/primitives.css";
-@import "@primer/primitives/dist/css/functional/themes/dark.css";
+/*
+ * Token One UI (tema gelap). Nilai warna primer dari panduan resmi:
+ * https://developer.samsung.com/one-ui/color/system.html
+ */
+:root {
+  color-scheme: dark;
+
+  --bg: #000000;          /* latar: hitam pekat, area luas tetap tenang */
+  --blok: #171717;        /* focus block */
+  --blok-2: #252525;      /* isian, tombol sekunder, baris ditekan */
+  --garis: #2c2c2c;
+  --teks: #fafafa;
+  --teks-2: #9b9b9b;      /* teks sekunder: 6,1:1 di atas --blok */
+
+  --primer: #3e91ff;      /* "primary dark" tema gelap: tautan, nilai aktif */
+  --fab: #0381fe;         /* "primary": FAB */
+  /* Teks putih di atas #3e91ff cuma 3:1, jadi tombol berisi warna memakai
+     primary dark versi tema terang (4,9:1). */
+  --tombol: #0072de;
+
+  --sukses: #5ecb7a;
+  --bahaya: #ff5f5f;
+  --peringatan: #ffb340;
+
+  --radius-blok: 26px;
+  --radius-tombol: 18px;
+  --radius-isian: 14px;
+
+  --font: "SamsungOne", "Samsung Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --tinggi-nav: 64px;
+  --lebar-app: 600px;
+}
+
+* { box-sizing: border-box; }
+
+html, body { margin: 0; }
 
 body {
-  margin: 0;
-  background: var(--bgColor-default);
+  background: var(--bg);
+  color: var(--teks);
+  font-family: var(--font);
+  font-size: 16px;
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
 }
+
+/* Halaman di belakang dialog tidak ikut tergulir. */
+body:has(dialog[open]) { overflow: hidden; }
+
+a { color: var(--primer); text-decoration: none; }
+
+button, input, select, textarea { font: inherit; color: inherit; }
+
+input, select, textarea {
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 16px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-isian);
+  background: var(--blok-2);
+  outline: none;
+}
+
+textarea { resize: vertical; }
+
+input:focus-visible, select:focus-visible, textarea:focus-visible {
+  border-color: var(--primer);
+}
+
+input::placeholder, textarea::placeholder { color: var(--teks-2); }
+
+:focus-visible { outline: 2px solid var(--primer); outline-offset: 2px; }
+input:focus-visible, select:focus-visible, textarea:focus-visible { outline: none; }

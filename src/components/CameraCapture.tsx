@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Banner, Dialog } from "@primer/react";
+import { Lembar, Pesan } from "@/components/oneui";
 import s from "@/components/ui.module.css";
 
 /**
@@ -102,25 +102,47 @@ export default function CameraCapture({ onCapture, onClose }: Props) {
   }
 
   return (
-    <Dialog
-      title="Foto struk"
+    <Lembar
+      posisi="penuh"
+      judul="Foto struk"
       onClose={onClose}
-      width="large"
-      position={{ narrow: "fullscreen", regular: "center" }}
-      footerButtons={[
-        {
-          buttonType: "default",
-          content: "Balik kamera",
-          onClick: () => setFacingMode((f) => (f === "environment" ? "user" : "environment")),
-        },
-        { buttonType: "primary", content: "Jepret", onClick: jepret, disabled: !siap },
-      ]}
+      tombol={
+        <>
+          <button type="button" className={s.flat} onClick={onClose}>
+            Batal
+          </button>
+          {/* Tombol jepret di tengah, besar, di area jempol. */}
+          <button
+            type="button"
+            aria-label="Jepret"
+            disabled={!siap}
+            onClick={jepret}
+            style={{
+              width: 72,
+              height: 72,
+              flexShrink: 0,
+              borderRadius: "50%",
+              border: "4px solid #fff",
+              background: "rgba(255,255,255,0.2)",
+              opacity: siap ? 1 : 0.3,
+              cursor: "pointer",
+            }}
+          />
+          <button
+            type="button"
+            className={s.flat}
+            onClick={() => setFacingMode((f) => (f === "environment" ? "user" : "environment"))}
+          >
+            Balik
+          </button>
+        </>
+      }
     >
       {error ? (
-        <Banner variant="critical" title="Kamera" hideTitle description={error} />
+        <Pesan jenis="bahaya">{error}</Pesan>
       ) : (
-        <video ref={videoRef} playsInline muted className={s.video} />
+        <video ref={videoRef} playsInline muted className={s.video} style={{ height: "100%" }} />
       )}
-    </Dialog>
+    </Lembar>
   );
 }

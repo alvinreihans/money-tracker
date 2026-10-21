@@ -1,204 +1,517 @@
-/* Tata letak bersama. Semua nilai dari token @primer/primitives. */
+/* Komponen One UI. Token warna & ukuran ada di app/globals.css. */
 
-.halaman {
-  max-width: 1012px;
+.app {
+  max-width: var(--lebar-app);
   margin: 0 auto;
-  padding: var(--base-size-16);
+  min-height: 100dvh;
+  /* Ruang untuk navigasi bawah + FAB supaya isi terakhir tidak tertutup. */
+  padding-bottom: calc(var(--tinggi-nav) + 96px + env(safe-area-inset-bottom));
+}
+
+.isi {
+  padding: 0 16px;
   display: flex;
   flex-direction: column;
-  gap: var(--stack-gap-normal);
+  gap: 16px;
 }
 
-.sempit {
-  max-width: 400px;
-  margin: 0 auto;
-  padding: var(--base-size-32) var(--base-size-16);
+/* ---------- App bar ---------- */
+
+.barAtas {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 8px;
+  background: var(--bg);
 }
 
-/* Kotak berbingkai ala GitHub ("Box"). */
-.kotak {
-  border: var(--borderWidth-thin) solid var(--borderColor-default);
-  border-radius: var(--borderRadius-medium);
-  background: var(--bgColor-default);
+.barJudul {
+  flex: 1;
+  min-width: 0;
+  padding: 0 8px;
+  font-size: 19px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0;
+  transition: opacity 150ms ease;
+}
+
+.barAtas[data-ciut="true"] .barJudul { opacity: 1; }
+
+/* Area tampilan: judul besar di tengah dengan ruang lega, tanpa tombol. */
+.viewing {
+  min-height: min(34vh, 300px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 24px 24px;
+  text-align: center;
+}
+
+.judulBesar {
+  margin: 0;
+  font-size: 34px;
+  font-weight: 500;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.judulSub {
+  margin: 0;
+  color: var(--teks-2);
+  font-size: 15px;
+}
+
+/* ---------- Tombol ---------- */
+
+.ikonTombol {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--teks);
+  cursor: pointer;
+}
+
+.ikonTombol:active { background: var(--blok-2); }
+
+.tombol {
+  min-height: 48px;
+  padding: 0 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 0;
+  border-radius: var(--radius-tombol);
+  background: var(--tombol);
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tombol:disabled { opacity: 0.4; cursor: default; }
+
+.tombolSekunder { background: var(--blok-2); color: var(--teks); }
+
+.tombolPenuh { width: 100%; }
+
+/* Tombol flat untuk dialog: tanpa latar, supaya tidak menambah lapisan. */
+.flat {
+  flex: 1;
+  min-height: 48px;
+  border: 0;
+  border-radius: var(--radius-tombol);
+  background: transparent;
+  color: var(--primer);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.flat:active { background: var(--blok-2); }
+.flat:disabled { opacity: 0.4; }
+.flatBahaya { color: var(--bahaya); }
+
+.chip {
+  min-height: 40px;
+  padding: 0 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  border-radius: 20px;
+  background: var(--blok-2);
+  color: var(--teks);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.chip[aria-pressed="true"] { background: var(--primer); color: #000; font-weight: 600; }
+
+.chips {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  margin: 0 -16px;
+  padding: 0 16px;
+}
+
+.chipsBungkus { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* Pilihan tersegmen (jenis transaksi). */
+.segmen {
+  display: flex;
+  padding: 4px;
+  gap: 4px;
+  border-radius: 20px;
+  background: var(--blok-2);
+}
+
+.segmen button {
+  flex: 1;
+  min-height: 40px;
+  border: 0;
+  border-radius: 16px;
+  background: transparent;
+  color: var(--teks-2);
+  cursor: pointer;
+}
+
+.segmen button[aria-pressed="true"] { background: var(--blok); color: var(--teks); font-weight: 600; }
+
+/* ---------- Focus block & daftar ---------- */
+
+.blok {
+  border-radius: var(--radius-blok);
+  background: var(--blok);
   overflow: hidden;
 }
 
-.kotakKepala {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--base-size-8);
-  padding: var(--base-size-12) var(--base-size-16);
-  background: var(--bgColor-muted);
-  border-bottom: var(--borderWidth-thin) solid var(--borderColor-default);
-}
+.blokIsi { padding: 20px; }
 
-.kotakIsi {
-  padding: var(--base-size-16);
+.subheader {
+  margin: 8px 0 -8px;
+  padding: 0 20px;
+  color: var(--primer);
+  font-size: 14px;
+  font-weight: 600;
 }
 
 .baris {
+  min-height: 64px;
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--base-size-12);
-  padding: var(--base-size-12) var(--base-size-16);
+  align-items: center;
+  gap: 16px;
+  padding: 12px 20px;
+  color: inherit;
 }
 
-.baris + .baris {
-  border-top: var(--borderWidth-thin) solid var(--borderColor-muted);
+.baris + .baris { border-top: 1px solid var(--garis); }
+
+a.baris:active, button.baris:active { background: var(--blok-2); }
+
+button.baris {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
 }
 
-.barisIsi {
+.barisIkon {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--blok-2);
+}
+
+.barisTeks {
+  flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--base-size-4);
+  gap: 2px;
 }
 
-.redup {
-  color: var(--fgColor-muted);
-  font-size: var(--text-body-size-small);
-}
-
-/* Nominal: angka sejajar supaya kolom kanan rapi. */
-.nominal {
-  font-variant-numeric: tabular-nums;
-  font-weight: var(--base-text-weight-semibold);
+.barisJudul {
+  font-size: 17px;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.masuk { color: var(--fgColor-success); }
-.pindah { color: var(--fgColor-accent); }
-.draft { color: var(--fgColor-danger); }
+.redup { color: var(--teks-2); font-size: 14px; }
 
-/* Tiga angka ringkasan: satu kolom di HP, tiga di layar lebar. */
-.statGrid {
-  display: grid;
-  grid-template-columns: 1fr;
-}
+/* Baris daftar tetap satu baris per teks, seperti daftar One UI. */
+.barisTeks > .redup { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-@media (min-width: 544px) {
-  .statGrid { grid-template-columns: repeat(3, 1fr); }
-}
-
-.stat {
-  padding: var(--base-size-16);
-  display: flex;
-  flex-direction: column;
-  gap: var(--base-size-4);
-}
-
-.stat + .stat {
-  border-top: var(--borderWidth-thin) solid var(--borderColor-muted);
-}
-
-@media (min-width: 544px) {
-  .stat + .stat {
-    border-top: 0;
-    border-left: var(--borderWidth-thin) solid var(--borderColor-muted);
-  }
-}
-
-.statNilai {
-  font-size: var(--text-title-size-large);
-  font-weight: var(--base-text-weight-semibold);
+.nominal {
   font-variant-numeric: tabular-nums;
-  line-height: var(--text-title-lineHeight-large);
+  font-weight: 600;
+  white-space: nowrap;
 }
 
-/* Legenda bar kategori ala bar bahasa di halaman repo GitHub. */
-.legenda {
-  list-style: none;
-  margin: var(--base-size-12) 0 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--base-size-8);
+.masuk { color: var(--sukses); }
+.pindah { color: var(--primer); }
+.bahaya { color: var(--bahaya); }
+.peringatan { color: var(--peringatan); }
+
+.lencana {
+  align-self: flex-start;
+  padding: 1px 8px;
+  border-radius: 8px;
+  background: var(--blok-2);
+  color: var(--teks-2);
+  font-size: 12px;
+  font-weight: 600;
 }
 
-.legenda li {
+.lencanaBahaya { background: rgba(255, 95, 95, 0.16); color: var(--bahaya); }
+
+/* ---------- Statistik & kategori ---------- */
+
+.statBaris {
   display: flex;
-  align-items: center;
-  gap: var(--base-size-8);
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding: 16px 20px;
+}
+
+.statBaris + .statBaris { border-top: 1px solid var(--garis); }
+
+.bar {
+  display: flex;
+  height: 12px;
+  gap: 2px;
+  border-radius: 6px;
+  overflow: hidden;
+  margin: 12px 0 16px;
 }
 
 .titik {
-  width: var(--base-size-8);
-  height: var(--base-size-8);
-  border-radius: var(--borderRadius-full);
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
   flex-shrink: 0;
 }
 
-.dorong { margin-left: auto; }
+/* ---------- Navigasi bawah & FAB ---------- */
+
+.nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  max-width: var(--lebar-app);
+  margin: 0 auto;
+  height: calc(var(--tinggi-nav) + env(safe-area-inset-bottom));
+  padding-bottom: env(safe-area-inset-bottom);
+  display: flex;
+  background: var(--bg);
+  border-top: 1px solid var(--garis);
+}
+
+.nav a {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: var(--teks-2);
+  font-size: 15px;
+}
+
+.nav a[aria-current="page"] { color: var(--teks); font-weight: 700; }
+
+.navTitik {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--bahaya);
+}
+
+.lapisBawah {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--tinggi-nav) + env(safe-area-inset-bottom) + 16px);
+  z-index: 25;
+  max-width: var(--lebar-app);
+  margin: 0 auto;
+  padding: 0 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+  pointer-events: none;
+}
+
+.lapisBawah > * { pointer-events: auto; }
+
+.fab {
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: var(--fab);
+  color: #fff;
+  box-shadow: 0 4px 16px rgba(3, 129, 254, 0.35);
+  cursor: pointer;
+}
+
+.snackbar {
+  align-self: stretch;
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 8px 8px 20px;
+  border-radius: var(--radius-tombol);
+  background: #2f2f2f;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+.snackbar > span { flex: 1; min-width: 0; font-size: 15px; }
+
+.snackbar button {
+  min-height: 40px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--primer);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* ---------- Dialog ---------- */
+
+.dialog {
+  width: calc(100% - 16px);
+  max-width: 560px;
+  max-height: calc(100dvh - 32px);
+  margin: auto auto 8px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-blok);
+  background: var(--blok);
+  color: var(--teks);
+  overflow: hidden;
+  display: none;
+}
+
+.dialog[open] { display: flex; flex-direction: column; }
+
+.dialogTengah { margin: auto; }
+
+.dialogPenuh {
+  width: 100%;
+  max-width: none;
+  height: 100dvh;
+  max-height: none;
+  margin: 0;
+  border-radius: 0;
+  background: #000;
+}
+
+.dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
+
+.dialogJudul { margin: 0; padding: 24px 24px 8px; font-size: 20px; font-weight: 600; }
+.dialogSub { margin: -4px 0 0; padding: 0 24px 8px; color: var(--teks-2); font-size: 14px; }
+.dialogBadan { padding: 8px 24px 16px; overflow-y: auto; flex: 1; }
+.dialogBadanDaftar { padding: 0 0 8px; overflow-y: auto; }
+
+.dialogTombol {
+  display: flex;
+  gap: 8px;
+  padding: 8px 16px 16px;
+}
+
+/* ---------- Form ---------- */
+
+.form { display: flex; flex-direction: column; gap: 16px; }
+
+.field { display: flex; flex-direction: column; gap: 6px; }
+
+.label { font-size: 14px; color: var(--teks-2); padding: 0 4px; }
+
+.keterangan { font-size: 13px; color: var(--teks-2); padding: 0 4px; }
+
+.galat { font-size: 13px; color: var(--bahaya); padding: 0 4px; }
+
+.dua { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+.isianDenganAksi { position: relative; }
+.isianDenganAksi input { padding-right: 52px; }
+.isianDenganAksi button { position: absolute; top: 0; right: 0; }
+
+.pesan {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 16px 20px;
+  border-radius: var(--radius-blok);
+  background: var(--blok);
+}
+
+.pesan > div { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+
+/* ---------- Lain-lain ---------- */
+
+.spinner {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  border: 2px solid var(--garis);
+  border-top-color: var(--primer);
+  border-radius: 50%;
+  animation: putar 0.8s linear infinite;
+}
+
+@keyframes putar { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner { animation-duration: 2.4s; }
+  .barJudul { transition: none; }
+}
+
+.kosong {
+  padding: 32px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+  color: var(--teks-2);
+}
 
 .pre {
   margin: 0;
   white-space: pre-wrap;
-  font-family: var(--fontStack-monospace);
-  font-size: var(--text-body-size-small);
-}
-
-.antrean {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--base-size-12);
+  font-family: ui-monospace, monospace;
+  font-size: 14px;
 }
 
 .thumb {
-  width: var(--base-size-48);
-  height: var(--base-size-48);
+  width: 48px;
+  height: 48px;
   object-fit: cover;
-  border-radius: var(--borderRadius-medium);
+  border-radius: 12px;
   flex-shrink: 0;
 }
 
 .video {
-  display: block;
   width: 100%;
-  max-height: 60vh;
+  flex: 1;
+  min-height: 0;
   object-fit: contain;
-  background: var(--bgColor-black, #000);
-  border-radius: var(--borderRadius-medium);
+  background: #000;
 }
 
-.tengah { text-align: center; }
+.baris details { font-size: 14px; color: var(--teks-2); }
 
-.dl {
-  margin: 0;
-  display: grid;
-  grid-template-columns: max-content 1fr;
-  gap: var(--base-size-8) var(--base-size-16);
-}
-
-.dl dt { color: var(--fgColor-muted); }
-.dl dd { margin: 0; text-align: right; min-width: 0; overflow-wrap: anywhere; }
-
-.formGrid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: var(--stack-gap-normal);
-}
-
-@media (min-width: 544px) {
-  .formGrid { grid-template-columns: 1fr 1fr; }
-}
-
-.header {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-}
-
-.logo {
-  display: flex;
-  align-items: center;
-  gap: var(--base-size-8);
-  color: var(--header-fgColor-logo, var(--fgColor-default));
-  font-weight: var(--base-text-weight-semibold);
-  text-decoration: none;
-}
-
-.navWrap {
-  background: var(--bgColor-default);
-}
+.logo { display: block; margin: 0 auto 16px; }

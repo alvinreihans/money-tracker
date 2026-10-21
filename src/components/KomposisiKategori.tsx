@@ -1,22 +1,17 @@
-"use client";
-
-import { Banner, Heading, ProgressBar, Text } from "@primer/react";
-import { Blankslate } from "@primer/react/experimental";
-import { GraphIcon } from "@primer/octicons-react";
+import { ChartPie } from "lucide-react";
+import { Kosong, Pesan } from "@/components/oneui";
 import s from "@/components/ui.module.css";
 import { fmtIDR, fmtIDRRingkas, labelKategori } from "@/lib/format";
 import type { AvgMonthlyExpenseRow } from "@/types/transaction";
 
 /**
- * Porsi pengeluaran per kategori sebagai satu bar bersegmen plus legenda —
- * pola yang sama dengan bar bahasa di halaman repo GitHub. Primer tidak punya
- * komponen chart, dan untuk pertanyaan "uangku habis ke mana" bar porsi sudah
- * cukup; nama kategori di legenda tetap terbaca utuh di layar HP.
+ * Porsi pengeluaran per kategori: satu bar bersegmen plus daftar. Untuk
+ * pertanyaan "uangku habis ke mana", porsi sudah cukup; daftar di bawahnya
+ * menampilkan nama kategori utuh, yang di chart biasa sering terpotong di HP.
  */
 
-const WARNA = ["blue", "green", "orange", "purple", "pink", "teal", "yellow", "red"].map(
-  (w) => `var(--data-${w}-color-emphasis)`,
-);
+// Warna aksen dari palet sistem; area luas tetap tenang, warna hanya di bar kecil.
+const WARNA = ["#3e91ff", "#5ecb7a", "#ffb340", "#bf7af0", "#ff7a9c", "#4fc9e0", "#ffd84a", "#ff5f5f"];
 
 export default function KomposisiKategori({
   data,
@@ -33,62 +28,43 @@ export default function KomposisiKategori({
   const persen = (n: number) => Math.round((n / total) * 100);
 
   return (
-    <section className={s.kotak}>
-      <div className={s.kotakKepala}>
-        <Heading as="h2" variant="small">
-          Pengeluaran per kategori
-        </Heading>
-        <span className={s.redup}>rerata 3 bulan penuh</span>
-      </div>
-
-      <div className={s.kotakIsi}>
-        {error ? (
-          <Banner variant="critical" title="Gagal ambil data" description={error} />
-        ) : baris.length === 0 ? (
-          <Blankslate>
-            <Blankslate.Visual>
-              <GraphIcon size="medium" />
-            </Blankslate.Visual>
-            <Blankslate.Heading>Belum ada pengeluaran di rentang ini</Blankslate.Heading>
-            <Blankslate.Description>
-              Ini cuma menghitung 3 bulan penuh terakhir, jadi transaksi bulan berjalan belum ikut.
-            </Blankslate.Description>
-          </Blankslate>
-        ) : (
-          <>
-            <div className={s.statNilai}>{fmtIDRRingkas(total)}</div>
-            <Text size="small" className={s.redup}>
-              total rerata per bulan
-            </Text>
-
-            <div style={{ marginTop: "var(--base-size-12)" }}>
-              <ProgressBar barSize="large" aria-label="Porsi pengeluaran per kategori">
-                {baris.map((r, i) => (
-                  <ProgressBar.Item
-                    key={r.kategori}
-                    progress={(r.nilai / total) * 100}
-                    // `bg` cuma menerima token semantik ("success.emphasis");
-                    // warna data-vis dipasang lewat variabel yang dibacanya.
-                    style={{ "--progress-bg": WARNA[i % WARNA.length] } as React.CSSProperties}
-                    aria-label={`${labelKategori(r.kategori)} ${persen(r.nilai)}%`}
-                  />
-                ))}
-              </ProgressBar>
+    <>
+      <h2 className={s.subheader}>Pengeluaran per kategori</h2>
+      {error ? (
+        <Pesan jenis="bahaya" judul="Gagal ambil data">
+          {error}
+        </Pesan>
+      ) : baris.length === 0 ? (
+        <div className={s.blok}>
+          <Kosong ikon={ChartPie} judul="Belum ada pengeluaran di rentang ini">
+            Ini cuma menghitung 3 bulan penuh terakhir, jadi bulan berjalan belum ikut.
+          </Kosong>
+        </div>
+      ) : (
+        <section className={s.blok}>
+          <div className={s.blokIsi} style={{ paddingBottom: 4 }}>
+            <span className={s.redup}>Rerata per bulan, 3 bulan penuh terakhir</span>
+            <div className={s.nominal} style={{ fontSize: 24, marginTop: 4 }}>
+              {fmtIDRRingkas(total)}
             </div>
-
-            <ul className={s.legenda}>
+            <div className={s.bar} role="img" aria-label="Porsi pengeluaran per kategori">
               {baris.map((r, i) => (
-                <li key={r.kategori}>
-                  <span className={s.titik} style={{ background: WARNA[i % WARNA.length] }} />
-                  <Text weight="semibold">{labelKategori(r.kategori)}</Text>
-                  <span className={s.redup}>{persen(r.nilai)}%</span>
-                  <span className={`${s.nominal} ${s.dorong}`}>{fmtIDR(r.nilai)}</span>
-                </li>
+                <span key={r.kategori} style={{ flex: r.nilai, background: WARNA[i % WARNA.length] }} />
               ))}
-            </ul>
-          </>
-        )}
-      </div>
-    </section>
+            </div>
+          </div>
+          {baris.map((r, i) => (
+            <div key={r.kategori} className={s.baris} style={{ minHeight: 52 }}>
+              <span className={s.titik} style={{ background: WARNA[i % WARNA.length] }} aria-hidden />
+              <span className={s.barisTeks}>
+                <span>{labelKategori(r.kategori)}</span>
+              </span>
+              <span className={s.redup}>{persen(r.nilai)}%</span>
+              <span className={s.nominal}>{fmtIDR(r.nilai)}</span>
+            </div>
+          ))}
+        </section>
+      )}
+    </>
   );
 }

@@ -30,7 +30,7 @@ export default async function AppGroupLayout({
     .eq("status", "needs_review");
 
   return (
-    <AppShell email={user.email ?? null} draftCount={count ?? 0}>
+    <AppShell draftCount={count ?? 0}>
       {children}
     </AppShell>
   );

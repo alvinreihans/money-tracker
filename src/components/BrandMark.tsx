@@ -1,20 +1,18 @@
 import Image from "next/image";
-import { Heading } from "@primer/react";
 import s from "@/components/ui.module.css";
 
 /**
- * Logo dan judul halaman yang berdiri sendiri (masuk, password baru), seperti
- * halaman masuk GitHub. Tanpa ini, halaman cuma tampil sebagai kotak form
+ * Area tampilan halaman yang berdiri sendiri (masuk, password baru): logo dan
+ * judul besar di tengah. Tanpa ini, halaman cuma tampil sebagai kotak form
  * tanpa identitas — orang tidak tahu sedang masuk ke aplikasi apa.
  */
-export default function BrandMark({ judul }: { judul: string }) {
+export default function BrandMark({ judul, sub }: { judul: string; sub?: string }) {
   return (
-    <div className={s.tengah} style={{ marginBottom: "var(--base-size-16)" }}>
+    <header className={s.viewing}>
       {/* Logo di layar pertama; menundanya cuma bikin halaman berkedip. */}
-      <Image src="/logo.png" alt="" width={48} height={48} priority />
-      <Heading as="h1" variant="medium" style={{ marginTop: "var(--base-size-16)" }}>
-        {judul}
-      </Heading>
-    </div>
+      <Image src="/logo.png" alt="" width={64} height={64} priority />
+      <h1 className={s.judulBesar}>{judul}</h1>
+      {sub && <p className={s.judulSub}>{sub}</p>}
+    </header>
   );
 }

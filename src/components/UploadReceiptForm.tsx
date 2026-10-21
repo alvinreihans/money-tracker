@@ -2,16 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button, IconButton, Stack, Text } from "@primer/react";
-import {
-  AlertIcon,
-  CheckCircleFillIcon,
-  ClockIcon,
-  DeviceCameraIcon,
-  ImageIcon,
-  XCircleFillIcon,
-  XIcon,
-} from "@primer/octicons-react";
+import { Camera, CircleCheck, CircleX, Clock, Image as IkonGambar, RotateCcw, TriangleAlert, X } from "lucide-react";
 import ProcessingMessage from "@/components/ProcessingMessage";
 import s from "@/components/ui.module.css";
 import { fmtIDR, fmtTanggal, labelKategori } from "@/lib/format";
@@ -181,63 +172,67 @@ export default function DaftarAntrean({
   onGaleri: () => void;
 }) {
   return (
-    <Stack gap="normal">
-      {antrean.items.map((i) => (
-        <div key={i.id} className={s.antrean}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={i.preview} alt="" className={s.thumb} />
-          <div className={s.barisIsi} style={{ flex: 1 }}>
-            <HasilItem item={i} />
+    <>
+      <div className={s.blok} style={{ background: "var(--blok-2)" }}>
+        {antrean.items.map((i) => (
+          <div key={i.id} className={s.baris}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={i.preview} alt="" className={s.thumb} />
+            <span className={s.barisTeks}>
+              <HasilItem item={i} />
+            </span>
+            {i.status !== "proses" && (
+              <button type="button" className={s.ikonTombol} aria-label="Hapus dari daftar" onClick={() => antrean.hapus(i.id)}>
+                <X size={20} />
+              </button>
+            )}
           </div>
-          {i.status !== "proses" && (
-            <IconButton icon={XIcon} variant="invisible" size="small" aria-label="Hapus dari daftar" onClick={() => antrean.hapus(i.id)} />
-          )}
-        </div>
-      ))}
+        ))}
+      </div>
 
       {antrean.berjalan && (
-        <Text size="small" className={s.redup}>
-          Diproses satu per satu biar nggak kena batas kuota. Dialog ini boleh ditutup — prosesnya
-          jalan terus.
-        </Text>
+        <p className={s.redup} style={{ margin: "12px 4px 0" }}>
+          Diproses satu per satu biar nggak kena batas kuota. Boleh ditutup — prosesnya jalan terus.
+        </p>
       )}
 
-      <Stack direction="horizontal" gap="condensed" wrap="wrap">
-        <Button leadingVisual={DeviceCameraIcon} onClick={onKamera}>
-          Foto lagi
-        </Button>
-        <Button leadingVisual={ImageIcon} onClick={onGaleri}>
-          Tambah gambar
-        </Button>
+      <div className={s.chipsBungkus} style={{ marginTop: 16 }}>
+        <button type="button" className={s.chip} onClick={onKamera}>
+          <Camera size={18} /> Foto lagi
+        </button>
+        <button type="button" className={s.chip} onClick={onGaleri}>
+          <IkonGambar size={18} /> Tambah gambar
+        </button>
         {antrean.gagal > 0 && !antrean.berjalan && (
-          <Button onClick={antrean.ulangiYangGagal}>Coba lagi yang gagal</Button>
+          <button type="button" className={s.chip} onClick={antrean.ulangiYangGagal}>
+            <RotateCcw size={18} /> Coba lagi yang gagal
+          </button>
         )}
-      </Stack>
-    </Stack>
+      </div>
+    </>
+  );
+}
+
+function Status({ ikon: Ikon, warna, children }: { ikon: React.ElementType; warna: string; children: React.ReactNode }) {
+  return (
+    <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      <Ikon size={16} color={warna} style={{ flexShrink: 0 }} />
+      <span className={s.barisJudul} style={{ fontSize: 16 }}>{children}</span>
+    </span>
   );
 }
 
 function HasilItem({ item: i }: { item: Item }) {
-  if (i.status === "antre") {
-    return (
-      <Stack direction="horizontal" gap="condensed" align="center">
-        <ClockIcon />
-        <Text size="small">Nunggu giliran</Text>
-      </Stack>
-    );
-  }
+  if (i.status === "antre") return <Status ikon={Clock} warna="var(--teks-2)">Nunggu giliran</Status>;
   if (i.status === "proses") return <ProcessingMessage />;
 
   if (i.status === "ok" && i.hasil) {
     const t = i.hasil.transaction;
     return (
       <>
-        <Stack direction="horizontal" gap="condensed" align="center">
-          <CheckCircleFillIcon fill="var(--fgColor-success)" />
-          <Text weight="semibold">
-            {t.merchant ?? "Tanpa nama"} — {fmtIDR(Number(t.amount))}
-          </Text>
-        </Stack>
+        <Status ikon={CircleCheck} warna="var(--sukses)">
+          {t.merchant ?? "Tanpa nama"} — {fmtIDR(Number(t.amount))}
+        </Status>
         <span className={s.redup}>
           {labelKategori(t.category)} · {fmtTanggal(t.transaction_date)} · via {SUMBER[i.hasil.source]}
         </span>
@@ -248,10 +243,7 @@ function HasilItem({ item: i }: { item: Item }) {
   if (i.status === "draft") {
     return (
       <>
-        <Stack direction="horizontal" gap="condensed" align="center">
-          <AlertIcon fill="var(--fgColor-attention)" />
-          <Text weight="semibold">Nggak kebaca</Text>
-        </Stack>
+        <Status ikon={TriangleAlert} warna="var(--peringatan)">Nggak kebaca</Status>
         <span className={s.redup}>Disimpan jadi draft, nominalnya isi manual ya.</span>
         {/* Jejak tahapnya cuma muncul saat gagal, dan terlipat supaya tidak
             menghalangi yang cuma mau membenarkan nominalnya. */}
@@ -269,10 +261,7 @@ function HasilItem({ item: i }: { item: Item }) {
 
   return (
     <>
-      <Stack direction="horizontal" gap="condensed" align="center">
-        <XCircleFillIcon fill="var(--fgColor-danger)" />
-        <Text weight="semibold">Gagal</Text>
-      </Stack>
+      <Status ikon={CircleX} warna="var(--bahaya)">Gagal</Status>
       <span className={s.redup}>{i.pesan}</span>
     </>
   );

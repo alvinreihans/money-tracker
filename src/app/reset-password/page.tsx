@@ -2,13 +2,13 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { Banner, Button, Stack } from "@primer/react";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import { authErrorMessage } from "@/lib/errors";
-import { passwordValid } from "@/lib/password";
+import { Pesan, Spinner } from "@/components/oneui";
 import PasswordField from "@/components/PasswordField";
 import BrandMark from "@/components/BrandMark";
 import s from "@/components/ui.module.css";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { authErrorMessage } from "@/lib/errors";
+import { passwordValid } from "@/lib/password";
 
 export default function ResetPasswordPage() {
   const router = useRouter();
@@ -69,52 +69,41 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <main className={s.sempit}>
-      <BrandMark judul="Password baru" />
+    <main className={s.app} style={{ paddingBottom: 32 }}>
+      <BrandMark judul="Password baru" sub="Bikin password baru, terus langsung masuk." />
 
-      {punyaSesi === false ? (
-        <Banner
-          variant="critical"
-          title="Tautannya udah nggak berlaku"
-          description="Tautan reset cuma bisa dipakai sekali dan ada masa berlakunya."
-          primaryAction={
-            <Banner.PrimaryAction onClick={() => router.push("/login")}>Minta tautan baru</Banner.PrimaryAction>
-          }
-        />
-      ) : (
-        <Stack gap="normal">
-          {error && <Banner variant="critical" title="Gagal" hideTitle description={error} />}
-
-          <div className={`${s.kotak} ${s.kotakIsi}`} style={{ background: "var(--bgColor-muted)" }}>
-            <form onSubmit={handleSubmit}>
-              <Stack gap="normal">
-                <PasswordField
-                  label="Password baru"
-                  value={password}
-                  onChange={setPassword}
-                  autoComplete="new-password"
-                  syarat
-                />
-                <PasswordField
-                  label="Ulangi password baru"
-                  value={ulangi}
-                  onChange={setUlangi}
-                  autoComplete="new-password"
-                />
-                <Button
-                  type="submit"
-                  variant="primary"
-                  block
-                  loading={loading}
-                  disabled={!siap || punyaSesi === null}
-                >
-                  Simpan &amp; masuk
-                </Button>
-              </Stack>
+      <div className={s.isi}>
+        {punyaSesi === false ? (
+          <Pesan
+            jenis="bahaya"
+            judul="Tautannya udah nggak berlaku"
+            aksi={
+              <button type="button" className={s.tombol} onClick={() => router.push("/login")}>
+                Minta tautan baru
+              </button>
+            }
+          >
+            Tautan reset cuma bisa dipakai sekali dan ada masa berlakunya.
+          </Pesan>
+        ) : (
+          <>
+            {error && <Pesan jenis="bahaya">{error}</Pesan>}
+            <form onSubmit={handleSubmit} className={s.form}>
+              <div className={`${s.blok} ${s.blokIsi} ${s.form}`}>
+                <PasswordField label="Password baru" value={password} onChange={setPassword} autoComplete="new-password" syarat />
+                <PasswordField label="Ulangi password baru" value={ulangi} onChange={setUlangi} autoComplete="new-password" />
+              </div>
+              <button
+                type="submit"
+                className={`${s.tombol} ${s.tombolPenuh}`}
+                disabled={loading || !siap || punyaSesi === null}
+              >
+                {loading ? <Spinner /> : "Simpan & masuk"}
+              </button>
             </form>
-          </div>
-        </Stack>
-      )}
+          </>
+        )}
+      </div>
     </main>
   );
 }

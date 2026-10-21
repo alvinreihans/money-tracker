@@ -1,6 +1,6 @@
 "use client";
 
-import { FormControl, SegmentedControl, Select, Stack, Textarea, TextInput } from "@primer/react";
+import { Field, Segmen } from "@/components/oneui";
 import s from "@/components/ui.module.css";
 import { CATEGORY_LABEL, isoLokal } from "@/lib/format";
 import { TIPE_TRANSAKSI } from "@/lib/transaksi-input";
@@ -42,93 +42,77 @@ export default function TransactionFields({
   onChange: (patch: Partial<NilaiTransaksi>) => void;
 }) {
   return (
-    <Stack gap="normal">
+    <div className={s.form}>
       {/* Jenis paling atas dan selalu terlihat: menentukan apakah ini masuk
           hitungan pengeluaran atau pemasukan. */}
-      <FormControl>
-        <FormControl.Label>Jenis</FormControl.Label>
-        <SegmentedControl
-          fullWidth
-          aria-label="Jenis transaksi"
-          onChange={(i) => onChange({ type: TIPE_TRANSAKSI[i].id })}
-        >
-          {TIPE_TRANSAKSI.map((t) => (
-            <SegmentedControl.Button key={t.id} selected={nilai.type === t.id}>
-              {t.label}
-            </SegmentedControl.Button>
-          ))}
-        </SegmentedControl>
-        {nilai.type === "transfer" && (
-          <FormControl.Caption>Pindah kantong tidak dihitung sebagai pengeluaran.</FormControl.Caption>
-        )}
-      </FormControl>
+      <Segmen
+        label="Jenis transaksi"
+        // "Pindah kantong" terlalu panjang untuk sepertiga lebar HP; artinya
+        // dijelaskan di keterangan di bawahnya begitu dipilih.
+        pilihan={TIPE_TRANSAKSI.map((t) => (t.id === "transfer" ? { ...t, label: "Pindah" } : t))}
+        nilai={nilai.type}
+        onChange={(type) => onChange({ type })}
+      />
+      {nilai.type === "transfer" && (
+        <span className={s.keterangan}>Pindah kantong tidak dihitung sebagai pengeluaran.</span>
+      )}
 
-      <div className={s.formGrid}>
-        <FormControl required>
-          <FormControl.Label>Nominal (Rp)</FormControl.Label>
-          <TextInput
-            block
-            type="number"
-            inputMode="numeric"
-            min={1}
-            value={nilai.amount}
-            onChange={(e) => onChange({ amount: e.target.value })}
-            placeholder="25000"
-          />
-        </FormControl>
+      <Field label="Nominal (Rp)">
+        <input
+          type="number"
+          inputMode="numeric"
+          min={1}
+          required
+          value={nilai.amount}
+          onChange={(e) => onChange({ amount: e.target.value })}
+          placeholder="25000"
+        />
+      </Field>
 
-        <FormControl required>
-          <FormControl.Label>Tanggal</FormControl.Label>
+      <div className={s.dua}>
+        <Field label="Tanggal">
           {/* Input tanggal bawaan: di HP muncul kalender sistem. */}
-          <TextInput
-            block
+          <input
             type="date"
+            required
             value={nilai.transaction_date}
             onChange={(e) => onChange({ transaction_date: e.target.value })}
           />
-        </FormControl>
-
-        <FormControl>
-          <FormControl.Label>Kategori</FormControl.Label>
-          <Select block value={nilai.category} onChange={(e) => onChange({ category: e.target.value })}>
+        </Field>
+        <Field label="Kategori">
+          <select value={nilai.category} onChange={(e) => onChange({ category: e.target.value })}>
             {Object.entries(CATEGORY_LABEL).map(([value, label]) => (
-              <Select.Option key={value} value={value}>
+              <option key={value} value={value}>
                 {label}
-              </Select.Option>
+              </option>
             ))}
-          </Select>
-        </FormControl>
-
-        <FormControl>
-          <FormControl.Label>Merchant</FormControl.Label>
-          <TextInput
-            block
-            value={nilai.merchant}
-            onChange={(e) => onChange({ merchant: e.target.value })}
-            placeholder="Nama toko atau tempat"
-          />
-        </FormControl>
-
-        <FormControl>
-          <FormControl.Label>Metode bayar</FormControl.Label>
-          <TextInput
-            block
-            value={nilai.payment_method}
-            onChange={(e) => onChange({ payment_method: e.target.value })}
-            placeholder="Tunai, QRIS, ShopeePay..."
-          />
-        </FormControl>
+          </select>
+        </Field>
       </div>
 
-      <FormControl>
-        <FormControl.Label>Keterangan</FormControl.Label>
-        <Textarea
-          block
+      <Field label="Merchant" keterangan="Opsional">
+        <input
+          value={nilai.merchant}
+          onChange={(e) => onChange({ merchant: e.target.value })}
+          placeholder="Nama toko atau tempat"
+        />
+      </Field>
+
+      <Field label="Metode bayar" keterangan="Opsional">
+        <input
+          value={nilai.payment_method}
+          onChange={(e) => onChange({ payment_method: e.target.value })}
+          placeholder="Tunai, QRIS, ShopeePay..."
+        />
+      </Field>
+
+      <Field label="Keterangan" keterangan="Opsional">
+        <textarea
           rows={2}
           value={nilai.description}
           onChange={(e) => onChange({ description: e.target.value })}
         />
-      </FormControl>
-    </Stack>
+      </Field>
+    </div>
   );
 }
