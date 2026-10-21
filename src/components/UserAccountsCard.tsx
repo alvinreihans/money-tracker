@@ -1,17 +1,22 @@
 "use client";
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import Alert from "@cloudscape-design/components/alert";
-import Button from "@cloudscape-design/components/button";
-import ColumnLayout from "@cloudscape-design/components/column-layout";
-import Container from "@cloudscape-design/components/container";
-import FormField from "@cloudscape-design/components/form-field";
-import Header from "@cloudscape-design/components/header";
-import Input from "@cloudscape-design/components/input";
-import Select from "@cloudscape-design/components/select";
-import SpaceBetween from "@cloudscape-design/components/space-between";
-import StatusIndicator from "@cloudscape-design/components/status-indicator";
-import TokenGroup from "@cloudscape-design/components/token-group";
+import {
+  Banner,
+  Button,
+  FormControl,
+  Heading,
+  IconButton,
+  Label,
+  PageHeader,
+  Select,
+  Spinner,
+  Stack,
+  Text,
+  TextInput,
+} from "@primer/react";
+import { PlusIcon, TrashIcon } from "@primer/octicons-react";
+import s from "@/components/ui.module.css";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { dbErrorMessage } from "@/lib/errors";
 import type { UserAccount } from "@/types/transaction";
@@ -23,8 +28,6 @@ const KIND_LABEL: Record<Kind, string> = {
   ewallet: "E-wallet",
   cash: "Tunai",
 };
-
-const OPSI_KIND = Object.entries(KIND_LABEL).map(([value, label]) => ({ value, label }));
 
 // Hanya nama kanoniknya. Variasi penulisan di rekening koran ("BRImo",
 // "myBCA", "Livin") sudah ditangani tabel bawaan di src/lib/accounts.ts —
@@ -43,7 +46,8 @@ const PRESET: Array<{ name: string; kind: Kind }> = [
   { name: "Tunai", kind: "cash" },
 ];
 
-export default function UserAccountsCard() {
+/** Halaman Rekening: daftar rekening & dompet milik user. */
+export default function UserAccountsCard({ email }: { email: string | null }) {
   const [accounts, setAccounts] = useState<UserAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -101,72 +105,99 @@ export default function UserAccountsCard() {
   );
 
   return (
-    <Container
-      header={
-        <Header
-          variant="h2"
-          description="Biar pindah-pindah uang antar kantong sendiri nggak kehitung pengeluaran. Topup ShopeePay dari bank itu bukan belanja — uangnya cuma pindah tempat."
-        >
-          Rekening &amp; dompet saya
-        </Header>
-      }
-    >
-      <SpaceBetween size="l">
+    <>
+      <PageHeader>
+        <PageHeader.TitleArea>
+          <PageHeader.Title>Rekening</PageHeader.Title>
+        </PageHeader.TitleArea>
+        {email && <PageHeader.Description>{email}</PageHeader.Description>}
+      </PageHeader>
+
+      <Text className={s.redup}>
+        Biar pindah-pindah uang antar kantong sendiri nggak kehitung pengeluaran. Topup ShopeePay
+        dari bank itu bukan belanja — uangnya cuma pindah tempat.
+      </Text>
+
+      {error && <Banner variant="critical" title="Gagal" hideTitle description={error} />}
+
+      <section className={s.kotak}>
+        <div className={s.kotakKepala}>
+          <Heading as="h2" variant="small">
+            Rekening &amp; dompet saya
+          </Heading>
+        </div>
         {loading ? (
-          <StatusIndicator type="loading">Memuat...</StatusIndicator>
+          <div className={`${s.kotakIsi} ${s.tengah}`}>
+            <Spinner size="small" />
+          </div>
         ) : accounts.length === 0 ? (
-          <Alert type="info">
-            Masih kosong. Pilih dari bawah — minimal bank sama e-wallet yang kamu pakai sehari-hari.
-          </Alert>
+          <div className={s.kotakIsi}>
+            <span className={s.redup}>
+              Masih kosong. Pilih dari bawah — minimal bank sama e-wallet yang kamu pakai sehari-hari.
+            </span>
+          </div>
         ) : (
-          <TokenGroup
-            items={accounts.map((a) => ({
-              label: a.name,
-              description: KIND_LABEL[a.kind],
-              dismissLabel: `Hapus ${a.name}`,
-            }))}
-            onDismiss={(e) => void hapus(accounts[e.detail.itemIndex].id)}
-          />
+          accounts.map((a) => (
+            <div key={a.id} className={s.baris} style={{ alignItems: "center" }}>
+              <Stack direction="horizontal" gap="condensed" align="center">
+                <Text weight="semibold">{a.name}</Text>
+                <Label>{KIND_LABEL[a.kind]}</Label>
+              </Stack>
+              <IconButton
+                icon={TrashIcon}
+                variant="invisible"
+                size="small"
+                aria-label={`Hapus ${a.name}`}
+                onClick={() => void hapus(a.id)}
+              />
+            </div>
+          ))
         )}
+      </section>
 
-        {belumAda.length > 0 && (
-          <FormField label="Pilih yang kamu pakai">
-            <SpaceBetween direction="horizontal" size="xs">
-              {belumAda.map((p) => (
-                <Button key={p.name} iconName="add-plus" onClick={() => void tambah(p)}>
-                  {p.name}
-                </Button>
-              ))}
-            </SpaceBetween>
-          </FormField>
-        )}
+      {belumAda.length > 0 && (
+        <Stack gap="condensed">
+          <Text weight="semibold">Pilih yang kamu pakai</Text>
+          <Stack direction="horizontal" gap="condensed" wrap="wrap">
+            {belumAda.map((p) => (
+              <Button key={p.name} size="small" leadingVisual={PlusIcon} onClick={() => void tambah(p)}>
+                {p.name}
+              </Button>
+            ))}
+          </Stack>
+        </Stack>
+      )}
 
-        <form onSubmit={handleSubmit}>
-          <SpaceBetween size="s">
-            <ColumnLayout columns={2}>
-              <FormField stretch label="Nggak ada di daftar?">
-                <Input
-                  value={name}
-                  onChange={(e) => setName(e.detail.value)}
-                  placeholder="Ketik nama bank atau dompetnya"
-                />
-              </FormField>
-              <FormField stretch label="Jenis">
-                <Select
-                  selectedOption={OPSI_KIND.find((o) => o.value === kind) ?? null}
-                  onChange={(e) => setKind(e.detail.selectedOption.value as Kind)}
-                  options={OPSI_KIND}
-                />
-              </FormField>
-            </ColumnLayout>
-            <Button iconName="add-plus" formAction="submit" disabled={!name.trim()}>
+      <form onSubmit={handleSubmit}>
+        <Stack gap="condensed">
+          <div className={s.formGrid}>
+            <FormControl>
+              <FormControl.Label>Nggak ada di daftar?</FormControl.Label>
+              <TextInput
+                block
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Ketik nama bank atau dompetnya"
+              />
+            </FormControl>
+            <FormControl>
+              <FormControl.Label>Jenis</FormControl.Label>
+              <Select block value={kind} onChange={(e) => setKind(e.target.value as Kind)}>
+                {Object.entries(KIND_LABEL).map(([value, label]) => (
+                  <Select.Option key={value} value={value}>
+                    {label}
+                  </Select.Option>
+                ))}
+              </Select>
+            </FormControl>
+          </div>
+          <div>
+            <Button type="submit" leadingVisual={PlusIcon} disabled={!name.trim()}>
               Tambah
             </Button>
-          </SpaceBetween>
-        </form>
-
-        {error && <Alert type="error">{error}</Alert>}
-      </SpaceBetween>
-    </Container>
+          </div>
+        </Stack>
+      </form>
+    </>
   );
 }

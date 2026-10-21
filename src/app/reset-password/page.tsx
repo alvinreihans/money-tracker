@@ -2,18 +2,13 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import Alert from "@cloudscape-design/components/alert";
-import Button from "@cloudscape-design/components/button";
-import Container from "@cloudscape-design/components/container";
-import Form from "@cloudscape-design/components/form";
-import Header from "@cloudscape-design/components/header";
-import SpaceBetween from "@cloudscape-design/components/space-between";
+import { Banner, Button, Stack } from "@primer/react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { authErrorMessage } from "@/lib/errors";
 import { passwordValid } from "@/lib/password";
 import PasswordField from "@/components/PasswordField";
 import BrandMark from "@/components/BrandMark";
-import { HalamanPolos, NavButton } from "@/components/ui";
+import s from "@/components/ui.module.css";
 
 export default function ResetPasswordPage() {
   const router = useRouter();
@@ -74,61 +69,52 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <HalamanPolos>
-      <SpaceBetween size="l">
-        <BrandMark />
+    <main className={s.sempit}>
+      <BrandMark judul="Password baru" />
 
-        {punyaSesi === false ? (
-          <Alert
-            type="error"
-            header="Tautannya udah nggak berlaku"
-            action={<NavButton href="/login">Minta tautan baru</NavButton>}
-          >
-            Tautan reset cuma bisa dipakai sekali dan ada masa berlakunya.
-          </Alert>
-        ) : (
-          <Container
-            header={
-              <Header variant="h2" description="Bikin password baru, terus langsung masuk.">
-                Password baru
-              </Header>
-            }
-          >
+      {punyaSesi === false ? (
+        <Banner
+          variant="critical"
+          title="Tautannya udah nggak berlaku"
+          description="Tautan reset cuma bisa dipakai sekali dan ada masa berlakunya."
+          primaryAction={
+            <Banner.PrimaryAction onClick={() => router.push("/login")}>Minta tautan baru</Banner.PrimaryAction>
+          }
+        />
+      ) : (
+        <Stack gap="normal">
+          {error && <Banner variant="critical" title="Gagal" hideTitle description={error} />}
+
+          <div className={`${s.kotak} ${s.kotakIsi}`} style={{ background: "var(--bgColor-muted)" }}>
             <form onSubmit={handleSubmit}>
-              <Form
-                actions={
-                  <Button
-                    variant="primary"
-                    formAction="submit"
-                    loading={loading}
-                    disabled={!siap || punyaSesi === null}
-                  >
-                    Simpan &amp; masuk
-                  </Button>
-                }
-              >
-                <SpaceBetween size="l">
-                  <PasswordField
-                    label="Password baru"
-                    value={password}
-                    onChange={setPassword}
-                    autoComplete="new-password"
-                    syarat
-                  />
-                  <PasswordField
-                    label="Ulangi password baru"
-                    value={ulangi}
-                    onChange={setUlangi}
-                    autoComplete="new-password"
-                    placeholder="Ketik ulang passwordnya"
-                  />
-                  {error && <Alert type="error">{error}</Alert>}
-                </SpaceBetween>
-              </Form>
+              <Stack gap="normal">
+                <PasswordField
+                  label="Password baru"
+                  value={password}
+                  onChange={setPassword}
+                  autoComplete="new-password"
+                  syarat
+                />
+                <PasswordField
+                  label="Ulangi password baru"
+                  value={ulangi}
+                  onChange={setUlangi}
+                  autoComplete="new-password"
+                />
+                <Button
+                  type="submit"
+                  variant="primary"
+                  block
+                  loading={loading}
+                  disabled={!siap || punyaSesi === null}
+                >
+                  Simpan &amp; masuk
+                </Button>
+              </Stack>
             </form>
-          </Container>
-        )}
-      </SpaceBetween>
-    </HalamanPolos>
+          </div>
+        </Stack>
+      )}
+    </main>
   );
 }

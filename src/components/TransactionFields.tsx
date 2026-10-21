@@ -1,19 +1,14 @@
 "use client";
 
-import ColumnLayout from "@cloudscape-design/components/column-layout";
-import DatePicker from "@cloudscape-design/components/date-picker";
-import FormField from "@cloudscape-design/components/form-field";
-import Input from "@cloudscape-design/components/input";
-import Select from "@cloudscape-design/components/select";
-import SpaceBetween from "@cloudscape-design/components/space-between";
-import Textarea from "@cloudscape-design/components/textarea";
+import { FormControl, SegmentedControl, Select, Stack, Textarea, TextInput } from "@primer/react";
+import s from "@/components/ui.module.css";
 import { CATEGORY_LABEL, isoLokal } from "@/lib/format";
 import { TIPE_TRANSAKSI } from "@/lib/transaksi-input";
 import type { Transaction, TransactionType } from "@/types/transaction";
 
 /**
- * Isian rincian transaksi. Dipakai bersama oleh "Isi manual" (tambah) dan
- * form edit, supaya keduanya tidak pelan-pelan berbeda.
+ * Isian rincian transaksi. Dipakai bersama oleh catat manual dan form edit,
+ * supaya keduanya tidak pelan-pelan berbeda.
  */
 
 export interface NilaiTransaksi {
@@ -26,11 +21,11 @@ export interface NilaiTransaksi {
   description: string;
 }
 
-export function nilaiAwal(tx?: Transaction): NilaiTransaksi {
+export function nilaiAwal(tx?: Transaction, type: TransactionType = "expense"): NilaiTransaksi {
   return {
     // Draft yang gagal dibaca bernominal 0; kolom kosong lebih jujur.
     amount: tx && Number(tx.amount) > 0 ? String(tx.amount) : "",
-    type: tx?.type ?? "expense",
+    type: tx?.type ?? type,
     category: tx?.category ?? "other",
     transaction_date: tx?.transaction_date ?? isoLokal(new Date()),
     merchant: tx?.merchant ?? "",
@@ -38,9 +33,6 @@ export function nilaiAwal(tx?: Transaction): NilaiTransaksi {
     description: tx?.description ?? "",
   };
 }
-
-const OPSI_TIPE = TIPE_TRANSAKSI.map((t) => ({ value: t.id, label: t.label }));
-const OPSI_KATEGORI = Object.entries(CATEGORY_LABEL).map(([value, label]) => ({ value, label }));
 
 export default function TransactionFields({
   nilai,
@@ -50,66 +42,93 @@ export default function TransactionFields({
   onChange: (patch: Partial<NilaiTransaksi>) => void;
 }) {
   return (
-    <SpaceBetween size="l">
-      <ColumnLayout columns={2}>
-        <FormField stretch label="Nominal (Rp)">
-          <Input
+    <Stack gap="normal">
+      {/* Jenis paling atas dan selalu terlihat: menentukan apakah ini masuk
+          hitungan pengeluaran atau pemasukan. */}
+      <FormControl>
+        <FormControl.Label>Jenis</FormControl.Label>
+        <SegmentedControl
+          fullWidth
+          aria-label="Jenis transaksi"
+          onChange={(i) => onChange({ type: TIPE_TRANSAKSI[i].id })}
+        >
+          {TIPE_TRANSAKSI.map((t) => (
+            <SegmentedControl.Button key={t.id} selected={nilai.type === t.id}>
+              {t.label}
+            </SegmentedControl.Button>
+          ))}
+        </SegmentedControl>
+        {nilai.type === "transfer" && (
+          <FormControl.Caption>Pindah kantong tidak dihitung sebagai pengeluaran.</FormControl.Caption>
+        )}
+      </FormControl>
+
+      <div className={s.formGrid}>
+        <FormControl required>
+          <FormControl.Label>Nominal (Rp)</FormControl.Label>
+          <TextInput
+            block
             type="number"
             inputMode="numeric"
+            min={1}
             value={nilai.amount}
-            onChange={(e) => onChange({ amount: e.detail.value })}
+            onChange={(e) => onChange({ amount: e.target.value })}
             placeholder="25000"
           />
-        </FormField>
+        </FormControl>
 
-        <FormField stretch label="Jenis" description="Pindah kantong tidak dihitung sebagai pengeluaran.">
-          <Select
-            selectedOption={OPSI_TIPE.find((o) => o.value === nilai.type) ?? null}
-            onChange={(e) => onChange({ type: e.detail.selectedOption.value as TransactionType })}
-            options={OPSI_TIPE}
-          />
-        </FormField>
-
-        <FormField stretch label="Kategori">
-          <Select
-            selectedOption={OPSI_KATEGORI.find((o) => o.value === nilai.category) ?? null}
-            onChange={(e) => onChange({ category: e.detail.selectedOption.value ?? "other" })}
-            options={OPSI_KATEGORI}
-          />
-        </FormField>
-
-        <FormField stretch label="Tanggal">
-          <DatePicker
+        <FormControl required>
+          <FormControl.Label>Tanggal</FormControl.Label>
+          {/* Input tanggal bawaan: di HP muncul kalender sistem. */}
+          <TextInput
+            block
+            type="date"
             value={nilai.transaction_date}
-            onChange={(e) => onChange({ transaction_date: e.detail.value })}
-            placeholder="YYYY/MM/DD"
+            onChange={(e) => onChange({ transaction_date: e.target.value })}
           />
-        </FormField>
+        </FormControl>
 
-        <FormField stretch label="Merchant" constraintText="Opsional">
-          <Input
+        <FormControl>
+          <FormControl.Label>Kategori</FormControl.Label>
+          <Select block value={nilai.category} onChange={(e) => onChange({ category: e.target.value })}>
+            {Object.entries(CATEGORY_LABEL).map(([value, label]) => (
+              <Select.Option key={value} value={value}>
+                {label}
+              </Select.Option>
+            ))}
+          </Select>
+        </FormControl>
+
+        <FormControl>
+          <FormControl.Label>Merchant</FormControl.Label>
+          <TextInput
+            block
             value={nilai.merchant}
-            onChange={(e) => onChange({ merchant: e.detail.value })}
+            onChange={(e) => onChange({ merchant: e.target.value })}
             placeholder="Nama toko atau tempat"
           />
-        </FormField>
+        </FormControl>
 
-        <FormField stretch label="Metode bayar" constraintText="Opsional">
-          <Input
+        <FormControl>
+          <FormControl.Label>Metode bayar</FormControl.Label>
+          <TextInput
+            block
             value={nilai.payment_method}
-            onChange={(e) => onChange({ payment_method: e.detail.value })}
+            onChange={(e) => onChange({ payment_method: e.target.value })}
             placeholder="Tunai, QRIS, ShopeePay..."
           />
-        </FormField>
-      </ColumnLayout>
+        </FormControl>
+      </div>
 
-      <FormField stretch label="Keterangan" constraintText="Opsional">
+      <FormControl>
+        <FormControl.Label>Keterangan</FormControl.Label>
         <Textarea
+          block
           rows={2}
           value={nilai.description}
-          onChange={(e) => onChange({ description: e.detail.value })}
+          onChange={(e) => onChange({ description: e.target.value })}
         />
-      </FormField>
-    </SpaceBetween>
+      </FormControl>
+    </Stack>
   );
 }

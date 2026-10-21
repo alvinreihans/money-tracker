@@ -1,4 +1,4 @@
-import type { BadgeProps } from "@cloudscape-design/components/badge";
+import type { LabelProps } from "@primer/react";
 import type { TransactionType } from "@/types/transaction";
 
 /** Formatter tampilan, dipakai bersama daftar dan halaman detail. */
@@ -50,11 +50,11 @@ export const fmtWaktu = (iso: string) =>
     minute: "2-digit",
   }).format(new Date(iso));
 
-/** Label dan warna Badge Cloudscape per jenis transaksi. */
-export const JENIS: Record<TransactionType, { label: string; color: BadgeProps["color"] }> = {
-  expense: { label: "Keluar", color: "grey" },
-  income: { label: "Masuk", color: "green" },
-  transfer: { label: "Pindah kantong", color: "blue" },
+/** Teks dan varian Label Primer per jenis transaksi. */
+export const JENIS: Record<TransactionType, { label: string; variant: LabelProps["variant"] }> = {
+  expense: { label: "Keluar", variant: "secondary" },
+  income: { label: "Masuk", variant: "success" },
+  transfer: { label: "Pindah kantong", variant: "accent" },
 };
 
 /** Kategori disimpan sebagai slug Inggris; yang dilihat user harus Indonesia. */

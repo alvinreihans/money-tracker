@@ -1,11 +1,6 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import CatatTransaksi from "@/components/CatatTransaksi";
-import RingkasanBulan from "@/components/RingkasanBulan";
-import SpendingByCategoryChart from "@/components/SpendingByCategoryChart";
-import TransactionTable from "@/components/TransactionTable";
-import UploadStatementForm from "@/components/UploadStatementForm";
-import { Alert, Box, ContentLayout, Header, NavButton, SpaceBetween } from "@/components/ui";
 import { rentangBulan } from "@/lib/periode";
+import BerandaView from "./BerandaView";
 import type { AvgMonthlyExpenseRow, Transaction } from "@/types/transaction";
 
 export const dynamic = "force-dynamic";
@@ -61,55 +56,17 @@ export default async function BerandaPage() {
     supabase.rpc("get_avg_monthly_expense_by_category"),
   ]);
 
-  const daftar = (terbaru ?? []) as Transaction[];
-  const jumlahDraft = draft ?? 0;
-
   return (
-    <ContentLayout header={<Header variant="h1">Beranda</Header>}>
-      <SpaceBetween size="l">
-        <RingkasanBulan
-          keluar={jumlahkan(keluarIni)}
-          masuk={jumlahkan(masukIni)}
-          keluarBulanLalu={jumlahkan(keluarLalu)}
-        />
-
-        {jumlahDraft > 0 && (
-          <Alert
-            type="warning"
-            header={`${jumlahDraft} transaksi perlu dibenerin`}
-            action={<NavButton href="/riwayat?filter=draft">Benerin</NavButton>}
-          >
-            Nominalnya belum kebaca, jadi belum ikut dihitung di ringkasan.
-          </Alert>
-        )}
-
-        <CatatTransaksi />
-
-        <TransactionTable
-          items={daftar}
-          header={
-            <Header
-              variant="h2"
-              description="Klik salah satu buat lihat detailnya."
-              actions={daftar.length > 0 && <NavButton href="/riwayat">Lihat semua</NavButton>}
-            >
-              Transaksi terbaru
-            </Header>
-          }
-          empty={
-            <Box textAlign="center" color="inherit">
-              Belum ada apa-apa. Catat transaksi pertamamu di atas.
-            </Box>
-          }
-        />
-
-        <SpendingByCategoryChart
-          data={(rerata ?? []) as AvgMonthlyExpenseRow[]}
-          error={rerataError?.message ?? null}
-        />
-
-        <UploadStatementForm />
-      </SpaceBetween>
-    </ContentLayout>
+    <BerandaView
+      ringkasan={{
+        keluar: jumlahkan(keluarIni),
+        masuk: jumlahkan(masukIni),
+        keluarBulanLalu: jumlahkan(keluarLalu),
+      }}
+      draft={draft ?? 0}
+      terbaru={(terbaru ?? []) as Transaction[]}
+      rerata={(rerata ?? []) as AvgMonthlyExpenseRow[]}
+      rerataError={rerataError?.message ?? null}
+    />
   );
 }

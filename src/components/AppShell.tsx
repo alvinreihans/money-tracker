@@ -1,30 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import NextLink from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import AppLayout from "@cloudscape-design/components/app-layout";
-import Badge from "@cloudscape-design/components/badge";
-import Box from "@cloudscape-design/components/box";
-import Spinner from "@cloudscape-design/components/spinner";
-import SideNavigation from "@cloudscape-design/components/side-navigation";
-import TopNavigation from "@cloudscape-design/components/top-navigation";
+import { ActionList, ActionMenu, Header, IconButton, UnderlineNav } from "@primer/react";
+import { CreditCardIcon, HistoryIcon, HomeIcon, PersonIcon, SignOutIcon } from "@primer/octicons-react";
+import { CatatProvider, KabarCatat, MenuCatat } from "@/components/Catat";
+import s from "@/components/ui.module.css";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import { useIkuti, useTerpasang } from "@/components/ui";
 
 /**
- * Kerangka aplikasi: bilah atas (identitas + menu akun), navigasi samping,
- * dan area konten. Di layar HP navigasi samping otomatis jadi menu hamburger.
+ * Kerangka aplikasi, mengikuti halaman repo GitHub: header gelap (logo,
+ * tombol "+", akun) lalu tab bergaris bawah.
  *
- * Badge di Riwayat menampilkan jumlah draft yang gagal dibaca — tanpa itu,
- * draft tersimpan diam-diam tanpa satu pun penanda.
- *
- * Konten baru dirender setelah terpasang di browser; sebelumnya cuma spinner.
- * AppLayout, Table, dan chart Cloudscape membaca lebar layar di render
- * pertama, yang tidak diketahui server. Kalau di-render di server, HTML-nya
- * (anggapan desktop) beda dengan hasil di HP: hydration gagal, React merender
- * ulang semuanya, dan selama menunggu JS menu samping menutupi layar HP.
- * Data tetap diambil di server dan ikut dalam payload halaman, jadi begitu JS
- * siap isinya langsung tampil tanpa permintaan tambahan.
+ * Tab, bukan menu hamburger: cuma tiga tujuan, jadi semuanya muat dan tetap
+ * satu ketukan di HP. Counter di Riwayat menampilkan jumlah draft yang gagal
+ * dibaca — tanpa itu, draft tersimpan diam-diam tanpa satu pun penanda.
  */
 export default function AppShell({
   email,
@@ -37,14 +27,6 @@ export default function AppShell({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const ikuti = useIkuti();
-
-  const terpasang = useTerpasang();
-  // Terbuka di layar lebar, tertutup di HP. 688px adalah batas mobile AppLayout.
-  // Aman dibaca di sini karena AppLayout tidak pernah dirender di server.
-  const [navBuka, setNavBuka] = useState(
-    () => typeof window !== "undefined" && window.matchMedia("(min-width: 689px)").matches,
-  );
 
   async function keluar() {
     await createSupabaseBrowserClient().auth.signOut();
@@ -59,63 +41,68 @@ export default function AppShell({
       ? "/riwayat"
       : "/";
 
+  const tab = [
+    { href: "/", label: "Beranda", icon: HomeIcon },
+    { href: "/riwayat", label: "Riwayat", icon: HistoryIcon, counter: draftCount || undefined },
+    { href: "/rekening", label: "Rekening", icon: CreditCardIcon },
+  ];
+
   return (
-    <>
-      <div id="top-nav" style={{ position: "sticky", top: 0, zIndex: 1002 }}>
-        <TopNavigation
-          identity={{
-            href: "/",
-            title: "Money Tracker",
-            logo: { src: "/logo.png", alt: "" },
-            onFollow: (e) => {
-              e.preventDefault();
-              router.push("/");
-            },
-          }}
-          utilities={[
-            {
-              type: "menu-dropdown",
-              iconName: "user-profile",
-              text: email ?? "Akun",
-              description: email ?? undefined,
-              items: [{ id: "keluar", text: "Keluar", iconName: "sign-out" }],
-              onItemClick: (e) => {
-                if (e.detail.id === "keluar") void keluar();
-              },
-            },
-          ]}
-        />
+    <CatatProvider>
+      <Header>
+        <Header.Item full>
+          <NextLink href="/" className={s.logo}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo.png" alt="" width={32} height={32} />
+            Money Tracker
+          </NextLink>
+        </Header.Item>
+        <Header.Item>
+          <MenuCatat />
+        </Header.Item>
+        <Header.Item style={{ marginRight: 0 }}>
+          <ActionMenu>
+            <ActionMenu.Anchor>
+              <IconButton icon={PersonIcon} aria-label="Akun" />
+            </ActionMenu.Anchor>
+            <ActionMenu.Overlay align="end">
+              <ActionList>
+                <ActionList.Group>
+                  <ActionList.GroupHeading>{email ?? "Akun"}</ActionList.GroupHeading>
+                  <ActionList.Item variant="danger" onSelect={() => void keluar()}>
+                    <ActionList.LeadingVisual>
+                      <SignOutIcon />
+                    </ActionList.LeadingVisual>
+                    Keluar
+                  </ActionList.Item>
+                </ActionList.Group>
+              </ActionList>
+            </ActionMenu.Overlay>
+          </ActionMenu>
+        </Header.Item>
+      </Header>
+
+      <div className={s.navWrap}>
+        <UnderlineNav aria-label="Navigasi utama">
+          {tab.map((t) => (
+            <UnderlineNav.Item
+              key={t.href}
+              as={NextLink}
+              href={t.href}
+              icon={t.icon}
+              counter={t.counter}
+              aria-current={aktif === t.href ? "page" : undefined}
+            >
+              {t.label}
+            </UnderlineNav.Item>
+          ))}
+        </UnderlineNav>
       </div>
 
-      {terpasang ? (
-        <AppLayout
-          headerSelector="#top-nav"
-          toolsHide
-          navigationOpen={navBuka}
-          onNavigationChange={(e) => setNavBuka(e.detail.open)}
-          navigation={
-            <SideNavigation
-              activeHref={aktif}
-              onFollow={ikuti}
-              items={[
-                { type: "link", text: "Beranda", href: "/" },
-                {
-                  type: "link",
-                  text: "Riwayat",
-                  href: "/riwayat",
-                  info: draftCount > 0 ? <Badge color="red">{draftCount}</Badge> : undefined,
-                },
-                { type: "link", text: "Rekening", href: "/rekening" },
-              ]}
-            />
-          }
-          content={children}
-        />
-      ) : (
-        <Box textAlign="center" padding="xxxl">
-          <Spinner size="large" />
-        </Box>
-      )}
-    </>
+      <main className={s.halaman}>
+        <KabarCatat />
+        {children}
+      </main>
+    </CatatProvider>
   );
 }

@@ -1,0 +1,204 @@
+/* Tata letak bersama. Semua nilai dari token @primer/primitives. */
+
+.halaman {
+  max-width: 1012px;
+  margin: 0 auto;
+  padding: var(--base-size-16);
+  display: flex;
+  flex-direction: column;
+  gap: var(--stack-gap-normal);
+}
+
+.sempit {
+  max-width: 400px;
+  margin: 0 auto;
+  padding: var(--base-size-32) var(--base-size-16);
+}
+
+/* Kotak berbingkai ala GitHub ("Box"). */
+.kotak {
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+  border-radius: var(--borderRadius-medium);
+  background: var(--bgColor-default);
+  overflow: hidden;
+}
+
+.kotakKepala {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--base-size-8);
+  padding: var(--base-size-12) var(--base-size-16);
+  background: var(--bgColor-muted);
+  border-bottom: var(--borderWidth-thin) solid var(--borderColor-default);
+}
+
+.kotakIsi {
+  padding: var(--base-size-16);
+}
+
+.baris {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--base-size-12);
+  padding: var(--base-size-12) var(--base-size-16);
+}
+
+.baris + .baris {
+  border-top: var(--borderWidth-thin) solid var(--borderColor-muted);
+}
+
+.barisIsi {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--base-size-4);
+}
+
+.redup {
+  color: var(--fgColor-muted);
+  font-size: var(--text-body-size-small);
+}
+
+/* Nominal: angka sejajar supaya kolom kanan rapi. */
+.nominal {
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--base-text-weight-semibold);
+  white-space: nowrap;
+}
+
+.masuk { color: var(--fgColor-success); }
+.pindah { color: var(--fgColor-accent); }
+.draft { color: var(--fgColor-danger); }
+
+/* Tiga angka ringkasan: satu kolom di HP, tiga di layar lebar. */
+.statGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 544px) {
+  .statGrid { grid-template-columns: repeat(3, 1fr); }
+}
+
+.stat {
+  padding: var(--base-size-16);
+  display: flex;
+  flex-direction: column;
+  gap: var(--base-size-4);
+}
+
+.stat + .stat {
+  border-top: var(--borderWidth-thin) solid var(--borderColor-muted);
+}
+
+@media (min-width: 544px) {
+  .stat + .stat {
+    border-top: 0;
+    border-left: var(--borderWidth-thin) solid var(--borderColor-muted);
+  }
+}
+
+.statNilai {
+  font-size: var(--text-title-size-large);
+  font-weight: var(--base-text-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--text-title-lineHeight-large);
+}
+
+/* Legenda bar kategori ala bar bahasa di halaman repo GitHub. */
+.legenda {
+  list-style: none;
+  margin: var(--base-size-12) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--base-size-8);
+}
+
+.legenda li {
+  display: flex;
+  align-items: center;
+  gap: var(--base-size-8);
+}
+
+.titik {
+  width: var(--base-size-8);
+  height: var(--base-size-8);
+  border-radius: var(--borderRadius-full);
+  flex-shrink: 0;
+}
+
+.dorong { margin-left: auto; }
+
+.pre {
+  margin: 0;
+  white-space: pre-wrap;
+  font-family: var(--fontStack-monospace);
+  font-size: var(--text-body-size-small);
+}
+
+.antrean {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--base-size-12);
+}
+
+.thumb {
+  width: var(--base-size-48);
+  height: var(--base-size-48);
+  object-fit: cover;
+  border-radius: var(--borderRadius-medium);
+  flex-shrink: 0;
+}
+
+.video {
+  display: block;
+  width: 100%;
+  max-height: 60vh;
+  object-fit: contain;
+  background: var(--bgColor-black, #000);
+  border-radius: var(--borderRadius-medium);
+}
+
+.tengah { text-align: center; }
+
+.dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--base-size-8) var(--base-size-16);
+}
+
+.dl dt { color: var(--fgColor-muted); }
+.dl dd { margin: 0; text-align: right; min-width: 0; overflow-wrap: anywhere; }
+
+.formGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--stack-gap-normal);
+}
+
+@media (min-width: 544px) {
+  .formGrid { grid-template-columns: 1fr 1fr; }
+}
+
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: var(--base-size-8);
+  color: var(--header-fgColor-logo, var(--fgColor-default));
+  font-weight: var(--base-text-weight-semibold);
+  text-decoration: none;
+}
+
+.navWrap {
+  background: var(--bgColor-default);
+}

@@ -2,15 +2,18 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import Box from "@cloudscape-design/components/box";
-import Button from "@cloudscape-design/components/button";
-import ExpandableSection from "@cloudscape-design/components/expandable-section";
-import FileUpload from "@cloudscape-design/components/file-upload";
-import FormField from "@cloudscape-design/components/form-field";
-import SpaceBetween from "@cloudscape-design/components/space-between";
-import StatusIndicator from "@cloudscape-design/components/status-indicator";
-import CameraCapture from "@/components/CameraCapture";
+import { Button, IconButton, Stack, Text } from "@primer/react";
+import {
+  AlertIcon,
+  CheckCircleFillIcon,
+  ClockIcon,
+  DeviceCameraIcon,
+  ImageIcon,
+  XCircleFillIcon,
+  XIcon,
+} from "@primer/octicons-react";
 import ProcessingMessage from "@/components/ProcessingMessage";
+import s from "@/components/ui.module.css";
 import { fmtIDR, fmtTanggal, labelKategori } from "@/lib/format";
 import type { Transaction } from "@/types/transaction";
 
@@ -47,60 +50,38 @@ interface Item {
   pesan?: string;
 }
 
-const ACCEPT = "image/png,image/jpeg,image/webp,image/heic";
+export const ACCEPT_STRUK = "image/png,image/jpeg,image/webp,image/heic";
 
-/** Isi tab "Foto struk": kamera atau galeri, lalu diproses satu per satu. */
-export default function UploadReceiptForm() {
+export type AntreanStruk = ReturnType<typeof useAntreanStruk>;
+
+/**
+ * Antrean struk. Dipegang di tingkat aplikasi (lihat Catat.tsx), bukan di
+ * dalam dialog: OCR bisa puluhan detik, dan menutup dialog tidak boleh
+ * membuang antrean yang sedang jalan.
+ *
+ * Struk langsung diproses begitu masuk, satu per satu — bukan barengan:
+ * OCR berat di CPU dan Groq punya batas token per menit, jadi dikirim
+ * serentak justru bikin sebagian kena rate limit.
+ */
+export function useAntreanStruk() {
   const router = useRouter();
   const [items, setItems] = useState<Item[]>([]);
   const [berjalan, setBerjalan] = useState(false);
-  const [kameraBuka, setKameraBuka] = useState(false);
+  // Salinan sinkron dari items: pelari antrean perlu melihat item yang baru
+  // ditambahkan tanpa menunggu render berikutnya.
+  const itemsRef = useRef<Item[]>([]);
+  const jalanRef = useRef(false);
 
-  // Object URL tidak dibebaskan otomatis; tanpa ini memori terus menumpuk
-  // kalau user menambah dan menghapus banyak gambar.
-  const previewsRef = useRef<string[]>([]);
-  useEffect(() => {
-    const daftar = previewsRef.current;
-    return () => daftar.forEach((u) => URL.revokeObjectURL(u));
-  }, []);
-
-  function tambahFiles(files: File[]) {
-    const baru = files.map((file) => {
-      const preview = URL.createObjectURL(file);
-      previewsRef.current.push(preview);
-      return {
-        id: `${file.name}-${file.size}-${Date.now()}-${Math.random()}`,
-        file,
-        preview,
-        status: "antre" as Status,
-      };
-    });
-    setItems((prev) => [...prev, ...baru]);
+  function perbarui(fn: (prev: Item[]) => Item[]) {
+    itemsRef.current = fn(itemsRef.current);
+    setItems(itemsRef.current);
   }
 
-  function lepasPreview(daftar: Item[]) {
-    daftar.forEach((i) => {
-      URL.revokeObjectURL(i.preview);
-      previewsRef.current = previewsRef.current.filter((u) => u !== i.preview);
-    });
-  }
-
-  function hapus(id: string) {
-    setItems((prev) => {
-      lepasPreview(prev.filter((i) => i.id === id));
-      return prev.filter((i) => i.id !== id);
-    });
-  }
-
-  function bersihkan() {
-    setItems((prev) => {
-      lepasPreview(prev);
-      return [];
-    });
-  }
+  // Object URL tidak dibebaskan otomatis; tanpa ini memori terus menumpuk.
+  useEffect(() => () => itemsRef.current.forEach((i) => URL.revokeObjectURL(i.preview)), []);
 
   function ubah(id: string, patch: Partial<Item>) {
-    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, ...patch } : i)));
+    perbarui((prev) => prev.map((i) => (i.id === id ? { ...i, ...patch } : i)));
   }
 
   async function prosesSatu(item: Item) {
@@ -129,142 +110,170 @@ export default function UploadReceiptForm() {
     }
   }
 
-  async function prosesSemua() {
+  async function jalankan() {
+    if (jalanRef.current) return;
+    jalanRef.current = true;
     setBerjalan(true);
-    // Satu per satu, bukan barengan: OCR berat di CPU dan Groq punya batas
-    // token per menit. Dikirim serentak justru bikin sebagian kena rate limit.
-    for (const item of items) {
-      if (item.status === "antre" || item.status === "gagal") {
-        await prosesSatu(item);
-      }
+    for (let next = itemsRef.current.find((i) => i.status === "antre"); next; next = itemsRef.current.find((i) => i.status === "antre")) {
+      await prosesSatu(next);
     }
+    jalanRef.current = false;
     setBerjalan(false);
-    router.refresh(); // segarkan ringkasan, daftar, dan chart
+    router.refresh(); // segarkan ringkasan, daftar, dan komposisi kategori
   }
 
-  const antre = items.filter((i) => i.status === "antre" || i.status === "gagal").length;
-  const selesai = items.filter((i) => i.status === "ok" || i.status === "draft").length;
+  function tambah(files: File[]) {
+    if (!files.length) return;
+    perbarui((prev) => [
+      ...prev,
+      ...files.map((file) => ({
+        id: `${file.name}-${file.size}-${Date.now()}-${Math.random()}`,
+        file,
+        preview: URL.createObjectURL(file),
+        status: "antre" as Status,
+      })),
+    ]);
+    void jalankan();
+  }
 
+  function ulangiYangGagal() {
+    perbarui((prev) => prev.map((i) => (i.status === "gagal" ? { ...i, status: "antre" } : i)));
+    void jalankan();
+  }
+
+  function hapus(id: string) {
+    perbarui((prev) => {
+      prev.filter((i) => i.id === id).forEach((i) => URL.revokeObjectURL(i.preview));
+      return prev.filter((i) => i.id !== id);
+    });
+  }
+
+  function bersihkan() {
+    perbarui((prev) => {
+      prev.forEach((i) => URL.revokeObjectURL(i.preview));
+      return [];
+    });
+  }
+
+  const hitung = (st: Status[]) => items.filter((i) => st.includes(i.status)).length;
+
+  return {
+    items,
+    berjalan,
+    tambah,
+    ulangiYangGagal,
+    hapus,
+    bersihkan,
+    sisa: hitung(["antre", "proses"]),
+    gagal: hitung(["gagal"]),
+    selesai: hitung(["ok", "draft"]),
+  };
+}
+
+/** Isi dialog struk: daftar antrean dan hasilnya. */
+export default function DaftarAntrean({
+  antrean,
+  onKamera,
+  onGaleri,
+}: {
+  antrean: AntreanStruk;
+  onKamera: () => void;
+  onGaleri: () => void;
+}) {
   return (
-    <SpaceBetween size="l">
-      {kameraBuka && (
-        <CameraCapture
-          onCapture={(file) => {
-            tambahFiles([file]);
-            setKameraBuka(false);
-          }}
-          onClose={() => setKameraBuka(false)}
-        />
-      )}
-
-      {/* Memotret struk adalah aksi harian di aplikasi ini, jadi tombol
-          kameranya yang primer. */}
-      <Button variant="primary" iconName="video-camera-on" onClick={() => setKameraBuka(true)}>
-        Foto pakai kamera
-      </Button>
-
-      <FormField label="Atau pilih dari galeri" constraintText="PNG, JPG, WEBP, atau HEIC. Maksimal 5 MB per gambar.">
-        {/* value selalu kosong: FileUpload di sini cuma pemilih berkas.
-            Antrean dan hasilnya ditampilkan sendiri di bawah. */}
-        <FileUpload
-          multiple
-          accept={ACCEPT}
-          value={[]}
-          onChange={(e) => tambahFiles(e.detail.value)}
-        />
-      </FormField>
-
-      {items.length > 0 && (
-        <SpaceBetween size="s">
-          {items.map((i) => (
-            <div key={i.id} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={i.preview}
-                alt=""
-                style={{ width: 56, height: 56, objectFit: "cover", borderRadius: 8, flexShrink: 0 }}
-              />
-
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <HasilItem item={i} />
-              </div>
-
-              {!berjalan && (
-                <Button variant="icon" iconName="close" ariaLabel="Hapus gambar" onClick={() => hapus(i.id)} />
-              )}
-            </div>
-          ))}
-        </SpaceBetween>
-      )}
-
-      {items.length > 0 && (
-        <SpaceBetween direction="horizontal" size="xs">
-          {antre > 0 && (
-            <Button variant="primary" loading={berjalan} onClick={() => void prosesSemua()}>
-              {berjalan ? "Lagi diproses..." : `Proses ${antre} gambar`}
-            </Button>
+    <Stack gap="normal">
+      {antrean.items.map((i) => (
+        <div key={i.id} className={s.antrean}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={i.preview} alt="" className={s.thumb} />
+          <div className={s.barisIsi} style={{ flex: 1 }}>
+            <HasilItem item={i} />
+          </div>
+          {i.status !== "proses" && (
+            <IconButton icon={XIcon} variant="invisible" size="small" aria-label="Hapus dari daftar" onClick={() => antrean.hapus(i.id)} />
           )}
-          {selesai > 0 && (
-            <Button disabled={berjalan} onClick={bersihkan}>
-              Bersihkan daftar
-            </Button>
-          )}
-        </SpaceBetween>
+        </div>
+      ))}
+
+      {antrean.berjalan && (
+        <Text size="small" className={s.redup}>
+          Diproses satu per satu biar nggak kena batas kuota. Dialog ini boleh ditutup — prosesnya
+          jalan terus.
+        </Text>
       )}
 
-      {berjalan && (
-        <Box variant="small" color="text-body-secondary">
-          Diproses satu per satu biar nggak kena batas kuota.
-        </Box>
-      )}
-    </SpaceBetween>
+      <Stack direction="horizontal" gap="condensed" wrap="wrap">
+        <Button leadingVisual={DeviceCameraIcon} onClick={onKamera}>
+          Foto lagi
+        </Button>
+        <Button leadingVisual={ImageIcon} onClick={onGaleri}>
+          Tambah gambar
+        </Button>
+        {antrean.gagal > 0 && !antrean.berjalan && (
+          <Button onClick={antrean.ulangiYangGagal}>Coba lagi yang gagal</Button>
+        )}
+      </Stack>
+    </Stack>
   );
 }
 
 function HasilItem({ item: i }: { item: Item }) {
-  if (i.status === "antre") return <StatusIndicator type="pending">Nunggu giliran</StatusIndicator>;
+  if (i.status === "antre") {
+    return (
+      <Stack direction="horizontal" gap="condensed" align="center">
+        <ClockIcon />
+        <Text size="small">Nunggu giliran</Text>
+      </Stack>
+    );
+  }
   if (i.status === "proses") return <ProcessingMessage />;
 
   if (i.status === "ok" && i.hasil) {
     const t = i.hasil.transaction;
     return (
-      <SpaceBetween size="xxxs">
-        <StatusIndicator type="success">
-          {t.merchant ?? "Tanpa nama"} — {fmtIDR(Number(t.amount))}
-        </StatusIndicator>
-        <Box variant="small" color="text-body-secondary">
+      <>
+        <Stack direction="horizontal" gap="condensed" align="center">
+          <CheckCircleFillIcon fill="var(--fgColor-success)" />
+          <Text weight="semibold">
+            {t.merchant ?? "Tanpa nama"} — {fmtIDR(Number(t.amount))}
+          </Text>
+        </Stack>
+        <span className={s.redup}>
           {labelKategori(t.category)} · {fmtTanggal(t.transaction_date)} · via {SUMBER[i.hasil.source]}
-        </Box>
-      </SpaceBetween>
+        </span>
+      </>
     );
   }
 
   if (i.status === "draft") {
     return (
-      <SpaceBetween size="xxxs">
-        <StatusIndicator type="warning">Nggak kebaca</StatusIndicator>
-        <Box variant="small" color="text-body-secondary">
-          Disimpan jadi draft, nominalnya isi manual ya.
-        </Box>
+      <>
+        <Stack direction="horizontal" gap="condensed" align="center">
+          <AlertIcon fill="var(--fgColor-attention)" />
+          <Text weight="semibold">Nggak kebaca</Text>
+        </Stack>
+        <span className={s.redup}>Disimpan jadi draft, nominalnya isi manual ya.</span>
         {/* Jejak tahapnya cuma muncul saat gagal, dan terlipat supaya tidak
             menghalangi yang cuma mau membenarkan nominalnya. */}
         {i.hasil?.notes?.length ? (
-          <ExpandableSection headerText="Kenapa gagal?" variant="footer">
-            <Box variant="small">
-              {i.hasil.notes.map((n, idx) => (
-                <div key={idx}>· {n}</div>
-              ))}
-            </Box>
-          </ExpandableSection>
+          <details className={s.redup}>
+            <summary>Kenapa gagal?</summary>
+            {i.hasil.notes.map((n, idx) => (
+              <div key={idx}>· {n}</div>
+            ))}
+          </details>
         ) : null}
-      </SpaceBetween>
+      </>
     );
   }
 
   return (
-    <SpaceBetween size="xxxs">
-      <StatusIndicator type="error">Gagal</StatusIndicator>
-      <Box variant="small" color="text-body-secondary">{i.pesan}</Box>
-    </SpaceBetween>
+    <>
+      <Stack direction="horizontal" gap="condensed" align="center">
+        <XCircleFillIcon fill="var(--fgColor-danger)" />
+        <Text weight="semibold">Gagal</Text>
+      </Stack>
+      <span className={s.redup}>{i.pesan}</span>
+    </>
   );
 }

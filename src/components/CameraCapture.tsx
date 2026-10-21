@@ -1,11 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Alert from "@cloudscape-design/components/alert";
-import Box from "@cloudscape-design/components/box";
-import Button from "@cloudscape-design/components/button";
-import Modal from "@cloudscape-design/components/modal";
-import SpaceBetween from "@cloudscape-design/components/space-between";
+import { Banner, Dialog } from "@primer/react";
+import s from "@/components/ui.module.css";
 
 /**
  * Kamera dalam aplikasi, bukan sekadar input file dengan atribut `capture`.
@@ -53,7 +50,7 @@ export default function CameraCapture({ onCapture, onClose }: Props) {
           video: { facingMode, width: { ideal: 1920 } },
         });
 
-        // Modal keburu ditutup sebelum izin diberikan: matikan lagi,
+        // Dialog keburu ditutup sebelum izin diberikan: matikan lagi,
         // kalau tidak lampu kameranya menyala terus.
         if (dibatalkan) {
           stream.getTracks().forEach((t) => t.stop());
@@ -105,37 +102,25 @@ export default function CameraCapture({ onCapture, onClose }: Props) {
   }
 
   return (
-    <Modal
-      visible
-      size="large"
-      header="Foto struk"
-      onDismiss={onClose}
-      footer={
-        <Box float="right">
-          <SpaceBetween direction="horizontal" size="xs">
-            <Button
-              iconName="refresh"
-              onClick={() => setFacingMode((f) => (f === "environment" ? "user" : "environment"))}
-            >
-              Balik kamera
-            </Button>
-            <Button variant="primary" iconName="video-camera-on" disabled={!siap} onClick={jepret}>
-              Jepret
-            </Button>
-          </SpaceBetween>
-        </Box>
-      }
+    <Dialog
+      title="Foto struk"
+      onClose={onClose}
+      width="large"
+      position={{ narrow: "fullscreen", regular: "center" }}
+      footerButtons={[
+        {
+          buttonType: "default",
+          content: "Balik kamera",
+          onClick: () => setFacingMode((f) => (f === "environment" ? "user" : "environment")),
+        },
+        { buttonType: "primary", content: "Jepret", onClick: jepret, disabled: !siap },
+      ]}
     >
       {error ? (
-        <Alert type="error">{error}</Alert>
+        <Banner variant="critical" title="Kamera" hideTitle description={error} />
       ) : (
-        <video
-          ref={videoRef}
-          playsInline
-          muted
-          style={{ display: "block", width: "100%", maxHeight: "60vh", objectFit: "contain", background: "#000" }}
-        />
+        <video ref={videoRef} playsInline muted className={s.video} />
       )}
-    </Modal>
+    </Dialog>
   );
 }

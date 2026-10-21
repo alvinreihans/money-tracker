@@ -1,11 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import Checkbox from "@cloudscape-design/components/checkbox";
-import FormField from "@cloudscape-design/components/form-field";
-import Input from "@cloudscape-design/components/input";
-import SpaceBetween from "@cloudscape-design/components/space-between";
-import StatusIndicator from "@cloudscape-design/components/status-indicator";
+import { FormControl, Stack, Text, TextInput } from "@primer/react";
+import { CheckCircleFillIcon, CircleIcon, EyeClosedIcon, EyeIcon } from "@primer/octicons-react";
 import { cekPassword } from "@/lib/password";
 
 /**
@@ -22,8 +19,8 @@ interface Props {
   onChange: (nilai: string) => void;
   autoComplete: string;
   placeholder?: string;
-  /** Elemen di sebelah label, mis. tautan "Lupa password?". */
-  info?: React.ReactNode;
+  /** Di bawah kolom, mis. tautan "Lupa password?". */
+  caption?: React.ReactNode;
   /** Tampilkan daftar syarat yang hidup saat mengetik. Untuk password BARU saja. */
   syarat?: boolean;
 }
@@ -33,45 +30,49 @@ export default function PasswordField({
   value,
   onChange,
   autoComplete,
-  placeholder = "Minimal 8 karakter",
-  info,
+  placeholder,
+  caption,
   syarat = false,
 }: Props) {
   const [terlihat, setTerlihat] = useState(false);
 
   return (
-    <FormField stretch
-      label={label}
-      info={info}
-      constraintText={
+    <FormControl required>
+      <FormControl.Label>{label}</FormControl.Label>
+      <TextInput
+        block
+        type={terlihat ? "text" : "password"}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        autoComplete={autoComplete}
+        placeholder={placeholder}
+        trailingAction={
+          <TextInput.Action
+            icon={terlihat ? EyeClosedIcon : EyeIcon}
+            // Label ikut berubah: pembaca layar harus tahu tombol ini akan
+            // melakukan apa, bukan sedang dalam keadaan apa.
+            aria-label={terlihat ? "Sembunyikan password" : "Tampilkan password"}
+            onClick={() => setTerlihat((t) => !t)}
+          />
+        }
+      />
+      {syarat && value ? (
         // Muncul begitu mulai mengetik. Menampilkannya sejak awal bikin form
         // terlihat penuh tuntutan sebelum orang sempat mencoba.
-        syarat && value ? (
-          <SpaceBetween size="xxxs">
-            {cekPassword(value).map((s) => (
-              // Ikon centang vs jam pasir: statusnya terbaca tanpa warna.
-              <StatusIndicator key={s.id} type={s.ok ? "success" : "pending"}>
-                {s.label}
-              </StatusIndicator>
+        <FormControl.Caption>
+          <Stack gap="none">
+            {cekPassword(value).map((x) => (
+              // Ikon centang vs lingkaran kosong: statusnya terbaca tanpa warna.
+              <Stack key={x.id} direction="horizontal" gap="condensed" align="center">
+                {x.ok ? <CheckCircleFillIcon fill="var(--fgColor-success)" size={12} /> : <CircleIcon size={12} />}
+                <Text size="small">{x.label}</Text>
+              </Stack>
             ))}
-          </SpaceBetween>
-        ) : undefined
-      }
-    >
-      <SpaceBetween size="xs">
-        <Input
-          type={terlihat ? "text" : "password"}
-          value={value}
-          onChange={(e) => onChange(e.detail.value)}
-          autoComplete={autoComplete}
-          placeholder={placeholder}
-        />
-        {/* Kotak centang, bukan ikon mata: di layar sempit ikon di samping
-            kolom ikut turun ke bawah dan maknanya jadi tidak jelas. */}
-        <Checkbox checked={terlihat} onChange={(e) => setTerlihat(e.detail.checked)}>
-          Tampilkan password
-        </Checkbox>
-      </SpaceBetween>
-    </FormField>
+          </Stack>
+        </FormControl.Caption>
+      ) : caption ? (
+        <FormControl.Caption>{caption}</FormControl.Caption>
+      ) : null}
+    </FormControl>
   );
 }

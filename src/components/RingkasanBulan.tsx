@@ -1,4 +1,4 @@
-import { Box, ColumnLayout, Container, Header } from "@/components/ui";
+import s from "@/components/ui.module.css";
 import { fmtIDRRingkas, namaBulan } from "@/lib/format";
 
 /**
@@ -15,7 +15,6 @@ export default function RingkasanBulan({
   keluarBulanLalu: number;
 }) {
   const selisih = masuk - keluar;
-  const sekarang = new Date();
 
   const bulanLalu = new Date();
   bulanLalu.setDate(1);
@@ -25,45 +24,30 @@ export default function RingkasanBulan({
     keluarBulanLalu > 0 ? Math.round(((keluar - keluarBulanLalu) / keluarBulanLalu) * 100) : 0;
 
   return (
-    <Container
-      header={
-        <Header variant="h2">
-          {namaBulan(sekarang)} {sekarang.getFullYear()}
-        </Header>
-      }
-    >
-      {/* Tanpa minColumnWidth: dengan itu ColumnLayout tetap tiga kolom di HP
-          dan nominalnya patah per huruf. Bawaannya jadi satu kolom di layar sempit. */}
-      <ColumnLayout columns={3} variant="text-grid">
-        <div>
-          <Box variant="awsui-key-label">Keluar bulan ini</Box>
-          <Box variant="awsui-value-large">{fmtIDRRingkas(keluar)}</Box>
-          {persen !== 0 && (
-            <Box variant="small" color="text-body-secondary">
-              {persen > 0 ? "↑ naik" : "↓ turun"} {Math.abs(persen)}% vs {namaBulan(bulanLalu)}
-            </Box>
-          )}
-        </div>
+    <section className={`${s.kotak} ${s.statGrid}`} aria-label="Ringkasan bulan ini">
+      <div className={s.stat}>
+        <span className={s.redup}>Keluar bulan ini</span>
+        <span className={s.statNilai}>{fmtIDRRingkas(keluar)}</span>
+        {persen !== 0 && (
+          <span className={s.redup}>
+            {persen > 0 ? "↑ naik" : "↓ turun"} {Math.abs(persen)}% vs {namaBulan(bulanLalu)}
+          </span>
+        )}
+      </div>
 
-        <div>
-          <Box variant="awsui-key-label">Masuk bulan ini</Box>
-          <Box variant="awsui-value-large">{fmtIDRRingkas(masuk)}</Box>
-        </div>
+      <div className={s.stat}>
+        <span className={s.redup}>Masuk bulan ini</span>
+        <span className={`${s.statNilai} ${masuk > 0 ? s.masuk : ""}`}>{fmtIDRRingkas(masuk)}</span>
+      </div>
 
-        <div>
-          <Box variant="awsui-key-label">Selisih</Box>
-          <Box
-            variant="awsui-value-large"
-            color={selisih < 0 ? "text-status-error" : "text-status-success"}
-          >
-            {selisih < 0 ? "−" : ""}
-            {fmtIDRRingkas(Math.abs(selisih))}
-          </Box>
-          <Box variant="small" color="text-body-secondary">
-            {selisih >= 0 ? "Masih surplus" : "Lebih besar pasak"}
-          </Box>
-        </div>
-      </ColumnLayout>
-    </Container>
+      <div className={s.stat}>
+        <span className={s.redup}>Selisih</span>
+        <span className={`${s.statNilai} ${selisih < 0 ? s.draft : s.masuk}`}>
+          {selisih < 0 ? "−" : ""}
+          {fmtIDRRingkas(Math.abs(selisih))}
+        </span>
+        <span className={s.redup}>{selisih >= 0 ? "Masih surplus" : "Lebih besar pasak"}</span>
+      </div>
+    </section>
   );
 }

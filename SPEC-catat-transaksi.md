@@ -1,33 +1,30 @@
-# Spec: UI Cloudscape + catat transaksi lewat teks dan isian manual
+# Spec: UI Primer + alur "+" untuk mencatat transaksi
 
-Status: **selesai, menunggu uji di perangkat asli** (21 Okt 2026)
+Status: **selesai, menunggu uji di perangkat asli** (21 Okt 2026). Branch: `feat/ui-primer`, dibuat dari `feat/catat-teks-manual` (varian Cloudscape).
 
 ## Objective
 
-1. **Rombak seluruh UI ke [Cloudscape](https://cloudscape.design/).** Kalau ada pilihan desain, condongkan ke pola dan komponen Cloudscape. Recharts diganti chart Cloudscape, Tailwind dan komponen buatan sendiri dilepas.
-2. **Tambah dua cara mencatat dari web**, untuk transaksi yang tidak punya struk:
-   - **Ketik teks bebas**, misalnya `kopi 25rb gopay`. Diproses dengan `processReceiptText` (Groq), pipeline yang sama dengan bot Telegram.
-   - **Isi manual** lewat form. Tanpa AI, langsung tersimpan `confirmed`.
-
-**User:** pemilik akun yang mencatat transaksi harian, kebanyakan dari HP.
+1. **Rombak seluruh UI ke [Primer](https://primer.style/)** (design system GitHub). Kalau ada pilihan desain, condongkan ke pola dan komponen Primer.
+2. **Rancang ulang alur mencatat.** Semua cara mencatat dikumpulkan di satu tombol **+**, mengikuti pola tombol "+" di header GitHub.
+3. Backend dari varian Cloudscape dipakai apa adanya: `/api/catat-teks`, `/api/catat-manual`, `validasiTransaksi`, sumber `"text"`, dan anti-dobel rekening koran.
 
 ## Keputusan
 
 | Topik | Keputusan | Alasan |
 |---|---|---|
-| Shell | `TopNavigation` + `AppLayout` + `SideNavigation` | Pola app Cloudscape. Di HP, navigasi otomatis jadi menu hamburger. Keluar akun ada di menu user. |
-| Tema | Dark mode (`awsui-dark-mode` di `<body>`, dipasang dari server), visual refresh, warna bawaan Cloudscape | Aplikasi sebelumnya gelap. Class dipasang dari server supaya tidak berkedip terang. |
-| Bahasa | `I18nProvider` dengan pesan bawaan `id` | Label bawaan komponen (DatePicker, FileUpload, Table) otomatis berbahasa Indonesia. |
-| Catat transaksi | Satu `Container` dengan `Tabs`: **Foto struk** (default) / **Ketik** / **Isi manual** | Tab foto tetap terbuka tanpa tap tambahan, karena itu aksi harian. Dua opsi baru cukup satu tap. |
-| Pilih gambar / PDF | `FileUpload` | Komponen bawaan Cloudscape. |
-| Daftar transaksi | `Table` | Tabel Cloudscape, kolom nominal rata kanan. |
-| Chart | `PieChart` donut, total rerata di tengah | Yang ditanyakan "uangku habis ke mana", yaitu porsi per kategori. Versi batang sempat dicoba, tapi label sumbunya terpotong jadi "..." di HP. Data diambil di server. |
-| Render | Konten aplikasi baru dirender setelah terpasang di browser (spinner sebelumnya). Login dan reset password tetap SSR. | `AppLayout`, `Table`, dan chart membaca lebar layar di render pertama. Kalau di-SSR, hydration gagal di HP dan menu samping menutupi layar sampai JS siap. |
-| Konfirmasi hapus | `Modal` | Menggantikan `ConfirmDialog` buatan sendiri. |
-| Kamera | `Modal` berisi `<video>` | Logika `getUserMedia` dipertahankan. |
-| Sumber transaksi | Teks dan manual disimpan `source = "text"` ("Diketik manual"). Teks dari bot Telegram ikut dibenahi. | Sebelumnya teks Telegram tercatat sebagai "Foto struk". |
-| Anti-dobel | `"text"` ikut dicocokkan saat impor rekening koran. Penyimpanan lewat `insertFromImage`. | Transaksi non-tunai yang diketik tidak tercatat dua kali. |
-| Skema DB | Tidak berubah | `source` bertipe `text` tanpa constraint. |
+| Shell | `Header` gelap ala GitHub: logo, tombol **+**, dan menu akun. Di bawahnya `UnderlineNav`: Beranda / Riwayat (counter draft) / Rekening. | Pola halaman repo GitHub. Navigasi selalu terlihat, satu tap, juga di HP. |
+| Tema | `data-color-mode="dark"`, tema `dark` dari `@primer/primitives` | Aplikasi sebelumnya gelap. Atribut dipasang di server, jadi tidak berkedip. |
+| Mencatat | Tombol **+** (di header dan di judul Beranda) membuka `ActionMenu` dengan grup: **Dari struk** (Foto, Upload gambar), **Catat sendiri** (Ketik cepat, Pengeluaran, Pemasukan), **Impor** (Rekening koran PDF). | Satu pintu untuk semua cara mencatat. Pemasukan jadi pilihan yang terlihat jelas, tidak tersembunyi di dropdown jenis. Beranda jadi lebih ringkas. |
+| Form | `Dialog` yang muncul sebagai bottom sheet di HP (`position={{ narrow: "bottom" }}`) | Jempol tidak perlu menjangkau tengah layar. |
+| Antrean struk | Disimpan di provider. Dialog boleh ditutup lalu dibuka lagi. | Proses OCR bisa puluhan detik. Menutup dialog tidak membuang antrean. |
+| Kabar sukses | `Banner` sukses di atas konten, dengan tautan "Lihat" | Primer tidak punya toast. |
+| Chart | `ProgressBar` multi-segmen + legenda (seperti bar bahasa di halaman repo GitHub) | Primer tidak punya chart. Ini pola visual GitHub sendiri, dan terbaca di layar sempit. |
+| Daftar transaksi | Daftar baris dalam kotak berbingkai (seperti daftar issue GitHub), dengan `Label` jenis | Tabel memaksa scroll horizontal di HP. |
+| Kosong | `Blankslate` | Pola Primer. |
+| Hapus | `useConfirm` | Konfirmasi bawaan Primer. |
+| Tanggal | `<TextInput type="date">` | Primer tidak punya date picker. Input tanggal bawaan HP lebih nyaman. |
+| Styling | Satu CSS Module memakai token `@primer/primitives` | Primer v38 tidak lagi memakai `sx`. |
+| Render | SSR penuh | Komponen Primer tidak bergantung lebar layar untuk render pertama. Dicek lewat log hydration. |
 
 ## Commands
 
@@ -36,41 +33,14 @@ Dev:          npm run dev
 Typecheck:    npx tsc --noEmit
 Build:        npm run build
 Uji validasi: npm run uji:validasi
-Uji bundle:   npm run uji:bundle
+Uji bundle:   npm run build:standalone && npm run uji:bundle
 ```
-
-## Project Structure
-
-```
-src/components/ui.tsx                 → re-export komponen Cloudscape ("use client") + NavLink/NavButton
-src/components/AppShell.tsx           → TopNavigation + AppLayout + SideNavigation
-src/components/CatatTransaksi.tsx     → Tabs: foto / ketik / manual
-src/components/TransactionFields.tsx  → field form bersama (tambah manual & edit)
-src/lib/transaksi-input.ts            → validasi input transaksi (dipakai server & browser)
-src/app/api/catat-teks/route.ts       → POST { text }
-src/app/api/catat-manual/route.ts     → POST field transaksi
-scripts/uji-validasi.mts              → uji assert untuk validasi
-```
-
-## Testing Strategy
-
-- `npm run uji:validasi`: assert untuk `validasiTransaksi` (kasus sah dan tidak sah).
-- `curl` ke kedua route: tanpa login harus 401, input tidak sah harus 400.
-- `npx tsc --noEmit`, `npm run build`, dan `npm run uji:bundle` lolos.
-- Cek manual di browser, termasuk lebar HP.
-
-## Boundaries
-
-- **Always:** validasi input di server; `user_id` diambil dari session server; branch fitur, lalu PR.
-- **Ask first:** perubahan skema DB, perubahan prompt atau pipeline Groq.
-- **Never:** commit langsung ke `main`; menyimpan secret di kode.
 
 ## Success Criteria
 
-- [ ] Semua halaman (beranda, riwayat, rekening, detail, login, reset password) memakai komponen Cloudscape. Tailwind dan Recharts terhapus dari dependensi.
-- [ ] Tab **Ketik**: `kopi 25rb gopay` menghasilkan transaksi Rp25.000, keluar, sumber "Diketik manual".
-- [ ] Kalau Groq gagal, transaksi tersimpan sebagai draft dan peringatan "perlu dibenerin" muncul.
-- [ ] Tab **Isi manual** menyimpan transaksi `confirmed` yang langsung ikut dihitung di ringkasan bulan ini.
-- [ ] Input tidak sah (nominal ≤ 0, tanggal salah, teks kosong) ditolak dengan pesan jelas, di browser maupun di server.
-- [ ] Foto struk (kamera dan galeri), impor rekening koran, edit, hapus, kelola rekening, login, daftar, dan lupa password tetap berfungsi.
-- [ ] Tidak ada scroll horizontal di level halaman pada lebar 375px.
+- [ ] Semua halaman memakai Primer. Cloudscape tidak lagi ada di dependensi.
+- [ ] Tombol **+** bisa dibuka dari semua halaman yang butuh login. Keenam opsinya berfungsi.
+- [ ] "Pemasukan" membuka form dengan jenis Masuk sudah terpilih.
+- [ ] Menutup dialog struk saat antrean sedang diproses tidak membatalkan prosesnya.
+- [ ] Tidak ada hydration error dan tidak ada scroll horizontal di 375px maupun 1280px.
+- [ ] Login, daftar, lupa password, edit, hapus, kelola rekening, dan filter riwayat tetap berfungsi.

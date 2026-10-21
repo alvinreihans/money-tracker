@@ -2,14 +2,10 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import Alert from "@cloudscape-design/components/alert";
-import Box from "@cloudscape-design/components/box";
-import Button from "@cloudscape-design/components/button";
-import Container from "@cloudscape-design/components/container";
-import Form from "@cloudscape-design/components/form";
-import Header from "@cloudscape-design/components/header";
-import SpaceBetween from "@cloudscape-design/components/space-between";
+import { Banner, Button, Heading, Stack } from "@primer/react";
+import { PencilIcon } from "@primer/octicons-react";
 import TransactionFields, { nilaiAwal } from "@/components/TransactionFields";
+import s from "@/components/ui.module.css";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { dbErrorMessage } from "@/lib/errors";
 import { validasiTransaksi } from "@/lib/transaksi-input";
@@ -64,51 +60,46 @@ export default function EditTransactionForm({ tx }: { tx: Transaction }) {
   }
 
   return (
-    <Container
-      header={
-        <Header
-          variant="h2"
-          actions={
-            !buka && (
-              <Button iconName="edit" onClick={() => setBuka(true)}>
-                Edit
-              </Button>
-            )
-          }
-        >
+    <section className={s.kotak}>
+      <div className={s.kotakKepala}>
+        <Heading as="h2" variant="small">
           {draft ? "Betulkan transaksi" : "Edit transaksi"}
-        </Header>
-      }
-    >
-      {buka ? (
-        <form onSubmit={simpan}>
-          <Form
-            actions={
-              <SpaceBetween direction="horizontal" size="xs">
-                <Button variant="link" formAction="none" disabled={loading} onClick={batal}>
-                  Batal
-                </Button>
-                <Button variant="primary" formAction="submit" loading={loading}>
-                  Simpan
-                </Button>
-              </SpaceBetween>
-            }
-            errorText={error}
-          >
-            <SpaceBetween size="l">
+        </Heading>
+        {!buka && (
+          <Button size="small" leadingVisual={PencilIcon} onClick={() => setBuka(true)}>
+            Edit
+          </Button>
+        )}
+      </div>
+
+      <div className={s.kotakIsi}>
+        {buka ? (
+          <form onSubmit={simpan}>
+            <Stack gap="normal">
               <TransactionFields nilai={nilai} onChange={(p) => setNilai((v) => ({ ...v, ...p }))} />
               {draft && (
-                <Alert type="info">
-                  Begitu disimpan, tanda &ldquo;Perlu dibenerin&rdquo; hilang dan transaksinya ikut
-                  dihitung di laporan.
-                </Alert>
+                <Banner
+                  variant="info"
+                  title="Info"
+                  hideTitle
+                  description="Begitu disimpan, tanda “Perlu dibenerin” hilang dan transaksinya ikut dihitung di laporan."
+                />
               )}
-            </SpaceBetween>
-          </Form>
-        </form>
-      ) : (
-        <Box color="text-body-secondary">Ada yang kebaca salah? Betulkan lewat tombol Edit.</Box>
-      )}
-    </Container>
+              {error && <Banner variant="critical" title="Gagal" hideTitle description={error} />}
+              <Stack direction="horizontal" gap="condensed" justify="end">
+                <Button type="button" onClick={batal} disabled={loading}>
+                  Batal
+                </Button>
+                <Button type="submit" variant="primary" loading={loading}>
+                  Simpan
+                </Button>
+              </Stack>
+            </Stack>
+          </form>
+        ) : (
+          <span className={s.redup}>Ada yang kebaca salah? Betulkan lewat tombol Edit.</span>
+        )}
+      </div>
+    </section>
   );
 }

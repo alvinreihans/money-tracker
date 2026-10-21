@@ -1,0 +1,9 @@
+/* Token warna, ukuran, dan tipografi Primer. Hanya tema gelap yang dimuat —
+   aplikasi ini memang gelap saja. */
+@import "@primer/primitives/dist/css/primitives.css";
+@import "@primer/primitives/dist/css/functional/themes/dark.css";
+
+body {
+  margin: 0;
+  background: var(--bgColor-default);
+}

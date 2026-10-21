@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import StatusIndicator from "@cloudscape-design/components/status-indicator";
+import { Spinner, Stack, Text } from "@primer/react";
 
 /**
  * Spinner + pesan yang berganti tiap 25 detik dan mengulang dari awal.
@@ -42,5 +42,10 @@ export default function ProcessingMessage({ tahap = TAHAP_STRUK }: { tahap?: str
   // Modulo yang membuatnya berputar kembali ke pesan pertama.
   const pesan = tahap[Math.floor(detik / GANTI_TIAP_DETIK) % tahap.length];
 
-  return <StatusIndicator type="loading">{pesan}</StatusIndicator>;
+  return (
+    <Stack direction="horizontal" gap="condensed" align="center">
+      <Spinner size="small" />
+      <Text size="small">{pesan}</Text>
+    </Stack>
+  );
 }

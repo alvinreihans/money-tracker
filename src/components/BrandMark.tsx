@@ -1,22 +1,20 @@
 import Image from "next/image";
-import { Box } from "@/components/ui";
+import { Heading } from "@primer/react";
+import s from "@/components/ui.module.css";
 
 /**
- * Tanda pengenal aplikasi.
- *
- * Dipakai di halaman-halaman yang berdiri sendiri (masuk, password baru) yang
- * kalau tidak, cuma tampil sebagai kotak form tanpa identitas — orang tidak
- * tahu sedang masuk ke aplikasi apa.
+ * Logo dan judul halaman yang berdiri sendiri (masuk, password baru), seperti
+ * halaman masuk GitHub. Tanpa ini, halaman cuma tampil sebagai kotak form
+ * tanpa identitas — orang tidak tahu sedang masuk ke aplikasi apa.
  */
-export default function BrandMark({ subjudul }: { subjudul?: string }) {
+export default function BrandMark({ judul }: { judul: string }) {
   return (
-    <Box textAlign="center" padding={{ top: "xxl" }}>
+    <div className={s.tengah} style={{ marginBottom: "var(--base-size-16)" }}>
       {/* Logo di layar pertama; menundanya cuma bikin halaman berkedip. */}
-      <Image src="/logo.png" alt="" width={72} height={72} priority />
-      <Box variant="h1" padding={{ top: "xs" }}>
-        Money Tracker
-      </Box>
-      {subjudul && <Box color="text-body-secondary">{subjudul}</Box>}
-    </Box>
+      <Image src="/logo.png" alt="" width={48} height={48} priority />
+      <Heading as="h1" variant="medium" style={{ marginTop: "var(--base-size-16)" }}>
+        {judul}
+      </Heading>
+    </div>
   );
 }
