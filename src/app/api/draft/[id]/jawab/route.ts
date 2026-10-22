@@ -59,8 +59,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     patch.kantong_tujuan_id = k.id;
   } else if (jenis === "cerita") {
     if (!nilai) return tolak("Ceritain sedikit transaksinya ya.");
-    // Digabung dengan teks/OCR sebelumnya, supaya AI membaca keseluruhannya.
-    const gabung = [tx.raw_ocr_text, nilai].filter(Boolean).join("\n");
+    // Digabung dengan teks/OCR sebelumnya, tapi ditandai jelas sebagai
+    // penjelasan user: kalau ditempel begitu saja, model menganggapnya bagian
+    // struk dan lebih percaya "TOTAL ??" dari OCR yang rusak.
+    const gabung = tx.raw_ocr_text
+      ? `${tx.raw_ocr_text}\n\n---\nPenjelasan dari pengguna (utamakan ini untuk semua isian, termasuk nominal): ${nilai}`
+      : nilai;
     const hasil = await processReceiptText(gabung, await ambilKonteksAI(supabase));
     const e = hasil.extracted;
     patch.raw_ocr_text = gabung;
