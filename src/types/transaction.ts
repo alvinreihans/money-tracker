@@ -54,6 +54,10 @@ export interface ExtractedReceipt {
   fee: number | null;
   /** Hanya untuk expense: cashback yang benar-benar didapat. */
   cashback: number | null;
+  /** Pinjaman dengan orang/kartu kredit (Lend & Borrow): arah & pihaknya. */
+  pinjaman: { arah: "beri" | "terima_bayar" | "pinjam" | "bayar"; pihak: string } | null;
+  /** Hanya expense: rencana cicilan yang dibayar (nama barang/penyedia yang disebut). */
+  cicilan: string | null;
   /** Membedakan screenshot bukti bayar dari struk kertas kasir. */
   document_type: "receipt" | "payment_proof";
 }

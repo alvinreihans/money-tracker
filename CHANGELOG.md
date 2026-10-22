@@ -26,13 +26,22 @@ Belum dikerjakan; dicatat supaya tidak lupa.
     seperti merchant & keterangan — melindungi dari bocornya dump database;
   - enkripsi di perangkat (end-to-end) — paling aman, tapi ringkasan, budget,
     saldo, dan AI tidak bisa lagi dihitung di server.
-- **Lend & Borrow, cicilan paylater & kartu kredit**: catat uang yang
-  dipinjamkan / dipinjam dan cicilan berjalan (spec: SPEC-lend-borrow.md).
 - **Push notifikasi**.
 
 ## [Unreleased]
 
 ### Ditambahkan
+- **Lend & Borrow** (dari Pengaturan atau kartu di Beranda): catat uang yang
+  dipinjamkan ke dan dipinjam dari orang lain, bayar sebagian atau lunas,
+  dengan jatuh tempo opsional. Tidak dihitung sebagai pemasukan atau
+  pengeluaran, dan tidak mengubah Total aset.
+- **Kartu kredit:** belanja dicatat seperti biasa dengan kartunya; tagihan
+  terlihat di Lend & Borrow dan dibayar dari sana.
+- **Cicilan paylater & kartu kredit:** rencana cicilan dengan jadwal per
+  bulan; tiap cicilan yang dibayar masuk sebagai pengeluaran bulan itu.
+- AI mengenali pinjaman ("minjemin budi 200rb dari bca", "budi balikin 100rb
+  ke bca"), tagihan kartu kredit, dan pembayaran cicilan
+  ("bayar cicilan spaylater 150rb").
 - **Bagikan ke Money Tracker** dari aplikasi lain di Android (setelah
   aplikasi dipasang): screenshot bukti bayar langsung dibaca seperti foto
   struk, dan teks (mis. notifikasi bank) mengisi kolom Catat untuk dicek dulu.

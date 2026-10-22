@@ -10,6 +10,7 @@ import {
   jadwalCicilan,
   jatuhTempoKe,
   kantongUang,
+  pilihCicilan,
   ringkasanPinjaman,
   SALDO_PER_PINJAMAN,
   ringkasBeranda,
@@ -98,5 +99,18 @@ assert.deepEqual(rb.cicilanBulanIni, { jumlah: 2, total: 700_000 }); // HP ke-3 
 assert.deepEqual(rb.terdekat, { nama: "HP", tanggal: "2026-10-10", telat: true });
 assert.equal(rb.ada, true);
 assert.equal(ringkasBeranda([{ kind: "bank", name: "BCA", saldo: 1 }], [], {}, "2026-10-22").ada, false);
+
+// --- Mencocokkan sebutan cicilan ke rencananya ---
+const rencana = [
+  { id: "hp", nama: "HP Samsung", penyedia: "Shopee PayLater", tenor: 6, jatuh_tempo_awal: "2026-08-10", nominal: 500_000 },
+  { id: "tv", nama: "TV", penyedia: "Shopee PayLater", tenor: 3, jatuh_tempo_awal: "2026-09-05", nominal: 200_000 },
+  { id: "kl", nama: "Kulkas", penyedia: "Kredivo", tenor: 2, jatuh_tempo_awal: "2026-06-01", nominal: 100_000 },
+];
+const sudah = { hp: [1, 2], tv: [1, 2, 3], kl: [1] };
+assert.deepEqual(pilihCicilan("Shopee PayLater", rencana, sudah, "2026-10-22"), { rencana: rencana[0], ke: 3 }); // TV sudah lunas
+assert.deepEqual(pilihCicilan("hp samsung", rencana, sudah, "2026-10-22"), { rencana: rencana[0], ke: 3 });
+assert.deepEqual(pilihCicilan("KREDIVO", rencana, sudah, "2026-10-22"), { rencana: rencana[2], ke: 2 });
+assert.equal(pilihCicilan("Akulaku", rencana, sudah, "2026-10-22"), null);
+assert.equal(pilihCicilan("", rencana, sudah, "2026-10-22"), null);
 
 console.log("✓ pinjaman: jatuh tempo, jadwal & status cicilan, arah pindah, ringkasan Lend & Borrow, kartu Beranda");

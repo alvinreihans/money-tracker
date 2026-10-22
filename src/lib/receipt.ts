@@ -3,8 +3,9 @@ import {
   extractWithGroq,
   extractWithGeminiVision,
   isValidExtraction,
+  type KonteksAI,
 } from "@/lib/extract";
-import { KATEGORI_BAWAAN, type Kategori } from "@/lib/kategori";
+import { KATEGORI_BAWAAN } from "@/lib/kategori";
 import type { ExtractedReceipt } from "@/types/transaction";
 
 /**
@@ -43,6 +44,9 @@ export interface TransactionRow {
   /** Bukan kolom: jadi transaksi ikutan oleh simpanTransaksi (barisIkutan). */
   biaya_admin: number | null;
   cashback: number | null;
+  /** Bukan kolom: Lend & Borrow dan rencana cicilan, diolah simpanTransaksi. */
+  pinjaman: ExtractedReceipt["pinjaman"];
+  cicilan: string | null;
   transaction_date: string;
   status: ReceiptStatus;
   raw_ocr_text: string | null;
@@ -66,6 +70,8 @@ function emptyDraft(): ExtractedReceipt {
     payment_target: null,
     fee: null,
     cashback: null,
+    pinjaman: null,
+    cicilan: null,
     transaction_date: today(),
     document_type: "receipt",
   };
@@ -81,7 +87,7 @@ function emptyDraft(): ExtractedReceipt {
 export async function processReceiptImage(
   image: Buffer,
   mimeType: string,
-  kategori: Kategori[] = KATEGORI_BAWAAN,
+  konteks: KonteksAI = { kategori: KATEGORI_BAWAAN },
 ): Promise<ProcessedReceipt> {
   const notes: string[] = [];
   let ocr: OcrResult | null = null;
@@ -107,9 +113,9 @@ export async function processReceiptImage(
   // bisa menyelamatkan teks rusak, dia hanya akan menebak dengan percaya diri.
   if (ocr && isOcrUsable(ocr)) {
     try {
-      const { extracted, model } = await extractWithGroq(ocr.text, kategori);
+      const { extracted, model } = await extractWithGroq(ocr.text, konteks);
       best = extracted;
-      if (isValidExtraction(extracted, kategori)) {
+      if (isValidExtraction(extracted, konteks.kategori)) {
         notes.push(`Ekstraksi berhasil via Groq (${model})`);
         return done("confirmed", extracted, ocr, "groq", notes);
       }
@@ -134,10 +140,10 @@ export async function processReceiptImage(
     const extracted = await extractWithGeminiVision(
       image.toString("base64"),
       mimeType,
-      kategori,
+      konteks,
     );
     best = extracted;
-    if (isValidExtraction(extracted, kategori)) {
+    if (isValidExtraction(extracted, konteks.kategori)) {
       notes.push("Ekstraksi berhasil via Gemini Vision");
       return done("confirmed", extracted, ocr, "gemini_vision", notes);
     }
@@ -156,13 +162,13 @@ export async function processReceiptImage(
  */
 export async function processReceiptText(
   text: string,
-  kategori: Kategori[] = KATEGORI_BAWAAN,
+  konteks: KonteksAI = { kategori: KATEGORI_BAWAAN },
 ): Promise<ProcessedReceipt> {
   const notes: string[] = [];
 
   try {
-    const { extracted, model } = await extractWithGroq(text, kategori);
-    if (isValidExtraction(extracted, kategori)) {
+    const { extracted, model } = await extractWithGroq(text, konteks);
+    if (isValidExtraction(extracted, konteks.kategori)) {
       notes.push(`Ekstraksi berhasil via Groq (${model})`);
       return done("confirmed", extracted, null, "groq", notes);
     }
@@ -191,6 +197,8 @@ export function toTransactionRow(
     payment_target: e.payment_target,
     biaya_admin: e.fee,
     cashback: e.cashback,
+    pinjaman: e.pinjaman,
+    cicilan: e.cicilan,
     transaction_date: e.transaction_date,
     status: result.status,
     // Dibuang lagi oleh simpanTransaksi kalau transaksinya akhirnya tidak

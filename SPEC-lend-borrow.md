@@ -1,6 +1,6 @@
 # Spec: Lend & Borrow, cicilan paylater & kartu kredit
 
-Status: **draf, menunggu persetujuan** · 22 Oktober 2026 · Fase 4 dari rencana di CHANGELOG.
+Status: **disetujui & dikerjakan** (22 Oktober 2026) · Fase 4 dari rencana di CHANGELOG.
 
 ## Tujuan
 
@@ -88,7 +88,8 @@ Tabel baru **`cicilan`**: nama barang ("HP Samsung"), penyedia ("Shopee PayLater
 | "bayar tagihan kartu kredit bca 2jt dari bca" | Pindah kantong BCA → Kartu kredit BCA |
 
 - Prompt ditambah dua field: `pinjaman` (`beri` / `terima_bayar` / `pinjam` / `bayar`, dengan `pihak`) dan `cicilan` (penyedia/nama yang disebut). Daftar orang & rencana cicilan milik user ikut dikirim, seperti daftar kategori.
-- Tidak yakin / tidak cocok → **Perlu dibenerin** (aturan yang sama dengan kantong).
+- Kantong uang tidak cocok → **Perlu dibenerin** (aturan yang sama dengan kantong).
+- Rencana cicilan yang disebut tidak ketemu → tetap dicatat sebagai pengeluaran biasa (uangnya memang keluar) dengan catatan "rencana cicilan … belum dicatat", bukan draft — supaya pesan draft "nggak kebaca" tidak menyesatkan.
 
 ## Data (migrasi)
 

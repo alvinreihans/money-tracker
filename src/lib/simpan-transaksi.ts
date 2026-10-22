@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { isoLokal } from "@/lib/format";
 import { cocokkanKantong, type Kantong } from "@/lib/kantong";
+import { arahPindah, EMOJI_ORANG, kantongUang, pilihCicilan, SALDO_PER_PINJAMAN, type Cicilan } from "@/lib/pinjaman";
 import { barisIkutan } from "@/lib/transaksi-input";
 
 /** Toleransi selisih tanggal saat mencocokkan dengan baris rekening koran lama. */
@@ -29,24 +31,75 @@ export async function simpanTransaksi(
   userId: string,
   input: Record<string, unknown>,
 ): Promise<{ supersededStatement: boolean; transaction: unknown }> {
-  const { payment_target, biaya_admin, cashback, ...row } = input;
+  const { payment_target, biaya_admin, cashback, pinjaman, cicilan: sebutanCicilan, ...row } = input;
   const dariAi = "payment_target" in input;
 
   // Tautkan ke kantong. Form mengirim id-nya langsung (dicek memang milik
   // user); teks dan struk membawa nama ("gopay", "BRImo") yang dicocokkan.
   const { data } = await supabase.from("user_accounts").select("id, name, kind, aliases").eq("user_id", userId);
   const daftar = (data ?? []) as Pick<Kantong, "id" | "name" | "kind" | "aliases">[];
-  const kantong =
-    daftar.find((k) => k.id === row.kantong_id) ??
-    // Orang (Lend & Borrow) hanya lewat pindah kantong; "kopi 25rb budi" bukan pinjaman.
-    cocokkanKantong(row.payment_method as string | null, row.type === "transfer" ? daftar : daftar.filter((k) => k.kind !== "orang"));
-  const tujuan =
-    row.type === "transfer"
-      ? (daftar.find((k) => k.id === row.kantong_tujuan_id) ?? cocokkanKantong(payment_target as string | null, daftar))
-      : null;
+
+  let kantong: (typeof daftar)[number] | null;
+  let tujuan: (typeof daftar)[number] | null;
+  const p = dariAi ? (pinjaman as { arah: "beri" | "terima_bayar" | "pinjam" | "bayar"; pihak: string } | null) : null;
+  if (p && daftar.length > 0) {
+    // Lend & Borrow dari AI ("minjemin budi 200rb dari bca"): pindah kantong
+    // antara kantong uang dan kantong orang/kartu. Orang yang belum ada
+    // dibuatkan kantongnya — pinjaman ke orang baru itu wajar.
+    let pihak = cocokkanKantong(p.pihak, daftar.filter((k) => k.kind === "orang" || k.kind === "kredit"));
+    if (!pihak) {
+      const { data: baru } = await supabase
+        .from("user_accounts")
+        .insert({ user_id: userId, name: p.pihak, kind: "orang", emoji: EMOJI_ORANG, saldo_awal: 0, saldo_per: SALDO_PER_PINJAMAN })
+        .select("id, name, kind, aliases")
+        .single();
+      pihak = (baru as (typeof daftar)[number] | null) ?? null;
+    }
+    const uang = cocokkanKantong(row.payment_method as string | null, daftar.filter(kantongUang));
+    const arah = uang && pihak ? arahPindah(p.arah, uang.id, pihak.id) : null;
+    const semua = [...daftar, ...(pihak ? [pihak] : [])];
+    kantong = arah ? (semua.find((k) => k.id === arah.dari) ?? null) : null;
+    tujuan = arah ? (semua.find((k) => k.id === arah.ke) ?? null) : null;
+    row.type = "transfer";
+    row.category = "other";
+    row.merchant = pihak?.name ?? p.pihak;
+  } else {
+    kantong =
+      daftar.find((k) => k.id === row.kantong_id) ??
+      // Orang (Lend & Borrow) hanya lewat pindah kantong; "kopi 25rb budi" bukan pinjaman.
+      cocokkanKantong(row.payment_method as string | null, row.type === "transfer" ? daftar : daftar.filter((k) => k.kind !== "orang"));
+    tujuan =
+      row.type === "transfer"
+        ? (daftar.find((k) => k.id === row.kantong_tujuan_id) ?? cocokkanKantong(payment_target as string | null, daftar))
+        : null;
+  }
   row.kantong_id = kantong?.id ?? null;
   row.kantong_tujuan_id = tujuan && tujuan.id !== kantong?.id ? tujuan.id : null;
   if (kantong) row.payment_method = kantong.name;
+
+  // Bayar cicilan dari AI ("bayar cicilan spaylater 150rb"): tempelkan ke
+  // rencananya sebagai cicilan berikutnya. Rencana yang tidak ketemu tetap
+  // dicatat sebagai pengeluaran biasa (uangnya memang keluar), dengan catatan.
+  if (dariAi && typeof sebutanCicilan === "string" && row.type === "expense") {
+    const [{ data: rencana }, { data: bayar }] = await Promise.all([
+      supabase.from("cicilan").select("id, nama, penyedia, category, tenor, jatuh_tempo_awal, nominal"),
+      supabase.from("transactions").select("cicilan_id, cicilan_ke").not("cicilan_id", "is", null),
+    ]);
+    const dibayar: Record<string, number[]> = {};
+    for (const b of (bayar ?? []) as { cicilan_id: string; cicilan_ke: number | null }[]) {
+      if (b.cicilan_ke) (dibayar[b.cicilan_id] ??= []).push(b.cicilan_ke);
+    }
+    const pilih = pilihCicilan(sebutanCicilan, (rencana ?? []) as Cicilan[], dibayar, isoLokal(new Date()));
+    if (pilih) {
+      row.cicilan_id = pilih.rencana.id;
+      row.cicilan_ke = pilih.ke;
+      row.category = pilih.rencana.category;
+      row.merchant = pilih.rencana.nama;
+      row.description = `Cicilan ${pilih.ke}/${pilih.rencana.tenor}${pilih.rencana.penyedia ? ` · ${pilih.rencana.penyedia}` : ""}`;
+    } else {
+      row.description = [row.description, `Rencana cicilan “${sebutanCicilan}” belum dicatat`].filter(Boolean).join(" · ");
+    }
+  }
 
   // Begitu user punya kantong, tiap transaksi harus jelas kantongnya — kalau
   // tidak, saldonya diam-diam meleset (mis. kantong yang disebut sudah

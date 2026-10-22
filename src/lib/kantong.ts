@@ -74,7 +74,7 @@ const ALIAS_BAWAAN: Record<string, string[]> = {
 };
 
 /** "Shopee Pay" → "shopeepay": huruf kecil, tanpa spasi & tanda baca. */
-const normal = (teks: string) => teks.toLowerCase().replace(/[^a-z0-9]/g, "");
+export const normal = (teks: string) => teks.toLowerCase().replace(/[^a-z0-9]/g, "");
 
 /**
  * Kantong yang dimaksud teks metode bayar ("gopay", "BRImo", "Tunai"), atau

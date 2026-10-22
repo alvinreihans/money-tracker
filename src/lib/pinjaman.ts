@@ -1,3 +1,5 @@
+import { normal } from "@/lib/kantong";
+
 /**
  * Lend & Borrow dan cicilan (SPEC-lend-borrow.md). Fungsi murni — diuji di
  * scripts/uji-pinjaman.mts.
@@ -187,4 +189,27 @@ export function ringkasBeranda(
     terdekat: terdekat ? { ...terdekat, telat: terdekat.tanggal < hariIni } : null,
     ada: r.lend.length + r.borrow.length + tenggat.length > 0,
   };
+}
+
+/**
+ * Rencana cicilan yang dimaksud teks ("bayar cicilan spaylater" → AI menyebut
+ * "Shopee PayLater"): cocok persis dengan nama barang atau penyedianya (tanpa
+ * beda huruf/spasi). Dari yang cocok & belum lunas, yang jatuh tempo
+ * berikutnya paling awal; beserta nomor cicilan yang dibayar. Null kalau tidak
+ * ada yang cocok.
+ */
+export function pilihCicilan<R extends Pick<Cicilan, "id" | "nama" | "penyedia" | "tenor" | "jatuh_tempo_awal" | "nominal">>(
+  sebutan: string,
+  rencana: R[],
+  dibayar: Record<string, number[]>,
+  hariIni: string,
+): { rencana: R; ke: number } | null {
+  const cari = normal(sebutan);
+  if (!cari) return null;
+  const kandidat = rencana
+    .filter((r) => [r.nama, r.penyedia].some((n) => n && normal(n) === cari))
+    .map((r) => ({ r, berikutnya: statusCicilan(r, dibayar[r.id] ?? [], hariIni).berikutnya }))
+    .filter((x) => x.berikutnya)
+    .sort((a, b) => a.berikutnya!.jatuhTempo.localeCompare(b.berikutnya!.jatuhTempo));
+  return kandidat[0] ? { rencana: kandidat[0].r, ke: kandidat[0].berikutnya!.ke } : null;
 }
