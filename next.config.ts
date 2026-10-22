@@ -78,6 +78,43 @@ const BERKAS_OCR = [
   "./node_modules/@img/sharp-libvips-linux-x64/**",
 ];
 
+const dev = process.env.NODE_ENV === "development";
+const supabase = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+
+/**
+ * - CSP: skrip, gaya, gambar, dan worker hanya dari aplikasi ini; koneksi
+ *   data hanya ke aplikasi ini & Supabase. 'unsafe-inline' untuk skrip
+ *   dibutuhkan Next (data RSC disisipkan inline); skrip dari situs lain tetap
+ *   ditolak. Mode dev butuh eval & websocket untuk hot reload.
+ * - frame-ancestors / X-Frame-Options: halaman tidak bisa dibingkai situs lain
+ *   (clickjacking).
+ * - Permissions-Policy: kamera hanya untuk aplikasi ini (foto struk); mikrofon
+ *   & lokasi tidak dipakai.
+ */
+const HEADER_KEAMANAN = [
+  {
+    key: "Content-Security-Policy",
+    value: [
+      "default-src 'self'",
+      `script-src 'self' 'unsafe-inline'${dev ? " 'unsafe-eval'" : ""}`,
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data: blob:",
+      "font-src 'self'",
+      `connect-src 'self' ${supabase}${dev ? " ws: wss:" : ""}`,
+      "worker-src 'self' blob:",
+      "media-src 'self' blob:",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+      "frame-ancestors 'none'",
+    ].join("; "),
+  },
+  { key: "X-Frame-Options", value: "DENY" },
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  { key: "Permissions-Policy", value: "camera=(self), microphone=(), geolocation=()" },
+];
+
 const standalone =
   process.env.npm_lifecycle_event === "build:standalone" ||
   process.env.BUILD_STANDALONE === "1";
@@ -119,6 +156,11 @@ const nextConfig: NextConfig = {
   // mengosongkan simpanan ini — data yang baru diubah tidak pernah basi.
   experimental: {
     staleTimes: { dynamic: 30 },
+  },
+
+  // Header keamanan untuk semua halaman (KAJIAN-KEAMANAN-DATA, 22 Okt 2026).
+  async headers() {
+    return [{ source: "/(.*)", headers: HEADER_KEAMANAN }];
   },
 
   // tesseract.js & sharp memuat binary/WASM lewat path runtime. Kalau ikut
