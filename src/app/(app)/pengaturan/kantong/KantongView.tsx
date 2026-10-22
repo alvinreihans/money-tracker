@@ -3,10 +3,10 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Banknote, CalendarDays, Plus, Smile, Wallet } from "lucide-react";
-import { AppBar, Field, Konfirmasi, Kosong, Lembar, Pesan, Spinner } from "@/components/oneui";
+import { AppBar, Field, InputNominal, Konfirmasi, Kosong, Lembar, Pesan, Spinner } from "@/components/oneui";
 import s from "@/components/ui.module.css";
 import { dbErrorMessage } from "@/lib/errors";
-import { fmtIDR, isoLokal } from "@/lib/format";
+import { fmtIDR, isianNominal, isoLokal } from "@/lib/format";
 import { ambilEmoji, emojiKantong, SARAN_EMOJI_KANTONG, type Kantong } from "@/lib/kantong";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { validasiKantong } from "@/lib/transaksi-input";
@@ -42,7 +42,7 @@ export default function KantongView({ userId, daftar }: { userId: string; daftar
       id: k?.id ?? null,
       bawaan: Boolean(k?.bawaan),
       isian: k
-        ? { name: k.name, emoji: emojiKantong(k), saldo_awal: String(Number(k.saldo_awal)), saldo_per: k.saldo_per }
+        ? { name: k.name, emoji: emojiKantong(k), saldo_awal: isianNominal(k.saldo_awal), saldo_per: k.saldo_per }
         : { name: "", emoji: SARAN_EMOJI_KANTONG[0], saldo_awal: "", saldo_per: isoLokal(new Date()) },
     });
   }
@@ -179,11 +179,10 @@ export default function KantongView({ userId, daftar }: { userId: string; daftar
                 ))}
               </div>
               <Field label="Saldo awal (Rp)" ikon={Banknote}>
-                <input
-                  type="number"
-                  inputMode="numeric"
+                <InputNominal
+                  bolehMinus
                   value={edit.isian.saldo_awal}
-                  onChange={(e) => ubah({ saldo_awal: e.target.value })}
+                  onChange={(saldo_awal) => ubah({ saldo_awal })}
                   placeholder="Saldo awal (Rp)"
                 />
               </Field>

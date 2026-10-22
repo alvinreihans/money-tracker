@@ -129,3 +129,22 @@ export const SOURCE_LABEL: Record<string, string> = {
 };
 
 export const labelSumber = (slug: string) => SOURCE_LABEL[slug] ?? slug;
+
+/**
+ * Isian nominal menyimpan angka mentah ("1500000") tapi menampilkan pemisah
+ * ribuan ("1.500.000") — salah ketik satu nol jadi kelihatan. Rupiah tanpa sen:
+ * selain angka dibuang, nol di depan dibuang, minus hanya di depan bila boleh.
+ */
+export function angkaMentah(teks: string, bolehMinus = false): string {
+  const minus = bolehMinus && teks.trim().startsWith("-");
+  return (minus ? "-" : "") + teks.replace(/\D/g, "").replace(/^0+(?=\d)/, "");
+}
+
+export function angkaRibuan(mentah: string): string {
+  const minus = mentah.startsWith("-");
+  return (minus ? "-" : "") + mentah.replace(/\D/g, "").replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+}
+
+/** Nominal dari database ke isian: rupiah bulat, tanpa ".00". */
+export const isianNominal = (n: number | string | null | undefined) =>
+  n === null || n === undefined || n === "" ? "" : String(Math.round(Number(n)));

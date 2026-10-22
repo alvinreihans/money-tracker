@@ -4,7 +4,7 @@
  * Pemakaian: npm run uji:validasi
  */
 import assert from "node:assert/strict";
-import { alamatDetail, alamatInternal, tujuanKembali } from "../src/lib/format.ts";
+import { alamatDetail, alamatInternal, angkaMentah, angkaRibuan, isianNominal, tujuanKembali } from "../src/lib/format.ts";
 import { barisIkutan, bersihkanCari, rapikanBudget, validasiKantong, validasiTransaksi } from "../src/lib/transaksi-input.ts";
 
 const sah = {
@@ -151,4 +151,18 @@ for (const jahat of ["@situs-lain.com", "//situs-lain.com", "/\\situs-lain.com",
   assert.equal(alamatInternal(jahat, "/"), "/", String(jahat));
 }
 
-console.log(`✓ validasi transaksi: 1 sah + ${tolak.length} tolak; teks cari aman; budget; kantong; alamat kembali aman`);
+// Isian nominal: tampil dengan titik ribuan, disimpan mentah.
+assert.equal(angkaRibuan("1500000"), "1.500.000");
+assert.equal(angkaRibuan("999"), "999");
+assert.equal(angkaRibuan(""), "");
+assert.equal(angkaRibuan("-250000"), "-250.000");
+assert.equal(angkaMentah("1.500.000"), "1500000");
+assert.equal(angkaMentah("Rp 25.000,-"), "25000");
+assert.equal(angkaMentah("007"), "7");
+assert.equal(angkaMentah("-250.000"), "250000"); // minus hanya kalau boleh
+assert.equal(angkaMentah("-250.000", true), "-250000");
+assert.equal(angkaMentah("-", true), "-");
+assert.equal(isianNominal("28000.00"), "28000");
+assert.equal(isianNominal(null), "");
+
+console.log(`✓ validasi transaksi: 1 sah + ${tolak.length} tolak; teks cari aman; budget; kantong; alamat kembali aman; format nominal`);

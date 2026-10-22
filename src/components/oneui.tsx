@@ -4,6 +4,7 @@ import { Fragment, useEffect, useId, useLayoutEffect, useRef, useState } from "r
 import NextLink from "next/link";
 import { Check, ChevronDown, ChevronLeft, ChevronUp, CircleCheck, CircleX, EllipsisVertical, Info, TriangleAlert } from "lucide-react";
 import s from "@/components/ui.module.css";
+import { angkaMentah, angkaRibuan } from "@/lib/format";
 
 /**
  * Komponen dasar One UI. Samsung tidak merilis pustaka web untuk One UI,
@@ -428,6 +429,48 @@ export function Pilih<T extends string>({
         </Lembar>
       )}
     </>
+  );
+}
+
+/**
+ * Isian nominal rupiah dengan pemisah ribuan saat diketik ("1.500.000").
+ * `value`/`onChange` memakai angka mentah ("1500000"), jadi validasi dan
+ * penyimpanan tidak berubah. Posisi kursor dijaga saat titik ditambah/dibuang.
+ */
+export function InputNominal({
+  value,
+  onChange,
+  bolehMinus = false,
+  ...lain
+}: Omit<React.InputHTMLAttributes<HTMLInputElement>, "value" | "onChange" | "type"> & {
+  value: string;
+  onChange: (mentah: string) => void;
+  bolehMinus?: boolean;
+}) {
+  const ref = useRef<HTMLInputElement>(null);
+  return (
+    <input
+      {...lain}
+      ref={ref}
+      type="text"
+      // Keyboard angka di HP; minus (saldo awal paylater) butuh keyboard biasa.
+      inputMode={bolehMinus ? "text" : "numeric"}
+      autoComplete="off"
+      value={angkaRibuan(value)}
+      onChange={(e) => {
+        const el = e.target;
+        const digitSebelumKursor = el.value.slice(0, el.selectionStart ?? el.value.length).replace(/\D/g, "").length;
+        const mentah = angkaMentah(el.value, bolehMinus);
+        onChange(mentah);
+        // Setelah diformat ulang, taruh kursor sesudah digit yang sama.
+        requestAnimationFrame(() => {
+          const teks = angkaRibuan(mentah);
+          let pos = teks.startsWith("-") ? 1 : 0;
+          for (let n = 0; pos < teks.length && n < digitSebelumKursor; pos++) if (/\d/.test(teks[pos])) n++;
+          ref.current?.setSelectionRange(pos, pos);
+        });
+      }}
+    />
   );
 }
 
