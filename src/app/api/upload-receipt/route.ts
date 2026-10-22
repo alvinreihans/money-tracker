@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { ambilUser, createSupabaseServerClient } from "@/lib/supabase/server";
 import { processReceiptImage, toTransactionRow } from "@/lib/receipt";
 import { ambilKategori } from "@/lib/kategori-server";
 import { simpanTransaksi } from "@/lib/simpan-transaksi";
@@ -20,12 +20,9 @@ export async function POST(req: NextRequest) {
   try {
     // 1. Autentikasi user (RLS butuh session yang valid).
     const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    const user = await ambilUser();
 
-    if (authError || !user) {
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 

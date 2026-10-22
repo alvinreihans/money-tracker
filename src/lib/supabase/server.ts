@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 
@@ -36,3 +37,20 @@ export async function createSupabaseServerClient() {
     },
   });
 }
+
+/**
+ * User yang sedang masuk, dari JWT di cookie yang diverifikasi di server ini
+ * (getClaims: tanda tangan ES256 dicek dengan kunci publik JWKS project) —
+ * tanpa bolak-balik ke Supabase Auth seperti getUser(), yang dulu dipanggil
+ * 2–3 kali per pindah halaman. cache(): layout dan halaman dalam satu request
+ * berbagi satu hasil.
+ *
+ * ponytail: sesi yang dicabut (keluar di perangkat lain) baru tertolak saat
+ * JWT-nya kedaluwarsa (±1 jam). Pakai getUser() untuk aksi yang butuh lebih ketat.
+ */
+export const ambilUser = cache(async (): Promise<{ id: string; email: string | null } | null> => {
+  const supabase = await createSupabaseServerClient();
+  const { data } = await supabase.auth.getClaims();
+  const klaim = data?.claims;
+  return klaim?.sub ? { id: klaim.sub, email: typeof klaim.email === "string" ? klaim.email : null } : null;
+});

@@ -3,9 +3,12 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Inbox, Search, SearchX, X } from "lucide-react";
-import { AppBar, Kosong } from "@/components/oneui";
+import MenuAkun from "@/components/MenuAkun";
+import { AppBar, Kosong, Spinner } from "@/components/oneui";
 import TransactionList from "@/components/TransactionList";
 import s from "@/components/ui.module.css";
+import { PER_MUAT, queryRiwayat } from "@/lib/riwayat";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { Transaction } from "@/types/transaction";
 
 const FILTER = [
@@ -25,8 +28,41 @@ function alamat(filter: string, q: string) {
   return qs ? `/riwayat?${qs}` : "/riwayat";
 }
 
-export default function RiwayatView({ filter, q, daftar }: { filter: string; q: string; daftar: Transaction[] }) {
+export default function RiwayatView({
+  filter,
+  q,
+  total,
+  daftar,
+}: {
+  filter: string;
+  q: string;
+  /** Jumlah transaksi sebenarnya untuk filter & pencarian ini. */
+  total: number;
+  /** 100 pertama dari server. */
+  daftar: Transaction[];
+}) {
   const router = useRouter();
+  // "Muat lagi" mengambil 100 berikutnya langsung dari browser dan
+  // menyambungnya di bawah — tanpa pindah halaman, jadi posisi gulir tetap.
+  const [lanjutan, setLanjutan] = useState<{ asal: Transaction[]; isi: Transaction[] }>({ asal: daftar, isi: [] });
+  const [memuat, setMemuat] = useState(false);
+  const [gagalMuat, setGagalMuat] = useState(false);
+  // Data server baru (filter/cari ganti, atau refresh setelah simpan):
+  // sambungan lama dibuang.
+  const tambahan = lanjutan.asal === daftar ? lanjutan.isi : [];
+  const semua = tambahan.length ? [...daftar, ...tambahan] : daftar;
+
+  async function muatLagi() {
+    setMemuat(true);
+    setGagalMuat(false);
+    const { data, error } = await queryRiwayat(createSupabaseBrowserClient(), filter, q).range(
+      semua.length,
+      semua.length + PER_MUAT - 1,
+    );
+    setMemuat(false);
+    if (error) return setGagalMuat(true);
+    setLanjutan({ asal: daftar, isi: [...tambahan, ...((data ?? []) as Transaction[])] });
+  }
   const [cariBuka, setCariBuka] = useState(Boolean(q));
   const [teks, setTeks] = useState(q);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -53,13 +89,16 @@ export default function RiwayatView({ filter, q, daftar }: { filter: string; q: 
     <>
       <AppBar
         judul="Riwayat"
-        sub={q ? `${daftar.length} hasil untuk “${q}”` : `${daftar.length} transaksi`}
+        sub={q ? `${total} hasil untuk “${q}”` : `${total} transaksi`}
         aksi={
-          !cariBuka && (
-            <button type="button" className={s.ikonTombol} aria-label="Cari transaksi" onClick={() => setCariBuka(true)}>
-              <Search size={22} />
-            </button>
-          )
+          <>
+            {!cariBuka && (
+              <button type="button" className={s.ikonTombol} aria-label="Cari transaksi" onClick={() => setCariBuka(true)}>
+                <Search size={22} />
+              </button>
+            )}
+            <MenuAkun />
+          </>
         }
       />
 
@@ -105,7 +144,29 @@ export default function RiwayatView({ filter, q, daftar }: { filter: string; q: 
         )}
 
         {daftar.length > 0 ? (
-          <TransactionList items={daftar} kembali={alamat(filter, q)} />
+          <TransactionList
+            items={semua}
+            kembali={alamat(filter, q)}
+            kaki={
+              semua.length < total && (
+                <button
+                  type="button"
+                  className={`${s.kartuTx} ${s.kartuKaki} ${s.tekan}`}
+                  style={{ width: "100%", border: 0, cursor: "pointer" }}
+                  disabled={memuat}
+                  onClick={() => void muatLagi()}
+                >
+                  {memuat ? (
+                    <Spinner label="Memuat…" />
+                  ) : gagalMuat ? (
+                    "Gagal memuat. Ketuk untuk coba lagi"
+                  ) : (
+                    `Muat lagi · ${total - semua.length} transaksi lebih lama`
+                  )}
+                </button>
+              )
+            }
+          />
         ) : (
           <div className={s.blok}>
             {q ? (

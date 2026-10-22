@@ -34,10 +34,10 @@ export async function proxy(request: NextRequest) {
     },
   );
 
-  // Memicu refresh token bila perlu.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Memicu refresh token bila perlu. getClaims memverifikasi JWT di sini
+  // (kunci publik ES256) — tanpa memanggil Supabase Auth di tiap request.
+  const { data: klaim } = await supabase.auth.getClaims();
+  const user = klaim?.claims?.sub ?? null;
 
   const { pathname, search, searchParams } = request.nextUrl;
   // Cookie session yang baru di-refresh ikut dibawa ke respons pengalihan.

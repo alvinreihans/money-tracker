@@ -21,9 +21,11 @@ export default function AppShell({
   saran,
   kantong,
   kategori,
+  email,
   children,
 }: {
   draftCount: number;
+  email: string | null;
   kantong: PilihanKantong[];
   kategori: Kategori[];
   /** Teks transaksi terakhir untuk chip saran di kolom "Catat". */
@@ -36,7 +38,7 @@ export default function AppShell({
   const diRiwayat = pathname.startsWith("/riwayat") || pathname.startsWith("/transactions");
 
   return (
-    <CatatProvider saran={saran} kantong={kantong} kategori={kategori}>
+    <CatatProvider saran={saran} kantong={kantong} kategori={kategori} email={email}>
       <div className={s.app}>{children}</div>
       <KembaliKeAtas />
 

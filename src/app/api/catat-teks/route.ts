@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { ambilUser, createSupabaseServerClient } from "@/lib/supabase/server";
 import { processReceiptText, toTransactionRow } from "@/lib/receipt";
 import { ambilKategori } from "@/lib/kategori-server";
 import { simpanTransaksi } from "@/lib/simpan-transaksi";
@@ -19,9 +19,7 @@ export const maxDuration = 30;
  */
 export async function POST(req: NextRequest) {
   const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await ambilUser();
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

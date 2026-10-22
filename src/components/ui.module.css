@@ -39,7 +39,7 @@
   align-items: center;
   border-radius: 999px;
   pointer-events: auto;
-  transition: background-color 150ms ease, box-shadow 150ms ease;
+  transition: background-color 150ms var(--gerak), box-shadow 150ms var(--gerak);
 }
 
 .grupAksi + .grupAksi { margin-left: auto; }
@@ -279,7 +279,7 @@
 }
 
 /* Umpan balik tekan ala One UI: mengecil sedikit, bukan riak warna. */
-.tekan { transition: transform 120ms ease, background-color 120ms ease; }
+.tekan { transition: transform 120ms var(--gerak), background-color 120ms var(--gerak); }
 .tekan:active { transform: scale(0.98); }
 
 @media (prefers-reduced-motion: reduce) {
@@ -472,7 +472,7 @@ button.blok { background: var(--blok); }
   border-radius: 999px;
   color: var(--teks-2);
   font-size: 13px;
-  transition: background-color 150ms ease;
+  transition: background-color 150ms var(--gerak);
 }
 
 .nav a[aria-current="page"] { background: #3d3d3d; color: var(--teks); font-weight: 600; }
@@ -495,7 +495,7 @@ button.blok { background: var(--blok); }
   color: #fff;
   box-shadow: 0 4px 12px rgba(3, 129, 254, 0.35);
   cursor: pointer;
-  transition: transform 120ms ease;
+  transition: transform 120ms var(--gerak);
 }
 
 .navCatat:active { transform: scale(0.94); }
@@ -646,7 +646,7 @@ button.blok { background: var(--blok); }
   display: flex;
   flex-direction: column;
   box-shadow: inset 0 -1px 0 #3d3d3d;
-  transition: box-shadow 150ms ease;
+  transition: box-shadow 150ms var(--gerak);
 }
 
 .fieldLabel {
@@ -863,7 +863,7 @@ button.blok { background: var(--blok); }
   transform: translateX(-50%);
   opacity: 0;
   pointer-events: none;
-  transition: opacity 250ms ease;
+  transition: opacity 250ms linear;
   cursor: pointer;
 }
 
@@ -1061,3 +1061,46 @@ button.blok { background: var(--blok); }
 }
 
 .gridEmoji button[aria-checked="true"] { box-shadow: inset 0 0 0 2px var(--primer); background: color-mix(in srgb, var(--primer) 20%, transparent); }
+
+/* ---------- Memuat & gerak ---------- */
+
+/* Kerangka saat halaman dimuat (app/(app)/loading.tsx). */
+.kerangka {
+  display: block;
+  border-radius: 10px;
+  background: var(--blok-2);
+}
+
+.kerangkaBlok { background: var(--blok); }
+
+/*
+ * Gerak One UI: kurva --gerak, 100–500 ms. Semuanya hanya untuk yang tidak
+ * meminta "kurangi gerakan".
+ *  - Isi halaman naik sedikit sambil muncul saat halaman baru dibuka.
+ *  - Dialog/sheet naik dari bawah; halaman penuh bergeser dari kanan; dialog
+ *    tengah membesar sedikit.
+ *  - Lapisan redup di belakang dialog: linear, karena panduan memakai linear
+ *    untuk perubahan transparansi.
+ *  - Kerangka memuat berdenyut pelan.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  .isi { animation: isiMasuk 300ms var(--gerak) both; }
+  .viewing { animation: pudarMasuk 250ms linear both; }
+
+  .dialog[open] { animation: sheetNaik 320ms var(--gerak); }
+  .dialogTengah[open] { animation: dialogMuncul 250ms var(--gerak); }
+  .dialogPenuh[open] { animation: halamanMasuk 300ms var(--gerak); }
+  .dialog[open]::backdrop { animation: pudarMasuk 250ms linear; }
+
+  .snackbar { animation: isiMasuk 250ms var(--gerak); }
+  .popover:popover-open { animation: dialogMuncul 200ms var(--gerak); }
+
+  .kerangka, .kerangkaBlok { animation: denyut 1.2s ease-in-out infinite alternate; }
+}
+
+@keyframes isiMasuk { from { opacity: 0; transform: translateY(12px); } }
+@keyframes pudarMasuk { from { opacity: 0; } }
+@keyframes sheetNaik { from { transform: translateY(100%); } }
+@keyframes halamanMasuk { from { opacity: 0; transform: translateX(32px); } }
+@keyframes dialogMuncul { from { opacity: 0; transform: scale(0.96); } }
+@keyframes denyut { to { opacity: 0.55; } }

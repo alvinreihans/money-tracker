@@ -4,9 +4,9 @@ import NextLink from "next/link";
 import { ArrowDownToLine, BadgePercent, Banknote, CalendarDays, Coins, CreditCard, NotebookPen, Shapes, Store, UserRound, Wallet } from "lucide-react";
 import { useCatat, useKategori } from "@/components/Catat";
 import { tandaKategori } from "@/components/kategori";
-import { Field, Pilih, Segmen } from "@/components/oneui";
+import { Field, InputNominal, Pilih, Segmen } from "@/components/oneui";
 import s from "@/components/ui.module.css";
-import { isoLokal } from "@/lib/format";
+import { isianNominal, isoLokal } from "@/lib/format";
 import { emojiKantong } from "@/lib/kantong";
 import { kategoriJenis, LAINNYA } from "@/lib/kategori";
 import { TIPE_TRANSAKSI } from "@/lib/transaksi-input";
@@ -39,7 +39,7 @@ export interface NilaiTransaksi {
 export function nilaiAwal(tx?: Transaction, type: TransactionType = "expense", ikutan?: number): NilaiTransaksi {
   return {
     // Draft yang gagal dibaca bernominal 0; kolom kosong lebih jujur.
-    amount: tx && Number(tx.amount) > 0 ? String(tx.amount) : "",
+    amount: tx && Number(tx.amount) > 0 ? isianNominal(tx.amount) : "",
     type: tx?.type ?? type,
     category: tx?.category ?? "other",
     transaction_date: tx?.transaction_date ?? isoLokal(new Date()),
@@ -48,8 +48,8 @@ export function nilaiAwal(tx?: Transaction, type: TransactionType = "expense", i
     kantong_id: tx?.kantong_id ?? "",
     kantong_tujuan_id: tx?.kantong_tujuan_id ?? "",
     description: tx?.description ?? "",
-    biaya_admin: tx?.type === "transfer" && ikutan ? String(ikutan) : "",
-    cashback: tx?.type === "expense" && ikutan ? String(ikutan) : "",
+    biaya_admin: tx?.type === "transfer" && ikutan ? isianNominal(ikutan) : "",
+    cashback: tx?.type === "expense" && ikutan ? isianNominal(ikutan) : "",
   };
 }
 
@@ -89,14 +89,7 @@ export default function TransactionFields({
   // Isian nominal pelengkap (cashback, biaya admin) — opsional.
   const nominalPelengkap = (kolom: "cashback" | "biaya_admin", label: string, ikon: React.ElementType, ket: string) => (
     <Field label={label} ikon={ikon} keterangan={ket}>
-      <input
-        type="number"
-        inputMode="numeric"
-        min={0}
-        value={nilai[kolom]}
-        onChange={(e) => onChange({ [kolom]: e.target.value })}
-        placeholder={label}
-      />
+      <InputNominal value={nilai[kolom]} onChange={(v) => onChange({ [kolom]: v })} placeholder={label} />
     </Field>
   );
 
@@ -122,15 +115,7 @@ export default function TransactionFields({
 
       <div className={`${s.blok} ${s.blokForm}`}>
         <Field label="Nominal (Rp)" ikon={Banknote}>
-          <input
-            type="number"
-            inputMode="numeric"
-            min={1}
-            required
-            value={nilai.amount}
-            onChange={(e) => onChange({ amount: e.target.value })}
-            placeholder="Nominal (Rp)"
-          />
+          <InputNominal required value={nilai.amount} onChange={(amount) => onChange({ amount })} placeholder="Nominal (Rp)" />
         </Field>
 
         <Field label="Tanggal" ikon={CalendarDays}>

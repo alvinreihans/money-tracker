@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { ambilUser, createSupabaseServerClient } from "@/lib/supabase/server";
 import AppShell from "@/components/AppShell";
 import { saranCatat } from "@/lib/saran";
 import { ambilKategori } from "@/lib/kategori-server";
@@ -18,10 +18,8 @@ export default async function AppGroupLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const user = await ambilUser();
   const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
 
   if (!user) redirect("/login");
 
@@ -49,6 +47,7 @@ export default async function AppGroupLayout({
   return (
     <AppShell draftCount={count ?? 0} saran={saranCatat(terakhir ?? [])} kantong={kantong ?? []}
       kategori={kategori}
+      email={user.email}
     >
       {children}
     </AppShell>
