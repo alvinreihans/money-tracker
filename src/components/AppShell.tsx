@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import NextLink from "next/link";
 import { usePathname } from "next/navigation";
 import { House, ReceiptText } from "lucide-react";
@@ -33,6 +34,12 @@ export default function AppShell({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+
+  // Service worker untuk menerima "Bagikan" (public/sw.js). Sekali daftar
+  // cukup; browser yang tidak mendukung dilewati.
+  useEffect(() => {
+    navigator.serviceWorker?.register("/sw.js").catch(() => {});
+  }, []);
 
   // Detail transaksi dibuka dari daftar, jadi menyorot Riwayat.
   const diRiwayat = pathname.startsWith("/riwayat") || pathname.startsWith("/transactions");

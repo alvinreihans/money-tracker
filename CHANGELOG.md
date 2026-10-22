@@ -26,11 +26,6 @@ Belum dikerjakan; dicatat supaya tidak lupa.
     seperti merchant & keterangan — melindungi dari bocornya dump database;
   - enkripsi di perangkat (end-to-end) — paling aman, tapi ringkasan, budget,
     saldo, dan AI tidak bisa lagi dihitung di server.
-- **Terima "Bagikan" dari aplikasi lain di Android** (Web Share Target), mis.
-  membagikan bukti bayar dari aplikasi bank/e-wallet langsung ke Money Tracker.
-  Referensi:
-  - [MDN: Share data between apps](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/How_to/Share_data_between_apps)
-  - [Share data natively from mobile to PWA app](https://dev.to/sefatanam/share-data-natively-from-mobile-to-pwa-app-4o7c)
 - **Pinjam-meminjam & cicilan paylater**: catat uang yang dipinjamkan /
   dipinjam dan cicilan berjalan.
 - **Push notifikasi**.
@@ -38,6 +33,9 @@ Belum dikerjakan; dicatat supaya tidak lupa.
 ## [Unreleased]
 
 ### Ditambahkan
+- **Bagikan ke Money Tracker** dari aplikasi lain di Android (setelah
+  aplikasi dipasang): screenshot bukti bayar langsung dibaca seperti foto
+  struk, dan teks (mis. notifikasi bank) mengisi kolom Catat untuk dicek dulu.
 - **Kenalan untuk pengguna baru:** empat langkah singkat setelah masuk —
   cara mencatat, pilih rekening & e-wallet yang dipakai, isi saldonya, lalu
   siap. Bisa dilewati kapan saja.
