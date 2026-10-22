@@ -15,14 +15,17 @@ bagiannya di sini.
 Belum dikerjakan; dicatat supaya tidak lupa.
 
 - **Caching data di server** (lanjutan), kalau setelah diukur di produksi
-  halaman masih terasa lambat: mis. saldo kantong dihitung di database
-  (RPC) dan data yang jarang berubah disimpan sementara di server.
+  halaman masih terasa lambat atau kuota Supabase/Vercel menipis: mis. data
+  yang jarang berubah (kategori, kantong) disimpan sementara di server.
 
 ## [Unreleased]
 
+## [2.0.0] — 2026-10-22
+
+Lend & Borrow, notifikasi, kantong & budget, dan data transaksi yang
+tersimpan terenkripsi. Mayor karena pendaftaran akun sendiri dihapus.
+
 ### Keamanan
-- Pendaftaran akun ditutup: akun baru lewat undangan. Halaman masuk tidak lagi
-  punya pilihan "Daftar".
 - Hak akses database diperketat: tidak ada lagi hak TRUNCATE/TRIGGER untuk
   pengguna aplikasi, catatan migrasi tertutup, dan fungsi database hanya bisa
   dipanggil oleh yang memang memakainya.
@@ -34,6 +37,8 @@ Belum dikerjakan; dicatat supaya tidak lupa.
   aplikasi sendiri, kamera hanya untuk aplikasi ini.
 
 ### Ditambahkan
+- **Ekspor data** (Pengaturan → Ekspor data): semua transaksi diunduh sebagai
+  file CSV untuk cadangan atau diolah di spreadsheet.
 - **Notifikasi** (Pengaturan → Pengingat harian), tiap jam 19.00: cicilan dan
   Lend & Borrow yang jatuh tempo 3 hari lagi atau besok (dan cicilan yang
   kemarin terlewat), serta pengingat kalau hari ini belum mencatat apa pun.
@@ -84,6 +89,8 @@ Belum dikerjakan; dicatat supaya tidak lupa.
 - Bisa **dipasang sebagai aplikasi** (Install app) dengan ikon dan warna gelap.
 
 ### Diubah
+- Saldo kantong dihitung di database: Beranda, Lend & Borrow, dan Kantong
+  tidak lagi mengunduh seluruh riwayat transaksi setiap dibuka.
 - Kantong ditandai **emoji** pilihan sendiri, bukan jenis Bank/E-wallet.
   Setiap akun punya kantong **Tunai** bawaan yang tidak bisa dihapus.
 - Konfirmasi hapus (transaksi, kantong, kategori) berupa dialog di bawah
@@ -96,6 +103,10 @@ Belum dikerjakan; dicatat supaya tidak lupa.
   sebagai pemasukan ke BRI) dan memakai nama bank yang disebut, bukan
   "Transfer".
 - Tab "Perlu dibenerin" diberi keterangan singkat.
+
+### Dihapus
+- Pendaftaran akun sendiri: halaman masuk tidak lagi punya pilihan "Daftar";
+  akun baru dibuat lewat undangan.
 
 ### Diperbaiki
 - Membuka halaman masuk saat sudah masuk kini langsung ke Beranda. Sebaliknya,
@@ -186,7 +197,8 @@ Rilis pertama.
 - Edit dan hapus transaksi, termasuk membetulkan draft.
 - Akun: daftar, masuk, dan lupa password, dengan syarat password yang kuat.
 
-[Unreleased]: https://github.com/alvinreihans/money-tracker/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/alvinreihans/money-tracker/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/alvinreihans/money-tracker/compare/v1.0.0...v2.0.0
 [1.0.0]: https://github.com/alvinreihans/money-tracker/compare/v0.1.2...v1.0.0
 [0.1.2]: https://github.com/alvinreihans/money-tracker/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/alvinreihans/money-tracker/compare/v0.1.0...v0.1.1
