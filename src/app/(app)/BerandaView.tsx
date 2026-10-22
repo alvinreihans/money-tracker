@@ -128,6 +128,7 @@ export default function BerandaView({
             tab Riwayat. */}
         {terbaru.length > 0 ? (
           <TransactionList
+            kembali="/"
             items={terbaru}
             kaki={
               <NextLink href="/riwayat" className={`${s.kartuTx} ${s.kartuKaki} ${s.tekan}`}>

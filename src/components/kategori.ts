@@ -3,7 +3,6 @@ import {
   ArrowLeftRight,
   Baby,
   BadgePercent,
-  Banknote,
   Book,
   Briefcase,
   Bus,
@@ -20,7 +19,6 @@ import {
   HeartHandshake,
   HeartPulse,
   House,
-  Landmark,
   Laptop,
   Music,
   PawPrint,
@@ -36,14 +34,12 @@ import {
   Store,
   TrendingUp,
   Utensils,
-  Wallet,
   Wifi,
   Wrench,
   Zap,
   type LucideIcon,
 } from "lucide-react";
 import { cariKategori, type Kategori, type KUNCI_IKON } from "@/lib/kategori";
-import type { JenisKantong } from "@/lib/kantong";
 import type { Transaction } from "@/types/transaction";
 
 /** Kunci ikon kategori (disimpan di database) → komponen ikonnya. */
@@ -147,10 +143,3 @@ export function tandaTransaksi(t: Pick<Transaction, "type" | "category" | "statu
   if (t.type === "income" && (!k || k.slug === "other")) return { ikon: ArrowDownLeft, warna: "#5ecb7a" };
   return tandaKategori(k);
 }
-
-/** Ikon & warna per jenis kantong. */
-export const TANDA_KANTONG: Record<JenisKantong, { ikon: LucideIcon; warna: string }> = {
-  bank: { ikon: Landmark, warna: "#3e91ff" },
-  ewallet: { ikon: Wallet, warna: "#bf7af0" },
-  cash: { ikon: Banknote, warna: "#5ecb7a" },
-};

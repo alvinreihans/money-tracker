@@ -10,7 +10,7 @@ import s from "@/components/ui.module.css";
 import { alasanDraft, type Kantong } from "@/lib/kantong";
 import { namaKategori, type Kategori } from "@/lib/kategori";
 import DaftarAntrean, { ACCEPT_STRUK, useAntreanStruk } from "@/components/UploadReceiptForm";
-import { fmtIDR } from "@/lib/format";
+import { alamatDetail, fmtIDR } from "@/lib/format";
 import { TEKS_MAKS, validasiTransaksi } from "@/lib/transaksi-input";
 import type { Transaction } from "@/types/transaction";
 
@@ -33,7 +33,7 @@ interface Kabar {
 }
 
 /** Kantong yang dipilih di form: cukup id, nama, dan jenisnya. */
-export type PilihanKantong = Pick<Kantong, "id" | "name" | "kind">;
+export type PilihanKantong = Pick<Kantong, "id" | "name" | "kind" | "emoji">;
 
 const CatatContext = createContext<{ buka: () => void; kantong: PilihanKantong[]; kategori: Kategori[] } | null>(null);
 
@@ -91,7 +91,7 @@ export function CatatProvider({
         : alasanDraft(tx) === "kantong"
           ? "Kantongnya belum jelas, pilih dulu ya"
           : "Nggak kebaca, disimpan jadi draft",
-      href: `/transactions/${tx.id}`,
+      href: alamatDetail(tx.id, window.location.pathname + window.location.search),
       draft,
     });
     router.refresh();

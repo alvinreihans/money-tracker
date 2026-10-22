@@ -134,10 +134,13 @@ export function Lembar({
   daftar = false,
   tombol,
   pil,
+  label,
   onClose,
   children,
 }: {
   judul?: React.ReactNode;
+  /** Nama dialog untuk pembaca layar, bila judulnya tidak ditampilkan. */
+  label?: string;
   sub?: React.ReactNode;
   posisi?: "bawah" | "tengah" | "penuh";
   /** Isi berupa daftar baris: tanpa padding samping. */
@@ -186,7 +189,7 @@ export function Lembar({
     <dialog
       ref={ref}
       className={kelas}
-      aria-label={typeof judul === "string" ? judul : undefined}
+      aria-label={label ?? (typeof judul === "string" ? judul : undefined)}
       // Ketuk di luar kotak (area backdrop) menutup dialog.
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
@@ -218,6 +221,58 @@ export function Lembar({
         </div>
       )}
     </dialog>
+  );
+}
+
+/**
+ * Konfirmasi ala One UI (seperti "Move 1 file to the Trash?" di My Files):
+ * dialog di bawah layar berisi pertanyaan, lalu "Batal | <aksi>" berupa tombol
+ * flat yang dipisah garis tegak. Panduan: dialog pilihan & konfirmasi di bawah
+ * layar, berbentuk pertanyaan, tombol flat.
+ */
+export function Konfirmasi({
+  tanya,
+  ya,
+  loading = false,
+  error,
+  onBatal,
+  onYa,
+  children,
+}: {
+  tanya: string;
+  /** Label tombol aksi, kata kerja yang jelas ("Hapus"), bukan "Ya". */
+  ya: string;
+  loading?: boolean;
+  error?: string | null;
+  onBatal: () => void;
+  onYa: () => void;
+  /** Akibatnya, kalau perlu dijelaskan. */
+  children?: React.ReactNode;
+}) {
+  return (
+    <Lembar
+      label={tanya}
+      onClose={() => !loading && onBatal()}
+      tombol={
+        <>
+          <button type="button" className={`${s.flat} ${s.flatNetral}`} disabled={loading} onClick={onBatal}>
+            Batal
+          </button>
+          <span className={s.pilPemisah} aria-hidden />
+          <button type="button" className={`${s.flat} ${s.flatNetral}`} disabled={loading} onClick={onYa}>
+            {loading ? <Spinner /> : ya}
+          </button>
+        </>
+      }
+    >
+      <p className={s.konfirmasiTanya}>{tanya}</p>
+      {children && <p className={s.konfirmasiKet}>{children}</p>}
+      {error && (
+        <div style={{ marginTop: 12 }}>
+          <Pesan jenis="bahaya">{error}</Pesan>
+        </div>
+      )}
+    </Lembar>
   );
 }
 
@@ -323,7 +378,7 @@ export function Pilih<T extends string>({
   nilai: T;
   /** Teks saat belum ada yang dipilih; bawaannya "Pilih <label>". */
   kosong?: string;
-  pilihan: { id: T; label: string; ikon?: React.ElementType; warna?: string }[];
+  pilihan: { id: T; label: string; ikon?: React.ElementType; warna?: string; emoji?: string }[];
   onChange: (id: T) => void;
 }) {
   const [buka, setBuka] = useState(false);
@@ -339,7 +394,7 @@ export function Pilih<T extends string>({
       {buka && (
         <Lembar judul={label} daftar onClose={() => setBuka(false)}>
           <div role="radiogroup" aria-label={label}>
-            {pilihan.map(({ id, label: teks, ikon: Ikon, warna = "var(--teks-2)" }) => (
+            {pilihan.map(({ id, label: teks, ikon: Ikon, warna = "var(--teks-2)", emoji }) => (
               <button
                 key={id}
                 type="button"
@@ -352,10 +407,16 @@ export function Pilih<T extends string>({
                   setBuka(false);
                 }}
               >
-                {Ikon && (
-                  <span className={s.barisIkon} style={{ background: `color-mix(in srgb, ${warna} 18%, transparent)`, color: warna }} aria-hidden>
-                    <Ikon size={20} />
+                {emoji ? (
+                  <span className={s.barisEmoji} aria-hidden>
+                    {emoji}
                   </span>
+                ) : (
+                  Ikon && (
+                    <span className={s.barisIkon} style={{ background: `color-mix(in srgb, ${warna} 18%, transparent)`, color: warna }} aria-hidden>
+                      <Ikon size={20} />
+                    </span>
+                  )
                 )}
                 <span className={s.barisTeks}>
                   <span className={`${s.barisJudul} ${id === nilai ? s.pilihAktif : ""}`}>{teks}</span>

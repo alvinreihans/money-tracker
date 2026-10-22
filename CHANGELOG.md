@@ -14,8 +14,23 @@ bagiannya di sini.
 
 Belum dikerjakan; dicatat supaya tidak lupa.
 
-- **Caching data**, supaya Beranda dan Riwayat tidak menunggu database setiap
-  dibuka.
+- **Caching data & halaman terasa ringan**, supaya Beranda dan Riwayat tidak
+  menunggu database setiap dibuka. Termasuk tampilan sementara (skeleton)
+  saat pindah halaman, supaya ketukan langsung terasa ditanggapi.
+- **Animasi transisi** sesuai panduan One UI (kurva `0.22, 0.25, 0, 1`,
+  100–500 ms): dialog & sheet naik dari bawah, pindah halaman dengan gerak
+  halus, tetap menghormati "kurangi gerakan".
+- **Kaji pengamanan data user.** Catatan: SHA-256 adalah *hash* (satu arah),
+  bukan enkripsi — nominal yang di-hash tidak bisa dijumlah atau ditampilkan
+  lagi. Pilihan yang perlu ditimbang:
+  - yang sudah ada: enkripsi disk bawaan Supabase + RLS (data hanya bisa
+    dibaca pemiliknya lewat aplikasi);
+  - enkripsi kolom di database (Supabase Vault/pgsodium) untuk data sensitif
+    seperti merchant & keterangan — melindungi dari bocornya dump database;
+  - enkripsi di perangkat (end-to-end) — paling aman, tapi ringkasan, budget,
+    saldo, dan AI tidak bisa lagi dihitung di server.
+- **Onboarding pengguna baru**: kenalan singkat cara mencatat, lalu pasang
+  kantong & saldo awal.
 - **Terima "Bagikan" dari aplikasi lain di Android** (Web Share Target), mis.
   membagikan bukti bayar dari aplikasi bank/e-wallet langsung ke Money Tracker.
   Referensi:
@@ -48,6 +63,10 @@ Belum dikerjakan; dicatat supaya tidak lupa.
 - Bisa **dipasang sebagai aplikasi** (Install app) dengan ikon dan warna gelap.
 
 ### Diubah
+- Kantong ditandai **emoji** pilihan sendiri, bukan jenis Bank/E-wallet.
+  Setiap akun punya kantong **Tunai** bawaan yang tidak bisa dihapus.
+- Konfirmasi hapus (transaksi, kantong, kategori) berupa dialog di bawah
+  layar: pertanyaan, lalu "Batal | Hapus".
 - Tiap transaksi wajib punya kantong. Teks atau struk yang kantongnya tidak
   cocok (mis. kantongnya sudah dihapus) masuk ke **Perlu dibenerin**, dengan
   alasan yang jelas.
@@ -58,6 +77,9 @@ Belum dikerjakan; dicatat supaya tidak lupa.
 - Tab "Perlu dibenerin" diberi keterangan singkat.
 
 ### Diperbaiki
+- Setelah menghapus transaksi, dan saat menekan tombol kembali, aplikasi
+  kembali ke halaman asal (Beranda, atau Riwayat lengkap dengan filternya),
+  bukan selalu ke Beranda/Riwayat.
 - Bilah navigasi Android tidak lagi putih di aplikasi yang terpasang.
 - Tidak ada lagi ruang kosong di bawah daftar transaksi.
 

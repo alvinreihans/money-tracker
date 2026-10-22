@@ -2,33 +2,34 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { Banknote, CalendarDays, Plus, Wallet } from "lucide-react";
-import { TANDA_KANTONG } from "@/components/kategori";
-import { AppBar, Field, Kosong, Lembar, Pesan, Segmen, Spinner } from "@/components/oneui";
+import { Banknote, CalendarDays, Plus, Smile, Wallet } from "lucide-react";
+import { AppBar, Field, Konfirmasi, Kosong, Lembar, Pesan, Spinner } from "@/components/oneui";
 import s from "@/components/ui.module.css";
 import { dbErrorMessage } from "@/lib/errors";
 import { fmtIDR, isoLokal } from "@/lib/format";
-import { JENIS_KANTONG, type JenisKantong, type Kantong } from "@/lib/kantong";
+import { ambilEmoji, emojiKantong, SARAN_EMOJI_KANTONG, type Kantong } from "@/lib/kantong";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { validasiKantong } from "@/lib/transaksi-input";
 
 interface Isian {
   name: string;
-  kind: JenisKantong;
+  emoji: string;
   saldo_awal: string;
   saldo_per: string;
 }
-
-const labelJenis = (k: JenisKantong) => JENIS_KANTONG.find((j) => j.id === k)?.label ?? k;
 
 /**
  * Daftar kantong (rekening, e-wallet, tunai) dan saldonya sekarang. Tiap
  * kantong punya saldo awal per tanggal tertentu; transaksi sejak tanggal itu
  * yang tertaut ke kantongnya menggeser saldonya.
+ *
+ * Bank atau e-wallet tidak perlu dibedakan — tidak ada hitungan yang
+ * bergantung padanya — jadi penandanya cukup emoji pilihan user. Satu-satunya
+ * kantong tunai adalah "Tunai" bawaan, yang tidak bisa dihapus.
  */
 export default function KantongView({ userId, daftar }: { userId: string; daftar: (Kantong & { saldo: number })[] }) {
   const router = useRouter();
-  const [edit, setEdit] = useState<{ id: string | null; isian: Isian } | null>(null);
+  const [edit, setEdit] = useState<{ id: string | null; bawaan: boolean; isian: Isian } | null>(null);
   const [yakinHapus, setYakinHapus] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,9 +40,10 @@ export default function KantongView({ userId, daftar }: { userId: string; daftar
     setYakinHapus(false);
     setEdit({
       id: k?.id ?? null,
+      bawaan: Boolean(k?.bawaan),
       isian: k
-        ? { name: k.name, kind: k.kind, saldo_awal: String(Number(k.saldo_awal)), saldo_per: k.saldo_per }
-        : { name: "", kind: "bank", saldo_awal: "", saldo_per: isoLokal(new Date()) },
+        ? { name: k.name, emoji: emojiKantong(k), saldo_awal: String(Number(k.saldo_awal)), saldo_per: k.saldo_per }
+        : { name: "", emoji: SARAN_EMOJI_KANTONG[0], saldo_awal: "", saldo_per: isoLokal(new Date()) },
     });
   }
 
@@ -98,25 +100,18 @@ export default function KantongView({ userId, daftar }: { userId: string; daftar
         {daftar.length > 0 ? (
           <>
             <div className={s.blok}>
-              {daftar.map((k) => {
-                const { ikon: Ikon, warna } = TANDA_KANTONG[k.kind] ?? TANDA_KANTONG.bank;
-                return (
-                  <button key={k.id} type="button" className={`${s.baris} ${s.tekan}`} onClick={() => buka(k)}>
-                    <span
-                      className={s.barisIkon}
-                      style={{ background: `color-mix(in srgb, ${warna} 18%, transparent)`, color: warna }}
-                      aria-hidden
-                    >
-                      <Ikon size={20} />
-                    </span>
-                    <span className={s.barisTeks}>
-                      <span className={s.barisJudul}>{k.name}</span>
-                      <span className={s.redup}>{labelJenis(k.kind)}</span>
-                    </span>
-                    <span className={`${s.nominal} ${k.saldo < 0 ? s.bahaya : ""}`}>{fmtIDR(k.saldo)}</span>
-                  </button>
-                );
-              })}
+              {daftar.map((k) => (
+                <button key={k.id} type="button" className={`${s.baris} ${s.tekan}`} onClick={() => buka(k)}>
+                  <span className={s.barisEmoji} aria-hidden>
+                    {emojiKantong(k)}
+                  </span>
+                  <span className={s.barisTeks}>
+                    <span className={s.barisJudul}>{k.name}</span>
+                    {k.bawaan && <span className={s.redup}>Kantong bawaan</span>}
+                  </span>
+                  <span className={`${s.nominal} ${k.saldo < 0 ? s.bahaya : ""}`}>{fmtIDR(k.saldo)}</span>
+                </button>
+              ))}
             </div>
             <p className={s.redup} style={{ margin: "0 20px" }}>
               Saldo = saldo awal + transaksi di kantong itu sejak tanggal saldonya. Transaksi tanpa kantong nggak ikut
@@ -126,7 +121,7 @@ export default function KantongView({ userId, daftar }: { userId: string; daftar
         ) : (
           <div className={s.blok}>
             <Kosong ikon={Wallet} judul="Belum ada kantong">
-              Tambahkan rekening, e-wallet, atau dompet tunai, lengkap dengan saldonya sekarang.
+              Tambahkan rekening atau e-wallet, lengkap dengan saldonya sekarang.
               <br />
               <button type="button" className={s.tombol} style={{ marginTop: 16 }} onClick={() => buka()}>
                 Tambah kantong
@@ -147,7 +142,10 @@ export default function KantongView({ userId, daftar }: { userId: string; daftar
           ]}
         >
           <form onSubmit={simpan} className={s.form}>
-            <Segmen label="Jenis kantong" pilihan={JENIS_KANTONG} nilai={edit.isian.kind} onChange={(kind) => ubah({ kind })} />
+            <div className={s.kategoriPratinjau} aria-hidden>
+              <span className={`${s.barisEmoji} ${s.emojiBesar}`}>{edit.isian.emoji}</span>
+              <strong>{edit.isian.name.trim() || "Nama kantong"}</strong>
+            </div>
 
             <div className={`${s.blok} ${s.blokForm}`}>
               <Field label="Nama" ikon={Wallet}>
@@ -159,6 +157,32 @@ export default function KantongView({ userId, daftar }: { userId: string; daftar
                   placeholder="Nama"
                 />
               </Field>
+              <Field label="Emoji" ikon={Smile} keterangan="Pilih di bawah, atau ketik emoji lain dari keyboard.">
+                <input
+                  value={edit.isian.emoji}
+                  // Yang tersimpan cukup satu emoji: ambil yang terakhir diketik.
+                  onChange={(e) => {
+                    const emoji = ambilEmoji(e.target.value);
+                    if (emoji) ubah({ emoji });
+                  }}
+                  placeholder="Emoji"
+                  aria-label="Emoji kantong"
+                />
+              </Field>
+              <div className={s.gridEmoji} role="radiogroup" aria-label="Pilihan emoji">
+                {SARAN_EMOJI_KANTONG.map((emoji) => (
+                  <button
+                    key={emoji}
+                    type="button"
+                    role="radio"
+                    aria-checked={edit.isian.emoji === emoji}
+                    aria-label={emoji}
+                    onClick={() => ubah({ emoji })}
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
               <Field label="Saldo awal (Rp)" ikon={Banknote}>
                 <input
                   type="number"
@@ -179,27 +203,34 @@ export default function KantongView({ userId, daftar }: { userId: string; daftar
 
             {error && <Pesan jenis="bahaya">{error}</Pesan>}
 
-            {edit.id &&
-              (yakinHapus ? (
-                <Pesan
-                  jenis="peringatan"
-                  judul="Hapus kantong ini?"
-                  aksi={
-                    <button type="button" className={`${s.flat} ${s.flatBahaya}`} disabled={loading} onClick={() => void hapus()}>
-                      Ya, hapus
-                    </button>
-                  }
-                >
-                  Transaksinya tetap ada, cuma lepas dari kantong ini dan nggak ikut saldo.
-                </Pesan>
-              ) : (
+            {edit.bawaan ? (
+              <p className={s.redup} style={{ margin: "0 20px" }}>
+                Kantong tunai bawaan nggak bisa dihapus, supaya transaksi tunai selalu punya tempat. Nama dan saldo
+                awalnya boleh diubah.
+              </p>
+            ) : (
+              edit.id && (
                 <button type="button" className={`${s.flat} ${s.flatBahaya}`} onClick={() => setYakinHapus(true)}>
                   Hapus kantong
                 </button>
-              ))}
+              )
+            )}
 
             <button type="submit" hidden />
           </form>
+
+          {yakinHapus && (
+            <Konfirmasi
+              tanya={`Hapus kantong “${edit.isian.name}”?`}
+              ya="Hapus"
+              loading={loading}
+              error={error}
+              onBatal={() => setYakinHapus(false)}
+              onYa={() => void hapus()}
+            >
+              Transaksinya tetap ada, cuma lepas dari kantong ini dan nggak ikut saldo.
+            </Konfirmasi>
+          )}
         </Lembar>
       )}
     </>
