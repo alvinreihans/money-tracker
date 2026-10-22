@@ -26,8 +26,8 @@ Belum dikerjakan; dicatat supaya tidak lupa.
     seperti merchant & keterangan — melindungi dari bocornya dump database;
   - enkripsi di perangkat (end-to-end) — paling aman, tapi ringkasan, budget,
     saldo, dan AI tidak bisa lagi dihitung di server.
-- **Pinjam-meminjam & cicilan paylater**: catat uang yang dipinjamkan /
-  dipinjam dan cicilan berjalan.
+- **Lend & Borrow, cicilan paylater & kartu kredit**: catat uang yang
+  dipinjamkan / dipinjam dan cicilan berjalan (spec: SPEC-lend-borrow.md).
 - **Push notifikasi**.
 
 ## [Unreleased]

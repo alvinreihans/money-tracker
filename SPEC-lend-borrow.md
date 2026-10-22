@@ -1,4 +1,4 @@
-# Spec: Utang-piutang, cicilan paylater & kartu kredit
+# Spec: Lend & Borrow, cicilan paylater & kartu kredit
 
 Status: **draf, menunggu persetujuan** · 22 Oktober 2026 · Fase 4 dari rencana di CHANGELOG.
 
@@ -8,20 +8,32 @@ Mencatat uang yang **dipinjamkan ke** / **dipinjam dari** orang lain, dan **cici
 
 Pengguna: pemilik akun (aplikasi pribadi).
 
+### Istilah di aplikasi
+
+Memakai istilah Inggris yang pendek dan tidak tertukar (keputusan 22 Okt 2026):
+
+| Di aplikasi | Artinya | Dulu disebut |
+|---|---|---|
+| **Lend** | Uang yang **kupinjamkan** ke orang lain — mereka berutang ke aku | piutang |
+| **Borrow** | Uang yang **kupinjam** dari orang lain/kartu kredit — aku berutang | utang |
+| **Cicilan** | Paylater & cicilan kartu kredit | — |
+
+Teks lain di aplikasi tetap bahasa Indonesia (mis. tombol "Terima bayaran", "Bayar").
+
 ### Keputusan yang sudah diambil (22 Okt 2026)
 
 | Pertanyaan | Keputusan |
 |---|---|
 | Kapan belanja paylater/cicilan dihitung pengeluaran? | **Saat cicilan dibayar** (per bulan), bukan saat belanja |
 | Cakupan | Pinjam-meminjam ke orang, paylater dengan cicilan, kartu kredit, dan dikenali dari ketikan AI |
-| Total aset di Beranda | **Terpisah**: Total aset = uang di kantong; utang & piutang di kartu sendiri |
+| Total aset di Beranda | **Terpisah**: Total aset = uang di kantong; Lend & Borrow di kartu sendiri |
 | Jatuh tempo pinjaman ke orang | **Opsional** (paylater selalu punya jatuh tempo per cicilan) |
 
 ## Rancangan
 
 ### 1. Pinjam-meminjam ke orang → "kantong orang"
 
-Setiap orang yang terlibat pinjaman adalah kantong berjenis **`orang`** (tabel `user_accounts`, sudah ada). Saldonya = posisi utang-piutang dengan orang itu, dihitung oleh rumus saldo yang sudah ada:
+Setiap orang yang terlibat pinjaman adalah kantong berjenis **`orang`** (tabel `user_accounts`, sudah ada). Saldonya = posisi Lend/Borrow dengan orang itu, dihitung oleh rumus saldo yang sudah ada:
 
 | Kejadian | Dicatat sebagai | Saldo "Budi" | Saldo BCA |
 |---|---|---|---|
@@ -31,7 +43,7 @@ Setiap orang yang terlibat pinjaman adalah kantong berjenis **`orang`** (tabel `
 | Bayar Ibu 500 rb dari BRI | Pindah kantong BRI → Ibu | −500 rb | — |
 
 - Karena berupa **pindah kantong**, tidak masuk pemasukan/pengeluaran, budget, maupun grafik — sesuai kenyataannya.
-- Saldo positif = **piutang** (orang itu utang ke aku), negatif = **utang**. Lunas = saldo 0.
+- Saldo positif = **Lend** (orang itu utang ke aku), negatif = **Borrow** (aku utang ke dia). Lunas = saldo 0.
 - **Jatuh tempo** opsional per orang (`user_accounts.jatuh_tempo`), dipakai kartu Beranda dan notifikasi fase 5.
 - Kantong `orang` **tidak** muncul di pilihan "Bayar pakai"/"Masuk ke" dan **tidak** dihitung di Total aset.
 
@@ -50,19 +62,19 @@ Tabel baru **`cicilan`**: nama barang ("HP Samsung"), penyedia ("Shopee PayLater
 - **Belanja biasa pakai kartu** = pengeluaran dari kantong kartu (dicatat saat belanja, karena barang & kategorinya jelas saat itu). Tagihan naik.
 - **Bayar tagihan** = pindah kantong BCA → Kartu kredit. Tagihan turun; bukan pengeluaran lagi.
 - **Cicilan lewat kartu** (mis. cicilan 0% 6 bulan) = rencana cicilan dengan kantong pembayar = kartu itu. Tiap bulan cicilannya menjadi pengeluaran dari kantong kartu (masuk tagihan), lalu dibayar bersama tagihan.
-- Kantong `kredit` **muncul** di pilihan "Bayar pakai" dan **tidak** dihitung di Total aset (ditampilkan di kartu utang).
+- Kantong `kredit` **muncul** di pilihan "Bayar pakai" dan **tidak** dihitung di Total aset (ditampilkan di kartu Lend & Borrow, bagian Borrow).
 
 > ⚠️ Catatan konsistensi: belanja kartu kredit *biasa* tetap dihitung saat belanja (bukan saat tagihan dibayar), karena kalau tidak, semua belanja sebulan baru muncul sekaligus tanpa kategori saat tagihan dibayar. Yang dihitung "saat dibayar" hanya **cicilan** — sesuai keputusan. **Mohon konfirmasi.**
 
 ### 4. Tampilan
 
-- **Halaman "Utang & cicilan"** (dari kartu Beranda dan Pengaturan):
-  - *Piutang* — orang yang utang ke aku, sisa & jatuh tempo; aksi **Pinjamkan lagi** / **Terima bayaran**.
-  - *Utang* — ke orang & kartu kredit; aksi **Pinjam** / **Bayar**.
+- **Halaman "Lend & Borrow"** (dari kartu Beranda dan Pengaturan):
+  - *Lend* — orang yang utang ke aku, sisa & jatuh tempo; aksi **Pinjamkan** / **Terima bayaran**.
+  - *Borrow* — ke orang & kartu kredit; aksi **Pinjam** / **Bayar**.
   - *Cicilan* — tiap rencana: "3 dari 6 terbayar", jatuh tempo berikutnya, tombol **Bayar cicilan ke-4** (pilih kantong, nominal bisa diubah); tambah rencana baru.
   - Riwayat transaksi per orang/rencana.
-- **Beranda**: kartu **"Utang & cicilan"** — total piutang, total utang, cicilan yang jatuh tempo bulan ini, dan yang paling dekat jatuh temponya. Total aset tetap hanya kantong uang.
-- **Pengaturan → Kantong**: kantong `orang` dan `kredit` tidak dicampur dengan kantong uang (dikelola dari halaman Utang & cicilan).
+- **Beranda**: kartu **"Lend & Borrow"** — total Lend, total Borrow, cicilan yang jatuh tempo bulan ini, dan yang paling dekat jatuh temponya. Total aset tetap hanya kantong uang.
+- **Pengaturan → Kantong**: kantong `orang` dan `kredit` tidak dicampur dengan kantong uang (dikelola dari halaman Lend & Borrow).
 
 ### 5. Dari ketikan AI
 
@@ -110,18 +122,18 @@ Tidak ada data lama yang diubah.
 
 ## Pengujian
 
-- Fungsi murni + `assert` (`scripts/uji-utang.mts`): ringkasan utang/piutang dari saldo kantong orang, jadwal cicilan (jatuh tempo per bulan termasuk akhir bulan & ganti tahun, status terbayar, lunas), dan pemilihan cicilan berikutnya.
+- Fungsi murni + `assert` (`scripts/uji-pinjaman.mts`): ringkasan Lend/Borrow dari saldo kantong orang, jadwal cicilan (jatuh tempo per bulan termasuk akhir bulan & ganti tahun, status terbayar, lunas), dan pemilihan cicilan berikutnya.
 - Saldo kantong yang sudah ada tetap lolos `uji:kantong` (kantong orang/kredit memakai rumus yang sama).
 - Total aset & pilihan kantong di form mengecualikan `orang` (dan `kredit` dari Total aset).
 - `npm run test:teks` untuk kalimat-kalimat di tabel bagian 5.
-- Cek visual 375px: halaman Utang & cicilan, sheet aksi, kartu Beranda.
+- Cek visual 375px: halaman Lend & Borrow, sheet aksi, kartu Beranda.
 
 ## Urutan kerja (tiap langkah satu commit, bisa diuji sendiri)
 
-1. Migrasi + tipe + fungsi murni (`lib/utang.ts`) + uji.
-2. Kantong orang & kredit: dikecualikan dari Total aset/pilihan; halaman Utang & cicilan bagian piutang/utang + aksinya.
+1. Migrasi + tipe + fungsi murni (`lib/pinjaman.ts`) + uji.
+2. Kantong orang & kredit: dikecualikan dari Total aset/pilihan; halaman Lend & Borrow bagian Lend/Borrow + aksinya.
 3. Rencana cicilan: tambah, jadwal, bayar cicilan.
-4. Kartu Beranda "Utang & cicilan".
+4. Kartu Beranda "Lend & Borrow".
 5. AI: field `pinjaman` & `cicilan`, pencocokan, kalimat uji.
 
 ## Boundaries
