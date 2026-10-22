@@ -107,16 +107,11 @@ export default function KantongView({ userId, daftar }: { userId: string; daftar
                   </span>
                   <span className={s.barisTeks}>
                     <span className={s.barisJudul}>{k.name}</span>
-                    {k.bawaan && <span className={s.redup}>Kantong bawaan</span>}
                   </span>
                   <span className={`${s.nominal} ${k.saldo < 0 ? s.bahaya : ""}`}>{fmtIDR(k.saldo)}</span>
                 </button>
               ))}
             </div>
-            <p className={s.redup} style={{ margin: "0 20px" }}>
-              Saldo = saldo awal + transaksi di kantong itu sejak tanggal saldonya. Transaksi tanpa kantong nggak ikut
-              dihitung.
-            </p>
           </>
         ) : (
           <div className={s.blok}>
