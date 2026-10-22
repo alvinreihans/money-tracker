@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { alamatInternal } from "@/lib/format";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -15,7 +16,8 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   const { searchParams, origin } = new URL(req.url);
   const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? "/";
+  // ?next= dari URL: hanya alamat di dalam aplikasi (cegah open redirect).
+  const next = alamatInternal(searchParams.get("next"), "/");
 
   if (!code) {
     return NextResponse.redirect(`${origin}/login?error=tautan-tidak-valid`);

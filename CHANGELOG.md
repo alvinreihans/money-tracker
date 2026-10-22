@@ -77,6 +77,11 @@ Belum dikerjakan; dicatat supaya tidak lupa.
 - Tab "Perlu dibenerin" diberi keterangan singkat.
 
 ### Diperbaiki
+- Membuka halaman masuk saat sudah masuk kini langsung ke Beranda. Sebaliknya,
+  membuka halaman aplikasi saat belum masuk meminta masuk dulu, lalu kembali
+  ke halaman yang tadi dibuka (mis. Riwayat dengan filternya).
+- Tautan email (konfirmasi, reset password) tidak bisa lagi dipakai untuk
+  mengalihkan ke situs lain.
 - Setelah menghapus transaksi, dan saat menekan tombol kembali, aplikasi
   kembali ke halaman asal (Beranda, atau Riwayat lengkap dengan filternya),
   bukan selalu ke Beranda/Riwayat.

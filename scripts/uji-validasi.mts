@@ -4,7 +4,7 @@
  * Pemakaian: npm run uji:validasi
  */
 import assert from "node:assert/strict";
-import { alamatDetail, tujuanKembali } from "../src/lib/format.ts";
+import { alamatDetail, alamatInternal, tujuanKembali } from "../src/lib/format.ts";
 import { barisIkutan, bersihkanCari, rapikanBudget, validasiKantong, validasiTransaksi } from "../src/lib/transaksi-input.ts";
 
 const sah = {
@@ -145,5 +145,10 @@ for (const jahat of ["//situs-lain.com", "https://situs-lain.com", "/\\situs-lai
 }
 assert.equal(alamatDetail("abc", "/riwayat?filter=keluar&q=kopi"), "/transactions/abc?kembali=%2Friwayat%3Ffilter%3Dkeluar%26q%3Dkopi");
 assert.equal(alamatDetail("abc"), "/transactions/abc");
+// Tujuan setelah masuk / dari tautan email.
+assert.equal(alamatInternal("/riwayat?filter=draft", "/"), "/riwayat?filter=draft");
+for (const jahat of ["@situs-lain.com", "//situs-lain.com", "/\\situs-lain.com", "https://situs-lain.com", null, undefined, ""]) {
+  assert.equal(alamatInternal(jahat, "/"), "/", String(jahat));
+}
 
 console.log(`✓ validasi transaksi: 1 sah + ${tolak.length} tolak; teks cari aman; budget; kantong; alamat kembali aman`);

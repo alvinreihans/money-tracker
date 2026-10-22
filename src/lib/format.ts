@@ -104,12 +104,18 @@ export const alamatDetail = (id: string, kembali?: string) =>
   kembali ? `/transactions/${id}?kembali=${encodeURIComponent(kembali)}` : `/transactions/${id}`;
 
 /**
- * Halaman asal yang aman dipakai sebagai tujuan: hanya alamat di dalam
- * aplikasi ("/…", bukan "//situs-lain" atau URL penuh), dan bukan detail
- * transaksi lain. Selain itu jatuh ke Riwayat.
+ * Alamat tujuan dari URL (?lanjut=, ?kembali=, ?next=) yang aman diikuti:
+ * hanya alamat di dalam aplikasi ("/…"). "//situs-lain", "/\\situs-lain",
+ * URL penuh, atau "@situs-lain" (yang menempel ke origin jadi
+ * https://app@situs-lain) jatuh ke `cadangan` — mencegah open redirect.
  */
+export function alamatInternal(teks: string | null | undefined, cadangan: string): string {
+  return teks && /^\/(?![/\\])/.test(teks) ? teks : cadangan;
+}
+
+/** Halaman asal untuk tombol kembali & setelah hapus; bukan detail transaksi lain. */
 export function tujuanKembali(kembali: string | undefined): string {
-  return kembali && /^\/(?![/\\])/.test(kembali) && !kembali.startsWith("/transactions") ? kembali : "/riwayat";
+  return kembali?.startsWith("/transactions") ? "/riwayat" : alamatInternal(kembali, "/riwayat");
 }
 
 // Nama & ikon kategori: lib/kategori.ts (milik user, dari database).
