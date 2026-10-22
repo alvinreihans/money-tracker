@@ -22,7 +22,8 @@
     "uji:kantong": "tsx scripts/uji-kantong.mts",
     "uji:kategori": "tsx scripts/uji-kategori.mts",
     "uji:pinjaman": "tsx scripts/uji-pinjaman.mts",
-    "uji:notifikasi": "tsx scripts/uji-notifikasi.mts"
+    "uji:notifikasi": "tsx scripts/uji-notifikasi.mts",
+    "uji:ekspor": "tsx scripts/uji-ekspor.mts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
