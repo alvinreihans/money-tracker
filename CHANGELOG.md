@@ -17,20 +17,27 @@ Belum dikerjakan; dicatat supaya tidak lupa.
 - **Caching data di server** (lanjutan), kalau setelah diukur di produksi
   halaman masih terasa lambat: mis. saldo kantong dihitung di database
   (RPC) dan data yang jarang berubah disimpan sementara di server.
-- **Kaji pengamanan data user.** Catatan: SHA-256 adalah *hash* (satu arah),
-  bukan enkripsi — nominal yang di-hash tidak bisa dijumlah atau ditampilkan
-  lagi. Pilihan yang perlu ditimbang:
-  - yang sudah ada: enkripsi disk bawaan Supabase + RLS (data hanya bisa
-    dibaca pemiliknya lewat aplikasi);
-  - enkripsi kolom di database (Supabase Vault/pgsodium) untuk data sensitif
-    seperti merchant & keterangan — melindungi dari bocornya dump database;
-  - enkripsi di perangkat (end-to-end) — paling aman, tapi ringkasan, budget,
-    saldo, dan AI tidak bisa lagi dihitung di server.
-- **Push notifikasi**.
 
 ## [Unreleased]
 
+### Keamanan
+- Pendaftaran akun ditutup: akun baru lewat undangan. Halaman masuk tidak lagi
+  punya pilihan "Daftar".
+- Hak akses database diperketat: tidak ada lagi hak TRUNCATE/TRIGGER untuk
+  pengguna aplikasi, catatan migrasi tertutup, dan fungsi database hanya bisa
+  dipanggil oleh yang memang memakainya.
+- Sisa data fitur Telegram (nomor HP, chat_id) dihapus.
+- Merchant, keterangan, dan teks asli struk/ketikan disimpan terenkripsi
+  (AES-256) di database; kuncinya di Supabase Vault. Backup database yang
+  bocor tidak memperlihatkan isinya. Tampilan dan pencarian tetap sama.
+- Header keamanan: halaman tidak bisa dibingkai situs lain, skrip hanya dari
+  aplikasi sendiri, kamera hanya untuk aplikasi ini.
+
 ### Ditambahkan
+- **Notifikasi** (Pengaturan → Pengingat harian), tiap jam 19.00: cicilan dan
+  Lend & Borrow yang jatuh tempo 3 hari lagi atau besok (dan cicilan yang
+  kemarin terlewat), serta pengingat kalau hari ini belum mencatat apa pun.
+  Di iPhone hanya jalan kalau aplikasi dipasang ke Home Screen.
 - **Lend & Borrow** (dari Pengaturan atau kartu di Beranda): catat uang yang
   dipinjamkan ke dan dipinjam dari orang lain, bayar sebagian atau lunas,
   dengan jatuh tempo opsional. Tidak dihitung sebagai pemasukan atau

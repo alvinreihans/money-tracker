@@ -1128,3 +1128,38 @@ button.blok { background: var(--blok); }
 }
 
 .mulaiTitik > span[data-aktif="true"] { width: 24px; background: var(--primer); }
+
+/* Sakelar One UI dari checkbox bawaan (role="switch"): lintasan membulat,
+   kenop putih bergeser; biru saat nyala. */
+.sakelar {
+  appearance: none;
+  flex-shrink: 0;
+  position: relative;
+  width: 48px;
+  height: 28px;
+  min-height: 0; /* lawan gaya isian global di globals.css */
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 14px;
+  background: var(--titik);
+  cursor: inherit;
+}
+.sakelar::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #fff;
+}
+.sakelar:checked { background: var(--primer); }
+.sakelar:checked::after { transform: translateX(20px); }
+.sakelar:disabled { opacity: 0.5; }
+.sakelar:focus-visible { outline: 2px solid var(--primer); outline-offset: 2px; }
+@media (prefers-reduced-motion: no-preference) {
+  .sakelar { transition: background 200ms var(--gerak); }
+  .sakelar::after { transition: transform 200ms var(--gerak); }
+}

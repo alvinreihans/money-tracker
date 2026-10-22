@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ChevronRight, HandCoins, LogOut, Shapes, Target, UserRound, Wallet } from "lucide-react";
 import { useKategori } from "@/components/Catat";
 import { AppBar } from "@/components/oneui";
+import SakelarNotifikasi from "@/components/SakelarNotifikasi";
 import s from "@/components/ui.module.css";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
@@ -93,6 +94,11 @@ export default function PengaturanView({
             judul="Budget"
             ket={jumlahBudget > 0 ? `${jumlahBudget} kategori dibatasi` : "Batas pengeluaran per kategori"}
           />
+        </div>
+
+        <h2 className={s.subheader}>Notifikasi</h2>
+        <div className={s.blok}>
+          <SakelarNotifikasi />
         </div>
 
         <h2 className={s.subheader}>Akun</h2>

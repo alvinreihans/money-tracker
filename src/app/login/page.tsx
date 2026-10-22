@@ -11,14 +11,17 @@ import s from "@/components/ui.module.css";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { authErrorMessage } from "@/lib/errors";
 import { alamatInternal } from "@/lib/format";
-import { passwordValid } from "@/lib/password";
 
 /**
  * "lupa" sengaja jadi mode tersendiri, bukan tombol yang langsung mengirim.
  * Versi sebelumnya menembakkan email begitu diklik — user tidak sempat tahu
  * alamat tujuannya, dan tidak bisa membetulkan kalau kolom emailnya salah isi.
+ *
+ * Tidak ada mode daftar: pendaftaran ditutup (akun baru lewat undangan dari
+ * dashboard Supabase), supaya orang asing tidak bisa membuat akun dan
+ * menghabiskan kuota AI. Lihat KAJIAN-KEAMANAN-DATA (22 Okt 2026).
  */
-type Mode = "signin" | "signup" | "lupa";
+type Mode = "signin" | "lupa";
 
 const ERROR_TAUTAN: Record<string, string> = {
   "tautan-kedaluwarsa": "Tautannya udah lewat masa berlaku. Minta yang baru ya.",
@@ -33,7 +36,6 @@ function tujuanSetelahMasuk(): string {
 
 const JUDUL: Record<Mode, { judul: string; sub: string; tombol: string }> = {
   signin: { judul: "Masuk", sub: "Ketik atau foto struk, sisanya otomatis.", tombol: "Masuk" },
-  signup: { judul: "Bikin akun", sub: "Bentar aja, cuma tiga isian.", tombol: "Daftar" },
   lupa: { judul: "Lupa password", sub: "Kami kirim tautan buat bikin password baru.", tombol: "Kirim tautan" },
 };
 
@@ -42,7 +44,6 @@ export default function LoginPage() {
   const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [ulangi, setUlangi] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -61,7 +62,6 @@ export default function LoginPage() {
 
   function pindahMode(target: Mode) {
     setMode(target);
-    setUlangi("");
     setError(null);
     setMessage(null);
   }
@@ -70,13 +70,6 @@ export default function LoginPage() {
     e.preventDefault();
     setError(null);
     setMessage(null);
-
-    if (mode === "signup" && !passwordValid(password)) {
-      return setError("Passwordnya belum memenuhi semua syarat di bawah kolom.");
-    }
-    if (mode === "signup" && password !== ulangi) {
-      return setError("Password dan ulangannya belum sama.");
-    }
 
     setLoading(true);
     const supabase = createSupabaseBrowserClient();
@@ -97,25 +90,6 @@ export default function LoginPage() {
       });
       if (err) setError(authErrorMessage(err));
       else setMessage(`Tautan dikirim ke ${email}. Cek inbox dan folder spam ya.`);
-    } else if (mode === "signup") {
-      const { data, error: signUpError } = await supabase.auth.signUp({ email, password });
-
-      if (signUpError) {
-        setError(authErrorMessage(signUpError));
-      } else if (data.user && data.user.identities?.length === 0) {
-        // Supabase membalas "sukses" untuk email yang sudah terdaftar biar orang
-        // luar nggak bisa nebak email mana yang ada. Penandanya identities kosong.
-        setError("Email ini udah kepakai. Masuk aja.");
-        setMode("signin");
-      } else if (data.session) {
-        // Konfirmasi email nonaktif: langsung masuk, nggak usah disuruh login lagi.
-        router.push(tujuanSetelahMasuk());
-        router.refresh();
-        return;
-      } else {
-        setMessage("Akunnya jadi. Cek email buat konfirmasi.");
-        setMode("signin");
-      }
     } else {
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email,
@@ -133,12 +107,6 @@ export default function LoginPage() {
 
     setLoading(false);
   }
-
-  // Yang bisa diketuk cuma kata kerjanya; kalimat pengantarnya teks biasa.
-  const ajakan =
-    mode === "signin"
-      ? { teks: "Belum punya akun?", aksi: "Daftar", ke: "signup" as Mode }
-      : { teks: mode === "lupa" ? "Inget passwordnya?" : "Udah punya akun?", aksi: "Masuk", ke: "signin" as Mode };
 
   const tautan = { background: "none", border: 0, padding: 0, color: "var(--primer)", fontWeight: 600, cursor: "pointer" };
 
@@ -169,20 +137,13 @@ export default function LoginPage() {
                 label="Password"
                 value={password}
                 onChange={setPassword}
-                autoComplete={mode === "signin" ? "current-password" : "new-password"}
-                syarat={mode === "signup"}
+                autoComplete="current-password"
                 caption={
-                  mode === "signin" && (
-                    <button type="button" style={{ ...tautan, alignSelf: "flex-end", padding: "4px" }} onClick={() => pindahMode("lupa")}>
-                      Lupa password?
-                    </button>
-                  )
+                  <button type="button" style={{ ...tautan, alignSelf: "flex-end", padding: "4px" }} onClick={() => pindahMode("lupa")}>
+                    Lupa password?
+                  </button>
                 }
               />
-            )}
-
-            {mode === "signup" && (
-              <PasswordField label="Ulangi password" value={ulangi} onChange={setUlangi} autoComplete="new-password" />
             )}
 
           </div>
@@ -192,12 +153,14 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <p className={s.redup} style={{ textAlign: "center", margin: 0 }}>
-          {ajakan.teks}{" "}
-          <button type="button" style={tautan} onClick={() => pindahMode(ajakan.ke)}>
-            {ajakan.aksi}
-          </button>
-        </p>
+        {mode === "lupa" && (
+          <p className={s.redup} style={{ textAlign: "center", margin: 0 }}>
+            Inget passwordnya?{" "}
+            <button type="button" style={tautan} onClick={() => pindahMode("signin")}>
+              Masuk
+            </button>
+          </p>
+        )}
 
         <p className={s.versi}>Versi {process.env.NEXT_PUBLIC_VERSI}</p>
       </div>
