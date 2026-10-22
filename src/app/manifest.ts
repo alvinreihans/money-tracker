@@ -13,6 +13,20 @@ export default function manifest(): MetadataRoute.Manifest {
     lang: "id",
     start_url: "/",
     display: "standalone",
+    // Muncul di menu "Bagikan" Android setelah aplikasi dipasang: bukti bayar
+    // (gambar) atau teks notifikasi bank langsung masuk ke Catat. POST
+    // ditangkap service worker (public/sw.js), lalu diteruskan ke /bagikan.
+    share_target: {
+      action: "/bagikan",
+      method: "POST",
+      enctype: "multipart/form-data",
+      params: {
+        title: "title",
+        text: "text",
+        url: "url",
+        files: [{ name: "struk", accept: ["image/*"] }],
+      },
+    },
     background_color: "#000000",
     theme_color: "#000000",
     // Chrome butuh 192 & 512 supaya bisa dipasang sebagai aplikasi. Versi

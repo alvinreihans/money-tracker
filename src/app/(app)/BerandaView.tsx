@@ -5,6 +5,7 @@ import { ChevronRight, Flame, Inbox, TriangleAlert } from "lucide-react";
 import { useCatat } from "@/components/Catat";
 import KartuBudget from "@/components/KartuBudget";
 import KartuKantong from "@/components/KartuKantong";
+import KartuPinjaman from "@/components/KartuPinjaman";
 import KomposisiKategori from "@/components/KomposisiKategori";
 import MenuAkun from "@/components/MenuAkun";
 import { AppBar, Kosong } from "@/components/oneui";
@@ -14,6 +15,7 @@ import TrenBulanan from "@/components/TrenBulanan";
 import s from "@/components/ui.module.css";
 import { fmtIDR, namaBulan } from "@/lib/format";
 import { rentangBulan } from "@/lib/periode";
+import type { RingkasBeranda } from "@/lib/pinjaman";
 import type { Bulan, ProgresBudget } from "@/lib/analitik";
 import type { AvgMonthlyExpenseRow, Transaction } from "@/types/transaction";
 
@@ -25,6 +27,7 @@ export default function BerandaView({
   rerataError,
   tren,
   kantong,
+  pinjaman,
   budget,
   streak,
 }: {
@@ -35,6 +38,7 @@ export default function BerandaView({
   rerataError: string | null;
   tren: Bulan[];
   kantong: React.ComponentProps<typeof KartuKantong>["data"];
+  pinjaman: RingkasBeranda;
   budget: ProgresBudget[];
   streak: { hari: number; hariIni: boolean };
 }) {
@@ -117,7 +121,7 @@ export default function BerandaView({
             <Kosong ikon={Inbox} judul="Belum ada transaksi hari ini">
               Ketik aja, mis. &ldquo;beli makan di warteg 20k shopeepay&rdquo;.
               <br />
-              <button type="button" className={s.tombol} style={{ marginTop: 16 }} onClick={catat.buka}>
+              <button type="button" className={s.tombol} style={{ marginTop: 16 }} onClick={() => catat.buka()}>
                 Catat transaksi
               </button>
             </Kosong>
@@ -128,6 +132,7 @@ export default function BerandaView({
         )}
 
         <KartuKantong data={kantong} />
+        <KartuPinjaman data={pinjaman} />
         <KartuBudget data={budget} bulan={namaBulan(awalBulanIni)} />
         <TrenBulanan data={tren} />
         <KomposisiKategori data={rerata} error={rerataError} />

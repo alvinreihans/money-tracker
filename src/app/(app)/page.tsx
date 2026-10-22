@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { hitungStreak, progresBudget, trenBulanan } from "@/lib/analitik";
 import { geserHari, isoLokal } from "@/lib/format";
 import { ambilKantong } from "@/lib/kantong";
+import { kantongUang, ringkasBeranda, type Cicilan } from "@/lib/pinjaman";
 import { rentangBulan } from "@/lib/periode";
 import BerandaView from "./BerandaView";
 import type { AvgMonthlyExpenseRow, Transaction } from "@/types/transaction";
@@ -38,6 +39,8 @@ export default async function BerandaPage() {
     { data: catatan },
     { data: budgets },
     { kantong, saldo },
+    { data: cicilan },
+    { data: bayarCicilan },
   ] = await Promise.all([
     // Beranda cuma hari ini & kemarin; selebihnya di Riwayat.
     supabase
@@ -82,7 +85,14 @@ export default async function BerandaPage() {
       .gte("created_at", new Date(sekarang.getTime() - HARI_STREAK * 86_400_000).toISOString()),
     supabase.from("budgets").select("category, amount"),
     ambilKantong(supabase),
+    supabase.from("cicilan").select("id, nama, tenor, jatuh_tempo_awal, nominal"),
+    supabase.from("transactions").select("cicilan_id, cicilan_ke").not("cicilan_id", "is", null),
   ]);
+
+  const dibayar: Record<string, number[]> = {};
+  for (const b of (bayarCicilan ?? []) as { cicilan_id: string; cicilan_ke: number | null }[]) {
+    if (b.cicilan_ke) (dibayar[b.cicilan_id] ??= []).push(b.cicilan_ke);
+  }
 
   return (
     <BerandaView
@@ -96,7 +106,14 @@ export default async function BerandaPage() {
       rerata={(rerata ?? []) as AvgMonthlyExpenseRow[]}
       rerataError={rerataError?.message ?? null}
       tren={trenBulanan(barisTren ?? [], sekarang, BULAN_TREN)}
-      kantong={kantong.map((k) => ({ id: k.id, name: k.name, kind: k.kind, emoji: k.emoji, saldo: saldo.get(k.id) ?? 0 }))}
+      // Total aset hanya kantong uang; orang & kartu kredit ada di Lend & Borrow.
+      kantong={kantong.filter(kantongUang).map((k) => ({ id: k.id, name: k.name, kind: k.kind, emoji: k.emoji, saldo: saldo.get(k.id) ?? 0 }))}
+      pinjaman={ringkasBeranda(
+        kantong.map((k) => ({ ...k, saldo: saldo.get(k.id) ?? 0 })),
+        (cicilan ?? []) as Cicilan[],
+        dibayar,
+        hariIni,
+      )}
       budget={progresBudget(budgets ?? [], keluarIni ?? [])}
       streak={hitungStreak((catatan ?? []).map((c) => c.created_at as string), sekarang)}
     />

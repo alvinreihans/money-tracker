@@ -26,6 +26,18 @@ const PETUNJUK: Record<string, string> = {
   investment: "bunga/dividen/hasil investasi",
 };
 
+/**
+ * Yang perlu diketahui model tentang user: kategorinya, orang & kartu kredit
+ * (Lend & Borrow), dan rencana cicilannya — supaya memakai nama yang persis.
+ */
+export interface KonteksAI {
+  kategori: Kategori[];
+  pihak?: string[];
+  cicilan?: { nama: string; penyedia: string | null }[];
+}
+
+const KONTEKS_BAWAAN: KonteksAI = { kategori: KATEGORI_BAWAAN };
+
 /** Daftar kategori milik user untuk satu jenis, sebagai baris prompt. */
 const daftarPrompt = (kategori: Kategori[], type: "expense" | "income") =>
   kategoriJenis(kategori, type)
@@ -43,7 +55,7 @@ function toISODate(d: Date): string {
 // Prompt bersama (dipakai Groq maupun Gemini agar hasilnya konsisten)
 // ---------------------------------------------------------------------------
 
-function buildSystemPrompt(todayISO: string, kategori: Kategori[]): string {
+function buildSystemPrompt(todayISO: string, { kategori, pihak = [], cicilan = [] }: KonteksAI): string {
   return `Anda adalah mesin ekstraksi data transaksi keuangan berbahasa Indonesia.
 Kembalikan HANYA objek JSON valid sesuai skema.
 
@@ -59,6 +71,8 @@ Skema:
   "payment_target": string | null,
   "fee": number | null,
   "cashback": number | null,
+  "pinjaman": { "arah": "beri" | "terima_bayar" | "pinjam" | "bayar", "pihak": string } | null,
+  "cicilan": string | null,
   "document_type": "receipt" | "payment_proof"
 }
 
@@ -121,6 +135,25 @@ ${daftarPrompt(kategori, "income")}
 - cashback: HANYA untuk "expense": cashback yang BENAR-BENAR didapat dari belanja
   itu ("cashback 5rb", "dapet koin 2rb"). BUKAN promo "Cashback up to ...". Selain itu null.
   Cashback tanpa belanja ("dapet cashback 5rb") adalah "income" kategori refund.
+- pinjaman: HANYA untuk meminjamkan/meminjam uang dengan ORANG atau kartu kredit
+  (kata seperti minjemin, pinjem, utang, balikin, nyicil utang). Isi type "transfer",
+  payment_method = rekening/dompet milik user yang dipakai, dan:
+    "beri"          = aku meminjamkan ke dia ("minjemin budi 200rb dari bca")
+    "terima_bayar"  = dia membayar/mengembalikan pinjamannya ke aku ("budi balikin 100rb ke bca")
+    "pinjam"        = aku meminjam dari dia ("pinjem uang ibu 1jt masuk bri")
+    "bayar"         = aku membayar utangku ke dia / tagihan kartu kredit ("bayar utang ke ibu 500rb pake bri")
+  pihak = nama ORANG-nya atau nama kartu kreditnya — BUKAN nama bank/dompet tempat uangnya
+  masuk/keluar (itu payment_method). Perhatikan siapa yang bergerak: kalau orang lain yang
+  membayar/mengembalikan ke aku ("budi balikin", "dibayar budi", "ditransfer budi utangnya")
+  itu "terima_bayar". Bayar tagihan kartu kredit ("bayar tagihan cc bca", "lunasin kartu
+  kredit") = "bayar" dengan pihak kartu kreditnya.${pihak.length ? ` Kalau orangnya sudah ada di daftar ini, pakai nama persisnya: ${pihak.join(", ")}.` : ""}
+  Transfer/bayar ke orang yang BUKAN pinjaman (bayar jasa, kirim hadiah) tetap "expense" dengan pinjaman null.
+- cicilan: HANYA untuk "expense" yang membayar cicilan paylater/kartu kredit ("bayar cicilan
+  spaylater 150rb"). Isi dengan nama barang atau penyedia yang disebut.${
+    cicilan.length
+      ? ` Rencana cicilan milik user (nama — penyedia): ${cicilan.map((c) => `${c.nama}${c.penyedia ? ` — ${c.penyedia}` : ""}`).join("; ")}. Pakai nama barang atau penyedia persis dari daftar ini.`
+      : ""
+  } Selain itu null.
 - document_type: "payment_proof" bila ini tangkapan layar bukti bayar dari
   aplikasi (ShopeePay/GoPay/OVO/DANA/QRIS/m-banking), "receipt" bila ini struk
   kertas dari mesin kasir. Dipakai untuk mencegah transaksi tercatat dua kali
@@ -134,6 +167,10 @@ Contoh teks ketikan (field lain mengikuti aturan di atas):
 - "kopi 25rb gopay" -> type "expense", payment_method "GoPay"
 - "beli pulsa 50rb shopeepay cashback 5rb" -> type "expense", payment_method "ShopeePay", cashback 5000
 - "topup gopay 100rb dari bca admin 1000" -> type "transfer", payment_method "BCA", payment_target "GoPay", fee 1000
+- "minjemin budi 200rb dari bca" -> type "transfer", payment_method "BCA", pinjaman { "arah": "beri", "pihak": "Budi" }
+- "budi balikin 100rb ke bca" -> type "transfer", payment_method "BCA", pinjaman { "arah": "terima_bayar", "pihak": "Budi" }
+- "bayar tagihan kartu kredit bca 2jt dari bca" -> type "transfer", payment_method "BCA", pinjaman { "arah": "bayar", "pihak": "Kartu kredit BCA" }
+- "bayar cicilan spaylater 150rb pake bca" -> type "expense", payment_method "BCA", cicilan "Shopee PayLater"
 
 Jangan menambahkan teks/penjelasan/markdown di luar JSON.`;
 }
@@ -150,8 +187,17 @@ benar-benar tidak dapat ditentukan, kembalikan amount 0.`;
 
 /** Rapikan hasil mentah model menjadi ExtractedReceipt yang konsisten. */
 export function normalize(parsed: Partial<ExtractedReceipt>, kategori: Kategori[] = KATEGORI_BAWAAN): ExtractedReceipt {
-  const type: TransactionType =
-    parsed.type === "income" || parsed.type === "transfer" ? parsed.type : "expense";
+  const p = parsed.pinjaman as { arah?: unknown; pihak?: unknown } | null | undefined;
+  const pinjaman =
+    p && typeof p.pihak === "string" && p.pihak.trim() && ["beri", "terima_bayar", "pinjam", "bayar"].includes(p.arah as string)
+      ? { arah: p.arah as NonNullable<ExtractedReceipt["pinjaman"]>["arah"], pihak: p.pihak.trim().slice(0, 40) }
+      : null;
+  // Pinjaman selalu pindah kantong, apa pun type yang ditebak model.
+  const type: TransactionType = pinjaman
+    ? "transfer"
+    : parsed.type === "income" || parsed.type === "transfer"
+      ? parsed.type
+      : "expense";
 
   // Kategori di luar daftar milik user (atau terhapus) jatuh ke "Lainnya".
   const slug = typeof parsed.category === "string" ? parsed.category.trim() : "";
@@ -167,6 +213,8 @@ export function normalize(parsed: Partial<ExtractedReceipt>, kategori: Kategori[
     payment_target: type === "transfer" ? parsed.payment_target?.toString().trim() || null : null,
     fee: type === "transfer" ? nominalAtauNull(parsed.fee) : null,
     cashback: type === "expense" ? nominalAtauNull(parsed.cashback) : null,
+    pinjaman,
+    cicilan: type === "expense" && typeof parsed.cicilan === "string" && parsed.cicilan.trim() ? parsed.cicilan.trim().slice(0, 60) : null,
     document_type: parsed.document_type === "payment_proof" ? "payment_proof" : "receipt",
     transaction_date:
       typeof parsed.transaction_date === "string" && parsed.transaction_date
@@ -205,12 +253,12 @@ export interface GroqExtraction {
 }
 
 /** Ekstraksi satu struk dari teks OCR, lewat rantai model Groq. */
-export async function extractWithGroq(text: string, kategori: Kategori[] = KATEGORI_BAWAAN): Promise<GroqExtraction> {
+export async function extractWithGroq(text: string, konteks: KonteksAI = KONTEKS_BAWAAN): Promise<GroqExtraction> {
   const { value, model } = await runGroqChain<Partial<ExtractedReceipt>>(
-    buildSystemPrompt(toISODate(new Date()), kategori),
+    buildSystemPrompt(toISODate(new Date()), konteks),
     `${OCR_CONTEXT}\n\n---\n${text}`,
   );
-  return { extracted: normalize(value, kategori), model };
+  return { extracted: normalize(value, konteks.kategori), model };
 }
 
 // ---------------------------------------------------------------------------
@@ -230,6 +278,15 @@ const geminiSchema: GenerationConfig["responseSchema"] = {
     payment_target: { type: SchemaType.STRING, nullable: true },
     fee: { type: SchemaType.NUMBER, nullable: true },
     cashback: { type: SchemaType.NUMBER, nullable: true },
+    pinjaman: {
+      type: SchemaType.OBJECT,
+      nullable: true,
+      properties: {
+        arah: { type: SchemaType.STRING, format: "enum", enum: ["beri", "terima_bayar", "pinjam", "bayar"] },
+        pihak: { type: SchemaType.STRING },
+      },
+    },
+    cicilan: { type: SchemaType.STRING, nullable: true },
     document_type: { type: SchemaType.STRING, format: "enum", enum: ["receipt", "payment_proof"] },
   },
   required: ["amount", "type", "category", "transaction_date"],
@@ -243,11 +300,11 @@ const geminiSchema: GenerationConfig["responseSchema"] = {
 export async function extractWithGeminiVision(
   base64Image: string,
   mimeType: string,
-  kategori: Kategori[] = KATEGORI_BAWAAN,
+  konteks: KonteksAI = KONTEKS_BAWAAN,
 ): Promise<ExtractedReceipt> {
   const model = getGeminiClient().getGenerativeModel({
     model: GEMINI_MODEL,
-    systemInstruction: buildSystemPrompt(toISODate(new Date()), kategori),
+    systemInstruction: buildSystemPrompt(toISODate(new Date()), konteks),
     generationConfig: {
       responseMimeType: "application/json",
       responseSchema: geminiSchema,
@@ -268,7 +325,7 @@ export async function extractWithGeminiVision(
         { inlineData: { data: base64Image, mimeType } },
         { text: "Ekstrak data dari struk ini." },
       ]);
-      return normalize(parseJsonLoose(result.response.text()), kategori);
+      return normalize(parseJsonLoose(result.response.text()), konteks.kategori);
     } catch (err) {
       lastError = err;
       if (!isRetryableGeminiError(err)) throw err;

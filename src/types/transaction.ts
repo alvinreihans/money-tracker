@@ -22,6 +22,9 @@ export interface Transaction {
   kantong_tujuan_id: string | null;
   /** Transaksi ikutan (biaya admin / cashback): id transaksi induknya. */
   induk_id: string | null;
+  /** Pembayaran cicilan: rencana cicilannya dan cicilan ke berapa. */
+  cicilan_id?: string | null;
+  cicilan_ke?: number | null;
   transaction_date: string; // ISO date: "YYYY-MM-DD"
   status: TransactionStatus;
   /** Rekening/dompet tempat uang bergerak, mis. "SeaBank". */
@@ -51,6 +54,10 @@ export interface ExtractedReceipt {
   fee: number | null;
   /** Hanya untuk expense: cashback yang benar-benar didapat. */
   cashback: number | null;
+  /** Pinjaman dengan orang/kartu kredit (Lend & Borrow): arah & pihaknya. */
+  pinjaman: { arah: "beri" | "terima_bayar" | "pinjam" | "bayar"; pihak: string } | null;
+  /** Hanya expense: rencana cicilan yang dibayar (nama barang/penyedia yang disebut). */
+  cicilan: string | null;
   /** Membedakan screenshot bukti bayar dari struk kertas kasir. */
   document_type: "receipt" | "payment_proof";
 }

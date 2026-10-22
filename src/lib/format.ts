@@ -78,6 +78,12 @@ export const fmtTanggal = (iso: string) =>
     year: "numeric",
   }).format(new Date(`${iso}T00:00:00`));
 
+/** "5 Nov" untuk tahun berjalan, "5 Nov 2027" selain itu — untuk baris yang sempit. */
+export const fmtTanggalPendek = (iso: string, sekarang = new Date()) =>
+  iso.slice(0, 4) === isoLokal(sekarang).slice(0, 4)
+    ? new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "short" }).format(new Date(`${iso}T00:00:00`))
+    : fmtTanggal(iso);
+
 export const fmtWaktu = (iso: string) =>
   new Intl.DateTimeFormat("id-ID", {
     day: "numeric",

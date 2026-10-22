@@ -52,6 +52,14 @@ assert.ok(belanjaCb.ok && belanjaCb.data.cashback === 5000 && belanjaCb.data.bia
 const nol = validasiTransaksi({ ...sah, cashback: "0" });
 assert.ok(nol.ok && nol.data.cashback === null);
 
+// Pembayaran cicilan: hanya pengeluaran, harus bernomor; tanpa cicilan tidak ada kolomnya.
+const bayarCicilan = validasiTransaksi({ ...sah, cicilan_id: ID_A, cicilan_ke: "3" });
+assert.ok(bayarCicilan.ok && bayarCicilan.data.cicilan_id === ID_A && bayarCicilan.data.cicilan_ke === 3);
+assert.ok(!("cicilan_id" in (validasiTransaksi(sah) as { data: object }).data));
+assert.equal(validasiTransaksi({ ...sah, cicilan_id: ID_A }).ok, false); // tanpa nomor
+assert.equal(validasiTransaksi({ ...sah, type: "income", category: "salary", cicilan_id: ID_A, cicilan_ke: 1 }).ok, false);
+assert.equal(validasiTransaksi({ ...sah, cicilan_id: ID_A, cicilan_ke: 0 }).ok, false);
+
 // Transaksi ikutan.
 const induk = { id: "p", user_id: "u", transaction_date: "2026-10-21", kantong_id: ID_A, payment_method: "BCA", merchant: "Kopi", status: "confirmed", source: "text" };
 assert.deepEqual(barisIkutan({ ...induk, type: "transfer" }, { biaya_admin: 1000 }, "GoPay"), {

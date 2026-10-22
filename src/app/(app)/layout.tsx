@@ -22,6 +22,8 @@ export default async function AppGroupLayout({
   const supabase = await createSupabaseServerClient();
 
   if (!user) redirect("/login");
+  // Pengguna baru: kenalan dulu dan pasang kantong (halaman /mulai).
+  if (!user.onboarding) redirect("/mulai");
 
   const [{ count }, { data: terakhir }, { data: kantong }, kategori] = await Promise.all([
     // Jumlah draft jadi penanda di menu Riwayat.

@@ -36,7 +36,10 @@ interface Kabar {
 export type PilihanKantong = Pick<Kantong, "id" | "name" | "kind" | "emoji">;
 
 const CatatContext = createContext<{
-  buka: () => void;
+  /** Buka sheet Catat; `teks` mengisi kolom ketik (mis. teks yang dibagikan). */
+  buka: (teks?: string) => void;
+  /** Proses gambar struk/bukti bayar lewat antrean (mis. yang dibagikan). */
+  tambahStruk: (berkas: File[]) => void;
   kantong: PilihanKantong[];
   kategori: Kategori[];
   /** Email yang sedang masuk, untuk menu ⋮. */
@@ -59,7 +62,7 @@ export function useKategori() {
 export function TombolCatat() {
   const { buka } = useCatat();
   return (
-    <button type="button" className={s.navCatat} aria-label="Catat transaksi" onClick={buka}>
+    <button type="button" className={s.navCatat} aria-label="Catat transaksi" onClick={() => buka()}>
       <Plus size={28} />
     </button>
   );
@@ -81,6 +84,7 @@ export function CatatProvider({
   const router = useRouter();
   const antrean = useAntreanStruk();
   const [dialog, setDialog] = useState<DialogAktif>(null);
+  const [teksAwal, setTeksAwal] = useState("");
   const [kabar, setKabar] = useState<Kabar | null>(null);
   const galeriRef = useRef<HTMLInputElement>(null);
 
@@ -119,7 +123,21 @@ export function CatatProvider({
       : null;
 
   return (
-    <CatatContext.Provider value={{ buka: () => setDialog("catat"), kantong, kategori, email }}>
+    <CatatContext.Provider
+      value={{
+        buka: (teks) => {
+          setTeksAwal(typeof teks === "string" ? teks : "");
+          setDialog("catat");
+        },
+        tambahStruk: (berkas) => {
+          antrean.tambah(berkas);
+          setDialog("struk");
+        },
+        kantong,
+        kategori,
+        email,
+      }}
+    >
       <input
         ref={galeriRef}
         type="file"
@@ -159,6 +177,7 @@ export function CatatProvider({
       {dialog === "catat" && (
         <CatatDialog
           saran={saran}
+          teksAwal={teksAwal}
           onClose={() => setDialog(null)}
           onTersimpan={tersimpan}
           onKamera={() => setDialog("kamera")}
@@ -227,6 +246,7 @@ const PINTASAN = [
 
 function CatatDialog({
   saran,
+  teksAwal,
   onClose,
   onTersimpan,
   onKamera,
@@ -234,13 +254,14 @@ function CatatDialog({
   onForm,
 }: {
   saran: string[];
+  teksAwal: string;
   onClose: () => void;
   onTersimpan: (tx: Transaction, draft: boolean) => void;
   onKamera: () => void;
   onGaleri: () => void;
   onForm: () => void;
 }) {
-  const [teks, setTeks] = useState("");
+  const [teks, setTeks] = useState(teksAwal);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);

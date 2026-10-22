@@ -2,7 +2,7 @@
 
 import NextLink from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronRight, LogOut, Shapes, Target, UserRound, Wallet } from "lucide-react";
+import { ChevronRight, HandCoins, LogOut, Shapes, Target, UserRound, Wallet } from "lucide-react";
 import { useKategori } from "@/components/Catat";
 import { AppBar } from "@/components/oneui";
 import s from "@/components/ui.module.css";
@@ -78,6 +78,13 @@ export default function PengaturanView({
             warna="#ff9f43"
             judul="Kategori"
             ket={`${kategori.filter((k) => k.type === "expense").length} pengeluaran · ${kategori.filter((k) => k.type === "income").length} pemasukan`}
+          />
+          <BarisMenu
+            href="/pinjaman"
+            ikon={HandCoins}
+            warna="#5ecb7a"
+            judul="Lend & Borrow"
+            ket="Pinjaman, kartu kredit, cicilan"
           />
           <BarisMenu
             href="/pengaturan/budget"
