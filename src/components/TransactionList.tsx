@@ -90,14 +90,14 @@ export default function TransactionList({
 
   return (
     <>
-      {kelompok.map((k) => {
+      {kelompok.map((k, i) => {
         // Draft belum punya nominal yang benar; pindah kantong bukan pengeluaran.
         const keluar = k.isi
           .filter((t) => t.type === "expense" && t.status === "confirmed")
           .reduce((n, t) => n + Number(t.amount), 0);
 
         return (
-          <section key={k.label} className={s.kelompok}>
+          <section key={`${k.label}-${i}`} className={s.kelompok}>
             <h2 className={`${s.subheader} ${s.subheaderTebal} ${s.subheaderBaris}`}>
               <span>{k.label}</span>
               {keluar > 0 && (
