@@ -22,7 +22,7 @@ import { Spinner } from "@/components/oneui";
 import s from "@/components/ui.module.css";
 import { useCatat } from "@/components/Catat";
 import { ACCEPT_STRUK } from "@/components/UploadReceiptForm";
-import { CERITA_ULANG, KALIMAT_TANYA, MAKS_CERITA, pertanyaanDraft, type JenisTanya } from "@/lib/draft";
+import { apakahKoreksi, CERITA_ULANG, KALIMAT_TANYA, MAKS_CERITA, pertanyaanDraft, type JenisTanya } from "@/lib/draft";
 import { alamatDetail, angkaMentah, angkaRibuan, fmtIDR, fmtTanggalPendek } from "@/lib/format";
 import { namaKategori } from "@/lib/kategori";
 import { UMUR_DRAFT_HARI } from "@/lib/notifikasi";
@@ -51,6 +51,7 @@ type Pesan =
   | { t: "status"; teks: string }
   | { t: "tanya"; jenis: JenisTanya | "manual"; teks: string; selesai?: boolean }
   | { t: "kartu"; tx: Transaction; perbaikan: boolean; batal?: boolean }
+  | { t: "koreksi"; id: string; perubahan: string[]; sebelum: Partial<Transaction>; dibatalkan?: boolean }
   | { t: "tutup"; lagi: number };
 
 interface Aktif {
@@ -411,7 +412,48 @@ export default function LembarCatat({
     // Ketikan saat ada pertanyaan = jawabannya. Saat konfirmasi, ketikan
     // dianggap koreksi yang dibaca ulang.
     if (tanyaBuka) return void jawab(isi, undefined, tanyaBuka === "konfirmasi" ? "cerita" : undefined);
+    // Setelah transaksi tersimpan, "eh yang tadi pakai BCA" = koreksi untuknya.
+    const terakhir = [...pesan].reverse().find((p) => p.t === "kartu");
+    if (terakhir?.t === "kartu" && !terakhir.batal && apakahKoreksi(isi)) return void koreksi(terakhir.tx, isi);
     void catatTeks(isi);
+  }
+
+  /** Koreksi lewat ketikan untuk transaksi yang barusan tersimpan (Fase B). */
+  async function koreksi(tx: Transaction, isi: string) {
+    setBesar(true);
+    setLayar("obrolan");
+    setRingkas(null);
+    tambah({ t: "saya", teks: isi }, { t: "status", teks: "Mengoreksi…" });
+    setSibuk(true);
+    const r = await kirimJson(`/api/transaksi/${tx.id}/koreksi`, { teks: isi });
+    setPesan((prev) => prev.filter((p) => p.t !== "status"));
+    setSibuk(false);
+    const baru = r.data.transaction as Transaction | undefined;
+    if (!baru) return tambah({ t: "app", teks: (r.data.error as string) ?? "Gagal mengoreksi." });
+    setPesan((prev) => [
+      ...prev.map((p) => (p.t === "kartu" && p.tx.id === tx.id ? { ...p, tx: baru } : p)),
+      { t: "koreksi", id: tx.id, perubahan: r.data.perubahan as string[], sebelum: r.data.sebelum as Partial<Transaction> },
+    ]);
+    router.refresh();
+  }
+
+  async function batalkanKoreksi(i: number) {
+    const p = pesan[i];
+    if (p?.t !== "koreksi" || sibuk) return;
+    setSibuk(true);
+    const { data } = await db.from("transactions").update(p.sebelum).eq("id", p.id).select().single();
+    // Biaya admin / cashback ikut kembali ke kantong semula.
+    if ("kantong_id" in p.sebelum) {
+      await db.from("transactions").update({ kantong_id: p.sebelum.kantong_id, payment_method: p.sebelum.payment_method }).eq("induk_id", p.id);
+    }
+    setSibuk(false);
+    if (!data) return tambah({ t: "app", teks: "Gagal membatalkan perubahannya." });
+    setPesan((prev) =>
+      prev.map((x, j) =>
+        j === i && x.t === "koreksi" ? { ...x, dibatalkan: true } : x.t === "kartu" && x.tx.id === p.id ? { ...x, tx: data as Transaction } : x,
+      ),
+    );
+    router.refresh();
   }
 
   function keDetail(tx: Transaction) {
@@ -494,6 +536,20 @@ export default function LembarCatat({
         );
       case "kartu":
         return kartu(p.tx, p.perbaikan, p.batal, i);
+      case "koreksi":
+        return (
+          <div key={i} className={`${s.bub} ${s.bubApp}`}>
+            {p.dibatalkan ? "Perubahannya dibatalkan." : "Sudah diubah:"}
+            {!p.dibatalkan && p.perubahan.map((x) => <small key={x}>{x}</small>)}
+            {!p.dibatalkan && (
+              <div className={s.pilihanJawab}>
+                <button type="button" disabled={sibuk} onClick={() => void batalkanKoreksi(i)}>
+                  ↩ Batalkan perubahan
+                </button>
+              </div>
+            )}
+          </div>
+        );
       case "tutup":
         return (
           <div key={i} className={`${s.bub} ${s.bubApp}`}>
@@ -724,7 +780,7 @@ export default function LembarCatat({
                         ? "Pilih di atas, atau ketik kantongnya"
                         : tanyaBuka === "cerita"
                           ? "Ceritain transaksinya…"
-                          : tanyaBuka === "konfirmasi"
+                          : tanyaBuka === "konfirmasi" || (besar && pesan.at(-1)?.t === "kartu")
                             ? "Ada yang salah? Ketik koreksinya"
                             : "beli makan di warteg 20k shopeepay"
                 }

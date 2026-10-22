@@ -70,6 +70,20 @@ export function bacaNominal(teks: string): number | null {
 }
 
 /**
+ * Ketikan setelah transaksi tersimpan di obrolan: koreksi untuk transaksi itu
+ * ("eh yang tadi pakai BCA", "nominalnya 25rb", "bukan makan, belanja"), atau
+ * catatan baru? Koreksi biasanya dibuka dengan kata penanda; catatan baru
+ * hampir tidak pernah.
+ */
+export function apakahKoreksi(teks: string): boolean {
+  const t = teks.toLowerCase().trim();
+  return (
+    /^(eh|e+h,?|loh|lho|salah|bukan|ganti|ganti aja|ubah|koreksi|harusnya|maksudnya|maksud(ku|nya)|yang tadi|tadi|itu tadi|oh iya|oiya|sori|sorry)\b/.test(t) ||
+    /\b(yang tadi|harusnya|bukan .+ tapi|salah (nominal|kantong|kategori|tanggal)|nominalnya|kantongnya|kategorinya|tanggalnya)\b/.test(t)
+  );
+}
+
+/**
  * Kantong yang dimaksud jawaban ketik: id dari chip, nama persis ("bca"),
  * atau disebut dalam kalimat ("pakai bca dong").
  */

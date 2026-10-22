@@ -4,7 +4,7 @@
  * Pemakaian: npm run uji:draft
  */
 import assert from "node:assert/strict";
-import { bacaNominal, kantongDariJawaban, pertanyaanDraft } from "../src/lib/draft.ts";
+import { apakahKoreksi, bacaNominal, kantongDariJawaban, pertanyaanDraft } from "../src/lib/draft.ts";
 
 const d = (t: Partial<Parameters<typeof pertanyaanDraft>[0]>) =>
   pertanyaanDraft({ status: "needs_review", amount: 0, type: "expense", category: "other", merchant: null, kantong_id: null, kantong_tujuan_id: null, ...t });
@@ -41,4 +41,12 @@ assert.equal(kantongDariJawaban("dari bank jago", daftar)?.name, "Bank Jago");
 assert.equal(kantongDariJawaban("tunai", daftar)?.name, "Tunai");
 assert.equal(kantongDariJawaban("mandiri", daftar), null);
 
-console.log("✓ draft: urutan pertanyaan, nominal ketikan (rb/jt/Rp/titik), kantong dari chip & kalimat");
+// Koreksi vs catatan baru.
+for (const k of ["eh yang tadi pakai BCA", "salah, harusnya 25rb", "nominalnya 25rb", "bukan makan tapi belanja", "ganti kantongnya ke gopay", "oiya tadi tanggal kemarin", "Harusnya pakai DANA"]) {
+  assert.equal(apakahKoreksi(k), true, k);
+}
+for (const b of ["beli makan di warteg 20k", "kopi 25rb gopay", "isi bensin pakai bca", "transfer ke budi 50k", "bayar listrik 300rb", "gaji masuk bri 5jt"]) {
+  assert.equal(apakahKoreksi(b), false, b);
+}
+
+console.log("✓ draft: urutan pertanyaan, nominal ketikan (rb/jt/Rp/titik), kantong dari chip & kalimat, koreksi vs catatan baru");
