@@ -153,18 +153,14 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <p className={s.redup} style={{ textAlign: "center", margin: 0 }}>
-          {mode === "lupa" ? (
-            <>
-              Inget passwordnya?{" "}
-              <button type="button" style={tautan} onClick={() => pindahMode("signin")}>
-                Masuk
-              </button>
-            </>
-          ) : (
-            "Akun baru dibuat lewat undangan."
-          )}
-        </p>
+        {mode === "lupa" && (
+          <p className={s.redup} style={{ textAlign: "center", margin: 0 }}>
+            Inget passwordnya?{" "}
+            <button type="button" style={tautan} onClick={() => pindahMode("signin")}>
+              Masuk
+            </button>
+          </p>
+        )}
 
         <p className={s.versi}>Versi {process.env.NEXT_PUBLIC_VERSI}</p>
       </div>
