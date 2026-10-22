@@ -26,11 +26,8 @@ export default async function AppGroupLayout({
   if (!user.onboarding) redirect("/mulai");
 
   const [{ count }, { data: terakhir }, { data: kantong }, kategori] = await Promise.all([
-    // Jumlah draft jadi penanda di menu Riwayat.
-    supabase
-      .from("transactions")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "needs_review"),
+    // Jumlah catatan belum selesai: titik oranye di tombol +.
+    supabase.from("draft_catat").select("transaksi_id", { count: "exact", head: true }),
     // Bahan saran di kolom "Catat". Dua puluh baris cukup untuk dapat lima
     // yang berbeda; pemasukan dan pindah kantong jarang diulang persis.
     supabase

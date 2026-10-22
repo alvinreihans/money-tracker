@@ -2,51 +2,55 @@
 
 import { createContext, useContext, useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowUp, Camera, ClipboardPen, History, Image as IkonGambar, Plus } from "lucide-react";
-import CameraCapture from "@/components/CameraCapture";
+import { Plus } from "lucide-react";
+import LembarCatat, { type PerintahCatat } from "@/components/Obrolan";
 import { Lembar, Pesan, Spinner } from "@/components/oneui";
 import TransactionFields, { nilaiAwal } from "@/components/TransactionFields";
 import s from "@/components/ui.module.css";
-import { alasanDraft, type Kantong } from "@/lib/kantong";
+import type { Kantong } from "@/lib/kantong";
 import { namaKategori, type Kategori } from "@/lib/kategori";
-import DaftarAntrean, { ACCEPT_STRUK, useAntreanStruk } from "@/components/UploadReceiptForm";
+import { useAntreanStruk } from "@/components/UploadReceiptForm";
 import { alamatDetail, fmtIDR } from "@/lib/format";
-import { TEKS_MAKS, validasiTransaksi } from "@/lib/transaksi-input";
+import { validasiTransaksi } from "@/lib/transaksi-input";
 import type { Transaction } from "@/types/transaction";
 
 /**
- * Pintu mencatat. Tombol "+" di tengah navigasi bawah langsung membuka kolom ketik
- * yang sudah siap diketik — "beli makan di warteg 20k shopeepay" lalu kirim, selesai.
- * Mengetik adalah cara tercepat, jadi itu yang langsung muncul; kamera,
- * galeri, dan form isian ada sebagai pintasan di atas kolomnya.
+ * Pintu mencatat. Tombol "+" di tengah navigasi bawah membuka lembar Catat
+ * (components/Obrolan.tsx): kolom ketik yang langsung siap diketik, dengan
+ * kamera, galeri, dan form isian sebagai pintasan. Kalau ada yang kurang, AI
+ * bertanya di tempat — catatan yang belum selesai menunggu di "Belum
+ * selesai" (SPEC-catat-chat.md).
  *
- * Provider ini ditaruh di kerangka aplikasi, jadi antrean struk bertahan saat
- * dialognya ditutup atau saat pindah halaman.
+ * Provider ini ditaruh di kerangka aplikasi, jadi antrean struk dari
+ * "Bagikan" bertahan saat pindah halaman.
  */
-
-type DialogAktif = "catat" | "kamera" | "struk" | "manual" | null;
 
 interface Kabar {
   teks: string;
-  href: string;
-  draft: boolean;
+  aksi?: { label: string; jalankan: () => void };
 }
 
 /** Kantong yang dipilih di form: cukup id, nama, dan jenisnya. */
 export type PilihanKantong = Pick<Kantong, "id" | "name" | "kind" | "emoji">;
 
 const CatatContext = createContext<{
-  /** Buka sheet Catat; `teks` mengisi kolom ketik (mis. teks yang dibagikan). */
+  /** Buka lembar Catat; `teks` mengisi kolom ketik (mis. teks yang dibagikan). */
   buka: (teks?: string) => void;
-  /** Proses gambar struk/bukti bayar lewat antrean (mis. yang dibagikan). */
+  /** Buka percakapan satu catatan yang belum selesai (kartu Beranda, push). */
+  bukaDraft: (id: string) => void;
+  /** Buka daftar catatan yang belum selesai. */
+  bukaDaftar: () => void;
+  /** Proses gambar dari "Bagikan" di latar, masing-masing jadi satu transaksi. */
   tambahStruk: (berkas: File[]) => void;
   kantong: PilihanKantong[];
   kategori: Kategori[];
   /** Email yang sedang masuk, untuk menu ⋮. */
   email: string | null;
+  /** Jumlah catatan yang belum selesai. */
+  jumlahDraft: number;
 } | null>(null);
 
-/** Membuka sheet Catat dari mana saja, mis. dari halaman kosong. */
+/** Membuka lembar Catat dari mana saja, mis. dari halaman kosong. */
 export function useCatat() {
   const api = useContext(CatatContext);
   if (!api) throw new Error("useCatat dipakai di luar CatatProvider");
@@ -58,12 +62,15 @@ export function useKategori() {
   return useCatat().kategori;
 }
 
-/** Tombol + di tengah kapsul navigasi bawah. */
+/** Tombol + di tengah kapsul navigasi bawah; titik oranye = ada yang belum selesai. */
 export function TombolCatat() {
-  const { buka } = useCatat();
+  const { buka, jumlahDraft } = useCatat();
   return (
-    <button type="button" className={s.navCatat} aria-label="Catat transaksi" onClick={() => buka()}>
+    <button type="button" className={s.navCatat} style={{ position: "relative" }} aria-label="Catat transaksi" onClick={() => buka()}>
       <Plus size={28} />
+      {jumlahDraft > 0 && (
+        <span className={s.navTitik} style={{ top: 6, right: 6 }} aria-label={`${jumlahDraft} catatan belum selesai`} role="img" />
+      )}
     </button>
   );
 }
@@ -73,148 +80,117 @@ export function CatatProvider({
   kantong,
   kategori,
   email,
+  jumlahDraft,
   children,
 }: {
   saran: string[];
   kantong: PilihanKantong[];
   kategori: Kategori[];
   email: string | null;
+  jumlahDraft: number;
   children: React.ReactNode;
 }) {
   const router = useRouter();
   const antrean = useAntreanStruk();
-  const [dialog, setDialog] = useState<DialogAktif>(null);
-  const [teksAwal, setTeksAwal] = useState("");
+  const [perintah, setPerintah] = useState<PerintahCatat | null>(null);
+  const [manual, setManual] = useState(false);
   const [kabar, setKabar] = useState<Kabar | null>(null);
-  const galeriRef = useRef<HTMLInputElement>(null);
+  const urut = useRef(0);
+
+  const bukaLembar = (p: Omit<PerintahCatat, "id">) => setPerintah({ ...p, id: ++urut.current });
 
   // Snackbar hilang sendiri setelah beberapa detik.
   useEffect(() => {
     if (!kabar) return;
-    const t = setTimeout(() => setKabar(null), 5000);
+    const t = setTimeout(() => setKabar(null), 6000);
     return () => clearTimeout(t);
   }, [kabar]);
 
-  function tersimpan(tx: Transaction, draft: boolean) {
-    setDialog(null);
+  // Struk dari "Bagikan" selesai diproses: kabari hasilnya.
+  const tadiJalan = useRef(false);
+  useEffect(() => {
+    if (antrean.berjalan) {
+      tadiJalan.current = true;
+      return;
+    }
+    if (!tadiJalan.current) return;
+    tadiJalan.current = false;
+    const ok = antrean.items.filter((i) => i.status === "ok").length;
+    const kurang = antrean.items.filter((i) => i.status === "draft").length;
+    const gagal = antrean.items.filter((i) => i.status === "gagal").length;
+    const bagian = [ok && `${ok} tercatat`, kurang && `${kurang} belum lengkap`, gagal && `${gagal} gagal`].filter(Boolean);
     setKabar({
-      teks: !draft
-        ? `Tercatat: ${tx.merchant ?? namaKategori(kategori, tx.category, tx.type)} ${fmtIDR(Number(tx.amount))}`
-        : alasanDraft(tx) === "kantong"
-          ? "Kantongnya belum jelas, pilih dulu ya"
-          : "Nggak kebaca, disimpan jadi draft",
-      href: alamatDetail(tx.id, window.location.pathname + window.location.search),
-      draft,
+      teks: bagian.join(" · ") || "Selesai",
+      aksi: kurang ? { label: "Lengkapi", jalankan: () => bukaLembar({ besar: true, layar: "daftar" }) } : undefined,
+    });
+    antrean.bersihkan();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [antrean.berjalan]);
+
+  function tersimpan(tx: Transaction) {
+    setManual(false);
+    setKabar({
+      teks: `Tercatat: ${tx.merchant ?? namaKategori(kategori, tx.category, tx.type)} ${fmtIDR(Number(tx.amount))}`,
+      aksi: { label: "Lihat", jalankan: () => router.push(alamatDetail(tx.id, window.location.pathname + window.location.search)) },
     });
     router.refresh();
   }
 
-  function tutupStruk() {
-    setDialog(null);
-    // Hasilnya sudah dilihat; yang masih jalan tetap di antrean.
-    if (!antrean.berjalan) antrean.bersihkan();
-  }
-
-  const statusStruk =
-    antrean.items.length > 0 && dialog !== "struk"
-      ? antrean.berjalan
-        ? `Lagi proses struk · sisa ${antrean.sisa}`
-        : `${antrean.selesai} struk selesai diproses`
-      : null;
-
   return (
     <CatatContext.Provider
       value={{
-        buka: (teks) => {
-          setTeksAwal(typeof teks === "string" ? teks : "");
-          setDialog("catat");
-        },
-        tambahStruk: (berkas) => {
-          antrean.tambah(berkas);
-          setDialog("struk");
-        },
+        buka: (teks) => bukaLembar({ besar: false, layar: "obrolan", teks: typeof teks === "string" ? teks : "" }),
+        bukaDraft: (id) => bukaLembar({ besar: true, layar: "obrolan", draft: id }),
+        bukaDaftar: () => bukaLembar({ besar: true, layar: "daftar" }),
+        tambahStruk: antrean.tambah,
         kantong,
         kategori,
         email,
+        jumlahDraft,
       }}
     >
-      <input
-        ref={galeriRef}
-        type="file"
-        multiple
-        accept={ACCEPT_STRUK}
-        hidden
-        onChange={(e) => {
-          antrean.tambah(Array.from(e.target.files ?? []));
-          setDialog("struk");
-          // Reset supaya memilih file yang sama dua kali tetap memicu onChange.
-          e.target.value = "";
-        }}
-      />
-
       {children}
 
       <div className={s.lapisBawah}>
-        {statusStruk && (
+        {antrean.berjalan && (
           <div className={s.snackbar} role="status">
-            {antrean.berjalan && <span className={s.spinner} aria-hidden style={{ flex: "none" }} />}
-            <span>{statusStruk}</span>
-            <button type="button" onClick={() => setDialog("struk")}>
-              Lihat
-            </button>
+            <span className={s.spinner} aria-hidden style={{ flex: "none" }} />
+            <span>Lagi proses struk · sisa {antrean.sisa}</span>
           </div>
         )}
         {kabar && (
           <div className={s.snackbar} role="status">
             <span>{kabar.teks}</span>
-            <button type="button" onClick={() => router.push(kabar.href)}>
-              {kabar.draft ? "Benerin" : "Lihat"}
-            </button>
+            {kabar.aksi && (
+              <button
+                type="button"
+                onClick={() => {
+                  setKabar(null);
+                  kabar.aksi?.jalankan();
+                }}
+              >
+                {kabar.aksi.label}
+              </button>
+            )}
           </div>
         )}
       </div>
 
-      {dialog === "catat" && (
-        <CatatDialog
+      {perintah && (
+        <LembarCatat
+          key={perintah.id}
+          perintah={perintah}
           saran={saran}
-          teksAwal={teksAwal}
-          onClose={() => setDialog(null)}
-          onTersimpan={tersimpan}
-          onKamera={() => setDialog("kamera")}
-          onGaleri={() => {
-            setDialog(null);
-            galeriRef.current?.click();
+          jumlahDraft={jumlahDraft}
+          onClose={() => setPerintah(null)}
+          onManual={() => {
+            setPerintah(null);
+            setManual(true);
           }}
-          onForm={() => setDialog("manual")}
         />
       )}
 
-      {dialog === "kamera" && (
-        <CameraCapture
-          onCapture={(file) => {
-            antrean.tambah([file]);
-            setDialog("struk");
-          }}
-          onClose={() => setDialog(antrean.items.length ? "struk" : null)}
-        />
-      )}
-
-      {dialog === "struk" && (
-        <Lembar
-          judul="Struk"
-          sub={antrean.berjalan ? `Sisa ${antrean.sisa} lagi` : undefined}
-          onClose={tutupStruk}
-          tombol={
-            <button type="button" className={s.flat} onClick={tutupStruk}>
-              Tutup
-            </button>
-          }
-        >
-          <DaftarAntrean antrean={antrean} onKamera={() => setDialog("kamera")} onGaleri={() => galeriRef.current?.click()} />
-        </Lembar>
-      )}
-
-      {dialog === "manual" && <ManualDialog onClose={() => setDialog(null)} onTersimpan={(tx) => tersimpan(tx, false)} />}
+      {manual && <ManualDialog onClose={() => setManual(false)} onTersimpan={tersimpan} />}
     </CatatContext.Provider>
   );
 }
@@ -226,137 +202,12 @@ async function kirimJson(url: string, body: unknown) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-    const data = (await res.json().catch(() => ({}))) as {
-      error?: string;
-      transaction?: Transaction;
-      status?: Transaction["status"];
-    };
-    if (res.ok && data.transaction) return { ok: true as const, tx: data.transaction, status: data.status };
+    const data = (await res.json().catch(() => ({}))) as { error?: string; transaction?: Transaction };
+    if (res.ok && data.transaction) return { ok: true as const, tx: data.transaction };
     return { ok: false as const, error: data.error ?? "Gagal nyimpen." };
   } catch {
     return { ok: false as const, error: "Koneksinya bermasalah." };
   }
-}
-
-const PINTASAN = [
-  { id: "kamera", label: "Kamera", ikon: Camera, warna: "#3e91ff" },
-  { id: "galeri", label: "Galeri", ikon: IkonGambar, warna: "#5ecb7a" },
-  { id: "form", label: "Manual", ikon: ClipboardPen, warna: "#ff9f43" },
-] as const;
-
-function CatatDialog({
-  saran,
-  teksAwal,
-  onClose,
-  onTersimpan,
-  onKamera,
-  onGaleri,
-  onForm,
-}: {
-  saran: string[];
-  teksAwal: string;
-  onClose: () => void;
-  onTersimpan: (tx: Transaction, draft: boolean) => void;
-  onKamera: () => void;
-  onGaleri: () => void;
-  onForm: () => void;
-}) {
-  const [teks, setTeks] = useState(teksAwal);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  async function kirim(e?: FormEvent) {
-    e?.preventDefault();
-    const bersih = teks.trim();
-    if (!bersih) return;
-    if (bersih.length > TEKS_MAKS) return setError(`Maksimal ${TEKS_MAKS} karakter.`);
-
-    setLoading(true);
-    setError(null);
-    const r = await kirimJson("/api/catat-teks", { text: bersih });
-    setLoading(false);
-
-    if (!r.ok) return setError(r.error);
-    onTersimpan(r.tx, r.status === "needs_review");
-  }
-
-  const aksi = { kamera: onKamera, galeri: onGaleri, form: onForm };
-
-  return (
-    <Lembar judul="Catat transaksi" onClose={() => !loading && onClose()}>
-      <div className={s.form}>
-        <div className={s.pintasan}>
-          {PINTASAN.map(({ id, label, ikon: Ikon, warna }) => (
-            <button key={id} type="button" className={s.tekan} disabled={loading} onClick={aksi[id]}>
-              <span style={{ background: `color-mix(in srgb, ${warna} 18%, transparent)`, color: warna }} aria-hidden>
-                <Ikon size={22} />
-              </span>
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {/* Saran hanya sebelum mengetik, seperti saran pencarian One UI.
-            Ketukan mengisi kolom — tidak langsung mengirim: nominalnya sering
-            beda sedikit, dan salah ketuk berarti transaksi tercatat dua kali. */}
-        {saran.length > 0 && !teks && (
-          <div className={s.saran} role="group" aria-label="Transaksi terakhir">
-            {saran.map((x) => (
-              <button
-                key={x}
-                type="button"
-                className={`${s.chip} ${s.tekan}`}
-                disabled={loading}
-                onClick={() => {
-                  setTeks(x);
-                  setError(null);
-                  inputRef.current?.focus();
-                }}
-              >
-                <History size={14} aria-hidden />
-                {x}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* Kolom ketik di paling bawah sheet: paling dekat dengan keyboard dan
-            jempol, seperti kolom pesan di aplikasi chat. */}
-        <form onSubmit={kirim} className={s.ketik}>
-          <input
-            ref={inputRef}
-            data-autofocus
-            aria-label="Tulis transaksinya"
-            value={teks}
-            onChange={(e) => setTeks(e.target.value)}
-            placeholder="beli makan di warteg 20k shopeepay"
-            disabled={loading}
-            enterKeyHint="send"
-            autoComplete="off"
-          />
-          <button type="submit" className={s.kirim} aria-label="Catat" disabled={loading || !teks.trim()}>
-            {loading ? <Spinner /> : <ArrowUp size={22} />}
-          </button>
-        </form>
-
-        {/* Tanpa keterangan tetap: placeholder-nya sudah memberi contoh, dan
-            panduan One UI membuang teks yang tidak membantu user bertindak.
-            Baris ini hanya muncul untuk status dan galat. */}
-        {error ? (
-          <span className={s.galat} role="alert">
-            {error}
-          </span>
-        ) : (
-          loading && (
-            <span className={s.keterangan} role="status">
-              Lagi dibaca...
-            </span>
-          )
-        )}
-      </div>
-    </Lembar>
-  );
 }
 
 function ManualDialog({ onClose, onTersimpan }: { onClose: () => void; onTersimpan: (tx: Transaction) => void }) {

@@ -5,7 +5,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  * ("Muat lagi" menambah 100 berikutnya tanpa pindah halaman).
  */
 
-export const FILTER_RIWAYAT = ["semua", "keluar", "masuk", "pindah", "draft"];
+export const FILTER_RIWAYAT = ["semua", "keluar", "masuk", "pindah"];
 
 /** Jumlah baris per muat. */
 export const PER_MUAT = 100;
@@ -19,6 +19,8 @@ export function queryRiwayat(supabase: SupabaseClient, filter: string, q: string
   let query = supabase
     .from("transactions")
     .select("*", { count: "exact" })
+    // Yang belum selesai tidak di Riwayat; ada di lembar Catat (SPEC-catat-chat).
+    .eq("status", "confirmed")
     .order("transaction_date", { ascending: false })
     .order("created_at", { ascending: false })
     // Pemecah seri: tanpa ini, baris bertanggal & waktu catat sama bisa
@@ -28,7 +30,6 @@ export function queryRiwayat(supabase: SupabaseClient, filter: string, q: string
   if (filter === "keluar") query = query.eq("type", "expense");
   else if (filter === "masuk") query = query.eq("type", "income");
   else if (filter === "pindah") query = query.eq("type", "transfer");
-  else if (filter === "draft") query = query.eq("status", "needs_review");
 
   if (q) query = query.or(`merchant.ilike.%${q}%,description.ilike.%${q}%,payment_method.ilike.%${q}%`);
 

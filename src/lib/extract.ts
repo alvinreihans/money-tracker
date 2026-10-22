@@ -1,6 +1,7 @@
 import { SchemaType, type GenerationConfig } from "@google/generative-ai";
 import { getGeminiClient, GEMINI_MODEL } from "@/lib/gemini";
 import { runGroqChain, parseJsonLoose } from "@/lib/groq";
+import { isoLokal } from "@/lib/format";
 import { KATEGORI_BAWAAN, kategoriJenis, LAINNYA, type Kategori } from "@/lib/kategori";
 import type { ExtractedReceipt, TransactionType } from "@/types/transaction";
 
@@ -47,8 +48,10 @@ const daftarPrompt = (kategori: Kategori[], type: "expense" | "income") =>
 /** Nominal pelengkap dari model (biaya admin, cashback): angka > 0 atau null. */
 const nominalAtauNull = (v: unknown) => (Number(v) > 0 ? Math.round(Number(v)) : null);
 
+/** "Hari ini" menurut WIB: server berjalan di UTC, jadi catatan sebelum
+ * 07.00 WIB dulu ikut bertanggal kemarin. */
 function toISODate(d: Date): string {
-  return d.toISOString().slice(0, 10);
+  return isoLokal(d);
 }
 
 // ---------------------------------------------------------------------------

@@ -38,6 +38,6 @@ const tabel = tabelEkspor(
 );
 assert.deepEqual(tabel[0].slice(0, 4), ["Tanggal", "Jenis", "Kategori", "Nominal"]);
 assert.deepEqual(tabel[1], ["2026-10-22", "Pindah kantong", "transfer", 200000, null, "pinjam", "BCA", "Budi", null, "Tercatat", "2026-10-22 23:30"]);
-assert.deepEqual(tabel[2], ["2026-10-21", "Keluar", "Makan", 25000, "Warteg", null, "", "", "Tunai", "Perlu dibenerin", "2026-10-21 08:05"]);
+assert.deepEqual(tabel[2], ["2026-10-21", "Keluar", "Makan", 25000, "Warteg", null, "", "", "Tunai", "Belum selesai", "2026-10-21 08:05"]);
 
 console.log("✓ ekspor: sel CSV (kutip, rumus dinetralkan), BOM & CRLF, nama kantong & kategori, waktu WIB");

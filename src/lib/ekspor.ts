@@ -60,7 +60,7 @@ export function tabelEkspor(
       t.kantong_id ? (namaKantong.get(t.kantong_id) ?? "") : "",
       t.kantong_tujuan_id ? (namaKantong.get(t.kantong_tujuan_id) ?? "") : "",
       t.payment_method,
-      t.status === "needs_review" ? "Perlu dibenerin" : "Tercatat",
+      t.status === "needs_review" ? "Belum selesai" : "Tercatat",
       new Date(t.created_at).toLocaleString("sv-SE", { timeZone: "Asia/Jakarta" }).slice(0, 16),
     ]),
   ];

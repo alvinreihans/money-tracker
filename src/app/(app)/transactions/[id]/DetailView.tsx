@@ -67,7 +67,7 @@ export default function DetailView({
         {draft && (
           <Pesan
             jenis="peringatan"
-            judul="Perlu dibenerin"
+            judul="Belum selesai"
             aksi={<EditTransactionForm tx={t} ikutan={ikutan} />}
           >
             {alasan === "kantong"

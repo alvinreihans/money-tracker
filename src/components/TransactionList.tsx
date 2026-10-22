@@ -56,7 +56,7 @@ function Kartu({ t, kelompok, kembali }: { t: Transaction; kelompok: string; kem
         <span className={s.barisTeks}>
           <span className={s.barisJudul}>{t.merchant ?? "Tanpa nama"}</span>
           <span className={s.redup}>{rincian}</span>
-          {t.status === "needs_review" && <span className={`${s.lencana} ${s.lencanaBahaya}`}>Perlu dibenerin</span>}
+          {t.status === "needs_review" && <span className={`${s.lencana} ${s.lencanaBahaya}`}>Belum selesai</span>}
         </span>
         <span className={`${s.nominal} ${kelasNominal(t)}`}>
           {t.type === "income" ? "+" : ""}

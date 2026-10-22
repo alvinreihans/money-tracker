@@ -5,6 +5,7 @@ import {
   isValidExtraction,
   type KonteksAI,
 } from "@/lib/extract";
+import { isoLokal } from "@/lib/format";
 import { KATEGORI_BAWAAN } from "@/lib/kategori";
 import type { ExtractedReceipt } from "@/types/transaction";
 
@@ -54,8 +55,9 @@ export interface TransactionRow {
   source: string;
 }
 
+/** Hari ini menurut WIB (server berjalan di UTC). */
 function today(): string {
-  return new Date().toISOString().slice(0, 10);
+  return isoLokal(new Date());
 }
 
 /** Draft kosong: dipakai kalau tidak ada satu pun ekstraksi yang berhasil. */
