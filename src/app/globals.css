@@ -23,6 +23,10 @@
   --bahaya: #ff5f5f;
   --peringatan: #ffb340;
 
+  /* Gerak dasar One UI ("Basic Path Interpolator"), developer.samsung.com/one-ui/motion/basic.html:
+     mulai cepat lalu melambat. Durasi 100–500 ms. */
+  --gerak: cubic-bezier(0.22, 0.25, 0, 1);
+
   --radius-blok: 26px;
   --radius-tombol: 18px;
   --radius-isian: 14px;
