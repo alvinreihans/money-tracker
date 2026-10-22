@@ -1,6 +1,6 @@
 # Spec: Enkripsi merchant, keterangan & teks OCR
 
-Status: **draf, menunggu persetujuan** · 22 Oktober 2026 · Pilihan **B** dari `KAJIAN-KEAMANAN-DATA.md`.
+Status: **disetujui (cara 1, termasuk teks OCR)**, migrasi `20261027000000_enkripsi.sql`, balikan di `supabase/rollback/` · 22 Oktober 2026 · Pilihan **B** dari `KAJIAN-KEAMANAN-DATA.md`.
 
 ## Tujuan
 
@@ -31,7 +31,7 @@ Aplikasi  ──baca/tulis──▶  VIEW public.transactions  (sama seperti sek
                               ▲ kunci dari Vault ("kunci_transaksi")
 ```
 
-1. Tabel `transactions` diganti nama menjadi **`transaksi_data`**; kolom `merchant`, `description`, `raw_ocr_text` diganti `*_enc bytea` berisi `pgp_sym_encrypt(teks, kunci, 'cipher-algo=aes256')` (AES-256 dengan IV acak + pemeriksaan integritas).
+1. Tabel `transactions` diganti nama menjadi **`transaksi_data`** dan dipindah ke skema **`private`** (tidak diekspos API); kolom `merchant`, `description`, `raw_ocr_text` diganti `*_enc bytea` berisi `pgp_sym_encrypt(teks, kunci, 'cipher-algo=aes256, s2k-mode=1')` (AES-256 dengan IV acak + pemeriksaan integritas; tanpa iterasi S2K karena kuncinya sudah 256 bit acak — 17× lebih cepat).
 2. Dibuat **view `public.transactions`** dengan kolom persis seperti tabel lama (teks didekripsi), jadi semua kode, RPC, dan filter (termasuk `ilike` pencarian) tetap jalan.
 3. Menulis lewat view memakai trigger `INSTEAD OF INSERT/UPDATE/DELETE` yang mengenkripsi lalu menulis ke `transaksi_data`.
 4. **Keamanan per user tetap rapat**:

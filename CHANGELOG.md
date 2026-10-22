@@ -17,9 +17,6 @@ Belum dikerjakan; dicatat supaya tidak lupa.
 - **Caching data di server** (lanjutan), kalau setelah diukur di produksi
   halaman masih terasa lambat: mis. saldo kantong dihitung di database
   (RPC) dan data yang jarang berubah disimpan sementara di server.
-- **Enkripsi merchant & keterangan di database** (pilihan B di kajian
-  keamanan) — perlu rancangan & persetujuan dulu karena mengubah tabel
-  transaksi dan data lama.
 - **Push notifikasi**.
 
 ## [Unreleased]
@@ -31,6 +28,9 @@ Belum dikerjakan; dicatat supaya tidak lupa.
   pengguna aplikasi, catatan migrasi tertutup, dan fungsi database hanya bisa
   dipanggil oleh yang memang memakainya.
 - Sisa data fitur Telegram (nomor HP, chat_id) dihapus.
+- Merchant, keterangan, dan teks asli struk/ketikan disimpan terenkripsi
+  (AES-256) di database; kuncinya di Supabase Vault. Backup database yang
+  bocor tidak memperlihatkan isinya. Tampilan dan pencarian tetap sama.
 - Header keamanan: halaman tidak bisa dibingkai situs lain, skrip hanya dari
   aplikasi sendiri, kamera hanya untuk aplikasi ini.
 
