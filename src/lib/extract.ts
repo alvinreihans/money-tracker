@@ -301,6 +301,8 @@ export async function extractWithGeminiVision(
   base64Image: string,
   mimeType: string,
   konteks: KonteksAI = KONTEKS_BAWAAN,
+  /** Keterangan yang diketik user bersama fotonya. */
+  catatan?: string,
 ): Promise<ExtractedReceipt> {
   const model = getGeminiClient().getGenerativeModel({
     model: GEMINI_MODEL,
@@ -323,7 +325,11 @@ export async function extractWithGeminiVision(
     try {
       const result = await model.generateContent([
         { inlineData: { data: base64Image, mimeType } },
-        { text: "Ekstrak data dari struk ini." },
+        {
+          text: catatan?.trim()
+            ? `Ekstrak data dari struk ini.\nCatatan dari pengguna (lebih dipercaya untuk kantong & keterangan): ${catatan.trim()}`
+            : "Ekstrak data dari struk ini.",
+        },
       ]);
       return normalize(parseJsonLoose(result.response.text()), konteks.kategori);
     } catch (err) {

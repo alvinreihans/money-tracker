@@ -4,6 +4,9 @@ import { processReceiptImage, toTransactionRow } from "@/lib/receipt";
 import { ambilKonteksAI } from "@/lib/kategori-server";
 import { simpanTransaksi } from "@/lib/simpan-transaksi";
 import { dbErrorMessage } from "@/lib/errors";
+import { pertanyaanDraft } from "@/lib/draft";
+import { simpanThumbnail } from "@/lib/draft-server";
+import { TEKS_MAKS } from "@/lib/transaksi-input";
 import type { Transaction } from "@/types/transaction";
 
 // Route ini murni dinamis & stateless: jangan di-cache.
@@ -49,10 +52,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Keterangan opsional yang diketik bersama fotonya (mis. "pakai BCA").
+    const keterangan = formData.get("keterangan");
+    const catatan = typeof keterangan === "string" ? keterangan.trim().slice(0, TEKS_MAKS) : "";
+
     // 3. Pipeline bersama: OCR -> Groq -> Gemini Vision (lihat FALLBACK.md).
     //    Tidak pernah melempar; kegagalan turun menjadi status needs_review.
     const image = Buffer.from(await file.arrayBuffer());
-    const result = await processReceiptImage(image, file.type, await ambilKonteksAI(supabase));
+    const result = await processReceiptImage(image, file.type, await ambilKonteksAI(supabase), catatan);
 
     // 4. Simpan. Bila baris rekening koran untuk transaksi yang sama sudah
     //    terlanjur masuk, baris itu disingkirkan — bukti bayar lebih lengkap.
@@ -75,10 +82,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Belum lengkap → jadi percakapan; thumbnail-nya disimpan (terenkripsi)
+    // supaya nanti masih ingat ini transaksi apa.
+    if (inserted.status === "needs_review") await simpanThumbnail(supabase, inserted.id, image);
+
     return NextResponse.json(
       {
         success: true,
         transaction: inserted,
+        pertanyaan: pertanyaanDraft(inserted),
         // Status akhir: bisa jadi draft di simpanTransaksi (kantong tak cocok).
         status: inserted.status,
         source: result.source,

@@ -70,4 +70,21 @@ assert.deepEqual(lebih, []);
 const akhirBulan = isiNotifikasi({ ...data, transaksi: [tx({ created_at: "2026-10-31T05:00:00Z" })], cicilan: [{ id: "F", nama: "X", nominal: 1, tenor: 1, jatuh_tempo_awal: "2026-11-01" }], kantong: [] }, new Date("2026-10-31T12:00:00Z"));
 assert.deepEqual(akhirBulan.map((x) => x.judul), ["Cicilan jatuh tempo besok"]);
 
-console.log("✓ notifikasi: jatuh tempo cicilan & Lend/Borrow (H-3, H-1, telat), pengingat catat, batas hari WIB");
+// Catatan belum selesai: H+1 & H+7 saja; H+7 menyebut tanggal hapus (H+30).
+const draft = isiNotifikasi(
+  {
+    cicilan: [], kantong: [], transaksi: [tx({ created_at: SEKARANG.toISOString() })],
+    draft: [
+      { id: "s1", dibuat: "2026-10-21T00:30:00Z", source: "payment_proof" }, // kemarin (WIB) → H+1
+      { id: "t7", dibuat: "2026-10-15T03:00:00Z", source: "text" },          // H+7
+      { id: "x2", dibuat: "2026-10-20T03:00:00Z", source: "receipt" },       // H+2 → diam
+      { id: "x0", dibuat: "2026-10-22T03:00:00Z", source: "receipt" },       // hari ini → diam
+    ],
+  },
+  SEKARANG,
+);
+assert.deepEqual(draft.map((x) => [x.tag, x.url]), [["draft-s1", "/?catat=s1"], ["draft-t7", "/?catat=t7"]]);
+assert.match(draft[0].isi, /^Struk 21 Okt — ketuk/);
+assert.match(draft[1].isi, /^Catatan 15 Okt — dihapus otomatis 14 Nov/);
+
+console.log("✓ notifikasi: jatuh tempo cicilan & Lend/Borrow (H-3, H-1, telat), pengingat catat, catatan belum selesai H+1/H+7, batas hari WIB");

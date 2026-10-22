@@ -23,7 +23,8 @@
     "uji:kategori": "tsx scripts/uji-kategori.mts",
     "uji:pinjaman": "tsx scripts/uji-pinjaman.mts",
     "uji:notifikasi": "tsx scripts/uji-notifikasi.mts",
-    "uji:ekspor": "tsx scripts/uji-ekspor.mts"
+    "uji:ekspor": "tsx scripts/uji-ekspor.mts",
+    "uji:draft": "tsx scripts/uji-draft.mts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
