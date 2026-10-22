@@ -10,6 +10,7 @@ import BrandMark from "@/components/BrandMark";
 import s from "@/components/ui.module.css";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { authErrorMessage } from "@/lib/errors";
+import { alamatInternal } from "@/lib/format";
 import { passwordValid } from "@/lib/password";
 
 /**
@@ -23,6 +24,12 @@ const ERROR_TAUTAN: Record<string, string> = {
   "tautan-kedaluwarsa": "Tautannya udah lewat masa berlaku. Minta yang baru ya.",
   "tautan-tidak-valid": "Tautannya nggak lengkap. Coba minta yang baru.",
 };
+
+/** Halaman yang tadi mau dibuka sebelum diminta masuk (?lanjut=, dari proxy), atau Beranda. */
+function tujuanSetelahMasuk(): string {
+  const lanjut = alamatInternal(new URLSearchParams(window.location.search).get("lanjut"), "/");
+  return lanjut.startsWith("/login") ? "/" : lanjut;
+}
 
 const JUDUL: Record<Mode, { judul: string; sub: string; tombol: string }> = {
   signin: { judul: "Masuk", sub: "Ketik atau foto struk, sisanya otomatis.", tombol: "Masuk" },
@@ -102,7 +109,7 @@ export default function LoginPage() {
         setMode("signin");
       } else if (data.session) {
         // Konfirmasi email nonaktif: langsung masuk, nggak usah disuruh login lagi.
-        router.push("/");
+        router.push(tujuanSetelahMasuk());
         router.refresh();
         return;
       } else {
@@ -118,7 +125,7 @@ export default function LoginPage() {
       if (signInError) {
         setError(authErrorMessage(signInError));
       } else {
-        router.push("/");
+        router.push(tujuanSetelahMasuk());
         router.refresh(); // biar Server Component baca ulang session-nya
         return;
       }
