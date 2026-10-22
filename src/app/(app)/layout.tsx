@@ -47,6 +47,7 @@ export default async function AppGroupLayout({
   return (
     <AppShell draftCount={count ?? 0} saran={saranCatat(terakhir ?? [])} kantong={kantong ?? []}
       kategori={kategori}
+      email={user.email}
     >
       {children}
     </AppShell>

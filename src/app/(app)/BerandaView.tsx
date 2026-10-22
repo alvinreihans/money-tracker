@@ -1,25 +1,23 @@
 "use client";
 
 import NextLink from "next/link";
-import { useRouter } from "next/navigation";
-import { ChevronRight, Flame, Inbox, LogOut, Settings, TriangleAlert } from "lucide-react";
+import { ChevronRight, Flame, Inbox, TriangleAlert } from "lucide-react";
 import { useCatat } from "@/components/Catat";
 import KartuBudget from "@/components/KartuBudget";
 import KartuKantong from "@/components/KartuKantong";
 import KomposisiKategori from "@/components/KomposisiKategori";
-import { AppBar, Kosong, MenuLainnya } from "@/components/oneui";
+import MenuAkun from "@/components/MenuAkun";
+import { AppBar, Kosong } from "@/components/oneui";
 import RingkasanBulan from "@/components/RingkasanBulan";
 import TransactionList from "@/components/TransactionList";
 import TrenBulanan from "@/components/TrenBulanan";
 import s from "@/components/ui.module.css";
 import { fmtIDR, namaBulan } from "@/lib/format";
 import { rentangBulan } from "@/lib/periode";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { Bulan, ProgresBudget } from "@/lib/analitik";
 import type { AvgMonthlyExpenseRow, Transaction } from "@/types/transaction";
 
 export default function BerandaView({
-  email,
   ringkasan,
   draft,
   terbaru,
@@ -30,7 +28,6 @@ export default function BerandaView({
   budget,
   streak,
 }: {
-  email: string | null;
   ringkasan: { keluar: number; masuk: number; keluarBulanLalu: number };
   draft: number;
   terbaru: Transaction[];
@@ -41,17 +38,10 @@ export default function BerandaView({
   budget: ProgresBudget[];
   streak: { hari: number; hariIni: boolean };
 }) {
-  const router = useRouter();
   const catat = useCatat();
   const { keluar, masuk, keluarBulanLalu } = ringkasan;
   const { awalBulanIni, awalBulanLalu } = rentangBulan();
   const persen = keluarBulanLalu > 0 ? Math.round(((keluar - keluarBulanLalu) / keluarBulanLalu) * 100) : 0;
-
-  async function keluarAkun() {
-    await createSupabaseBrowserClient().auth.signOut();
-    router.push("/login");
-    router.refresh();
-  }
 
   return (
     <>
@@ -72,21 +62,7 @@ export default function BerandaView({
             )}
           </>
         }
-        aksi={
-          <>
-            <MenuLainnya>
-              <NextLink href="/pengaturan" className={s.baris}>
-                <Settings size={20} color="var(--teks-2)" aria-hidden />
-                <span>Pengaturan</span>
-              </NextLink>
-              <button type="button" className={s.baris} onClick={() => void keluarAkun()}>
-                <LogOut size={20} color="var(--bahaya)" aria-hidden />
-                <span className={s.bahaya}>Keluar</span>
-              </button>
-              {email && <div className={s.versi}>{email}</div>}
-            </MenuLainnya>
-          </>
-        }
+        aksi={<MenuAkun />}
       />
 
       <div className={s.isi}>

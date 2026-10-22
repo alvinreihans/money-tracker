@@ -35,7 +35,13 @@ interface Kabar {
 /** Kantong yang dipilih di form: cukup id, nama, dan jenisnya. */
 export type PilihanKantong = Pick<Kantong, "id" | "name" | "kind" | "emoji">;
 
-const CatatContext = createContext<{ buka: () => void; kantong: PilihanKantong[]; kategori: Kategori[] } | null>(null);
+const CatatContext = createContext<{
+  buka: () => void;
+  kantong: PilihanKantong[];
+  kategori: Kategori[];
+  /** Email yang sedang masuk, untuk menu ⋮. */
+  email: string | null;
+} | null>(null);
 
 /** Membuka sheet Catat dari mana saja, mis. dari halaman kosong. */
 export function useCatat() {
@@ -63,11 +69,13 @@ export function CatatProvider({
   saran,
   kantong,
   kategori,
+  email,
   children,
 }: {
   saran: string[];
   kantong: PilihanKantong[];
   kategori: Kategori[];
+  email: string | null;
   children: React.ReactNode;
 }) {
   const router = useRouter();
@@ -111,7 +119,7 @@ export function CatatProvider({
       : null;
 
   return (
-    <CatatContext.Provider value={{ buka: () => setDialog("catat"), kantong, kategori }}>
+    <CatatContext.Provider value={{ buka: () => setDialog("catat"), kantong, kategori, email }}>
       <input
         ref={galeriRef}
         type="file"
