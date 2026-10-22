@@ -37,7 +37,9 @@ export async function simpanTransaksi(
   const { data } = await supabase.from("user_accounts").select("id, name, kind, aliases").eq("user_id", userId);
   const daftar = (data ?? []) as Pick<Kantong, "id" | "name" | "kind" | "aliases">[];
   const kantong =
-    daftar.find((k) => k.id === row.kantong_id) ?? cocokkanKantong(row.payment_method as string | null, daftar);
+    daftar.find((k) => k.id === row.kantong_id) ??
+    // Orang (Lend & Borrow) hanya lewat pindah kantong; "kopi 25rb budi" bukan pinjaman.
+    cocokkanKantong(row.payment_method as string | null, row.type === "transfer" ? daftar : daftar.filter((k) => k.kind !== "orang"));
   const tujuan =
     row.type === "transfer"
       ? (daftar.find((k) => k.id === row.kantong_tujuan_id) ?? cocokkanKantong(payment_target as string | null, daftar))

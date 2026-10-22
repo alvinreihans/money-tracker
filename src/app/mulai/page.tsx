@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { ambilUser, createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Kantong } from "@/lib/kantong";
+import { kantongUang } from "@/lib/pinjaman";
 import MulaiView from "./MulaiView";
 
 export const dynamic = "force-dynamic";
@@ -18,5 +19,5 @@ export default async function MulaiPage() {
   const supabase = await createSupabaseServerClient();
   const { data } = await supabase.from("user_accounts").select("*").order("created_at");
 
-  return <MulaiView userId={user.id} kantong={(data ?? []) as Kantong[]} />;
+  return <MulaiView userId={user.id} kantong={((data ?? []) as Kantong[]).filter(kantongUang)} />;
 }

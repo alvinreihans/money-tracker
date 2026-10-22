@@ -33,6 +33,9 @@ export interface TransaksiValid {
   biaya_admin: number | null;
   /** Hanya pengeluaran. Bukan kolom: jadi transaksi ikutan (barisIkutan). */
   cashback: number | null;
+  /** Pembayaran cicilan (hanya bila dikirim — form edit tidak menyentuhnya). */
+  cicilan_id?: string;
+  cicilan_ke?: number;
 }
 
 export type HasilValidasi =
@@ -139,6 +142,15 @@ export function validasiTransaksi(
   if (cashback === undefined) return { ok: false, error: "Cashback-nya harus angka." };
   if (cashback && cashback > amount) return { ok: false, error: "Cashback-nya maksimal sebesar nominal belanjanya." };
 
+  const cicilan_id = idOpsional(input.cicilan_id);
+  const cicilan_ke = input.cicilan_ke === undefined || input.cicilan_ke === null || input.cicilan_ke === "" ? null : Number(input.cicilan_ke);
+  if (cicilan_id === undefined || (cicilan_ke !== null && !(Number.isInteger(cicilan_ke) && cicilan_ke >= 1 && cicilan_ke <= 120))) {
+    return { ok: false, error: "Cicilannya nggak dikenal." };
+  }
+  if (cicilan_id && (type !== "expense" || !cicilan_ke)) {
+    return { ok: false, error: "Pembayaran cicilan harus pengeluaran dengan nomor cicilannya." };
+  }
+
   return {
     ok: true,
     data: {
@@ -154,6 +166,7 @@ export function validasiTransaksi(
       description,
       biaya_admin,
       cashback,
+      ...(cicilan_id && cicilan_ke ? { cicilan_id, cicilan_ke } : {}),
     },
   };
 }

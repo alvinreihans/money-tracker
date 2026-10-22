@@ -135,3 +135,56 @@ export type ArahPinjaman = "beri" | "terima_bayar" | "pinjam" | "bayar";
 export function arahPindah(arah: ArahPinjaman, uang: string, pihak: string): { dari: string; ke: string } {
   return arah === "beri" || arah === "bayar" ? { dari: uang, ke: pihak } : { dari: pihak, ke: uang };
 }
+
+export interface RingkasBeranda {
+  totalLend: number;
+  totalBorrow: number;
+  orangLend: number;
+  orangBorrow: number;
+  /** Cicilan yang jatuh tempo sampai akhir bulan ini (termasuk yang telat) dan belum dibayar. */
+  cicilanBulanIni: { jumlah: number; total: number };
+  /** Jatuh tempo terdekat yang belum beres: pinjaman orang atau cicilan. */
+  terdekat: { nama: string; tanggal: string; telat: boolean } | null;
+  /** Ada apa pun untuk ditampilkan. */
+  ada: boolean;
+}
+
+/** Ringkasan untuk kartu "Lend & Borrow" di Beranda. */
+export function ringkasBeranda(
+  kantong: { kind: string; saldo: number; name: string; jatuh_tempo?: string | null }[],
+  cicilan: Pick<Cicilan, "id" | "nama" | "tenor" | "jatuh_tempo_awal" | "nominal">[],
+  dibayar: Record<string, number[]>,
+  hariIni: string,
+): RingkasBeranda {
+  const r = ringkasanPinjaman(kantong);
+  const akhirBulan = jatuhTempoKe(`${hariIni.slice(0, 7)}-31`, 1);
+  const tenggat: { nama: string; tanggal: string }[] = [];
+  let jumlah = 0;
+  let total = 0;
+
+  for (const c of cicilan) {
+    const st = statusCicilan(c, dibayar[c.id] ?? [], hariIni);
+    if (!st.berikutnya) continue;
+    tenggat.push({ nama: c.nama, tanggal: st.berikutnya.jatuhTempo });
+    for (const a of jadwalCicilan(c, dibayar[c.id] ?? [])) {
+      if (!a.dibayar && a.jatuhTempo <= akhirBulan) {
+        jumlah++;
+        total += Number(c.nominal);
+      }
+    }
+  }
+  for (const x of [...r.lend, ...r.borrow]) {
+    if (x.kantong.jatuh_tempo) tenggat.push({ nama: x.kantong.name, tanggal: x.kantong.jatuh_tempo });
+  }
+
+  const terdekat = tenggat.sort((a, b) => a.tanggal.localeCompare(b.tanggal))[0] ?? null;
+  return {
+    totalLend: r.totalLend,
+    totalBorrow: r.totalBorrow,
+    orangLend: r.lend.length,
+    orangBorrow: r.borrow.length,
+    cicilanBulanIni: { jumlah, total },
+    terdekat: terdekat ? { ...terdekat, telat: terdekat.tanggal < hariIni } : null,
+    ada: r.lend.length + r.borrow.length + tenggat.length > 0,
+  };
+}

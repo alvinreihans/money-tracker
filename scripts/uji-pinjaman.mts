@@ -12,6 +12,7 @@ import {
   kantongUang,
   ringkasanPinjaman,
   SALDO_PER_PINJAMAN,
+  ringkasBeranda,
   statusCicilan,
 } from "../src/lib/pinjaman.ts";
 
@@ -75,4 +76,27 @@ assert.equal(r.totalBorrow, 1_500_000);
 // Total aset hanya kantong uang.
 assert.deepEqual(denganSaldo.filter(kantongUang).map((x) => x.id), ["bca"]);
 
-console.log("✓ pinjaman: jatuh tempo, jadwal & status cicilan, arah pindah, ringkasan Lend & Borrow");
+// --- Ringkasan kartu Beranda ---
+const rb = ringkasBeranda(
+  [
+    { kind: "orang", name: "Budi", saldo: 300_000, jatuh_tempo: "2026-11-05" },
+    { kind: "orang", name: "Ibu", saldo: -1_000_000, jatuh_tempo: null },
+    { kind: "kredit", name: "Kartu", saldo: -500_000 },
+    { kind: "bank", name: "BCA", saldo: 9_000_000 },
+  ],
+  [
+    { id: "hp", nama: "HP", tenor: 6, jatuh_tempo_awal: "2026-08-10", nominal: 500_000 }, // ke-3 telat 10 Okt, ke-4 10 Nov
+    { id: "tv", nama: "TV", tenor: 3, jatuh_tempo_awal: "2026-10-28", nominal: 200_000 }, // ke-1 28 Okt
+    { id: "kl", nama: "Kulkas", tenor: 2, jatuh_tempo_awal: "2026-06-01", nominal: 100_000 }, // lunas
+  ],
+  { hp: [1, 2], kl: [1, 2] },
+  "2026-10-22",
+);
+assert.equal(rb.totalLend, 300_000);
+assert.equal(rb.totalBorrow, 1_500_000);
+assert.deepEqual(rb.cicilanBulanIni, { jumlah: 2, total: 700_000 }); // HP ke-3 (telat) + TV ke-1
+assert.deepEqual(rb.terdekat, { nama: "HP", tanggal: "2026-10-10", telat: true });
+assert.equal(rb.ada, true);
+assert.equal(ringkasBeranda([{ kind: "bank", name: "BCA", saldo: 1 }], [], {}, "2026-10-22").ada, false);
+
+console.log("✓ pinjaman: jatuh tempo, jadwal & status cicilan, arah pindah, ringkasan Lend & Borrow, kartu Beranda");
