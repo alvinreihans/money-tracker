@@ -17,7 +17,6 @@ Belum dikerjakan; dicatat supaya tidak lupa.
 - **Caching data di server** (lanjutan), kalau setelah diukur di produksi
   halaman masih terasa lambat: mis. saldo kantong dihitung di database
   (RPC) dan data yang jarang berubah disimpan sementara di server.
-- **Push notifikasi**.
 
 ## [Unreleased]
 
@@ -35,6 +34,10 @@ Belum dikerjakan; dicatat supaya tidak lupa.
   aplikasi sendiri, kamera hanya untuk aplikasi ini.
 
 ### Ditambahkan
+- **Notifikasi** (Pengaturan → Pengingat harian), tiap jam 19.00: cicilan dan
+  Lend & Borrow yang jatuh tempo 3 hari lagi atau besok (dan cicilan yang
+  kemarin terlewat), serta pengingat kalau hari ini belum mencatat apa pun.
+  Di iPhone hanya jalan kalau aplikasi dipasang ke Home Screen.
 - **Lend & Borrow** (dari Pengaturan atau kartu di Beranda): catat uang yang
   dipinjamkan ke dan dipinjam dari orang lain, bayar sebagian atau lunas,
   dengan jatuh tempo opsional. Tidak dihitung sebagai pemasukan atau
