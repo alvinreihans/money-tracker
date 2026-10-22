@@ -14,12 +14,9 @@ bagiannya di sini.
 
 Belum dikerjakan; dicatat supaya tidak lupa.
 
-- **Caching data & halaman terasa ringan**, supaya Beranda dan Riwayat tidak
-  menunggu database setiap dibuka. Termasuk tampilan sementara (skeleton)
-  saat pindah halaman, supaya ketukan langsung terasa ditanggapi.
-- **Animasi transisi** sesuai panduan One UI (kurva `0.22, 0.25, 0, 1`,
-  100–500 ms): dialog & sheet naik dari bawah, pindah halaman dengan gerak
-  halus, tetap menghormati "kurangi gerakan".
+- **Caching data di server** (lanjutan), kalau setelah diukur di produksi
+  halaman masih terasa lambat: mis. saldo kantong dihitung di database
+  (RPC) dan data yang jarang berubah disimpan sementara di server.
 - **Kaji pengamanan data user.** Catatan: SHA-256 adalah *hash* (satu arah),
   bukan enkripsi — nominal yang di-hash tidak bisa dijumlah atau ditampilkan
   lagi. Pilihan yang perlu ditimbang:
@@ -43,6 +40,15 @@ Belum dikerjakan; dicatat supaya tidak lupa.
 ## [Unreleased]
 
 ### Ditambahkan
+- **Terasa lebih cepat:** tampilan sementara saat pindah halaman, halaman
+  yang baru dibuka tampil seketika saat dibuka lagi (30 detik), dan
+  pengecekan sesi tanpa bolak-balik ke server login.
+- **Animasi transisi** sesuai panduan One UI: dialog naik dari bawah, halaman
+  penuh bergeser, isi halaman muncul halus. Mengikuti setelan "kurangi
+  gerakan" di HP.
+- Isian nominal memakai **pemisah ribuan** saat diketik (1.500.000).
+- Riwayat bisa **memuat transaksi lama** ("Muat lagi") dan menampilkan jumlah
+  transaksi yang sebenarnya.
 - **Analitik di Beranda:** tren pemasukan & pengeluaran 6 bulan, streak hari
   mencatat, dan transaksi hari ini & kemarin.
 - **Kantong** (Pengaturan → Kantong): rekening, e-wallet, dan tunai beserta
