@@ -53,6 +53,9 @@ self.addEventListener("push", (event) => {
       body: n.isi,
       tag: n.tag,
       icon: "/logo.png",
+      // Ikon kecil di status bar Android: harus putih polos (hanya alfa yang
+      // dipakai); tanpa ini Chrome memakai ikonnya sendiri.
+      badge: "/badge.png",
       data: { url: n.url || "/" },
     }),
   );
