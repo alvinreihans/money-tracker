@@ -9,7 +9,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  * Jenis di database. "cash" hanya untuk kantong Tunai bawaan; kantong buatan
  * user tidak memilih jenis — cukup emoji sebagai penanda.
  */
-export type JenisKantong = "bank" | "ewallet" | "cash";
+export type JenisKantong = "bank" | "ewallet" | "cash" | "orang" | "kredit";
 
 /** Pilihan cepat emoji kantong; emoji lain bisa diketik dari keyboard. */
 export const SARAN_EMOJI_KANTONG = ["🏦", "💳", "📱", "👛", "💰", "🐷", "💼", "🪙", "🏧", "💵"];
@@ -38,6 +38,8 @@ export interface Kantong {
   /** Kantong tunai bawaan: tidak bisa dihapus, jenisnya tetap tunai. */
   bawaan?: boolean;
   emoji?: string | null;
+  /** Hanya kantong orang: jatuh tempo pinjaman (opsional). */
+  jatuh_tempo?: string | null;
 }
 
 /**

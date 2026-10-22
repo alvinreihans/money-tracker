@@ -22,6 +22,9 @@ export interface Transaction {
   kantong_tujuan_id: string | null;
   /** Transaksi ikutan (biaya admin / cashback): id transaksi induknya. */
   induk_id: string | null;
+  /** Pembayaran cicilan: rencana cicilannya dan cicilan ke berapa. */
+  cicilan_id?: string | null;
+  cicilan_ke?: number | null;
   transaction_date: string; // ISO date: "YYYY-MM-DD"
   status: TransactionStatus;
   /** Rekening/dompet tempat uang bergerak, mis. "SeaBank". */
