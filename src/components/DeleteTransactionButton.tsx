@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Trash2 } from "lucide-react";
-import { Lembar, Pesan, Spinner } from "@/components/oneui";
+import { Konfirmasi } from "@/components/oneui";
 import s from "@/components/ui.module.css";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { dbErrorMessage } from "@/lib/errors";
@@ -49,27 +49,9 @@ export default function DeleteTransactionButton({ id, kembali }: { id: string; k
       </button>
 
       {buka && (
-        <Lembar
-          judul="Hapus transaksi ini?"
-          onClose={tutup}
-          tombol={
-            <>
-              <button type="button" className={s.flat} disabled={loading} onClick={tutup}>
-                Batal
-              </button>
-              <button type="button" className={`${s.flat} ${s.flatBahaya}`} disabled={loading} onClick={() => void hapus()}>
-                {loading ? <Spinner /> : "Hapus"}
-              </button>
-            </>
-          }
-        >
-          <span className={s.redup}>Nggak bisa dibalikin. Kalau ini dari struk, kamu harus foto ulang.</span>
-          {error && (
-            <div style={{ marginTop: 12 }}>
-              <Pesan jenis="bahaya">{error}</Pesan>
-            </div>
-          )}
-        </Lembar>
+        <Konfirmasi tanya="Hapus transaksi ini?" ya="Hapus" loading={loading} error={error} onBatal={tutup} onYa={() => void hapus()}>
+          Nggak bisa dibalikin. Kalau ini dari struk, kamu harus foto ulang.
+        </Konfirmasi>
       )}
     </>
   );

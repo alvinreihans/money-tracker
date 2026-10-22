@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Check, Plus, Tag } from "lucide-react";
 import { useKategori } from "@/components/Catat";
 import { IKON_KATEGORI, NAMA_IKON, tandaKategori } from "@/components/kategori";
-import { AppBar, Field, Lembar, Pesan, Spinner } from "@/components/oneui";
+import { AppBar, Field, Konfirmasi, Lembar, Pesan, Spinner } from "@/components/oneui";
 import s from "@/components/ui.module.css";
 import { dbErrorMessage } from "@/lib/errors";
 import {
@@ -222,21 +222,6 @@ export default function KategoriView() {
                 <p className={s.redup} style={{ margin: "0 20px" }}>
                   &ldquo;Lainnya&rdquo; nggak bisa dihapus: transaksi dari kategori yang dihapus pindah ke sini.
                 </p>
-              ) : akanPindah !== null ? (
-                <Pesan
-                  jenis="peringatan"
-                  judul={`Hapus "${edit.name}"?`}
-                  aksi={
-                    <button type="button" className={`${s.flat} ${s.flatBahaya}`} disabled={loading} onClick={() => void hapus()}>
-                      Ya, hapus
-                    </button>
-                  }
-                >
-                  {akanPindah > 0
-                    ? `${akanPindah} transaksi akan dipindah ke Lainnya.`
-                    : "Belum ada transaksi di kategori ini."}
-                  {edit.type === "expense" ? " Budget-nya ikut dihapus." : ""}
-                </Pesan>
               ) : (
                 <button type="button" className={`${s.flat} ${s.flatBahaya}`} disabled={loading} onClick={() => void mintaHapus()}>
                   Hapus kategori
@@ -245,6 +230,20 @@ export default function KategoriView() {
 
             <button type="submit" hidden />
           </form>
+
+          {akanPindah !== null && (
+            <Konfirmasi
+              tanya={`Hapus kategori “${edit.name}”?`}
+              ya="Hapus"
+              loading={loading}
+              error={error}
+              onBatal={() => setAkanPindah(null)}
+              onYa={() => void hapus()}
+            >
+              {akanPindah > 0 ? `${akanPindah} transaksi akan dipindah ke Lainnya.` : "Belum ada transaksi di kategori ini."}
+              {edit.type === "expense" ? " Budget-nya ikut dihapus." : ""}
+            </Konfirmasi>
+          )}
         </Lembar>
       )}
     </>
