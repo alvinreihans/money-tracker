@@ -5,7 +5,7 @@ import { ambilKonteksAI } from "@/lib/kategori-server";
 import { simpanTransaksi } from "@/lib/simpan-transaksi";
 import { dbErrorMessage } from "@/lib/errors";
 import { pertanyaanDraft } from "@/lib/draft";
-import { simpanThumbnail } from "@/lib/draft-server";
+import { kabariDraft, simpanThumbnail } from "@/lib/draft-server";
 import { TEKS_MAKS } from "@/lib/transaksi-input";
 import type { Transaction } from "@/types/transaction";
 
@@ -84,7 +84,12 @@ export async function POST(req: NextRequest) {
 
     // Belum lengkap → jadi percakapan; thumbnail-nya disimpan (terenkripsi)
     // supaya nanti masih ingat ini transaksi apa.
-    if (inserted.status === "needs_review") await simpanThumbnail(supabase, inserted.id, image);
+    if (inserted.status === "needs_review") {
+      await simpanThumbnail(supabase, inserted.id, image);
+      // Dari "Bagikan" di latar (service worker): user mungkin sudah menutup
+      // aplikasinya, jadi langsung dikabari lewat push.
+      if (formData.get("latar") === "1") await kabariDraft(supabase, inserted, new URL(req.url).origin);
+    }
 
     return NextResponse.json(
       {
