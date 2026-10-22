@@ -33,7 +33,7 @@ interface Kabar {
 }
 
 /** Kantong yang dipilih di form: cukup id, nama, dan jenisnya. */
-export type PilihanKantong = Pick<Kantong, "id" | "name" | "kind">;
+export type PilihanKantong = Pick<Kantong, "id" | "name" | "kind" | "emoji">;
 
 const CatatContext = createContext<{ buka: () => void; kantong: PilihanKantong[]; kategori: Kategori[] } | null>(null);
 

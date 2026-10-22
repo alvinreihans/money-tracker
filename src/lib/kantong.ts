@@ -5,13 +5,27 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  * `user_accounts`). Fungsi murni — diuji di scripts/uji-kantong.mts.
  */
 
+/**
+ * Jenis di database. "cash" hanya untuk kantong Tunai bawaan; kantong buatan
+ * user tidak memilih jenis — cukup emoji sebagai penanda.
+ */
 export type JenisKantong = "bank" | "ewallet" | "cash";
 
-export const JENIS_KANTONG: { id: JenisKantong; label: string }[] = [
-  { id: "bank", label: "Bank" },
-  { id: "ewallet", label: "E-wallet" },
-  { id: "cash", label: "Tunai" },
-];
+/** Pilihan cepat emoji kantong; emoji lain bisa diketik dari keyboard. */
+export const SARAN_EMOJI_KANTONG = ["🏦", "💳", "📱", "👛", "💰", "🐷", "💼", "🪙", "🏧", "💵"];
+
+/** Emoji kantong; data lama tanpa emoji memakai tebakan dari jenisnya. */
+export function emojiKantong(k: { emoji?: string | null; kind: string }): string {
+  return k.emoji || (k.kind === "cash" ? "💵" : k.kind === "ewallet" ? "📱" : "🏦");
+}
+
+/** Emoji terakhir di teks (satu grafem, mis. 👨‍👩‍👧 utuh), atau null kalau bukan emoji. */
+export function ambilEmoji(teks: unknown): string | null {
+  if (typeof teks !== "string") return null;
+  const grafem = [...new Intl.Segmenter("id", { granularity: "grapheme" }).segment(teks.trim())].map((g) => g.segment);
+  const akhir = grafem.at(-1);
+  return akhir && /\p{Extended_Pictographic}/u.test(akhir) ? akhir : null;
+}
 
 export interface Kantong {
   id: string;
@@ -21,6 +35,9 @@ export interface Kantong {
   saldo_awal: number | string;
   /** "YYYY-MM-DD": saldo_awal adalah saldo di awal tanggal ini. */
   saldo_per: string;
+  /** Kantong tunai bawaan: tidak bisa dihapus, jenisnya tetap tunai. */
+  bawaan?: boolean;
+  emoji?: string | null;
 }
 
 /**
@@ -131,7 +148,7 @@ const KOLOM_SALDO = "amount, type, transaction_date, kantong_id, kantong_tujuan_
 export async function ambilKantong(supabase: SupabaseClient): Promise<{ kantong: Kantong[]; saldo: Map<string, number> }> {
   const { data } = await supabase
     .from("user_accounts")
-    .select("id, name, kind, aliases, saldo_awal, saldo_per")
+    .select("*")
     .order("created_at");
   const kantong = (data ?? []) as Kantong[];
   if (kantong.length === 0) return { kantong, saldo: new Map() };

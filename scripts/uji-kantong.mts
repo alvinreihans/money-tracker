@@ -4,7 +4,7 @@
  * Pemakaian: npm run uji:kantong
  */
 import assert from "node:assert/strict";
-import { alasanDraft, cocokkanKantong, hitungSaldo, type Kantong } from "../src/lib/kantong.ts";
+import { alasanDraft, ambilEmoji, cocokkanKantong, emojiKantong, hitungSaldo, type Kantong } from "../src/lib/kantong.ts";
 
 const bca: Kantong = { id: "bca", name: "BCA", kind: "bank", aliases: [], saldo_awal: "1000000.00", saldo_per: "2026-10-01" };
 const gopay: Kantong = { id: "gopay", name: "GoPay", kind: "ewallet", aliases: null, saldo_awal: 50000, saldo_per: "2026-10-10" };
@@ -50,4 +50,16 @@ assert.equal(alasanDraft({ ...d, type: "transfer", kantong_id: "bca" }), "kanton
 assert.equal(alasanDraft({ ...d, kantong_id: "bca" }), "baca");
 assert.equal(alasanDraft({ ...d, status: "confirmed" }), null);
 
-console.log("✓ kantong: pencocokan metode bayar, saldo, alasan draft");
+// --- Emoji kantong ---
+assert.equal(ambilEmoji("🏦"), "🏦");
+assert.equal(ambilEmoji("🏦💳"), "💳"); // yang terakhir diketik
+assert.equal(ambilEmoji("👨‍👩‍👧"), "👨‍👩‍👧"); // satu grafem utuh
+assert.equal(ambilEmoji("🐷 "), "🐷");
+assert.equal(ambilEmoji("BCA"), null);
+assert.equal(ambilEmoji(""), null);
+assert.equal(ambilEmoji(undefined), null);
+assert.equal(emojiKantong({ emoji: "🐷", kind: "bank" }), "🐷");
+assert.equal(emojiKantong({ emoji: null, kind: "cash" }), "💵"); // data lama
+assert.equal(emojiKantong({ kind: "ewallet" }), "📱");
+
+console.log("✓ kantong: pencocokan metode bayar, saldo, alasan draft, emoji");

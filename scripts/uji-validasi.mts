@@ -118,17 +118,18 @@ assert.equal(rapikanBudget({ food: "1e12" }).ok, false);
 assert.equal(rapikanBudget({ judi: "5000" }).ok, false);
 
 // Kantong: saldo awal kosong = 0, boleh minus; nama & tanggal wajib.
-const kantong = { name: "  GoPay ", kind: "ewallet", saldo_awal: "", saldo_per: "2026-10-01" };
+const kantong = { name: "  GoPay ", emoji: "📱", saldo_awal: "", saldo_per: "2026-10-01" };
 assert.deepEqual(validasiKantong(kantong), {
   ok: true,
-  data: { name: "GoPay", kind: "ewallet", saldo_awal: 0, saldo_per: "2026-10-01" },
+  data: { name: "GoPay", emoji: "📱", saldo_awal: 0, saldo_per: "2026-10-01" },
 });
 const minus = validasiKantong({ ...kantong, saldo_awal: "-250000" });
 assert.ok(minus.ok && minus.data.saldo_awal === -250000);
 for (const salah of [
   { ...kantong, name: "  " },
   { ...kantong, name: "x".repeat(41) },
-  { ...kantong, kind: "kripto" },
+  { ...kantong, emoji: "" },
+  { ...kantong, emoji: "BCA" },
   { ...kantong, saldo_awal: "sejuta" },
   { ...kantong, saldo_awal: 1e12 },
   { ...kantong, saldo_per: "2026-02-30" },

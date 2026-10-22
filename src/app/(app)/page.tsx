@@ -101,7 +101,7 @@ export default async function BerandaPage() {
       rerata={(rerata ?? []) as AvgMonthlyExpenseRow[]}
       rerataError={rerataError?.message ?? null}
       tren={trenBulanan(barisTren ?? [], sekarang, BULAN_TREN)}
-      kantong={kantong.map((k) => ({ id: k.id, name: k.name, kind: k.kind, saldo: saldo.get(k.id) ?? 0 }))}
+      kantong={kantong.map((k) => ({ id: k.id, name: k.name, kind: k.kind, emoji: k.emoji, saldo: saldo.get(k.id) ?? 0 }))}
       budget={progresBudget(budgets ?? [], keluarIni ?? [])}
       streak={hitungStreak((catatan ?? []).map((c) => c.created_at as string), sekarang)}
     />

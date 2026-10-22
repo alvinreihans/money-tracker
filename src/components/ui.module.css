@@ -151,6 +151,13 @@
 .flat:active { background: var(--blok-2); }
 .flat:disabled { opacity: 0.4; }
 .flatBahaya { color: var(--bahaya); }
+/* Tombol dialog konfirmasi ala My Files: putih, bukan biru. */
+.flatNetral { color: var(--teks); font-size: 17px; }
+
+.dialogTombol:has(> .pilPemisah) { align-items: center; gap: 0; }
+
+.konfirmasiTanya { margin: 16px 0 0; font-size: 18px; }
+.konfirmasiKet { margin: 8px 0 0; color: var(--teks-2); font-size: 15px; }
 
 .chip {
   min-height: 40px;
@@ -326,6 +333,20 @@ button.blok { background: var(--blok); }
   justify-content: center;
   border-radius: 50%;
   background: var(--blok-2);
+}
+
+/* Penanda kantong: emoji di lingkaran abu, seukuran ikon berwadah. */
+.barisEmoji {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--blok-2);
+  font-size: 21px;
+  line-height: 1;
 }
 
 .barisTeks {
@@ -1015,3 +1036,28 @@ button.blok { background: var(--blok); }
 }
 
 .gridWarna button[aria-checked="true"] { box-shadow: 0 0 0 3px var(--blok), 0 0 0 5px var(--teks); }
+
+/* ---------- Kantong ---------- */
+
+.emojiBesar { width: 64px; height: 64px; font-size: 34px; }
+
+/* Pilihan cepat emoji kantong, di dalam kartu isian. */
+.gridEmoji {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 4px 20px 8px 60px;
+}
+
+.gridEmoji button {
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--blok-2);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.gridEmoji button[aria-checked="true"] { box-shadow: inset 0 0 0 2px var(--primer); background: color-mix(in srgb, var(--primer) 20%, transparent); }

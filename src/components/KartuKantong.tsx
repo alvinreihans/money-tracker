@@ -1,12 +1,11 @@
 import NextLink from "next/link";
 import { ChevronRight, Wallet } from "lucide-react";
-import { TANDA_KANTONG } from "@/components/kategori";
 import s from "@/components/ui.module.css";
 import { fmtIDR } from "@/lib/format";
-import type { Kantong } from "@/lib/kantong";
+import { emojiKantong, type Kantong } from "@/lib/kantong";
 
 /** Total aset dan saldo per kantong, ala kartu "My wallet" di Samsung Wallet. */
-export default function KartuKantong({ data }: { data: (Pick<Kantong, "id" | "name" | "kind"> & { saldo: number })[] }) {
+export default function KartuKantong({ data }: { data: (Pick<Kantong, "id" | "name" | "kind" | "emoji"> & { saldo: number })[] }) {
   if (data.length === 0) {
     return (
       <NextLink href="/pengaturan/kantong" className={`${s.blok} ${s.baris} ${s.tekan}`}>
@@ -33,11 +32,10 @@ export default function KartuKantong({ data }: { data: (Pick<Kantong, "id" | "na
       </div>
 
       {data.map((k) => {
-        const { ikon: Ikon, warna } = TANDA_KANTONG[k.kind] ?? TANDA_KANTONG.bank;
         return (
           <div key={k.id} className={s.baris}>
-            <span className={s.barisIkon} style={{ background: `color-mix(in srgb, ${warna} 18%, transparent)`, color: warna }} aria-hidden>
-              <Ikon size={20} />
+            <span className={s.barisEmoji} aria-hidden>
+              {emojiKantong(k)}
             </span>
             <span className={s.barisTeks}>
               <span className={s.barisJudul}>{k.name}</span>

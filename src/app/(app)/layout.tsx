@@ -42,7 +42,7 @@ export default async function AppGroupLayout({
       .order("created_at", { ascending: false })
       .limit(20),
     // Pilihan kantong di form catat & edit.
-    supabase.from("user_accounts").select("id, name, kind").order("created_at"),
+    supabase.from("user_accounts").select("*").order("created_at"),
     ambilKategori(supabase),
   ]);
 

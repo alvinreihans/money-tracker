@@ -3,10 +3,11 @@
 import NextLink from "next/link";
 import { ArrowDownToLine, BadgePercent, Banknote, CalendarDays, Coins, CreditCard, NotebookPen, Shapes, Store, UserRound, Wallet } from "lucide-react";
 import { useCatat, useKategori } from "@/components/Catat";
-import { tandaKategori, TANDA_KANTONG } from "@/components/kategori";
+import { tandaKategori } from "@/components/kategori";
 import { Field, Pilih, Segmen } from "@/components/oneui";
 import s from "@/components/ui.module.css";
 import { isoLokal } from "@/lib/format";
+import { emojiKantong } from "@/lib/kantong";
 import { kategoriJenis, LAINNYA } from "@/lib/kategori";
 import { TIPE_TRANSAKSI } from "@/lib/transaksi-input";
 import type { Transaction, TransactionType } from "@/types/transaction";
@@ -67,7 +68,7 @@ export default function TransactionFields({
   // daftar, saran, dan pencarian tetap memakai teks seperti sebelumnya.
   // Tanpa pilihan "Tanpa kantong": begitu punya kantong, tiap transaksi wajib
   // jelas kantongnya supaya saldonya benar.
-  const pilihanKantong = kantong.map((k) => ({ id: k.id, label: k.name, ...(TANDA_KANTONG[k.kind] ?? TANDA_KANTONG.bank) }));
+  const pilihanKantong = kantong.map((k) => ({ id: k.id, label: k.name, emoji: emojiKantong(k) }));
   const pilihKantong = (kolom: "kantong_id" | "kantong_tujuan_id", label: string, ikon: React.ElementType) => (
     <Pilih
       label={label}

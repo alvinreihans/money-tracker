@@ -1,5 +1,5 @@
 import { KATEGORI_BAWAAN, kategoriJenis, type Kategori } from "@/lib/kategori";
-import { JENIS_KANTONG, type JenisKantong } from "@/lib/kantong";
+import { ambilEmoji } from "@/lib/kantong";
 import type { TransactionType } from "@/types/transaction";
 
 /**
@@ -251,7 +251,7 @@ export function rapikanBudget(isian: Record<string, string>, kategori: Kategori[
 }
 
 export type HasilKantong =
-  | { ok: true; data: { name: string; kind: JenisKantong; saldo_awal: number; saldo_per: string } }
+  | { ok: true; data: { name: string; emoji: string; saldo_awal: number; saldo_per: string } }
   | { ok: false; error: string };
 
 /** Isian tambah/ubah kantong. Saldo awal boleh minus (paylater, kartu kredit). */
@@ -260,8 +260,8 @@ export function validasiKantong(input: Record<string, unknown>): HasilKantong {
   if (!name) return { ok: false, error: "Namanya diisi dulu." };
   if (name.length > 40) return { ok: false, error: "Namanya kepanjangan, maksimal 40 huruf." };
 
-  const kind = input.kind;
-  if (!JENIS_KANTONG.some((j) => j.id === kind)) return { ok: false, error: "Jenis kantongnya nggak dikenal." };
+  const emoji = ambilEmoji(input.emoji);
+  if (!emoji) return { ok: false, error: "Pilih emojinya dulu." };
 
   const mentah = typeof input.saldo_awal === "string" ? input.saldo_awal.trim() : input.saldo_awal;
   const saldo_awal = mentah === "" || mentah === undefined || mentah === null ? 0 : Number(mentah);
@@ -272,6 +272,6 @@ export function validasiKantong(input: Record<string, unknown>): HasilKantong {
 
   return {
     ok: true,
-    data: { name, kind: kind as JenisKantong, saldo_awal: Math.round(saldo_awal), saldo_per: input.saldo_per },
+    data: { name, emoji, saldo_awal: Math.round(saldo_awal), saldo_per: input.saldo_per },
   };
 }
