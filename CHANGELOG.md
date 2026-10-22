@@ -20,6 +20,36 @@ Belum dikerjakan; dicatat supaya tidak lupa.
 
 ## [Unreleased]
 
+### Ditambahkan
+- **Catat sebagai obrolan.** Kalau AI kurang yakin, ia langsung bertanya di
+  lembar Catat — kantong lewat pilihan, nominal lewat kolom ketik, atau minta
+  diceritakan — lalu transaksinya tersimpan. Lembar Catat membesar sendiri
+  saat ada pertanyaan atau foto, dan bisa ditarik kecil/besar.
+- **Belum selesai**: catatan yang belum dijawab menunggu di sini (titik
+  oranye di tombol +, kartu di Beranda), lengkap dengan foto struknya supaya
+  ingat itu transaksi apa. Diingatkan lewat notifikasi sehari dan seminggu
+  kemudian; lewat 30 hari dihapus otomatis. Begitu dilengkapi, foto dan
+  obrolannya ikut dihapus.
+- **Koreksi dengan mengetik** setelah transaksi tersimpan: "eh yang tadi
+  pakai BCA", "nominalnya 25rb" — yang berubah diperlihatkan dan bisa
+  dibatalkan.
+- Foto bisa diberi **keterangan** (mis. "pakai BCA") sebelum dikirim.
+- **Bagikan** dari aplikasi lain tetap diproses walau aplikasinya langsung
+  ditutup dan HP dikunci; struk yang belum lengkap dikabari lewat notifikasi.
+
+### Diubah
+- Satu foto = satu transaksi: kamera sekali jepret, galeri satu gambar.
+  Selesai dilengkapi, lembar menutup sendiri setelah hitung mundur (bisa
+  langsung "Selesai" atau "Ubah").
+- Riwayat dan Beranda hanya menampilkan transaksi yang sudah lengkap.
+
+### Dihapus
+- Tab "Perlu dibenerin" di Riwayat (diganti "Belum selesai" di lembar Catat).
+
+### Diperbaiki
+- Transaksi yang dicatat sebelum jam 07.00 tidak lagi bertanggal kemarin
+  (AI dulu memakai tanggal UTC).
+
 ## [2.0.0] — 2026-10-22
 
 Lend & Borrow, notifikasi, kantong & budget, dan data transaksi yang

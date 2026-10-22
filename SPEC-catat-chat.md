@@ -1,6 +1,6 @@
 # Spec: Catat sebagai obrolan (pengganti "Perlu dibenerin")
 
-Status: **disetujui** · 23 Oktober 2026
+Status: **diimplementasikan (Fase A + B)** — migrasi `20261030000000_draft_catat.sql` · 23 Oktober 2026
 
 ## Tujuan
 
