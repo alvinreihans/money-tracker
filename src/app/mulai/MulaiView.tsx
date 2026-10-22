@@ -185,7 +185,7 @@ export default function MulaiView({ userId, kantong }: { userId: string; kantong
             <div className={s.isi}>
               <div className={s.blok}>
                 <Baris ikon={Plus} warna="#3e91ff" judul="Ketuk + di bawah" ket="Untuk mencatat dengan ketik, foto, atau manual." />
-                <Baris ikon={TriangleAlert} warna="#ffb340" judul="Perlu dibenerin" ket="Yang ragu dibaca AI menunggu di sini, belum ikut dihitung." />
+                <Baris ikon={TriangleAlert} warna="#ffb340" judul="Perlu dibenerin" ket="Kalau AI belum yakin membacanya, transaksinya ditaruh di sini dulu. Benerin biar ikut dihitung." />
                 <Baris ikon={Settings} warna="#9b9b9b" judul="Pengaturan" ket="Kantong, kategori & budget, dari menu ⋮." />
               </div>
               {error && <Pesan jenis="bahaya">{error}</Pesan>}
