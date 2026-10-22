@@ -26,8 +26,6 @@ Belum dikerjakan; dicatat supaya tidak lupa.
     seperti merchant & keterangan — melindungi dari bocornya dump database;
   - enkripsi di perangkat (end-to-end) — paling aman, tapi ringkasan, budget,
     saldo, dan AI tidak bisa lagi dihitung di server.
-- **Onboarding pengguna baru**: kenalan singkat cara mencatat, lalu pasang
-  kantong & saldo awal.
 - **Terima "Bagikan" dari aplikasi lain di Android** (Web Share Target), mis.
   membagikan bukti bayar dari aplikasi bank/e-wallet langsung ke Money Tracker.
   Referensi:
@@ -40,6 +38,9 @@ Belum dikerjakan; dicatat supaya tidak lupa.
 ## [Unreleased]
 
 ### Ditambahkan
+- **Kenalan untuk pengguna baru:** empat langkah singkat setelah masuk —
+  cara mencatat, pilih rekening & e-wallet yang dipakai, isi saldonya, lalu
+  siap. Bisa dilewati kapan saja.
 - **Terasa lebih cepat:** tampilan sementara saat pindah halaman, halaman
   yang baru dibuka tampil seketika saat dibuka lagi (30 detik), dan
   pengecekan sesi tanpa bolak-balik ke server login.

@@ -736,6 +736,7 @@ button.blok { background: var(--blok); }
   color: var(--teks);
   font-size: 18px;
   font-weight: 700;
+  white-space: nowrap;
   cursor: pointer;
 }
 
@@ -1104,3 +1105,26 @@ button.blok { background: var(--blok); }
 @keyframes halamanMasuk { from { opacity: 0; transform: translateX(32px); } }
 @keyframes dialogMuncul { from { opacity: 0; transform: scale(0.96); } }
 @keyframes denyut { to { opacity: 0.55; } }
+
+/* ---------- Onboarding (/mulai) ---------- */
+
+/* Baris atas: titik langkah di kiri, "Lewati" di kanan. */
+.mulaiAtas {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 56px;
+  padding: calc(8px + env(safe-area-inset-top)) 8px 0 24px;
+}
+
+.mulaiTitik { display: flex; gap: 6px; }
+
+.mulaiTitik > span {
+  width: 8px;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--garis);
+  transition: width 250ms var(--gerak), background-color 250ms linear;
+}
+
+.mulaiTitik > span[data-aktif="true"] { width: 24px; background: var(--primer); }

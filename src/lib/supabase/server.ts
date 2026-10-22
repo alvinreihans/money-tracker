@@ -48,9 +48,18 @@ export async function createSupabaseServerClient() {
  * ponytail: sesi yang dicabut (keluar di perangkat lain) baru tertolak saat
  * JWT-nya kedaluwarsa (±1 jam). Pakai getUser() untuk aksi yang butuh lebih ketat.
  */
-export const ambilUser = cache(async (): Promise<{ id: string; email: string | null } | null> => {
-  const supabase = await createSupabaseServerClient();
-  const { data } = await supabase.auth.getClaims();
-  const klaim = data?.claims;
-  return klaim?.sub ? { id: klaim.sub, email: typeof klaim.email === "string" ? klaim.email : null } : null;
-});
+export const ambilUser = cache(
+  async (): Promise<{ id: string; email: string | null; onboarding: boolean } | null> => {
+    const supabase = await createSupabaseServerClient();
+    const { data } = await supabase.auth.getClaims();
+    const klaim = data?.claims;
+    if (!klaim?.sub) return null;
+    const meta = (klaim.user_metadata ?? {}) as Record<string, unknown>;
+    return {
+      id: klaim.sub,
+      email: typeof klaim.email === "string" ? klaim.email : null,
+      // Ditandai halaman /mulai (user_metadata ikut di JWT, jadi tanpa query).
+      onboarding: Boolean(meta.onboarding_selesai),
+    };
+  },
+);
