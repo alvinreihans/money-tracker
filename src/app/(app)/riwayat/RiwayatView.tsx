@@ -105,7 +105,7 @@ export default function RiwayatView({ filter, q, daftar }: { filter: string; q: 
         )}
 
         {daftar.length > 0 ? (
-          <TransactionList items={daftar} />
+          <TransactionList items={daftar} kembali={alamat(filter, q)} />
         ) : (
           <div className={s.blok}>
             {q ? (

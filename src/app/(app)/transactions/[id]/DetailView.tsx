@@ -11,7 +11,16 @@ import { namaKategori } from "@/lib/kategori";
 import { fmtIDR, fmtTanggal, fmtWaktu, JENIS, labelSumber } from "@/lib/format";
 import type { Transaction } from "@/types/transaction";
 
-export default function DetailView({ t, ikutan }: { t: Transaction; ikutan: { id: string; amount: number } | null }) {
+export default function DetailView({
+  t,
+  ikutan,
+  kembali,
+}: {
+  t: Transaction;
+  ikutan: { id: string; amount: number } | null;
+  /** Halaman asal (Beranda / Riwayat dengan filternya), tujuan kembali & setelah hapus. */
+  kembali: string;
+}) {
   const draft = t.status === "needs_review";
   const alasan = alasanDraft(t);
   const nama = t.merchant ?? "Tanpa nama";
@@ -38,11 +47,11 @@ export default function DetailView({ t, ikutan }: { t: Transaction; ikutan: { id
   return (
     <>
       <AppBar
-        kembali="/riwayat"
+        kembali={kembali}
         judul={`${t.type === "income" ? "+" : ""}${fmtIDR(Number(t.amount))}`}
         judulKecil={nama}
         sub={`${nama} · ${fmtTanggal(t.transaction_date)}`}
-        aksi={<DeleteTransactionButton id={t.id} />}
+        aksi={<DeleteTransactionButton id={t.id} kembali={kembali} />}
         ikon={
           <span
             className={s.ikonBesar}

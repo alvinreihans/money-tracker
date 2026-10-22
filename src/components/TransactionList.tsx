@@ -5,7 +5,7 @@ import { useCatat, useKategori } from "@/components/Catat";
 import { tandaTransaksi } from "@/components/kategori";
 import { namaKategori } from "@/lib/kategori";
 import s from "@/components/ui.module.css";
-import { fmtIDR, fmtIDRRingkas, fmtTanggal, kelompokWaktu } from "@/lib/format";
+import { alamatDetail, fmtIDR, fmtIDRRingkas, fmtTanggal, kelompokWaktu } from "@/lib/format";
 import type { Transaction } from "@/types/transaction";
 
 /**
@@ -31,7 +31,7 @@ function kelasNominal(t: Transaction): string {
   return "";
 }
 
-function Kartu({ t, kelompok }: { t: Transaction; kelompok: string }) {
+function Kartu({ t, kelompok, kembali }: { t: Transaction; kelompok: string; kembali?: string }) {
   const kategori = useKategori();
   const { ikon: Ikon, warna } = tandaTransaksi(t, kategori);
   // Di "Hari ini"/"Kemarin" tanggalnya sudah jelas dari subheader.
@@ -43,7 +43,7 @@ function Kartu({ t, kelompok }: { t: Transaction; kelompok: string }) {
   const rincian = [tanggal, t.type === "transfer" ? null : namaKategori(kategori, t.category, t.type), lewat].filter(Boolean).join(" · ");
 
   return (
-    <NextLink href={`/transactions/${t.id}`} className={`${s.kartuTx} ${s.tekan}`}>
+    <NextLink href={alamatDetail(t.id, kembali)} className={`${s.kartuTx} ${s.tekan}`}>
       <span className={s.baris}>
         <span
           className={s.barisIkon}
@@ -71,10 +71,13 @@ function Kartu({ t, kelompok }: { t: Transaction; kelompok: string }) {
 export default function TransactionList({
   items,
   kaki,
+  kembali,
 }: {
   items: Transaction[];
   /** Aksi penutup di bawah daftar, mis. "Lihat semua riwayat". */
   kaki?: React.ReactNode;
+  /** Alamat halaman ini, tujuan kembali dari detail (lihat alamatDetail). */
+  kembali?: string;
 }) {
   // Data sudah terurut menurut tanggal dari query, jadi cukup dipecah urut.
   const kelompok: { label: string; isi: Transaction[] }[] = [];
@@ -105,7 +108,7 @@ export default function TransactionList({
               )}
             </h2>
             {k.isi.map((t) => (
-              <Kartu key={t.id} t={t} kelompok={k.label} />
+              <Kartu key={t.id} t={t} kelompok={k.label} kembali={kembali} />
             ))}
           </section>
         );

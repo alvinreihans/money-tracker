@@ -12,7 +12,7 @@ import { dbErrorMessage } from "@/lib/errors";
  * Hapus transaksi. Konfirmasinya lewat dialog di bawah layar (panduan One UI
  * untuk dialog konfirmasi) — sekali kehapus, struknya harus difoto ulang.
  */
-export default function DeleteTransactionButton({ id }: { id: string }) {
+export default function DeleteTransactionButton({ id, kembali }: { id: string; kembali: string }) {
   const router = useRouter();
   const [buka, setBuka] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -30,7 +30,9 @@ export default function DeleteTransactionButton({ id }: { id: string }) {
       return;
     }
 
-    router.push("/");
+    // Kembali ke halaman asal. replace, bukan push: tombol Kembali HP tidak
+    // boleh membuka lagi detail transaksi yang sudah terhapus.
+    router.replace(kembali);
     router.refresh();
   }
 

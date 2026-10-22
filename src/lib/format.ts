@@ -95,6 +95,23 @@ export const JENIS: Record<TransactionType, string> = {
   transfer: "Pindah kantong",
 };
 
+/**
+ * Alamat detail transaksi, membawa halaman asalnya (`kembali`) supaya tombol
+ * kembali dan hapus mendarat di tempat yang sama — Beranda, atau Riwayat
+ * lengkap dengan filter dan pencariannya.
+ */
+export const alamatDetail = (id: string, kembali?: string) =>
+  kembali ? `/transactions/${id}?kembali=${encodeURIComponent(kembali)}` : `/transactions/${id}`;
+
+/**
+ * Halaman asal yang aman dipakai sebagai tujuan: hanya alamat di dalam
+ * aplikasi ("/…", bukan "//situs-lain" atau URL penuh), dan bukan detail
+ * transaksi lain. Selain itu jatuh ke Riwayat.
+ */
+export function tujuanKembali(kembali: string | undefined): string {
+  return kembali && /^\/(?![/\\])/.test(kembali) && !kembali.startsWith("/transactions") ? kembali : "/riwayat";
+}
+
 // Nama & ikon kategori: lib/kategori.ts (milik user, dari database).
 
 /** Dari mana transaksi ini masuk — dijelaskan dengan bahasa user, bukan slug. */

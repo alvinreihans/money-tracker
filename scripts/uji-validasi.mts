@@ -4,6 +4,7 @@
  * Pemakaian: npm run uji:validasi
  */
 import assert from "node:assert/strict";
+import { alamatDetail, tujuanKembali } from "../src/lib/format.ts";
 import { barisIkutan, bersihkanCari, rapikanBudget, validasiKantong, validasiTransaksi } from "../src/lib/transaksi-input.ts";
 
 const sah = {
@@ -135,4 +136,13 @@ for (const salah of [
   assert.equal(validasiKantong(salah).ok, false, JSON.stringify(salah));
 }
 
-console.log(`✓ validasi transaksi: 1 sah + ${tolak.length} tolak; teks cari aman; budget; kantong`);
+// Halaman asal dari URL: hanya alamat di dalam aplikasi (cegah open redirect).
+assert.equal(tujuanKembali("/"), "/");
+assert.equal(tujuanKembali("/riwayat?filter=keluar&q=kopi"), "/riwayat?filter=keluar&q=kopi");
+for (const jahat of ["//situs-lain.com", "https://situs-lain.com", "/\\situs-lain.com", "javascript:alert(1)", "riwayat", "/transactions/abc", undefined, ""]) {
+  assert.equal(tujuanKembali(jahat), "/riwayat", String(jahat));
+}
+assert.equal(alamatDetail("abc", "/riwayat?filter=keluar&q=kopi"), "/transactions/abc?kembali=%2Friwayat%3Ffilter%3Dkeluar%26q%3Dkopi");
+assert.equal(alamatDetail("abc"), "/transactions/abc");
+
+console.log(`✓ validasi transaksi: 1 sah + ${tolak.length} tolak; teks cari aman; budget; kantong; alamat kembali aman`);
