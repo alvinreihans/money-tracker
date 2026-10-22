@@ -113,6 +113,14 @@ const nextConfig: NextConfig = {
     "*.trycloudflare.com",
   ],
 
+  // Halaman yang baru dibuka disimpan 30 detik di browser, jadi bolak-balik
+  // Beranda ↔ Riwayat ↔ Pengaturan tampil seketika tanpa menunggu server.
+  // Aman karena setiap simpan/ubah/hapus memanggil router.refresh(), yang
+  // mengosongkan simpanan ini — data yang baru diubah tidak pernah basi.
+  experimental: {
+    staleTimes: { dynamic: 30 },
+  },
+
   // tesseract.js & sharp memuat binary/WASM lewat path runtime. Kalau ikut
   // di-bundle, resolusi path-nya rusak saat dijalankan di serverless.
   serverExternalPackages: ["tesseract.js", "sharp"],

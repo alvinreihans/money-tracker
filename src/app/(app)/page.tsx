@@ -1,4 +1,4 @@
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { ambilUser, createSupabaseServerClient } from "@/lib/supabase/server";
 import { hitungStreak, progresBudget, trenBulanan } from "@/lib/analitik";
 import { geserHari, isoLokal } from "@/lib/format";
 import { ambilKantong } from "@/lib/kantong";
@@ -28,9 +28,7 @@ export default async function BerandaPage() {
   // Transfer dikecualikan di semua hitungan: itu uang pindah kantong sendiri,
   // bukan pengeluaran maupun pemasukan.
   const [
-    {
-      data: { user },
-    },
+    user,
     { data: terbaru },
     { data: keluarIni },
     { data: masukIni },
@@ -42,7 +40,7 @@ export default async function BerandaPage() {
     { data: budgets },
     { kantong, saldo },
   ] = await Promise.all([
-    supabase.auth.getUser(),
+    ambilUser(),
     // Beranda cuma hari ini & kemarin; selebihnya di Riwayat.
     supabase
       .from("transactions")

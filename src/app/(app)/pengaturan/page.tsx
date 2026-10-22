@@ -1,4 +1,4 @@
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { ambilUser, createSupabaseServerClient } from "@/lib/supabase/server";
 import PengaturanView from "./PengaturanView";
 
 export const dynamic = "force-dynamic";
@@ -6,13 +6,11 @@ export const dynamic = "force-dynamic";
 export default async function PengaturanPage() {
   const supabase = await createSupabaseServerClient();
   const [
-    {
-      data: { user },
-    },
+    user,
     { count: jumlahBudget },
     { count: jumlahKantong },
   ] = await Promise.all([
-    supabase.auth.getUser(),
+    ambilUser(),
     supabase.from("budgets").select("category", { count: "exact", head: true }),
     supabase.from("user_accounts").select("id", { count: "exact", head: true }),
   ]);

@@ -1,4 +1,4 @@
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { ambilUser, createSupabaseServerClient } from "@/lib/supabase/server";
 import BudgetView from "./BudgetView";
 import type { AvgMonthlyExpenseRow } from "@/types/transaction";
 
@@ -7,13 +7,11 @@ export const dynamic = "force-dynamic";
 export default async function BudgetPage() {
   const supabase = await createSupabaseServerClient();
   const [
-    {
-      data: { user },
-    },
+    user,
     { data: budgets },
     { data: rerata },
   ] = await Promise.all([
-    supabase.auth.getUser(),
+    ambilUser(),
     supabase.from("budgets").select("category, amount"),
     supabase.rpc("get_avg_monthly_expense_by_category"),
   ]);
