@@ -21,7 +21,7 @@ import { Spinner } from "@/components/oneui";
 import s from "@/components/ui.module.css";
 import { useCatat } from "@/components/Catat";
 import { ACCEPT_STRUK } from "@/components/UploadReceiptForm";
-import { apakahKoreksi, CERITA_ULANG, KALIMAT_TANYA, MAKS_CERITA, pertanyaanDraft, type JenisTanya } from "@/lib/draft";
+import { apakahKoreksi, CERITA_ULANG, KALIMAT_TANYA, MAKS_CERITA, mauHapus, pertanyaanDraft, type JenisTanya } from "@/lib/draft";
 import { alamatDetail, angkaMentah, angkaRibuan, fmtIDR, fmtTanggalPendek } from "@/lib/format";
 import { namaKategori } from "@/lib/kategori";
 import { UMUR_DRAFT_HARI } from "@/lib/notifikasi";
@@ -241,7 +241,8 @@ export default function LembarCatat({
     setPesan((prev) => prev.map((p) => (p.t === "tanya" ? { ...p, selesai: true } : p)));
     tambah({ t: "saya", teks: label ?? (jenis === "nominal" ? `Rp ${angkaRibuan(angkaMentah(nilai))}` : nilai) });
     setSibuk(true);
-    if (jenis === "cerita") tambah({ t: "status", teks: "Membaca ulang…" });
+    // Ketikan yang bukan jawaban langsung juga dibaca ulang oleh AI.
+    if (jenis === "cerita" || !label) tambah({ t: "status", teks: "Membaca ulang…" });
     const r = await kirimJson(`/api/draft/${aktif.tx.id}/jawab`, { jenis, nilai });
     setPesan((prev) => prev.filter((p) => p.t !== "status"));
     setSibuk(false);
@@ -430,11 +431,20 @@ export default function LembarCatat({
       setLampiran(null);
       return void catatFoto(l.file, l.url, isi);
     }
+    // "hapus aja" / "ga jadi": catatan yang sedang ditanyakan dibuang.
+    if (tanyaBuka && aktif && mauHapus(isi)) return void hapusDraft(aktif.tx, isi);
     // Ketikan saat ada pertanyaan = jawabannya. Saat konfirmasi, ketikan
     // dianggap koreksi yang dibaca ulang.
     if (tanyaBuka) return void jawab(isi, undefined, tanyaBuka === "konfirmasi" ? "cerita" : undefined);
     // Setelah transaksi tersimpan, "eh yang tadi pakai BCA" = koreksi untuknya.
     const terakhir = [...pesan].reverse().find((p) => p.t === "kartu");
+    if (terakhir?.t === "kartu" && !terakhir.batal && mauHapus(isi)) {
+      setBesar(true);
+      setLayar("obrolan");
+      setRingkas(null);
+      tambah({ t: "saya", teks: isi });
+      return void batalkan(terakhir.tx).then(() => tambah({ t: "app", teks: "Oke, sudah dihapus." }));
+    }
     if (terakhir?.t === "kartu" && !terakhir.batal && apakahKoreksi(isi)) return void koreksi(terakhir.tx, isi);
     void catatTeks(isi);
   }
@@ -480,6 +490,20 @@ export default function LembarCatat({
   function keDetail(tx: Transaction) {
     onClose();
     router.push(alamatDetail(tx.id, pathname));
+  }
+
+  async function hapusDraft(tx: Transaction, isi: string) {
+    setPesan((prev) => prev.map((p) => (p.t === "tanya" ? { ...p, selesai: true } : p)));
+    tambah({ t: "saya", teks: isi });
+    setSibuk(true);
+    const { error } = await db.from("transactions").delete().eq("id", tx.id);
+    setSibuk(false);
+    if (error) return tambah({ t: "app", teks: "Gagal menghapus catatannya." });
+    setAktif(null);
+    const { count } = await db.from("draft_catat").select("transaksi_id", { count: "exact", head: true });
+    tambah({ t: "app", teks: "Oke, catatannya dihapus." }, { t: "tutup", lagi: count ?? 0 });
+    setDetik(TUTUP_DETIK);
+    router.refresh();
   }
 
   async function batalkan(tx: Transaction) {

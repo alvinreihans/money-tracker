@@ -52,26 +52,28 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const tolak = (error: string) => NextResponse.json({ error }, { status: 422 });
 
   const patch: Partial<Transaction> = {};
+  // Ketikan yang bukan jawaban langsung ("nominalnya 40rb", "pakai yang biru")
+  // dibaca AI seperti cerita; kalau tetap tidak ada yang berubah, baru ditolak.
+  let gagal: string | null = null;
   if (jenis === "nominal") {
     const n = bacaNominal(nilai);
-    if (!n) return tolak("Angkanya belum kebaca. Coba ketik lagi, mis. 150.000");
-    patch.amount = n;
+    if (n) patch.amount = n;
+    else gagal = "Angkanya belum kebaca. Coba ketik lagi, mis. 150.000";
   } else if (jenis === "kantong") {
     const k = kantongDariJawaban(nilai, pilihan(tx.type));
-    if (!k) return tolak("Kantong itu belum ada. Pilih salah satu ya.");
-    patch.kantong_id = k.id;
-    patch.payment_method = k.name;
+    if (k) Object.assign(patch, { kantong_id: k.id, payment_method: k.name });
+    else gagal = "Kantong itu belum ada. Pilih salah satu ya.";
   } else if (jenis === "kantong_tujuan") {
     const k = kantongDariJawaban(nilai, semua);
-    if (!k || k.id === tx.kantong_id) return tolak("Pilih kantong tujuan yang lain ya.");
-    patch.kantong_tujuan_id = k.id;
+    if (k && k.id !== tx.kantong_id) patch.kantong_tujuan_id = k.id;
+    else gagal = "Pilih kantong tujuan yang lain ya.";
   } else if (jenis === "waktu") {
     const b = bacaJam(nilai);
-    if (!b) return tolak("Jamnya belum kebaca. Coba mis. “jam 10” atau “10.30”.");
     // "siang" padahal saldo diisi jam 14.00: masih bisa sebelum atau sesudah.
-    if (masihRagu(tx, b.jam, b.perkiraan)) return tolak("Kira-kira jam berapa? Mis. “jam 13” atau “13.30”.");
-    patch.waktu = b.jam;
-  } else if (jenis === "cerita") {
+    if (b && !masihRagu(tx, b.jam, b.perkiraan)) patch.waktu = b.jam;
+    else gagal = b ? "Kira-kira jam berapa? Mis. “jam 13” atau “13.30”." : "Jamnya belum kebaca. Coba mis. “jam 10” atau “10.30”.";
+  }
+  if (jenis === "cerita" || (gagal && nilai)) {
     if (!nilai) return tolak("Ceritain sedikit transaksinya ya.");
     // Digabung dengan teks/OCR sebelumnya, tapi ditandai jelas sebagai
     // penjelasan user: kalau ditempel begitu saja, model menganggapnya bagian
@@ -103,7 +105,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       const j = jamTransaksi({ time: e.time, hint: e.time_hint }, patch.transaction_date ?? tx.transaction_date);
       patch.waktu = masihRagu({ ...tx, ...patch }, j.waktu, j.perkiraan) ? null : j.waktu;
     }
-  }
+    // "13:57:00" dari database = "13:57"; "15680.00" = 15680.
+    const teks = (x: unknown) => String(x ?? "").replace(/^(\d\d:\d\d):00$/, "$1");
+    const sama = (a: unknown, b: unknown) => teks(a) === teks(b) || (a != null && b != null && Number(a) === Number(b));
+    const PENTING = ["amount", "type", "transaction_date", "waktu", "kantong_id", "kantong_tujuan_id"] as const;
+    if (gagal && PENTING.every((k) => !(k in patch) || sama(patch[k], tx[k]))) return tolak(gagal);
+  } else if (gagal) return tolak(gagal);
 
   // Setelah dijawab, "konfirmasi" berarti tidak ada yang kurang lagi: langsung
   // dikonfirmasi. Pertanyaan konfirmasi hanya diajukan saat draft dibuka.

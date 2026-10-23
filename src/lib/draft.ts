@@ -95,6 +95,16 @@ export function apakahKoreksi(teks: string): boolean {
   );
 }
 
+/** Ketikan yang meminta catatannya dibuang ("hapus aja", "ga jadi", "ga usah dicatat"). */
+export function mauHapus(teks: string): boolean {
+  const t = teks.toLowerCase().trim();
+  return (
+    /^(hapus|apus|buang|batal\w*|cancel|delete)\b/.test(t) ||
+    /\b(hapus|apus|buang)(in|kan)?\b.*\b(aja|saja|ini|itu|transaksi\w*|catatan\w*|yang tadi)\b/.test(t) ||
+    /\b(g|ga|gak|nggak|ngga|enggak|gk|tidak|tak)\s*(jadi|usah|perlu)\b(?!.*\d)/.test(t)
+  );
+}
+
 /**
  * Kantong yang dimaksud jawaban ketik: id dari chip, nama persis ("bca"),
  * atau disebut dalam kalimat ("pakai bca dong").
