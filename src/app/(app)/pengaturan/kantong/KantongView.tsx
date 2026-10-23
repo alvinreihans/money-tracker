@@ -10,6 +10,7 @@ import { fmtIDR, isianNominal, isoLokal } from "@/lib/format";
 import { ambilEmoji, emojiKantong, SARAN_EMOJI_KANTONG, type Kantong } from "@/lib/kantong";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { validasiKantong } from "@/lib/transaksi-input";
+import { fmtJam, jamWIB, saldoSejakDari } from "@/lib/waktu";
 
 interface Isian {
   name: string;
@@ -27,6 +28,16 @@ interface Isian {
  * bergantung padanya — jadi penandanya cukup emoji pilihan user. Satu-satunya
  * kantong tunai adalah "Tunai" bawaan, yang tidak bisa dihapus.
  */
+/** Sejak kapan saldo yang diisi berlaku, dalam kalimat. */
+function keteranganSaldo(tanggal: string, asal?: Kantong): string {
+  if (asal?.saldo_sejak && asal.saldo_per === tanggal && jamWIB(asal.saldo_sejak) !== "00:00") {
+    return `Saldo per jam ${fmtJam(jamWIB(asal.saldo_sejak))} di tanggal ini. Transaksi sesudahnya ikut menggeser saldonya.`;
+  }
+  return tanggal === isoLokal(new Date())
+    ? "Saldo saat ini (jam sekarang). Transaksi sesudahnya ikut menggeser saldonya."
+    : "Saldo di awal tanggal ini. Transaksi mulai tanggal ini ikut menggeser saldonya.";
+}
+
 export default function KantongView({ userId, daftar }: { userId: string; daftar: (Kantong & { saldo: number })[] }) {
   const router = useRouter();
   const [edit, setEdit] = useState<{ id: string | null; bawaan: boolean; isian: Isian } | null>(null);
@@ -60,11 +71,21 @@ export default function KantongView({ userId, daftar }: { userId: string; daftar
     const cek = validasiKantong({ ...edit.isian });
     if (!cek.ok) return setError(cek.error);
 
+    // Saldo berlaku sejak (SPEC-saldo-waktu): diisi hari ini → jam sekarang;
+    // tanggal lain → awal hari itu. Tidak diubah kalau tanggal & nominalnya tetap.
+    const asal = edit.id ? daftar.find((k) => k.id === edit.id) : undefined;
+    const hariIni = isoLokal(new Date());
+    const baruSaldo =
+      !asal ||
+      asal.saldo_per !== cek.data.saldo_per ||
+      (cek.data.saldo_per === hariIni && Number(asal.saldo_awal) !== cek.data.saldo_awal);
+    const data = baruSaldo ? { ...cek.data, saldo_sejak: saldoSejakDari(cek.data.saldo_per) } : cek.data;
+
     setLoading(true);
     const tabel = createSupabaseBrowserClient().from("user_accounts");
     const { error: err } = edit.id
-      ? await tabel.update(cek.data).eq("id", edit.id)
-      : await tabel.insert({ ...cek.data, user_id: userId });
+      ? await tabel.update(data).eq("id", edit.id)
+      : await tabel.insert({ ...data, user_id: userId });
     setLoading(false);
 
     if (err) return setError(dbErrorMessage(err, `Kantong "${cek.data.name}"`));
@@ -189,7 +210,7 @@ export default function KantongView({ userId, daftar }: { userId: string; daftar
               <Field
                 label="Saldo per tanggal"
                 ikon={CalendarDays}
-                keterangan="Saldo di awal tanggal ini. Transaksi mulai tanggal ini ikut menggeser saldonya."
+                keterangan={keteranganSaldo(edit.isian.saldo_per, edit.id ? daftar.find((k) => k.id === edit.id) : undefined)}
               >
                 <input type="date" required value={edit.isian.saldo_per} onChange={(e) => ubah({ saldo_per: e.target.value })} />
               </Field>

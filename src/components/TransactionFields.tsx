@@ -1,12 +1,13 @@
 "use client";
 
 import NextLink from "next/link";
-import { ArrowDownToLine, BadgePercent, Banknote, CalendarDays, Coins, CreditCard, NotebookPen, Shapes, Store, UserRound, Wallet } from "lucide-react";
+import { ArrowDownToLine, BadgePercent, Banknote, CalendarDays, Clock, Coins, CreditCard, NotebookPen, Shapes, Store, UserRound, Wallet } from "lucide-react";
 import { useCatat, useKategori } from "@/components/Catat";
 import { tandaKategori } from "@/components/kategori";
 import { Field, InputNominal, Pilih, Segmen } from "@/components/oneui";
 import s from "@/components/ui.module.css";
 import { isianNominal, isoLokal } from "@/lib/format";
+import { jamWIB } from "@/lib/waktu";
 import { emojiKantong } from "@/lib/kantong";
 import { kantongUang } from "@/lib/pinjaman";
 import { kategoriJenis, LAINNYA } from "@/lib/kategori";
@@ -25,6 +26,8 @@ export interface NilaiTransaksi {
   type: TransactionType;
   category: string;
   transaction_date: string;
+  /** "HH:MM"; kosong = tidak diisi. */
+  waktu: string;
   merchant: string;
   payment_method: string;
   kantong_id: string;
@@ -44,6 +47,8 @@ export function nilaiAwal(tx?: Transaction, type: TransactionType = "expense", i
     type: tx?.type ?? type,
     category: tx?.category ?? "other",
     transaction_date: tx?.transaction_date ?? isoLokal(new Date()),
+    // Catatan baru: jam sekarang (ubah kalau terjadinya lebih awal).
+    waktu: tx ? (tx.waktu?.slice(0, 5) ?? "") : jamWIB(new Date()),
     merchant: tx?.merchant ?? "",
     payment_method: tx?.payment_method ?? "",
     kantong_id: tx?.kantong_id ?? "",
@@ -131,6 +136,12 @@ export default function TransactionFields({
             value={nilai.transaction_date}
             onChange={(e) => onChange({ transaction_date: e.target.value })}
           />
+        </Field>
+
+        {/* Jam terjadinya: di hari saldo kantong diisi, transaksi sebelum jam
+            itu tidak memotong saldo (SPEC-saldo-waktu). */}
+        <Field label="Jam" ikon={Clock} keterangan="Opsional. Ubah kalau terjadinya lebih awal.">
+          <input type="time" value={nilai.waktu} onChange={(e) => onChange({ waktu: e.target.value })} />
         </Field>
 
         {/* Pindah kantong tidak berkategori. */}

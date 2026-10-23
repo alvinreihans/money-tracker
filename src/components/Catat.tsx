@@ -31,7 +31,7 @@ interface Kabar {
 }
 
 /** Kantong yang dipilih di form: cukup id, nama, dan jenisnya. */
-export type PilihanKantong = Pick<Kantong, "id" | "name" | "kind" | "emoji">;
+export type PilihanKantong = Pick<Kantong, "id" | "name" | "kind" | "emoji"> & Partial<Pick<Kantong, "saldo_per" | "saldo_sejak">>;
 
 const CatatContext = createContext<{
   /** Buka lembar Catat; `teks` mengisi kolom ketik (mis. teks yang dibagikan). */

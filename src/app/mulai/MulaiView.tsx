@@ -76,7 +76,8 @@ export default function MulaiView({ userId, kantong }: { userId: string; kantong
           name: k.name,
           emoji: k.emoji,
           saldo_awal: Number(saldo[k.name] || 0),
-          saldo_per: hariIni,
+          // Saldo saat ini: berlaku sejak jam sekarang (SPEC-saldo-waktu).
+          saldo_sejak: new Date().toISOString(),
         }));
         if (baru.length) {
           const { error: err } = await db.insert(baru);
@@ -86,7 +87,7 @@ export default function MulaiView({ userId, kantong }: { userId: string; kantong
         for (const k of kantong) {
           const isian = saldo[k.name] ?? "";
           if (isian !== (Number(k.saldo_awal) ? isianNominal(k.saldo_awal) : "")) {
-            const { error: err } = await db.update({ saldo_awal: Number(isian || 0), saldo_per: hariIni }).eq("id", k.id);
+            const { error: err } = await db.update({ saldo_awal: Number(isian || 0), saldo_sejak: new Date().toISOString() }).eq("id", k.id);
             if (err) throw err;
           }
         }
