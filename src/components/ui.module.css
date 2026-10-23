@@ -955,9 +955,10 @@ button.blok { background: var(--blok); }
   display: flex;
   align-items: flex-end;
   padding: 2px;
-  /* Sudut membulat hanya di kapsulnya; kolom teks di dalamnya persegi,
-     jadi teks panjang tidak "tergigit" sudut (seperti WhatsApp). */
-  border-radius: 26px;
+  /* Sudut memakai token isian One UI (--radius-isian), sama dengan semua
+     kolom isian di aplikasi; kolom teks di dalamnya persegi, jadi teks
+     panjang tidak "tergigit" sudut. */
+  border-radius: var(--radius-isian);
   background: var(--blok-2);
 }
 
@@ -1001,7 +1002,6 @@ button.blok { background: var(--blok); }
   max-height: 180px;
   padding: 12px 2px;
   border: 0;
-  border-radius: 28px;
   background: transparent;
   font-size: 17px;
   line-height: 24px;
