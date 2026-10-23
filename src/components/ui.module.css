@@ -1209,8 +1209,6 @@ button.blok { background: var(--blok); }
 .kartuBatal .tersimpan { color: var(--teks-2); }
 .kartuBatal .barisJudul, .kartuBatal .nominal { text-decoration: line-through; }
 
-.hitung { display: flex; align-items: center; gap: 8px; margin-top: 10px; color: var(--teks-2); font-size: 13px; }
-.cincin { width: 16px; height: 16px; flex-shrink: 0; border-radius: 50%; background: conic-gradient(var(--primer) calc(var(--sisa) * 360deg), var(--garis) 0); }
 
 .lampiranCatat { position: relative; align-self: flex-start; width: 56px; height: 72px; margin-left: 4px; border-radius: 10px; overflow: hidden; background: var(--blok-2); }
 .lampiranCatat img { width: 100%; height: 100%; object-fit: cover; }
@@ -1226,7 +1224,6 @@ button.blok { background: var(--blok); }
 @media (prefers-reduced-motion: no-preference) {
   .dialog { interpolate-size: allow-keywords; transition: height 320ms var(--gerak); }
   .obrolan > * { animation: isiMasuk 260ms var(--gerak); }
-  .cincin { transition: background 900ms linear; }
 }
 .aksiKartu .flat { flex: none; padding: 0 16px; }
 .judulCatat h2:focus { outline: none; }

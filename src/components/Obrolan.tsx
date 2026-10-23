@@ -588,11 +588,15 @@ export default function LembarCatat({
         return (
           <div key={i} className={`${s.bub} ${s.bubApp}`}>
             Makasih udah dilengkapi! 🙌 Transaksinya sudah tercatat. Kalau perlu diubah lagi, cek di Riwayat.
+            {/* Bilah sisa waktu yang sama dengan kartu di lembar ringkas, tanpa
+                teks: habis → ke daftar (kalau masih ada) atau Beranda. */}
             {detik !== null && (
-              <span className={s.hitung} role="timer">
-                <span className={s.cincin} style={{ "--sisa": detik / TUTUP_DETIK } as React.CSSProperties} />
-                {p.lagi > 0 ? `Lanjut ke yang lain (${p.lagi} lagi)` : "Kembali ke Beranda"} dalam {detik}…
-              </span>
+              <span
+                className={s.sisaWaktu}
+                style={{ animationDuration: `${TUTUP_DETIK}s`, margin: "10px 0 2px" }}
+                role="timer"
+                aria-label={p.lagi > 0 ? `Lanjut ke catatan berikutnya dalam ${TUTUP_DETIK} detik` : `Kembali ke Beranda dalam ${TUTUP_DETIK} detik`}
+              />
             )}
           </div>
         );
