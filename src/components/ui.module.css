@@ -954,14 +954,16 @@ button.blok { background: var(--blok); }
   min-width: 0;
   display: flex;
   align-items: flex-end;
-  padding: 4px;
-  border-radius: 28px;
+  padding: 2px;
+  /* Sudut membulat hanya di kapsulnya; kolom teks di dalamnya persegi,
+     jadi teks panjang tidak "tergigit" sudut (seperti WhatsApp). */
+  border-radius: 26px;
   background: var(--blok-2);
 }
 
 .ikonKetik {
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 48px;
   flex-shrink: 0;
   display: grid;
   place-items: center;
@@ -992,10 +994,12 @@ button.blok { background: var(--blok); }
 /* Kolom ketik lembar Catat: satu baris, tumbuh sampai ±4 baris kalau panjang. */
 .ketik textarea {
   flex: 1;
+  border-radius: 0;
   min-width: 0;
-  min-height: 44px;
-  max-height: 120px;
-  padding: 10px 4px;
+  min-height: 48px;
+  /* Tumbuh sampai ±7 baris sebelum bisa digulir, seperti WhatsApp. */
+  max-height: 180px;
+  padding: 12px 2px;
   border: 0;
   border-radius: 28px;
   background: transparent;
@@ -1209,7 +1213,11 @@ button.blok { background: var(--blok); }
 /* Chip saran keluar sampai tepi lembar (padding badan 16px, bukan 24px). */
 .badanCatat .saran { flex-shrink: 0; margin: 0 -16px; padding: 0 16px; }
 .badanCatat .pintasan { flex-shrink: 0; }
-.kakiCatat { flex: none; padding: 4px 12px 12px; display: flex; flex-direction: column; gap: 8px; }
+/* Tepi samping tipis: kolom ketik selebar mungkin, seperti aplikasi chat. */
+.kakiCatat { flex: none; padding: 4px 8px 10px; display: flex; flex-direction: column; gap: 8px; }
+/* Badan ringkas yang kosong (mis. saat mengetik, tanpa saran) tidak
+   menyisakan celah di antara judul dan kolom ketik. */
+.badanCatat:empty { display: none; }
 
 .barisBelum {
   display: flex; align-items: center; gap: 12px; width: 100%; min-height: 48px;
