@@ -22,6 +22,7 @@ export function queryRiwayat(supabase: SupabaseClient, filter: string, q: string
     // Yang belum selesai tidak di Riwayat; ada di lembar Catat (SPEC-catat-chat).
     .eq("status", "confirmed")
     .order("transaction_date", { ascending: false })
+    .order("waktu", { ascending: false, nullsFirst: false })
     .order("created_at", { ascending: false })
     // Pemecah seri: tanpa ini, baris bertanggal & waktu catat sama bisa
     // terlewat atau dobel di antara dua halaman.

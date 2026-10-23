@@ -25,6 +25,7 @@ export const keCsv = (baris: Sel[][]) => "﻿" + baris.map((b) => b.map(selCsv).
 
 export interface BarisEkspor {
   transaction_date: string;
+  waktu: string | null;
   created_at: string;
   type: TransactionType;
   category: string;
@@ -38,7 +39,7 @@ export interface BarisEkspor {
 }
 
 export const KOLOM_EKSPOR =
-  "transaction_date, created_at, type, category, amount, merchant, description, kantong_id, kantong_tujuan_id, payment_method, status";
+  "transaction_date, waktu, created_at, type, category, amount, merchant, description, kantong_id, kantong_tujuan_id, payment_method, status";
 
 /** Baris tabel siap-CSV: nama kantong & kategori, bukan id/slug; waktu catat dalam WIB. */
 export function tabelEkspor(
@@ -49,9 +50,10 @@ export function tabelEkspor(
   const namaKantong = new Map(kantong.map((k) => [k.id, k.name]));
   const namaKategori = new Map(kategori.map((k) => [`${k.type}:${k.slug}`, k.name]));
   return [
-    ["Tanggal", "Jenis", "Kategori", "Nominal", "Merchant", "Keterangan", "Kantong", "Kantong tujuan", "Metode bayar", "Status", "Dicatat (WIB)"],
+    ["Tanggal", "Jam", "Jenis", "Kategori", "Nominal", "Merchant", "Keterangan", "Kantong", "Kantong tujuan", "Metode bayar", "Status", "Dicatat (WIB)"],
     ...transaksi.map((t) => [
       t.transaction_date,
+      t.waktu?.slice(0, 5) ?? "",
       JENIS[t.type] ?? t.type,
       namaKategori.get(`${t.type}:${t.category}`) ?? t.category,
       Number(t.amount),

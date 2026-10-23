@@ -9,6 +9,7 @@ import s from "@/components/ui.module.css";
 import { alasanDraft } from "@/lib/kantong";
 import { namaKategori } from "@/lib/kategori";
 import { fmtIDR, fmtTanggal, fmtWaktu, JENIS, labelSumber } from "@/lib/format";
+import { fmtJam } from "@/lib/waktu";
 import type { Transaction } from "@/types/transaction";
 
 export default function DetailView({
@@ -50,7 +51,7 @@ export default function DetailView({
         kembali={kembali}
         judul={`${t.type === "income" ? "+" : ""}${fmtIDR(Number(t.amount))}`}
         judulKecil={nama}
-        sub={`${nama} · ${fmtTanggal(t.transaction_date)}`}
+        sub={[nama, fmtTanggal(t.transaction_date), fmtJam(t.waktu)].filter(Boolean).join(" · ")}
         aksi={<DeleteTransactionButton id={t.id} kembali={kembali} />}
         ikon={
           <span

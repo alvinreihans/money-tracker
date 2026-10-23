@@ -27,6 +27,7 @@ import { namaKategori } from "@/lib/kategori";
 import { UMUR_DRAFT_HARI } from "@/lib/notifikasi";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { TEKS_MAKS } from "@/lib/transaksi-input";
+import { saldoSejak } from "@/lib/waktu";
 import type { Transaction } from "@/types/transaction";
 
 /**
@@ -119,6 +120,14 @@ export default function LembarCatat({
   const router = useRouter();
   const pathname = usePathname();
   const { kantong, kategori } = useCatat();
+  // Saldo kantong berlaku sejak jam berapa: menentukan perlu tanya jam atau tidak.
+  const saldoDari = useCallback(
+    (id: string) => {
+      const k = kantong.find((x) => x.id === id);
+      return k?.saldo_per ? saldoSejak({ saldo_per: k.saldo_per, saldo_sejak: k.saldo_sejak }) : undefined;
+    },
+    [kantong],
+  );
   const db = useMemo(() => createSupabaseBrowserClient(), []);
 
   const [besar, setBesar] = useState(perintah.besar);
@@ -337,7 +346,7 @@ export default function LembarCatat({
         tujuan ? `ke ${tujuan}` : null,
       ].filter(Boolean);
       tambah(kebaca.length ? { t: "app", teks: "Yang sudah kebaca:", sub: kebaca.join(" · ") } : { t: "app", teks: "Belum ada yang kebaca." });
-      mulaiTanya(t, pertanyaanDraft(t) ?? "konfirmasi", 0);
+      mulaiTanya(t, pertanyaanDraft(t, saldoDari) ?? "konfirmasi", 0);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [db, kantong, kategori],
@@ -764,7 +773,7 @@ export default function LembarCatat({
                           {fmtTanggalPendek(d.tx.transaction_date)}
                         </span>
                         <span className={s.peringatan} style={{ fontSize: 14 }}>
-                          {KURANG[pertanyaanDraft(d.tx) ?? "konfirmasi"]}
+                          {KURANG[pertanyaanDraft(d.tx, saldoDari) ?? "konfirmasi"]}
                         </span>
                         <span className={s.redup} style={{ fontSize: 12 }}>
                           Dihapus otomatis {tanggalHapus(d.dibuat)}
@@ -833,7 +842,9 @@ export default function LembarCatat({
                       ? "mis. 150.000"
                       : tanyaBuka === "kantong" || tanyaBuka === "kantong_tujuan"
                         ? "Ketik kantongnya"
-                        : tanyaBuka === "cerita"
+                        : tanyaBuka === "waktu"
+                          ? "mis. jam 10 atau 10.30"
+                          : tanyaBuka === "cerita"
                           ? "Ceritain di sini…"
                           : tanyaBuka === "konfirmasi" || (besar && pesan.at(-1)?.t === "kartu")
                             ? "Ketik koreksinya"
