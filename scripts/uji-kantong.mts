@@ -62,4 +62,16 @@ assert.equal(emojiKantong({ emoji: "🐷", kind: "bank" }), "🐷");
 assert.equal(emojiKantong({ emoji: null, kind: "cash" }), "💵"); // data lama
 assert.equal(emojiKantong({ kind: "ewallet" }), "📱");
 
-console.log("✓ kantong: pencocokan metode bayar, saldo, alasan draft, emoji");
+// Saldo per jam (SPEC-saldo-waktu): saldo BRI diisi 23 Okt 14.00 WIB.
+const bri: Kantong = { id: "bri", name: "BRI", kind: "bank", aliases: null, saldo_awal: 500000, saldo_per: "2026-10-23", saldo_sejak: "2026-10-23T07:00:00Z" };
+const per = (waktu: string | null, tanggal = "2026-10-23") => ({ amount: 1000, type: "expense", transaction_date: tanggal, waktu, kantong_id: "bri", kantong_tujuan_id: null });
+const [{ saldo: sBri }] = hitungSaldo([bri], [
+  per("10:00"),               // sebelum jam saldo: sudah termasuk → tidak
+  per("15:30"),               // sesudah → ya
+  per(null),                  // tanpa jam → dianggap sesudah
+  per("09:00", "2026-10-24"), // besok → ya
+  per("23:00", "2026-10-22"), // kemarin → tidak
+]);
+assert.equal(sBri, 500000 - 3000);
+
+console.log("✓ kantong: pencocokan metode bayar, saldo (termasuk saldo per jam), alasan draft, emoji");

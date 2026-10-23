@@ -46,7 +46,7 @@ AI mengembalikan dua isian baru: `time` ("HH:MM" | null) dan `time_hint` ("pagi"
 
 Hanya kalau **semua** ini benar:
 1. tanggal transaksi = tanggal `saldo_sejak` kantongnya (atau kantong tujuan), dan
-2. jamnya tidak pasti: hanya "tadi"/lampau tanpa bagian hari, **atau** bagian hari yang perkiraannya berjarak **< 2 jam** dari jam saldo (mis. "tadi siang" ≈ 12.00 vs saldo 14.00).
+2. jamnya tidak pasti: hanya "tadi"/lampau tanpa bagian hari, **atau** bagian hari yang **rentangnya mencakup jam saldo** — pagi 05–11, siang 11–15, sore 15–18, malam 18–24 (mis. "tadi siang" vs saldo 14.00 ditanya; "tadi sore" vs 14.00 jelas sesudah).
 
 Pertanyaan di obrolan: **"Tadi itu jam berapa?"** — dijawab di kolom ketik ("jam 10", "10.30", "barusan", "pagi"). Jawaban yang masih terlalu dekat jam saldo → **"Kira-kira jam berapa?"**. Selama menunggu, catatan berstatus "Belum selesai" seperti pertanyaan lain (alur penutup sama: Ubah | Selesai).
 
