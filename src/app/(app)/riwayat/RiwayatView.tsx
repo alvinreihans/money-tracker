@@ -16,7 +16,6 @@ const FILTER = [
   { id: "keluar", label: "Keluar" },
   { id: "masuk", label: "Masuk" },
   { id: "pindah", label: "Pindah kantong" },
-  { id: "draft", label: "Perlu dibenerin" },
 ];
 
 /** Filter dan teks cari disimpan di URL, jadi tautan dari beranda langsung jatuh di sini. */
@@ -137,12 +136,6 @@ export default function RiwayatView({
           ))}
         </div>
 
-        {filter === "draft" && (
-          <p className={s.redup} style={{ margin: "0 20px" }}>
-            Yang belum kebaca AI atau kantongnya belum jelas. Benerin manual, ya.
-          </p>
-        )}
-
         {daftar.length > 0 ? (
           <TransactionList
             items={semua}
@@ -174,9 +167,7 @@ export default function RiwayatView({
                 Coba kata lain, atau cek filter yang aktif.
               </Kosong>
             ) : (
-              <Kosong ikon={Inbox} judul={filter === "draft" ? "Nggak ada yang perlu dibenerin" : "Belum ada transaksi di sini"}>
-                {filter === "draft" ? "Aman." : undefined}
-              </Kosong>
+              <Kosong ikon={Inbox} judul="Belum ada transaksi di sini" />
             )}
           </div>
         )}

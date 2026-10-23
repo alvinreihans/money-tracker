@@ -1,6 +1,7 @@
 import { SchemaType, type GenerationConfig } from "@google/generative-ai";
 import { getGeminiClient, GEMINI_MODEL } from "@/lib/gemini";
 import { runGroqChain, parseJsonLoose } from "@/lib/groq";
+import { isoLokal } from "@/lib/format";
 import { KATEGORI_BAWAAN, kategoriJenis, LAINNYA, type Kategori } from "@/lib/kategori";
 import type { ExtractedReceipt, TransactionType } from "@/types/transaction";
 
@@ -47,8 +48,10 @@ const daftarPrompt = (kategori: Kategori[], type: "expense" | "income") =>
 /** Nominal pelengkap dari model (biaya admin, cashback): angka > 0 atau null. */
 const nominalAtauNull = (v: unknown) => (Number(v) > 0 ? Math.round(Number(v)) : null);
 
+/** "Hari ini" menurut WIB: server berjalan di UTC, jadi catatan sebelum
+ * 07.00 WIB dulu ikut bertanggal kemarin. */
 function toISODate(d: Date): string {
-  return d.toISOString().slice(0, 10);
+  return isoLokal(d);
 }
 
 // ---------------------------------------------------------------------------
@@ -301,6 +304,8 @@ export async function extractWithGeminiVision(
   base64Image: string,
   mimeType: string,
   konteks: KonteksAI = KONTEKS_BAWAAN,
+  /** Keterangan yang diketik user bersama fotonya. */
+  catatan?: string,
 ): Promise<ExtractedReceipt> {
   const model = getGeminiClient().getGenerativeModel({
     model: GEMINI_MODEL,
@@ -323,7 +328,11 @@ export async function extractWithGeminiVision(
     try {
       const result = await model.generateContent([
         { inlineData: { data: base64Image, mimeType } },
-        { text: "Ekstrak data dari struk ini." },
+        {
+          text: catatan?.trim()
+            ? `Ekstrak data dari struk ini.\nCatatan dari pengguna (lebih dipercaya untuk kantong & keterangan): ${catatan.trim()}`
+            : "Ekstrak data dari struk ini.",
+        },
       ]);
       return normalize(parseJsonLoose(result.response.text()), konteks.kategori);
     } catch (err) {

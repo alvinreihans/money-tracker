@@ -15,14 +15,47 @@ bagiannya di sini.
 Belum dikerjakan; dicatat supaya tidak lupa.
 
 - **Caching data di server** (lanjutan), kalau setelah diukur di produksi
-  halaman masih terasa lambat: mis. saldo kantong dihitung di database
-  (RPC) dan data yang jarang berubah disimpan sementara di server.
+  halaman masih terasa lambat atau kuota Supabase/Vercel menipis: mis. data
+  yang jarang berubah (kategori, kantong) disimpan sementara di server.
 
 ## [Unreleased]
 
+### Ditambahkan
+- **Catat sebagai obrolan.** Kalau AI kurang yakin, ia langsung bertanya di
+  lembar Catat — kantong lewat pilihan, nominal lewat kolom ketik, atau minta
+  diceritakan — lalu transaksinya tersimpan. Lembar Catat membesar sendiri
+  saat ada pertanyaan atau foto, dan bisa ditarik kecil/besar.
+- **Belum selesai**: catatan yang belum dijawab menunggu di sini (titik
+  oranye di tombol +, kartu di Beranda), lengkap dengan foto struknya supaya
+  ingat itu transaksi apa. Diingatkan lewat notifikasi sehari dan seminggu
+  kemudian; lewat 30 hari dihapus otomatis. Begitu dilengkapi, foto dan
+  obrolannya ikut dihapus.
+- **Koreksi dengan mengetik** setelah transaksi tersimpan: "eh yang tadi
+  pakai BCA", "nominalnya 25rb" — yang berubah diperlihatkan dan bisa
+  dibatalkan.
+- Foto bisa diberi **keterangan** (mis. "pakai BCA") sebelum dikirim.
+- **Bagikan** dari aplikasi lain tetap diproses walau aplikasinya langsung
+  ditutup dan HP dikunci; struk yang belum lengkap dikabari lewat notifikasi.
+
+### Diubah
+- Satu foto = satu transaksi: kamera sekali jepret, galeri satu gambar.
+  Selesai dilengkapi, lembar menutup sendiri setelah hitung mundur (bisa
+  langsung "Selesai" atau "Ubah").
+- Riwayat dan Beranda hanya menampilkan transaksi yang sudah lengkap.
+
+### Dihapus
+- Tab "Perlu dibenerin" di Riwayat (diganti "Belum selesai" di lembar Catat).
+
+### Diperbaiki
+- Transaksi yang dicatat sebelum jam 07.00 tidak lagi bertanggal kemarin
+  (AI dulu memakai tanggal UTC).
+
+## [2.0.0] — 2026-10-22
+
+Lend & Borrow, notifikasi, kantong & budget, dan data transaksi yang
+tersimpan terenkripsi. Mayor karena pendaftaran akun sendiri dihapus.
+
 ### Keamanan
-- Pendaftaran akun ditutup: akun baru lewat undangan. Halaman masuk tidak lagi
-  punya pilihan "Daftar".
 - Hak akses database diperketat: tidak ada lagi hak TRUNCATE/TRIGGER untuk
   pengguna aplikasi, catatan migrasi tertutup, dan fungsi database hanya bisa
   dipanggil oleh yang memang memakainya.
@@ -34,6 +67,8 @@ Belum dikerjakan; dicatat supaya tidak lupa.
   aplikasi sendiri, kamera hanya untuk aplikasi ini.
 
 ### Ditambahkan
+- **Ekspor data** (Pengaturan → Ekspor data): semua transaksi diunduh sebagai
+  file CSV untuk cadangan atau diolah di spreadsheet.
 - **Notifikasi** (Pengaturan → Pengingat harian), tiap jam 19.00: cicilan dan
   Lend & Borrow yang jatuh tempo 3 hari lagi atau besok (dan cicilan yang
   kemarin terlewat), serta pengingat kalau hari ini belum mencatat apa pun.
@@ -84,6 +119,8 @@ Belum dikerjakan; dicatat supaya tidak lupa.
 - Bisa **dipasang sebagai aplikasi** (Install app) dengan ikon dan warna gelap.
 
 ### Diubah
+- Saldo kantong dihitung di database: Beranda, Lend & Borrow, dan Kantong
+  tidak lagi mengunduh seluruh riwayat transaksi setiap dibuka.
 - Kantong ditandai **emoji** pilihan sendiri, bukan jenis Bank/E-wallet.
   Setiap akun punya kantong **Tunai** bawaan yang tidak bisa dihapus.
 - Konfirmasi hapus (transaksi, kantong, kategori) berupa dialog di bawah
@@ -96,6 +133,10 @@ Belum dikerjakan; dicatat supaya tidak lupa.
   sebagai pemasukan ke BRI) dan memakai nama bank yang disebut, bukan
   "Transfer".
 - Tab "Perlu dibenerin" diberi keterangan singkat.
+
+### Dihapus
+- Pendaftaran akun sendiri: halaman masuk tidak lagi punya pilihan "Daftar";
+  akun baru dibuat lewat undangan.
 
 ### Diperbaiki
 - Membuka halaman masuk saat sudah masuk kini langsung ke Beranda. Sebaliknya,
@@ -186,7 +227,8 @@ Rilis pertama.
 - Edit dan hapus transaksi, termasuk membetulkan draft.
 - Akun: daftar, masuk, dan lupa password, dengan syarat password yang kuat.
 
-[Unreleased]: https://github.com/alvinreihans/money-tracker/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/alvinreihans/money-tracker/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/alvinreihans/money-tracker/compare/v1.0.0...v2.0.0
 [1.0.0]: https://github.com/alvinreihans/money-tracker/compare/v0.1.2...v1.0.0
 [0.1.2]: https://github.com/alvinreihans/money-tracker/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/alvinreihans/money-tracker/compare/v0.1.0...v0.1.1

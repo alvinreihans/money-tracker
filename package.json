@@ -1,6 +1,6 @@
 {
   "name": "money-tracker",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -22,7 +22,9 @@
     "uji:kantong": "tsx scripts/uji-kantong.mts",
     "uji:kategori": "tsx scripts/uji-kategori.mts",
     "uji:pinjaman": "tsx scripts/uji-pinjaman.mts",
-    "uji:notifikasi": "tsx scripts/uji-notifikasi.mts"
+    "uji:notifikasi": "tsx scripts/uji-notifikasi.mts",
+    "uji:ekspor": "tsx scripts/uji-ekspor.mts",
+    "uji:draft": "tsx scripts/uji-draft.mts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

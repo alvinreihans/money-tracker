@@ -158,6 +158,9 @@ const nextConfig: NextConfig = {
     staleTimes: { dynamic: 30 },
   },
 
+  // Next 16.4 menulis AGENTS.md ke akar repo tiap `next dev`; tidak dipakai di sini.
+  agentRules: false,
+
   // Header keamanan untuk semua halaman (KAJIAN-KEAMANAN-DATA, 22 Okt 2026).
   async headers() {
     return [{ source: "/(.*)", headers: HEADER_KEAMANAN }];

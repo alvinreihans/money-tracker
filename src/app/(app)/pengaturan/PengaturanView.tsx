@@ -2,7 +2,7 @@
 
 import NextLink from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronRight, HandCoins, LogOut, Shapes, Target, UserRound, Wallet } from "lucide-react";
+import { ChevronRight, Download, HandCoins, LogOut, Shapes, Target, UserRound, Wallet } from "lucide-react";
 import { useKategori } from "@/components/Catat";
 import { AppBar } from "@/components/oneui";
 import SakelarNotifikasi from "@/components/SakelarNotifikasi";
@@ -114,6 +114,16 @@ export default function PengaturanView({
               </span>
             </div>
           )}
+          {/* Tautan unduhan biasa (bukan NextLink): yang dibuka berkas, bukan halaman. */}
+          <a href="/api/ekspor" download className={`${s.baris} ${s.tekan}`}>
+            <span className={s.barisIkon} aria-hidden>
+              <Download size={20} />
+            </span>
+            <span className={s.barisTeks}>
+              <span className={s.barisJudul}>Ekspor data</span>
+              <span className={s.redup}>Semua transaksi sebagai file CSV</span>
+            </span>
+          </a>
           <button type="button" className={`${s.baris} ${s.tekan}`} onClick={() => void keluar()}>
             <span className={`${s.barisIkon} ${s.bahaya}`} aria-hidden>
               <LogOut size={20} />

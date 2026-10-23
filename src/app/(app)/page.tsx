@@ -14,7 +14,9 @@ const BULAN_TREN = 6;
 // tetap tampil "90 hari". Pindahkan ke RPC kalau ada yang betah selama itu.
 const HARI_STREAK = 90;
 
-export default async function BerandaPage() {
+export default async function BerandaPage({ searchParams }: { searchParams: Promise<{ catat?: string }> }) {
+  // ?catat=<id> dari push "catatan belum selesai": langsung buka percakapannya.
+  const { catat } = await searchParams;
   const supabase = await createSupabaseServerClient();
   const sekarang = new Date();
   const { awalBulanIni, awalBulanLalu } = rentangBulan(sekarang);
@@ -42,10 +44,12 @@ export default async function BerandaPage() {
     { data: cicilan },
     { data: bayarCicilan },
   ] = await Promise.all([
-    // Beranda cuma hari ini & kemarin; selebihnya di Riwayat.
+    // Beranda cuma hari ini & kemarin; selebihnya di Riwayat. Yang belum
+    // selesai tidak di sini — ada di lembar Catat.
     supabase
       .from("transactions")
       .select("*")
+      .eq("status", "confirmed")
       .in("transaction_date", [hariIni, geserHari(hariIni, -1)])
       .order("transaction_date", { ascending: false })
       .order("created_at", { ascending: false }),
@@ -68,10 +72,7 @@ export default async function BerandaPage() {
       .eq("status", "confirmed")
       .gte("transaction_date", awalBulanLalu)
       .lt("transaction_date", awalBulanIni),
-    supabase
-      .from("transactions")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "needs_review"),
+    supabase.from("draft_catat").select("transaksi_id", { count: "exact", head: true }),
     supabase.rpc("get_avg_monthly_expense_by_category"),
     supabase
       .from("transactions")
@@ -102,6 +103,7 @@ export default async function BerandaPage() {
         keluarBulanLalu: jumlahkan(keluarLalu),
       }}
       draft={draft ?? 0}
+      bukaCatat={catat}
       terbaru={(terbaru ?? []) as Transaction[]}
       rerata={(rerata ?? []) as AvgMonthlyExpenseRow[]}
       rerataError={rerataError?.message ?? null}

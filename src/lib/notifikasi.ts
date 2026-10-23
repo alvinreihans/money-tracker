@@ -21,7 +21,15 @@ export interface DataNotifikasi {
   kantong: (Pick<Kantong, "id" | "name" | "kind" | "saldo_awal" | "saldo_per" | "jatuh_tempo">)[];
   cicilan: Pick<Cicilan, "id" | "nama" | "nominal" | "tenor" | "jatuh_tempo_awal">[];
   transaksi: (BarisSaldo & { created_at: string; cicilan_id: string | null; cicilan_ke: number | null })[];
+  /** Catatan yang belum selesai dilengkapi (SPEC-catat-chat.md). */
+  draft?: { id: string; dibuat: string; source: string }[];
 }
+
+/** Umur maksimal catatan yang belum selesai; lewat itu dihapus cron. */
+export const UMUR_DRAFT_HARI = 30;
+
+const tglPendek = (iso: string) =>
+  new Date(`${iso}T12:00:00Z`).toLocaleDateString("id-ID", { day: "numeric", month: "short", timeZone: "UTC" });
 
 /** "YYYY-MM-DD" menurut jam WIB — server Vercel berjalan di UTC. */
 export const hariWIB = (waktu: Date | string) =>
@@ -68,6 +76,21 @@ export function isiNotifikasi(d: DataNotifikasi, sekarang = new Date()): Notifik
       isi: fmtIDR(Math.abs(n)),
       url: "/pinjaman",
       tag: `pinjaman-${k.id}`,
+    });
+  }
+
+  // Catatan belum selesai: diingatkan H+1 dan H+7, lalu dihapus H+30.
+  for (const dr of d.draft ?? []) {
+    const dibuat = hariWIB(dr.dibuat);
+    const h1 = geser(dibuat, 1) === hariIni;
+    const h7 = geser(dibuat, 7) === hariIni;
+    if (!h1 && !h7) continue;
+    const apa = `${dr.source === "text" ? "Catatan" : "Struk"} ${tglPendek(dibuat)}`;
+    hasil.push({
+      judul: "1 catatan belum selesai",
+      isi: h7 ? `${apa} — dihapus otomatis ${tglPendek(geser(dibuat, UMUR_DRAFT_HARI))}. Ketuk untuk melengkapi.` : `${apa} — ketuk untuk melengkapi.`,
+      url: `/?catat=${dr.id}`,
+      tag: `draft-${dr.id}`,
     });
   }
 

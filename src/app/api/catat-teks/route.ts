@@ -5,6 +5,7 @@ import { ambilKonteksAI } from "@/lib/kategori-server";
 import { simpanTransaksi } from "@/lib/simpan-transaksi";
 import { dbErrorMessage } from "@/lib/errors";
 import { TEKS_MAKS } from "@/lib/transaksi-input";
+import { pertanyaanDraft } from "@/lib/draft";
 import type { Transaction } from "@/types/transaction";
 
 export const runtime = "nodejs";
@@ -53,6 +54,8 @@ export async function POST(req: NextRequest) {
         transaction: transaction as Transaction,
         // Status akhir: bisa jadi draft di simpanTransaksi (kantong tak cocok).
         status: (transaction as Transaction).status,
+        // Yang perlu ditanyakan di obrolan kalau belum lengkap.
+        pertanyaan: pertanyaanDraft(transaction as Transaction),
         notes: result.notes,
       },
       { status: 201 },

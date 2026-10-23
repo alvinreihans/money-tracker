@@ -1,7 +1,9 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import NextLink from "next/link";
-import { ChevronRight, Flame, Inbox, TriangleAlert } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ChevronRight, ClipboardList, Flame, Inbox } from "lucide-react";
 import { useCatat } from "@/components/Catat";
 import KartuBudget from "@/components/KartuBudget";
 import KartuKantong from "@/components/KartuKantong";
@@ -30,6 +32,7 @@ export default function BerandaView({
   pinjaman,
   budget,
   streak,
+  bukaCatat,
 }: {
   ringkasan: { keluar: number; masuk: number; keluarBulanLalu: number };
   draft: number;
@@ -41,8 +44,21 @@ export default function BerandaView({
   pinjaman: RingkasBeranda;
   budget: ProgresBudget[];
   streak: { hari: number; hariIni: boolean };
+  /** ?catat=<id> dari push: buka percakapan catatan itu. */
+  bukaCatat?: string;
 }) {
   const catat = useCatat();
+  const router = useRouter();
+
+  // Sekali per tautan: efek berjalan dua kali di mode dev (StrictMode).
+  const sudah = useRef<string | null>(null);
+  useEffect(() => {
+    if (!bukaCatat || sudah.current === bukaCatat) return;
+    sudah.current = bukaCatat;
+    catat.bukaDraft(bukaCatat);
+    router.replace("/", { scroll: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bukaCatat]);
   const { keluar, masuk, keluarBulanLalu } = ringkasan;
   const { awalBulanIni, awalBulanLalu } = rentangBulan();
   const persen = keluarBulanLalu > 0 ? Math.round(((keluar - keluarBulanLalu) / keluarBulanLalu) * 100) : 0;
@@ -92,16 +108,16 @@ export default function BerandaView({
         </div>
 
         {draft > 0 && (
-          <NextLink href="/riwayat?filter=draft" className={`${s.blok} ${s.baris} ${s.tekan}`}>
+          <button type="button" className={`${s.blok} ${s.baris} ${s.tekan}`} onClick={catat.bukaDaftar}>
             <span className={`${s.barisIkon} ${s.peringatan}`} aria-hidden>
-              <TriangleAlert size={20} />
+              <ClipboardList size={20} />
             </span>
             <span className={s.barisTeks}>
-              <span className={s.barisJudul}>{draft} transaksi perlu dibenerin</span>
-              <span className={s.redup}>Belum ikut dihitung di ringkasan.</span>
+              <span className={s.barisJudul}>{draft} catatan belum selesai</span>
+              <span className={s.redup}>Ketuk untuk melengkapi</span>
             </span>
             <ChevronRight size={20} color="var(--teks-2)" aria-hidden />
-          </NextLink>
+          </button>
         )}
 
         {/* Cuma hari ini & kemarin — Beranda untuk sekilas, riwayat lengkap di

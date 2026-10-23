@@ -7,17 +7,18 @@ import { useCatat } from "@/components/Catat";
 
 /**
  * Tujuan "Bagikan" dari aplikasi lain. Service worker (public/sw.js)
- * menangkap POST dari Android, menyimpan gambarnya di Cache Storage, lalu
- * mengalihkan ke sini dengan ?berkas=<jumlah> dan/atau ?teks=…
- *
- * Gambar masuk antrean struk (dibaca otomatis seperti dari Galeri); teks
- * mengisi kolom Catat tanpa langsung dikirim, supaya bisa dicek dulu.
+ * menangkap POST dari Android dan mengalihkan ke sini:
+ *  - ?latar=<jumlah>: gambarnya sudah diunggah service worker di latar —
+ *    cukup dikabari; yang belum lengkap nanti dikabari lewat push.
+ *  - ?berkas=<jumlah>: gambar yang gagal diunggah di latar, disimpan di
+ *    Cache Storage → masuk antrean struk di sini (dengan sesi halaman).
+ *  - ?teks=…: mengisi kolom Catat tanpa langsung dikirim, supaya dicek dulu.
  * Setelah itu pindah ke Beranda — sheet-nya tetap terbuka karena Catat
  * hidup di kerangka aplikasi.
  */
 export default function BagikanPage() {
   const router = useRouter();
-  const { buka, tambahStruk } = useCatat();
+  const { buka, tambahStruk, kabari } = useCatat();
   // Efek berjalan dua kali di mode dev (StrictMode); berkasnya cukup diambil sekali.
   const sudah = useRef(false);
 
@@ -28,6 +29,7 @@ export default function BagikanPage() {
     void (async () => {
       const q = new URLSearchParams(window.location.search);
       const jumlah = Math.min(Number(q.get("berkas")) || 0, 10);
+      const latar = Number(q.get("latar")) || 0;
       const teks = q.get("teks") ?? "";
 
       const berkas: File[] = [];
@@ -46,9 +48,10 @@ export default function BagikanPage() {
 
       router.replace("/");
       if (berkas.length) tambahStruk(berkas);
+      else if (latar) kabari(`${latar} struk diproses di latar. Kalau ada yang kurang, nanti dikabari.`);
       else buka(teks);
     })();
-  }, [router, buka, tambahStruk]);
+  }, [router, buka, tambahStruk, kabari]);
 
   return <Memuat />;
 }

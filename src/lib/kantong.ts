@@ -144,33 +144,22 @@ export function hitungSaldo(daftar: Kantong[], transaksi: BarisSaldo[]): { id: s
   return daftar.map((k) => ({ id: k.id, saldo: saldo.get(k.id)! }));
 }
 
-const KOLOM_SALDO = "amount, type, transaction_date, kantong_id, kantong_tujuan_id";
-
-/** Kantong milik user beserta saldonya sekarang. Dipanggil di server. */
+/**
+ * Kantong milik user beserta saldonya sekarang. Dipanggil di server.
+ *
+ * Saldo dijumlah di database (RPC saldo_kantong, aturannya sama dengan
+ * hitungSaldo): yang diunduh hanya satu angka per kantong, bukan seluruh
+ * riwayat transaksi — egress Supabase tidak ikut tumbuh bersama riwayat.
+ */
 export async function ambilKantong(supabase: SupabaseClient): Promise<{ kantong: Kantong[]; saldo: Map<string, number> }> {
-  const { data } = await supabase
-    .from("user_accounts")
-    .select("*")
-    .order("created_at");
-  const kantong = (data ?? []) as Kantong[];
-  if (kantong.length === 0) return { kantong, saldo: new Map() };
-
-  // PostgREST membatasi 1000 baris per permintaan, jadi diambil per halaman —
-  // saldo yang diam-diam terpotong lebih buruk daripada query tambahan.
-  // ponytail: dijumlah di sini, bukan di SQL; pindah ke RPC kalau barisnya puluhan ribu.
-  const awal = kantong.reduce((m, k) => (k.saldo_per < m ? k.saldo_per : m), kantong[0].saldo_per);
-  const baris: BarisSaldo[] = [];
-  for (let dari = 0; ; dari += 1000) {
-    const { data: halaman } = await supabase
-      .from("transactions")
-      .select(KOLOM_SALDO)
-      .eq("status", "confirmed")
-      .or("kantong_id.not.is.null,kantong_tujuan_id.not.is.null")
-      .gte("transaction_date", awal)
-      .order("id")
-      .range(dari, dari + 999);
-    baris.push(...((halaman ?? []) as BarisSaldo[]));
-    if (!halaman || halaman.length < 1000) break;
-  }
-  return { kantong, saldo: new Map(hitungSaldo(kantong, baris).map((s) => [s.id, s.saldo])) };
+  const [{ data }, { data: saldo, error }] = await Promise.all([
+    supabase.from("user_accounts").select("*").order("created_at"),
+    supabase.rpc("saldo_kantong"),
+  ]);
+  // Saldo yang diam-diam nol lebih buruk daripada halaman yang gagal dimuat.
+  if (error) throw new Error(`saldo_kantong: ${error.message}`);
+  return {
+    kantong: (data ?? []) as Kantong[],
+    saldo: new Map(((saldo ?? []) as { id: string; saldo: number | string }[]).map((s) => [s.id, Number(s.saldo)])),
+  };
 }

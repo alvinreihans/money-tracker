@@ -5,6 +5,7 @@ import {
   isValidExtraction,
   type KonteksAI,
 } from "@/lib/extract";
+import { isoLokal } from "@/lib/format";
 import { KATEGORI_BAWAAN } from "@/lib/kategori";
 import type { ExtractedReceipt } from "@/types/transaction";
 
@@ -54,8 +55,9 @@ export interface TransactionRow {
   source: string;
 }
 
+/** Hari ini menurut WIB (server berjalan di UTC). */
 function today(): string {
-  return new Date().toISOString().slice(0, 10);
+  return isoLokal(new Date());
 }
 
 /** Draft kosong: dipakai kalau tidak ada satu pun ekstraksi yang berhasil. */
@@ -88,6 +90,8 @@ export async function processReceiptImage(
   image: Buffer,
   mimeType: string,
   konteks: KonteksAI = { kategori: KATEGORI_BAWAAN },
+  /** Keterangan yang diketik user bersama fotonya (mis. "pakai BCA"). */
+  catatan?: string,
 ): Promise<ProcessedReceipt> {
   const notes: string[] = [];
   let ocr: OcrResult | null = null;
@@ -113,7 +117,7 @@ export async function processReceiptImage(
   // bisa menyelamatkan teks rusak, dia hanya akan menebak dengan percaya diri.
   if (ocr && isOcrUsable(ocr)) {
     try {
-      const { extracted, model } = await extractWithGroq(ocr.text, konteks);
+      const { extracted, model } = await extractWithGroq(denganCatatan(ocr.text, catatan), konteks);
       best = extracted;
       if (isValidExtraction(extracted, konteks.kategori)) {
         notes.push(`Ekstraksi berhasil via Groq (${model})`);
@@ -141,6 +145,7 @@ export async function processReceiptImage(
       image.toString("base64"),
       mimeType,
       konteks,
+      catatan,
     );
     best = extracted;
     if (isValidExtraction(extracted, konteks.kategori)) {
@@ -224,6 +229,14 @@ function done(
     source,
     notes,
   };
+}
+
+/**
+ * Teks untuk AI ditambah keterangan dari user. Keterangan diletakkan
+ * terpisah dan diberi label, supaya model tahu itu bukan bagian struk.
+ */
+export function denganCatatan(teks: string, catatan?: string): string {
+  return catatan?.trim() ? `${teks}\n\n---\nCatatan dari pengguna (lebih dipercaya untuk kantong & keterangan): ${catatan.trim()}` : teks;
 }
 
 function errMsg(err: unknown): string {

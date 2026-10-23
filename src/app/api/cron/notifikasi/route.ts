@@ -10,6 +10,7 @@ export const dynamic = "force-dynamic";
  * Push notifikasi harian, dipanggil cron Vercel 12.00 UTC = 19.00 WIB
  * (vercel.json). Vercel mengirim `Authorization: Bearer $CRON_SECRET`.
  *
+ * Juga menghapus catatan belum selesai yang lewat 30 hari (SPEC-catat-chat).
  * Sekaligus menyentuh database tiap hari, jadi project Supabase gratis tidak
  * ter-pause karena tidak aktif.
  */
@@ -22,6 +23,9 @@ export async function GET(req: NextRequest) {
   const db = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
     auth: { persistSession: false },
   });
+  // Catatan belum selesai yang lewat 30 hari dihapus dulu (beserta fotonya),
+  // supaya tidak ikut diingatkan.
+  const { data: dihapus } = await db.rpc("hapus_draft_kedaluwarsa");
   const { data, error } = await db.rpc("data_notifikasi");
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
@@ -41,5 +45,5 @@ export async function GET(req: NextRequest) {
   if (mati.length) await db.from("push_langganan").delete().in("endpoint", mati);
   if (gagal.length) console.error("push gagal:", gagal);
 
-  return NextResponse.json({ pengguna: users.length, terkirim, dibuang: mati.length, gagal: gagal.length });
+  return NextResponse.json({ pengguna: users.length, terkirim, dibuang: mati.length, gagal: gagal.length, draftDihapus: dihapus ?? 0 });
 }

@@ -14,8 +14,8 @@ import s from "@/components/ui.module.css";
  * melayang ala Samsung Wallet (ikon di atas label, kurang dari 4 tab), dengan
  * tombol + di tengahnya.
  *
- * Titik oranye di Riwayat menandai draft yang gagal dibaca — tanpa itu, draft
- * tersimpan diam-diam tanpa satu pun penanda.
+ * Titik oranye di tombol + menandai catatan yang belum selesai (SPEC-catat-chat)
+ * — tanpa itu, catatan itu menunggu diam-diam tanpa satu pun penanda.
  */
 export default function AppShell({
   draftCount,
@@ -45,7 +45,7 @@ export default function AppShell({
   const diRiwayat = pathname.startsWith("/riwayat") || pathname.startsWith("/transactions");
 
   return (
-    <CatatProvider saran={saran} kantong={kantong} kategori={kategori} email={email}>
+    <CatatProvider saran={saran} kantong={kantong} kategori={kategori} email={email} jumlahDraft={draftCount}>
       <div className={s.app}>{children}</div>
       <KembaliKeAtas />
 
@@ -62,7 +62,6 @@ export default function AppShell({
         <NextLink href="/riwayat" aria-current={diRiwayat ? "page" : undefined}>
           <span className={s.navIkon}>
             <ReceiptText size={22} strokeWidth={diRiwayat ? 2.4 : 1.7} aria-hidden />
-            {draftCount > 0 && <span className={s.navTitik} aria-label={`${draftCount} perlu dibenerin`} role="img" />}
           </span>
           Riwayat
         </NextLink>
