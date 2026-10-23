@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ambilUser, createSupabaseServerClient } from "@/lib/supabase/server";
 import { ambilKonteksAI } from "@/lib/kategori-server";
-import { bacaNominal, kantongDariJawaban, pertanyaanDraft, type JenisTanya } from "@/lib/draft";
+import { bacaNominal, bacaTenor, kantongDariJawaban, pertanyaanDraft, type JenisTanya } from "@/lib/draft";
+import type { InfoPaylater } from "@/lib/pinjaman";
+import { jadikanCicilan } from "@/lib/simpan-transaksi";
 import { processReceiptText } from "@/lib/receipt";
 import { TEKS_MAKS } from "@/lib/transaksi-input";
 import type { Kantong } from "@/lib/kantong";
@@ -13,14 +15,15 @@ export const dynamic = "force-dynamic";
 // "cerita" membaca ulang lewat rantai Groq.
 export const maxDuration = 30;
 
-const JENIS: JenisTanya[] = ["cerita", "nominal", "kantong", "kantong_tujuan", "waktu", "konfirmasi"];
+const JENIS: JenisTanya[] = ["cerita", "nominal", "kantong", "kantong_tujuan", "waktu", "tenor", "konfirmasi"];
 
 /**
  * Jawaban user untuk pertanyaan di percakapan sebuah draft (SPEC-catat-chat).
  * Jawaban mengisi draft; begitu tidak ada yang kurang, draft dikonfirmasi
  * (ikut dihitung) dan percakapan + fotonya hilang lewat trigger database.
  *
- * Balasan: { transaction, pertanyaan } — pertanyaan null = selesai.
+ * Balasan: { transaction, pertanyaan } — pertanyaan null = selesai; atau
+ * { cicilan } kalau belanja paylater-nya jadi rencana cicilan (SPEC-paylater).
  * 422 = jawaban tidak bisa dipakai; pertanyaannya tetap terbuka.
  */
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -55,6 +58,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   // Ketikan yang bukan jawaban langsung ("nominalnya 40rb", "pakai yang biru")
   // dibaca AI seperti cerita; kalau tetap tidak ada yang berubah, baru ditolak.
   let gagal: string | null = null;
+  // Paylater: berapa kali cicilannya, dan isian lain yang terbaca AI.
+  let tenor: number | null = null;
+  let infoPaylater: InfoPaylater | null = null;
   if (jenis === "nominal") {
     const n = bacaNominal(nilai);
     if (n) patch.amount = n;
@@ -67,6 +73,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const k = kantongDariJawaban(nilai, semua);
     if (k && k.id !== tx.kantong_id) patch.kantong_tujuan_id = k.id;
     else gagal = "Pilih kantong tujuan yang lain ya.";
+  } else if (jenis === "tenor") {
+    tenor = bacaTenor(nilai);
+    if (!tenor) gagal = "Berapa kali? Mis. 3 atau 6.";
   } else if (jenis === "waktu") {
     const b = bacaJam(nilai);
     // "siang" padahal saldo diisi jam 14.00: masih bisa sebelum atau sesudah.
@@ -116,9 +125,34 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       const ditanya = { kantong: ["kantong_id", "payment_method"], kantong_tujuan: ["kantong_tujuan_id"], waktu: ["waktu"] } as const;
       for (const k of ditanya[jenis as keyof typeof ditanya] ?? []) delete patch[k];
     }
-    const PENTING =["amount", "type", "transaction_date", "waktu", "kantong_id", "kantong_tujuan_id"] as const;
-    if (gagal && PENTING.every((k) => !(k in patch) || sama(patch[k], tx[k]))) return tolak(gagal);
+    // "pakai spaylater": belanjanya ternyata paylater → jadi cicilan, bukan dari kantong.
+    if (e?.paylater && ((patch.type as string | undefined) ?? tx.type) === "expense") {
+      infoPaylater = e.paylater;
+      tenor ??= e.paylater.tenor;
+      Object.assign(patch, { paylater: e.paylater.penyedia, payment_method: e.paylater.penyedia, kantong_id: null, kantong_tujuan_id: null });
+    }
+    const PENTING = ["amount", "type", "transaction_date", "waktu", "kantong_id", "kantong_tujuan_id", "paylater"] as const;
+    if (gagal && !tenor && PENTING.every((k) => !(k in patch) || sama(patch[k], tx[k]))) return tolak(gagal);
   } else if (gagal) return tolak(gagal);
+
+  // Paylater dengan tenor: jadi rencana cicilan, draft-nya dihapus.
+  const paylater = patch.paylater ?? tx.paylater;
+  const total = Number(patch.amount ?? tx.amount);
+  if (paylater && tenor && total > 0) {
+    const t = { ...tx, ...patch };
+    try {
+      const cicilan = await jadikanCicilan(
+        supabase,
+        user.id,
+        { amount: total, merchant: t.merchant, category: t.category, transaction_date: t.transaction_date, description: t.description },
+        { penyedia: paylater, per_cicilan: infoPaylater?.per_cicilan ?? null, jatuh_tempo: infoPaylater?.jatuh_tempo ?? null, tenor },
+        id,
+      );
+      return NextResponse.json({ cicilan });
+    } catch {
+      return NextResponse.json({ error: "Gagal membuat rencana cicilannya." }, { status: 500 });
+    }
+  }
 
   // Setelah dijawab, "konfirmasi" berarti tidak ada yang kurang lagi: langsung
   // dikonfirmasi. Pertanyaan konfirmasi hanya diajukan saat draft dibuka.

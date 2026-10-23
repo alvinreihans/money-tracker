@@ -1,3 +1,4 @@
+import type { InfoPaylater } from "@/lib/pinjaman";
 // Tipe domain bersama (single source of truth) untuk seluruh app.
 
 /** transfer = uang pindah antar rekening sendiri, BUKAN pengeluaran. */
@@ -25,6 +26,8 @@ export interface Transaction {
   /** Pembayaran cicilan: rencana cicilannya dan cicilan ke berapa. */
   cicilan_id?: string | null;
   cicilan_ke?: number | null;
+  /** Draft belanja paylater yang menunggu tenornya: nama penyedianya (SPEC-paylater). */
+  paylater?: string | null;
   transaction_date: string; // ISO date: "YYYY-MM-DD"
   /** Jam transaksi (WIB), "HH:MM:SS"; opsional. Lihat SPEC-saldo-waktu.md. */
   waktu?: string | null;
@@ -64,6 +67,8 @@ export interface ExtractedReceipt {
   pinjaman: { arah: "beri" | "terima_bayar" | "pinjam" | "bayar"; pihak: string } | null;
   /** Hanya expense: rencana cicilan yang dibayar (nama barang/penyedia yang disebut). */
   cicilan: string | null;
+  /** Hanya expense: belanja yang DIBAYAR pakai paylater — jadi rencana cicilan, bukan pengeluaran. */
+  paylater: InfoPaylater | null;
   /** Membedakan screenshot bukti bayar dari struk kertas kasir. */
   document_type: "receipt" | "payment_proof";
 }

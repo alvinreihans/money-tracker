@@ -7,7 +7,7 @@ import { perluTanyaJam, type SaldoSejak } from "@/lib/waktu";
  * scripts/uji-draft.mts.
  */
 
-export type JenisTanya = "cerita" | "nominal" | "kantong" | "kantong_tujuan" | "waktu" | "konfirmasi";
+export type JenisTanya = "cerita" | "nominal" | "kantong" | "kantong_tujuan" | "waktu" | "tenor" | "konfirmasi";
 
 interface BarisDraft {
   status: string;
@@ -19,6 +19,8 @@ interface BarisDraft {
   kantong_tujuan_id: string | null;
   transaction_date?: string;
   waktu?: string | null;
+  /** Belanja paylater yang menunggu berapa kali cicilannya (SPEC-paylater). */
+  paylater?: string | null;
 }
 
 /**
@@ -35,6 +37,8 @@ interface BarisDraft {
 export function pertanyaanDraft(t: BarisDraft, saldoDari?: (id: string) => SaldoSejak | undefined): JenisTanya | null {
   if (t.status !== "needs_review") return null;
   if (!(Number(t.amount) > 0)) return t.merchant || (t.category && t.category !== "other") ? "nominal" : "cerita";
+  // Paylater tidak memakai kantong: begitu tenornya dijawab, jadi rencana cicilan.
+  if (t.paylater) return "tenor";
   if (!t.kantong_id) return "kantong";
   if (t.type === "transfer" && !t.kantong_tujuan_id) return "kantong_tujuan";
   if (t.transaction_date && saldoDari && !t.waktu) {
@@ -50,6 +54,7 @@ export const KALIMAT_TANYA: Record<JenisTanya, string> = {
   kantong: "Pakai kantong apa?",
   kantong_tujuan: "Pindah ke kantong mana?",
   waktu: "Tadi itu jam berapa?",
+  tenor: "Dicicil berapa kali?",
   konfirmasi: "Sudah benar begini?",
 };
 
@@ -79,6 +84,18 @@ export function bacaNominal(teks: string): number | null {
     angka = parseInt(m[1].replace(/[.,]/g, ""), 10);
   }
   return Number.isFinite(angka) && angka > 0 ? Math.round(angka) : null;
+}
+
+/** Pilihan tenor paylater yang umum. */
+export const PILIHAN_TENOR = [1, 3, 6, 12];
+
+/** Berapa kali cicilan dari ketikan: "3", "3x", "3 kali", "6 bulan", "sekali"/"lunas" = 1. */
+export function bacaTenor(teks: string): number | null {
+  const t = teks.toLowerCase().trim();
+  if (/\b(sekali|lunas|langsung|bayar penuh|bulan depan|30 hari)\b/.test(t)) return 1;
+  const m = t.match(/\b(\d{1,3})\s*(x|×|kali|bulan|bln)?(?![\d.,]|\s*(rb|ribu|k|jt|juta)\b)/);
+  const n = m ? Number(m[1]) : NaN;
+  return Number.isInteger(n) && n >= 1 && n <= 120 ? n : null;
 }
 
 /**

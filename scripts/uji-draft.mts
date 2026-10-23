@@ -4,7 +4,7 @@
  * Pemakaian: npm run uji:draft
  */
 import assert from "node:assert/strict";
-import { apakahKoreksi, bacaNominal, kantongDariJawaban, mauHapus, pertanyaanDraft } from "../src/lib/draft.ts";
+import { apakahKoreksi, bacaNominal, bacaTenor, kantongDariJawaban, mauHapus, pertanyaanDraft } from "../src/lib/draft.ts";
 
 const d = (t: Partial<Parameters<typeof pertanyaanDraft>[0]>) =>
   pertanyaanDraft({ status: "needs_review", amount: 0, type: "expense", category: "other", merchant: null, kantong_id: null, kantong_tujuan_id: null, ...t });
@@ -57,4 +57,13 @@ for (const b of ["bca", "pakai gopay", "jam 10", "150rb", "ya", "bukan bca tapi 
   assert.equal(mauHapus(b), false, b);
 }
 
-console.log("✓ draft: urutan pertanyaan, nominal ketikan (rb/jt/Rp/titik), kantong dari chip & kalimat, koreksi vs catatan baru, minta hapus");
+// Paylater: tidak ditanya kantong; setelah nominal langsung tenor.
+assert.equal(d({ amount: 15680, paylater: "SPayLater" }), "tenor");
+assert.equal(d({ merchant: "BP", paylater: "SPayLater" }), "nominal");
+const tenor: [string, number | null][] = [
+  ["3", 3], ["3x", 3], ["3 kali", 3], ["6 bulan", 6], ["12×", 12], ["dicicil 3 kali aja", 3], ["sekali", 1], ["lunas bulan depan", 1],
+  ["", null], ["gatau", null], ["150rb", null], ["0", null], ["500", null],
+];
+for (const [teks, harap] of tenor) assert.equal(bacaTenor(teks), harap, teks);
+
+console.log("✓ draft: urutan pertanyaan, nominal ketikan (rb/jt/Rp/titik), kantong dari chip & kalimat, koreksi vs catatan baru, minta hapus, tenor paylater");

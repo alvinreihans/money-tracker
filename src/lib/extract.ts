@@ -2,6 +2,7 @@ import { SchemaType, type GenerationConfig } from "@google/generative-ai";
 import { getGeminiClient, GEMINI_MODEL } from "@/lib/gemini";
 import { runGroqChain, parseJsonLoose } from "@/lib/groq";
 import { isoLokal } from "@/lib/format";
+import type { InfoPaylater } from "@/lib/pinjaman";
 import type { PetunjukJam } from "@/lib/waktu";
 import { KATEGORI_BAWAAN, kategoriJenis, LAINNYA, type Kategori } from "@/lib/kategori";
 import type { ExtractedReceipt, TransactionType } from "@/types/transaction";
@@ -79,6 +80,7 @@ Skema:
   "cashback": number | null,
   "pinjaman": { "arah": "beri" | "terima_bayar" | "pinjam" | "bayar", "pihak": string } | null,
   "cicilan": string | null,
+  "paylater": { "penyedia": string, "tenor": number | null, "per_cicilan": number | null, "jatuh_tempo": "YYYY-MM-DD" | null } | null,
   "document_type": "receipt" | "payment_proof"
 }
 
@@ -174,6 +176,12 @@ ${daftarPrompt(kategori, "income")}
       ? ` Rencana cicilan milik user (nama — penyedia): ${cicilan.map((c) => `${c.nama}${c.penyedia ? ` — ${c.penyedia}` : ""}`).join("; ")}. Pakai nama barang atau penyedia persis dari daftar ini.`
       : ""
   } Selain itu null.
+- paylater: HANYA untuk "expense" yang DIBAYAR pakai paylater (SPayLater/Shopee PayLater, GoPayLater,
+  Kredivo, Akulaku, Atome, Indodana, Traveloka PayLater). Paylater BUKAN e-wallet: "SPayLater" bukan
+  ShopeePay, "GoPayLater" bukan GoPay — payment_method null. penyedia = nama paylater-nya; tenor =
+  berapa kali cicilan bila tertera/disebut ("3x", "cicilan 3 bulan"), "bayar bulan depan"/"30 hari" = 1;
+  per_cicilan & jatuh_tempo bila tertera. Yang tidak ada null. Selain itu paylater null.
+  Membayar tagihan/cicilan paylater = field cicilan, bukan paylater.
 - document_type: "payment_proof" bila ini tangkapan layar bukti bayar dari
   aplikasi (ShopeePay/GoPay/OVO/DANA/QRIS/m-banking), "receipt" bila ini struk
   kertas dari mesin kasir. Dipakai untuk mencegah transaksi tercatat dua kali
@@ -193,6 +201,7 @@ Contoh teks ketikan (field lain mengikuti aturan di atas):
 - "budi balikin 100rb ke bca" -> type "transfer", payment_method "BCA", pinjaman { "arah": "terima_bayar", "pihak": "Budi" }
 - "bayar tagihan kartu kredit bca 2jt dari bca" -> type "transfer", payment_method "BCA", pinjaman { "arah": "bayar", "pihak": "Kartu kredit BCA" }
 - "bayar cicilan spaylater 150rb pake bca" -> type "expense", payment_method "BCA", cicilan "Shopee PayLater"
+- "beli hp 3jt kredivo 6x" -> type "expense", payment_method null, paylater { "penyedia": "Kredivo", "tenor": 6, "per_cicilan": null, "jatuh_tempo": null }
 
 Jangan menambahkan teks/penjelasan/markdown di luar JSON.`;
 }
@@ -237,12 +246,26 @@ export function normalize(parsed: Partial<ExtractedReceipt>, kategori: Kategori[
     cashback: type === "expense" ? nominalAtauNull(parsed.cashback) : null,
     pinjaman,
     cicilan: type === "expense" && typeof parsed.cicilan === "string" && parsed.cicilan.trim() ? parsed.cicilan.trim().slice(0, 60) : null,
+    paylater: type === "expense" ? paylaterAtauNull(parsed.paylater) : null,
     document_type: parsed.document_type === "payment_proof" ? "payment_proof" : "receipt",
     transaction_date:
       typeof parsed.transaction_date === "string" && parsed.transaction_date
         ? parsed.transaction_date
         : toISODate(new Date()),
     ...jamAtauNull(parsed.time, parsed.time_hint),
+  };
+}
+
+/** Paylater yang sah: penyedia wajib; tenor 1–120, nominal & tanggal hanya bila masuk akal. */
+function paylaterAtauNull(p: unknown): InfoPaylater | null {
+  const x = p as Partial<Record<keyof InfoPaylater, unknown>> | null | undefined;
+  if (!x || typeof x.penyedia !== "string" || !x.penyedia.trim()) return null;
+  const tenor = Number(x.tenor);
+  return {
+    penyedia: x.penyedia.trim().slice(0, 40),
+    tenor: Number.isInteger(tenor) && tenor >= 1 && tenor <= 120 ? tenor : null,
+    per_cicilan: nominalAtauNull(x.per_cicilan),
+    jatuh_tempo: typeof x.jatuh_tempo === "string" && /^\d{4}-\d{2}-\d{2}$/.test(x.jatuh_tempo) ? x.jatuh_tempo : null,
   };
 }
 
@@ -320,6 +343,16 @@ const geminiSchema: GenerationConfig["responseSchema"] = {
       },
     },
     cicilan: { type: SchemaType.STRING, nullable: true },
+    paylater: {
+      type: SchemaType.OBJECT,
+      nullable: true,
+      properties: {
+        penyedia: { type: SchemaType.STRING },
+        tenor: { type: SchemaType.INTEGER, nullable: true },
+        per_cicilan: { type: SchemaType.NUMBER, nullable: true },
+        jatuh_tempo: { type: SchemaType.STRING, nullable: true },
+      },
+    },
     document_type: { type: SchemaType.STRING, format: "enum", enum: ["receipt", "payment_proof"] },
   },
   required: ["amount", "type", "category", "transaction_date"],

@@ -40,13 +40,15 @@ export async function POST(req: NextRequest) {
   const result = await processReceiptText(text, await ambilKonteksAI(supabase));
 
   try {
-    const { transaction, pertanyaan } = await simpanTransaksi(supabase, user.id, {
+    const { transaction, pertanyaan, cicilan } = await simpanTransaksi(supabase, user.id, {
       ...toTransactionRow(result, user.id),
       // Kalau jadi draft, teks aslinya ikut disimpan supaya bisa dibenerin
       // tanpa harus mengingat lagi apa yang diketik (dibuang kalau tidak).
       raw_ocr_text: text,
       source: "text",
     });
+    // Belanja paylater yang langsung jadi rencana cicilan (SPEC-paylater).
+    if (cicilan) return NextResponse.json({ cicilan }, { status: 201 });
 
     return NextResponse.json(
       {

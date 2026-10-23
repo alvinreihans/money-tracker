@@ -1,7 +1,16 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isoLokal } from "@/lib/format";
 import { cocokkanKantong, type Kantong } from "@/lib/kantong";
-import { arahPindah, EMOJI_ORANG, kantongUang, pilihCicilan, SALDO_PER_PINJAMAN, type Cicilan } from "@/lib/pinjaman";
+import {
+  arahPindah,
+  EMOJI_ORANG,
+  kantongUang,
+  pilihCicilan,
+  rencanaPaylater,
+  SALDO_PER_PINJAMAN,
+  type Cicilan,
+  type InfoPaylater,
+} from "@/lib/pinjaman";
 import { barisIkutan } from "@/lib/transaksi-input";
 import { pertanyaanDraft, type JenisTanya } from "@/lib/draft";
 import { jamTransaksi, perluTanyaJam, saldoSejak, type PetunjukJam } from "@/lib/waktu";
@@ -13,6 +22,28 @@ function shiftDate(iso: string, days: number): string {
   const d = new Date(`${iso}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().slice(0, 10);
+}
+
+/**
+ * Belanja paylater jadi rencana cicilan (SPEC-paylater): tidak ada pengeluaran
+ * dan tidak ada saldo yang berubah; tiap cicilan dicatat saat dibayar.
+ * `draftId`: draft yang menunggu tenornya — dihapus begitu rencananya ada.
+ */
+export async function jadikanCicilan(
+  supabase: SupabaseClient,
+  userId: string,
+  belanja: Parameters<typeof rencanaPaylater>[0] & { description?: string | null },
+  info: InfoPaylater & { tenor: number },
+  draftId?: string,
+): Promise<Cicilan> {
+  const { data, error } = await supabase
+    .from("cicilan")
+    .insert({ user_id: userId, ...rencanaPaylater(belanja, info), catatan: belanja.description?.slice(0, 500) || null })
+    .select()
+    .single();
+  if (error) throw new Error(error.message);
+  if (draftId) await supabase.from("transactions").delete().eq("id", draftId);
+  return data as Cicilan;
 }
 
 /** Isian manual tanpa kantong padahal user sudah punya kantong. */
@@ -32,9 +63,37 @@ export async function simpanTransaksi(
   supabase: SupabaseClient,
   userId: string,
   input: Record<string, unknown>,
-): Promise<{ supersededStatement: boolean; transaction: unknown; pertanyaan: JenisTanya | null }> {
-  const { payment_target, biaya_admin, cashback, pinjaman, cicilan: sebutanCicilan, jam, petunjuk_jam, ...row } = input;
+): Promise<{ supersededStatement: boolean; transaction: unknown; pertanyaan: JenisTanya | null; cicilan?: Cicilan }> {
+  const { payment_target, biaya_admin, cashback, pinjaman, cicilan: sebutanCicilan, jam, petunjuk_jam, info_paylater, ...row } = input;
   const dariAi = "payment_target" in input;
+
+  // Belanja pakai paylater: bukan pengeluaran dari kantong mana pun. Tenor
+  // diketahui → langsung jadi rencana cicilan; belum → draft yang menanyakannya.
+  const paylater = dariAi && row.type === "expense" ? (info_paylater as InfoPaylater | null) : null;
+  if (paylater) {
+    const belanja = {
+      amount: Number(row.amount),
+      merchant: (row.merchant as string | null) ?? null,
+      category: String(row.category),
+      transaction_date: String(row.transaction_date),
+      description: (row.description as string | null) ?? null,
+    };
+    if (paylater.tenor && belanja.amount > 0) {
+      const cicilan = await jadikanCicilan(supabase, userId, belanja, { ...paylater, tenor: paylater.tenor });
+      return { supersededStatement: false, transaction: null, pertanyaan: null, cicilan };
+    }
+    const draft = {
+      ...row,
+      paylater: paylater.penyedia,
+      payment_method: paylater.penyedia,
+      kantong_id: null,
+      kantong_tujuan_id: null,
+      status: "needs_review",
+    };
+    const { data: tersimpan, error } = await supabase.from("transactions").insert(draft).select().single();
+    if (error) throw new Error(error.message);
+    return { supersededStatement: false, transaction: tersimpan, pertanyaan: pertanyaanDraft(tersimpan) };
+  }
 
   // Tautkan ke kantong. Form mengirim id-nya langsung (dicek memang milik
   // user); teks dan struk membawa nama ("gopay", "BRImo") yang dicocokkan.

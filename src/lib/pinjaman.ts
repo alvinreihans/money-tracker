@@ -213,3 +213,37 @@ export function pilihCicilan<R extends Pick<Cicilan, "id" | "nama" | "penyedia" 
     .sort((a, b) => a.berikutnya!.jatuhTempo.localeCompare(b.berikutnya!.jatuhTempo));
   return kandidat[0] ? { rencana: kandidat[0].r, ke: kandidat[0].berikutnya!.ke } : null;
 }
+
+/** Isian paylater yang terbaca dari struk/ketikan (SPEC-paylater). */
+export interface InfoPaylater {
+  penyedia: string;
+  tenor: number | null;
+  per_cicilan: number | null;
+  /** "YYYY-MM-DD" */
+  jatuh_tempo: string | null;
+}
+
+/**
+ * Rencana cicilan dari belanja paylater. Per cicilan: yang tertera, atau
+ * total dibagi rata (dibulatkan ke atas). Jatuh tempo pertama: yang tertera,
+ * atau tanggal yang sama bulan depan.
+ */
+export function rencanaPaylater(
+  belanja: { amount: number | string; merchant: string | null; category: string; transaction_date: string },
+  info: InfoPaylater & { tenor: number },
+): Pick<Cicilan, "nama" | "penyedia" | "category" | "nominal" | "tenor" | "jatuh_tempo_awal"> {
+  return {
+    nama: (belanja.merchant || `Belanja ${info.penyedia}`).slice(0, 60),
+    penyedia: info.penyedia,
+    category: belanja.category,
+    nominal: info.per_cicilan && info.per_cicilan > 0 ? info.per_cicilan : Math.ceil(Number(belanja.amount) / info.tenor),
+    tenor: info.tenor,
+    jatuh_tempo_awal: info.jatuh_tempo && info.jatuh_tempo >= belanja.transaction_date ? info.jatuh_tempo : jatuhTempoKe(belanja.transaction_date, 2),
+  };
+}
+
+/** Bayar beberapa cicilan sekaligus: total dibagi rata, sisa pembulatan di cicilan terakhir. */
+export function bagiRata(total: number, jumlah: number): number[] {
+  const per = Math.floor(total / jumlah);
+  return Array.from({ length: jumlah }, (_, i) => (i === jumlah - 1 ? total - per * (jumlah - 1) : per));
+}

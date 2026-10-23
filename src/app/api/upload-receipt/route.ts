@@ -72,6 +72,8 @@ export async function POST(req: NextRequest) {
         user.id,
         toTransactionRow(result, user.id) as unknown as Record<string, unknown>,
       );
+      // Belanja paylater yang langsung jadi rencana cicilan (SPEC-paylater).
+      if (hasil.cicilan) return NextResponse.json({ success: true, cicilan: hasil.cicilan, notes: result.notes }, { status: 201 });
       inserted = hasil.transaction as Transaction;
       supersededStatement = hasil.supersededStatement;
       pertanyaan = hasil.pertanyaan;
