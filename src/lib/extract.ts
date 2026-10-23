@@ -109,6 +109,13 @@ Aturan:
   topup e-wallet ("topup gopay 100rb dari bca"), tarik tunai, atau "pindahin
   500rb dari bca ke seabank". Transfer ke orang lain atau bayar tagihan tetap
   "expense".
+  Bukti transfer dari aplikasi ("Dikirim Dari"/"Pengirim", "Kirim Ke"/"Penerima",
+  "Sumber Dana"): kalau nama PENERIMA berbeda dengan nama PENGIRIM, itu kirim uang
+  ke orang lain -> "expense", merchant = nama penerima (huruf dirapikan, mis.
+  "Budi Kusnandar"), payment_method = sumber dananya ("Saldo ShopeePay" -> ShopeePay,
+  "SeaBank *3026" -> SeaBank), payment_target null. Bank/nomor rekening PENERIMA
+  ("BCA: 6090069720") BUKAN rekening milik user — jangan jadikan payment_target.
+  Hanya "transfer" bila penerimanya si pengirim sendiri atau berupa topup.
 - category: isi dengan SLUG (kiri) dari daftar milik user di bawah, sesuai type.
   Pilih berdasarkan arti NAMA kategorinya (kanan); kalau ada yang lebih spesifik
   dan cocok, pilih yang itu. Kalau tidak ada yang cocok: "other".
@@ -167,6 +174,8 @@ Contoh teks ketikan (field lain mengikuti aturan di atas):
 - "gajian 8jt masuk bca" -> type "income", amount 8000000, merchant null, payment_method "BCA"
 - "topup gopay 100rb dari bca" -> type "transfer", payment_method "BCA", payment_target "GoPay"
 - "transfer ke budi 50rb pake bca" -> type "expense", merchant "Budi", payment_method "BCA"
+- bukti "Dikirim Dari ALVIN ***, Kirim Ke BUDI KUSNANDAR BCA: 6090069720, Sumber Dana Saldo ShopeePay, Rp10.000"
+  -> type "expense", amount 10000, merchant "Budi Kusnandar", payment_method "ShopeePay", payment_target null
 - "kopi 25rb gopay" -> type "expense", payment_method "GoPay"
 - "beli pulsa 50rb shopeepay cashback 5rb" -> type "expense", payment_method "ShopeePay", cashback 5000
 - "topup gopay 100rb dari bca admin 1000" -> type "transfer", payment_method "BCA", payment_target "GoPay", fee 1000
