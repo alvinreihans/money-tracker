@@ -103,8 +103,10 @@ Aturan:
 
   Pada bukti pembayaran digital (ShopeePay/GoPay/OVO/DANA/QRIS), ambil nominal
   utama transaksi yang biasanya tercetak paling besar di bagian atas. JANGAN
-  mengambil angka promo/cashback ("Cashback up to ..."), sisa saldo, nomor
-  kartu, PAN, RRN, atau ID transaksi.
+  mengambil angka promo/iklan ("Cashback up to ...", "Cashback Saldo s.d
+  Rp100.000", baris "Download Aplikasi"), sisa saldo, nomor kartu, PAN, RRN,
+  atau ID transaksi. Kalau nominal utamanya tidak terbaca, amount 0 — jangan
+  mengambil angka lain sebagai gantinya.
 - type: arah uang dari sudut pandang PEMILIK catatan.
   "income" bila uang MASUK ke pemilik: gaji/gajian, THR, bonus, cashback,
   refund, bunga, hasil jual barang, atau uang yang dikasih/dikirim/ditransfer
@@ -296,6 +298,24 @@ export function isValidExtraction(r: ExtractedReceipt, kategori: Kategori[] = KA
   if (date > besok || date < batasBawah) return false;
 
   return r.type === "transfer" || kategoriJenis(kategori, r.type).some((k) => k.slug === r.category);
+}
+
+/** Baris iklan/promo di struk & bukti bayar ("Cashback Saldo s.d Rp100.000", "Download Aplikasi"). */
+const BARIS_PROMO = /\bs\.?\s?d\b|s\/d|\bhingga\b|\bup to\b|\bmaks|\bpromo|\bvoucher|\bdownload|\bunduh/i;
+
+/**
+ * Nominal hasil AI yang di teks OCR hanya muncul di baris promo — tanda
+ * nominal aslinya tidak terbaca dan model mengambil angka iklan (bukti
+ * ShopeePay Rp 5.000 terbaca Rp 100.000 dari "Cashback Saldo s.d Rp100.000").
+ * Nominal yang tidak tertulis di teks sama sekali tidak dinilai di sini.
+ */
+export function nominalDariPromo(teks: string, amount: number): boolean {
+  const bentuk = [String(amount), amount.toLocaleString("id-ID"), amount.toLocaleString("en-US")];
+  const baris = teks.split("\n").filter((b) => {
+    const rapat = b.replace(/\s+/g, "");
+    return bentuk.some((x) => new RegExp(`(^|[^\\d.,])${x.replace(/[.,]/g, "\\$&")}(?![\\d]|[.,]\\d)`).test(rapat));
+  });
+  return baris.length > 0 && baris.every((b) => BARIS_PROMO.test(b));
 }
 
 // ---------------------------------------------------------------------------

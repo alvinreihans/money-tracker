@@ -3,6 +3,7 @@ import {
   extractWithGroq,
   extractWithGeminiVision,
   isValidExtraction,
+  nominalDariPromo,
   type KonteksAI,
 } from "@/lib/extract";
 import { isoLokal } from "@/lib/format";
@@ -126,12 +127,19 @@ export async function processReceiptImage(
   if (ocr && isOcrUsable(ocr)) {
     try {
       const { extracted, model } = await extractWithGroq(denganCatatan(ocr.text, catatan), konteks);
-      best = extracted;
-      if (isValidExtraction(extracted, konteks.kategori)) {
+      // Nominal yang hanya ada di baris promo = nominal asli tak terbaca:
+      // jangan dipakai, biar vision membaca gambarnya (atau ditanyakan).
+      const promo = nominalDariPromo(ocr.text, extracted.amount);
+      best = promo ? { ...extracted, amount: 0 } : extracted;
+      if (!promo && isValidExtraction(extracted, konteks.kategori)) {
         notes.push(`Ekstraksi berhasil via Groq (${model})`);
         return done("confirmed", extracted, ocr, "groq", notes);
       }
-      notes.push(`Groq (${model}) menghasilkan data tidak valid, eskalasi ke vision`);
+      notes.push(
+        promo
+          ? `Groq (${model}) mengambil nominal dari baris promo (${extracted.amount}), eskalasi ke vision`
+          : `Groq (${model}) menghasilkan data tidak valid, eskalasi ke vision`,
+      );
     } catch (err) {
       notes.push(`Seluruh rantai Groq gagal: ${errMsg(err)}`);
     }
