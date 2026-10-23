@@ -33,20 +33,21 @@ ketik / foto / bagikan
 
 ## Tampilan (One UI)
 
-### Lembar ringkas (seperti sekarang)
+### Lembar ringkas
 
 ```
 ┌──────────────────────────────────────┐
 │               ───                    │ ← pegangan (tarik ke atas = besar)
 │ Catat transaksi                      │
-│ [📷 Kamera] [🖼 Galeri] [📝 Manual]   │
 │ 📋 2 belum selesai              ›    │ ← hanya kalau ada; ketuk = buka daftar
 │ (🕘 warteg 12rb Tunai) (🕘 …)         │
-│ ┌──────────────────────────────┐ (↑) │
-│ │ beli makan di warteg 20k …   │     │
-│ └──────────────────────────────┘     │
+│ ┌──────────────────────────┐  ┌───┐  │
+│ │ 📝 kopi 25rb gopay  📎 📷 │  │ ➤ │  │ ← pola WhatsApp (diputuskan 23 Okt)
+│ └──────────────────────────┘  └───┘  │
 └──────────────────────────────────────┘
 ```
+
+Kolom ketik ala WhatsApp: 📝 kiri = form Manual (saat ada pertanyaan: "Isi manual" catatan itu); 📎 = galeri, 📷 = kamera (disembunyikan saat mengetik); tombol kirim bulat di luar kapsul. Tiga ubin Kamera/Galeri/Manual dihapus. Kartu hasil catatan lengkap di lembar ringkas hilang sendiri setelah 5 detik (bilah sisa waktu).
 
 ### Lembar besar (obrolan)
 

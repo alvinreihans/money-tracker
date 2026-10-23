@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  ArrowUp,
   Camera,
   Check,
   ChevronLeft,
@@ -11,9 +10,9 @@ import {
   ClipboardList,
   ClipboardPen,
   History,
-  Image as IkonGambar,
   Paperclip,
   ReceiptText,
+  SendHorizontal,
   X,
 } from "lucide-react";
 import CameraCapture from "@/components/CameraCapture";
@@ -131,7 +130,6 @@ export default function LembarCatat({
   const [ringkas, setRingkas] = useState<{ tx: Transaction; batal?: boolean } | null>(null);
   const [drafts, setDrafts] = useState<Draft[] | null>(null);
   const [detik, setDetik] = useState<number | null>(null);
-  const [menu, setMenu] = useState(false);
   const [kamera, setKamera] = useState(false);
   const [dariDaftar, setDariDaftar] = useState(false);
 
@@ -413,7 +411,6 @@ export default function LembarCatat({
     setLampiran({ file, url });
     setBesar(true);
     setLayar("obrolan");
-    setMenu(false);
     inputRef.current?.focus();
   }
 
@@ -657,20 +654,6 @@ export default function LembarCatat({
         <div ref={badanRef} className={s.badanCatat}>
           {!besar && (
             <>
-              <div className={s.pintasan}>
-                {[
-                  { label: "Kamera", ikon: Camera, warna: "#3e91ff", aksi: () => setKamera(true) },
-                  { label: "Galeri", ikon: IkonGambar, warna: "#5ecb7a", aksi: () => galeriRef.current?.click() },
-                  { label: "Manual", ikon: ClipboardPen, warna: "#ff9f43", aksi: onManual },
-                ].map(({ label, ikon: Ikon, warna, aksi }) => (
-                  <button key={label} type="button" className={s.tekan} disabled={sibuk} onClick={aksi}>
-                    <span style={{ background: `color-mix(in srgb, ${warna} 18%, transparent)`, color: warna }} aria-hidden>
-                      <Ikon size={22} />
-                    </span>
-                    {label}
-                  </button>
-                ))}
-              </div>
               {jumlahDraft > 0 && (
                 <button
                   type="button"
@@ -775,19 +758,6 @@ export default function LembarCatat({
             Disembunyikan selama hitung mundur penutup. */}
         {detik === null && (
           <div className={s.kakiCatat}>
-            {besar && menu && (
-              <div className={s.menuKlip}>
-                <button type="button" onClick={() => { setMenu(false); setKamera(true); }}>
-                  <Camera size={18} /> Kamera
-                </button>
-                <button type="button" onClick={() => { setMenu(false); galeriRef.current?.click(); }}>
-                  <IkonGambar size={18} /> Galeri
-                </button>
-                <button type="button" onClick={() => { setMenu(false); onManual(); }}>
-                  <ClipboardPen size={18} /> Manual
-                </button>
-              </div>
-            )}
             {lampiran && (
               <div className={s.lampiranCatat}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -797,12 +767,21 @@ export default function LembarCatat({
                 </button>
               </div>
             )}
-            <form onSubmit={kirim} className={s.ketik}>
-              {besar && (
-                <button type="button" className={s.klip} aria-label="Lampirkan" aria-expanded={menu} onClick={() => setMenu((m) => !m)}>
-                  <Paperclip size={22} />
+            {/* Pola WhatsApp: kapsul berisi ikon + kolom ketik, tombol kirim
+                bulat di luarnya. Kiri = cara lain mengisi (form Manual; saat ada
+                pertanyaan, "Isi manual" untuk catatan itu); kanan = galeri &
+                kamera (kamera disembunyikan saat mengetik, memberi ruang). */}
+            <form onSubmit={kirim} className={s.komposer}>
+              <div className={s.ketik}>
+                <button
+                  type="button"
+                  className={s.ikonKetik}
+                  aria-label={aktif ? "Isi manual catatan ini" : "Catat manual (form)"}
+                  disabled={sibuk}
+                  onClick={() => (aktif ? keDetail(aktif.tx) : onManual())}
+                >
+                  <ClipboardPen size={22} />
                 </button>
-              )}
               {/* textarea, bukan input: Chrome Android tidak memasang bilah isi
                   otomatis (kunci, kartu, lokasi) di atas keyboard untuknya.
                   Enter mengirim, seperti aplikasi chat; baris baru dibuang. */}
@@ -824,23 +803,32 @@ export default function LembarCatat({
                 inputMode={modeNominal ? "numeric" : "text"}
                 placeholder={
                   lampiran
-                    ? "Tambah keterangan (opsional)…"
+                    ? "Tambah keterangan…"
                     : tanyaBuka === "nominal"
-                      ? "Ketik nominalnya, mis. 150.000"
+                      ? "mis. 150.000"
                       : tanyaBuka === "kantong" || tanyaBuka === "kantong_tujuan"
-                        ? "Pilih di atas, atau ketik kantongnya"
+                        ? "Ketik kantongnya"
                         : tanyaBuka === "cerita"
-                          ? "Ceritain transaksinya…"
+                          ? "Ceritain di sini…"
                           : tanyaBuka === "konfirmasi" || (besar && pesan.at(-1)?.t === "kartu")
-                            ? "Ada yang salah? Ketik koreksinya"
-                            : "beli makan di warteg 20k shopeepay"
+                            ? "Ketik koreksinya"
+                            : "kopi 25rb gopay"
                 }
                 disabled={sibuk && !besar}
                 enterKeyHint="send"
                 autoComplete="off"
               />
-              <button type="submit" className={s.kirim} aria-label="Kirim" disabled={sibuk || (!teks.trim() && !lampiran)}>
-                {sibuk && !besar ? <Spinner /> : <ArrowUp size={22} />}
+                <button type="button" className={s.ikonKetik} aria-label="Pilih foto dari galeri" disabled={sibuk} onClick={() => galeriRef.current?.click()}>
+                  <Paperclip size={22} />
+                </button>
+                {!teks && (
+                  <button type="button" className={s.ikonKetik} aria-label="Foto dengan kamera" disabled={sibuk} onClick={() => setKamera(true)}>
+                    <Camera size={22} />
+                  </button>
+                )}
+              </div>
+              <button type="submit" className={s.kirimBulat} aria-label="Kirim" disabled={sibuk || (!teks.trim() && !lampiran)}>
+                {sibuk && !besar ? <Spinner /> : <SendHorizontal size={22} />}
               </button>
             </form>
           </div>
