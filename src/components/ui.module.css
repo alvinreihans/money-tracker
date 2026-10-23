@@ -1230,3 +1230,18 @@ button.blok { background: var(--blok); }
 }
 .aksiKartu .flat { flex: none; padding: 0 16px; }
 .judulCatat h2:focus { outline: none; }
+
+/* Sisa waktu kartu hasil di lembar ringkas: bilah tipis yang menyusut
+   sampai habis, lalu kartunya hilang. Tetap jalan dengan "kurangi gerakan"
+   karena ini informasi, bukan hiasan. */
+.sisaWaktu {
+  display: block;
+  height: 3px;
+  margin: 2px -2px 8px;
+  border-radius: 2px;
+  background: var(--primer);
+  opacity: 0.7;
+  transform-origin: left;
+  animation: sisaHabis linear forwards;
+}
+@keyframes sisaHabis { from { transform: scaleX(1); } to { transform: scaleX(0); } }

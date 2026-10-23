@@ -496,7 +496,8 @@ export default function LembarCatat({
       jenis === "kantong_tujuan" ? k.id !== aktif?.tx.kantong_id : aktif?.tx.type === "transfer" || k.kind !== "orang",
     );
 
-  function kartu(tx: Transaction, perbaikan: boolean, batal?: boolean, key?: number) {
+  /** `hilang`: kartu di lembar ringkas — bilah sisa waktu sebelum hilang sendiri. */
+  function kartu(tx: Transaction, perbaikan: boolean, batal?: boolean, key?: number, hilang?: boolean) {
     const { ikon: Ikon, warna } = tandaTransaksi(tx, kategori);
     const nama = namaKategori(kategori, tx.category, tx.type);
     const tanda = tx.type === "expense" ? "−" : tx.type === "income" ? "+" : "";
@@ -532,6 +533,16 @@ export default function LembarCatat({
               </>
             )}
           </div>
+        )}
+        {hilang && (
+          // key berganti saat dibatalkan → bilahnya penuh lagi, sama dengan hitungannya.
+          <span
+            key={String(batal)}
+            className={s.sisaWaktu}
+            style={{ animationDuration: `${KARTU_RINGKAS_MS}ms` }}
+            role="timer"
+            aria-label={`Hilang dalam ${KARTU_RINGKAS_MS / 1000} detik`}
+          />
         )}
       </div>
     );
@@ -672,7 +683,7 @@ export default function LembarCatat({
                 </button>
               )}
               {ringkas ? (
-                kartu(ringkas.tx, false, ringkas.batal)
+                kartu(ringkas.tx, false, ringkas.batal, undefined, true)
               ) : (
                 // Saran hanya sebelum mengetik, seperti saran pencarian One UI.
                 // Ketukan mengisi kolom — tidak langsung mengirim.
