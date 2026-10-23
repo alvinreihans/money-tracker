@@ -537,7 +537,7 @@ export default function LembarCatat({
     if (error) return tambah({ t: "app", teks: "Gagal menghapus catatannya." });
     setAktif(null);
     const { count } = await db.from("draft_catat").select("transaksi_id", { count: "exact", head: true });
-    tambah({ t: "app", teks: "Oke, catatannya dihapus." }, { t: "tutup", lagi: count ?? 0 });
+    tambah({ t: "tutup", lagi: count ?? 0, teks: "Oke, catatannya dihapus. 🗑️" });
     setDetik(TUTUP_DETIK);
     router.refresh();
   }

@@ -246,7 +246,8 @@ export function normalize(parsed: Partial<ExtractedReceipt>, kategori: Kategori[
     cashback: type === "expense" ? nominalAtauNull(parsed.cashback) : null,
     pinjaman,
     cicilan: type === "expense" && typeof parsed.cicilan === "string" && parsed.cicilan.trim() ? parsed.cicilan.trim().slice(0, 60) : null,
-    paylater: type === "expense" ? paylaterAtauNull(parsed.paylater) : null,
+    // Membayar cicilan paylater (field cicilan) bukan belanja paylater baru.
+    paylater: type === "expense" && !(typeof parsed.cicilan === "string" && parsed.cicilan.trim()) ? paylaterAtauNull(parsed.paylater) : null,
     document_type: parsed.document_type === "payment_proof" ? "payment_proof" : "receipt",
     transaction_date:
       typeof parsed.transaction_date === "string" && parsed.transaction_date
