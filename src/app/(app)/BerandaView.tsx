@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import NextLink from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronRight, ClipboardList, Flame, Inbox } from "lucide-react";
@@ -50,8 +50,11 @@ export default function BerandaView({
   const catat = useCatat();
   const router = useRouter();
 
+  // Sekali per tautan: efek berjalan dua kali di mode dev (StrictMode).
+  const sudah = useRef<string | null>(null);
   useEffect(() => {
-    if (!bukaCatat) return;
+    if (!bukaCatat || sudah.current === bukaCatat) return;
+    sudah.current = bukaCatat;
     catat.bukaDraft(bukaCatat);
     router.replace("/", { scroll: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps

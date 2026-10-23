@@ -1229,3 +1229,4 @@ button.blok { background: var(--blok); }
   .cincin { transition: background 900ms linear; }
 }
 .aksiKartu .flat { flex: none; padding: 0 16px; }
+.judulCatat h2:focus { outline: none; }

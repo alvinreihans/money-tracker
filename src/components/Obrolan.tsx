@@ -135,6 +135,7 @@ export default function LembarCatat({
   const dialogRef = useRef<HTMLDialogElement>(null);
   const badanRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const judulRef = useRef<HTMLHeadingElement>(null);
   const galeriRef = useRef<HTMLInputElement>(null);
   const urlRef = useRef<string[]>([]);
 
@@ -328,7 +329,11 @@ export default function LembarCatat({
   );
 
   // Dibuka langsung ke daftar atau ke satu catatan (kartu Beranda, push).
+  // Sekali saja: efek berjalan dua kali di mode dev (StrictMode).
+  const sudahDibuka = useRef(false);
   useEffect(() => {
+    if (sudahDibuka.current) return;
+    sudahDibuka.current = true;
     if (perintah.draft) void bukaDraft(perintah.draft, false);
     else if (perintah.layar === "daftar") void muatDaftar();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -340,7 +345,10 @@ export default function LembarCatat({
     const d = dialogRef.current;
     if (!d) return;
     d.showModal();
-    if (!perintah.besar) inputRef.current?.focus();
+    // Fokus awal: kolom ketik (ringkas, keyboard langsung siap) atau judul
+    // (besar) — bukan pegangan, yang lalu tampil bercincin fokus.
+    if (perintah.besar) judulRef.current?.focus();
+    else inputRef.current?.focus();
     const batal = (e: Event) => {
       e.preventDefault();
       kembaliRef.current();
@@ -612,7 +620,7 @@ export default function LembarCatat({
                 <ChevronLeft size={26} />
               </button>
             )}
-            <h2>{judul}</h2>
+            <h2 ref={judulRef} tabIndex={-1}>{judul}</h2>
           </div>
         </div>
 
