@@ -70,8 +70,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   } else if (jenis === "waktu") {
     const b = bacaJam(nilai);
     // "siang" padahal saldo diisi jam 14.00: masih bisa sebelum atau sesudah.
-    if (b && !masihRagu(tx, b.jam, b.perkiraan)) patch.waktu = b.jam;
-    else gagal = b ? "Kira-kira jam berapa? Mis. “jam 13” atau “13.30”." : "Jamnya belum kebaca. Coba mis. “jam 10” atau “10.30”.";
+    // Langsung ditanya lagi — bukan dibaca AI, yang bisa mengarang jam pasti.
+    if (b && masihRagu(tx, b.jam, b.perkiraan)) return tolak("Kira-kira jam berapa? Mis. “jam 13” atau “13.30”.");
+    if (b) patch.waktu = b.jam;
+    else gagal = "Jamnya belum kebaca. Coba mis. “jam 10” atau “10.30”.";
   }
   if (jenis === "cerita" || (gagal && nilai)) {
     if (!nilai) return tolak("Ceritain sedikit transaksinya ya.");
