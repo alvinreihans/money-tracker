@@ -43,6 +43,8 @@ export async function GET() {
       "content-type": "text/csv; charset=utf-8",
       "content-disposition": `attachment; filename="money-tracker-${hariWIB(new Date())}.csv"`,
       "cache-control": "no-store",
+      // Untuk snackbar "N transaksi diekspor" di Pengaturan.
+      "x-jumlah": String(transaksi.length),
     },
   });
 }

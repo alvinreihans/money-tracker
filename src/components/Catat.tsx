@@ -42,8 +42,8 @@ const CatatContext = createContext<{
   bukaDaftar: () => void;
   /** Proses gambar dari "Bagikan" di latar, masing-masing jadi satu transaksi. */
   tambahStruk: (berkas: File[]) => void;
-  /** Snackbar singkat (mis. "2 struk diproses di latar"). */
-  kabari: (teks: string) => void;
+  /** Snackbar singkat (mis. "2 struk diproses di latar"), opsional dengan satu aksi. */
+  kabari: (teks: string, aksi?: Kabar["aksi"]) => void;
   kantong: PilihanKantong[];
   kategori: Kategori[];
   /** Email yang sedang masuk, untuk menu ⋮. */
@@ -145,7 +145,7 @@ export function CatatProvider({
         bukaDraft: (id) => bukaLembar({ besar: true, layar: "obrolan", draft: id }),
         bukaDaftar: () => bukaLembar({ besar: true, layar: "daftar" }),
         tambahStruk: antrean.tambah,
-        kabari: (teks) => setKabar({ teks }),
+        kabari: (teks, aksi) => setKabar({ teks, aksi }),
         kantong,
         kategori,
         email,
