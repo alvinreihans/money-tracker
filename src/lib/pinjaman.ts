@@ -229,11 +229,12 @@ export interface InfoPaylater {
  * atau tanggal yang sama bulan depan.
  */
 export function rencanaPaylater(
-  belanja: { amount: number | string; merchant: string | null; category: string; transaction_date: string },
+  belanja: { amount: number | string; merchant: string | null; description?: string | null; category: string; transaction_date: string },
   info: InfoPaylater & { tenor: number },
 ): Pick<Cicilan, "nama" | "penyedia" | "category" | "nominal" | "tenor" | "jatuh_tempo_awal"> {
   return {
-    nama: (belanja.merchant || `Belanja ${info.penyedia}`).slice(0, 60),
+    // Tanpa merchant ("beli sepatu 300rb kredivo"): ringkasan dari AI, baru nama penyedia.
+    nama: (belanja.merchant || belanja.description || `Belanja ${info.penyedia}`).slice(0, 60),
     penyedia: info.penyedia,
     category: belanja.category,
     nominal: info.per_cicilan && info.per_cicilan > 0 ? info.per_cicilan : Math.ceil(Number(belanja.amount) / info.tenor),

@@ -1,6 +1,6 @@
 # Spec: Paylater = cicilan (+ pelunasan lebih awal)
 
-Status: **disetujui** · 23 Oktober 2026
+Status: **diterapkan** (feat/saldo-waktu) · 23 Oktober 2026
 
 ## Masalah
 

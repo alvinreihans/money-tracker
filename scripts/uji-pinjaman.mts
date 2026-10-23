@@ -126,6 +126,7 @@ assert.equal(tertera.nominal, 5800);
 assert.equal(tertera.jatuh_tempo_awal, "2026-11-05");
 assert.equal(rencanaPaylater(bensin, { ...sp, tenor: 1, jatuh_tempo: "2026-01-01" }).jatuh_tempo_awal, "2026-11-23"); // tanggal ngawur
 assert.equal(rencanaPaylater({ ...bensin, merchant: null }, { ...sp, tenor: 1 }).nama, "Belanja SPayLater");
+assert.equal(rencanaPaylater({ ...bensin, merchant: null, description: "Beli sepatu" }, { ...sp, tenor: 3 }).nama, "Beli sepatu");
 assert.equal(rencanaPaylater({ ...bensin, transaction_date: "2026-01-31" }, { ...sp, tenor: 1 }).jatuh_tempo_awal, "2026-02-28");
 
 // Bayar beberapa cicilan sekaligus.

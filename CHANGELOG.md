@@ -44,6 +44,11 @@ Belum dikerjakan; dicatat supaya tidak lupa.
 - Di obrolan Catat, ketik **"hapus aja"** / **"ga jadi"** untuk membuang
   catatannya, dan jawaban bebas (mis. "nominalnya 40rb" saat ditanya kantong)
   dibaca ulang oleh AI.
+- **Paylater = cicilan.** Belanja pakai SPayLater, GoPayLater, Kredivo, dll.
+  langsung jadi rencana cicilan (bukan pengeluaran, saldo tidak berubah).
+  Kalau berapa kali cicilannya tidak tertera, ditanya "Dicicil berapa kali?".
+- **Bayar beberapa cicilan sekaligus**: 1, 2, atau semua sisa (seperti di
+  aplikasi paylater); tiap cicilan tercatat sebagai pengeluaran sendiri.
 
 ### Diubah
 - Satu foto = satu transaksi: kamera sekali jepret, galeri satu gambar.
