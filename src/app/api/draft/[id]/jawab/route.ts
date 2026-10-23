@@ -5,6 +5,7 @@ import { bacaNominal, kantongDariJawaban, pertanyaanDraft, type JenisTanya } fro
 import { processReceiptText } from "@/lib/receipt";
 import { TEKS_MAKS } from "@/lib/transaksi-input";
 import type { Kantong } from "@/lib/kantong";
+import { bacaJam, jamTransaksi, perluTanyaJam, saldoSejak } from "@/lib/waktu";
 import type { Transaction } from "@/types/transaction";
 
 export const runtime = "nodejs";
@@ -12,7 +13,7 @@ export const dynamic = "force-dynamic";
 // "cerita" membaca ulang lewat rantai Groq.
 export const maxDuration = 30;
 
-const JENIS: JenisTanya[] = ["cerita", "nominal", "kantong", "kantong_tujuan", "konfirmasi"];
+const JENIS: JenisTanya[] = ["cerita", "nominal", "kantong", "kantong_tujuan", "waktu", "konfirmasi"];
 
 /**
  * Jawaban user untuk pertanyaan di percakapan sebuah draft (SPEC-catat-chat).
@@ -37,8 +38,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const tx = data as Transaction | null;
   if (!tx) return NextResponse.json({ error: "Catatan ini sudah selesai atau sudah dihapus." }, { status: 404 });
 
-  const { data: daftarKantong } = await supabase.from("user_accounts").select("id, name, kind, aliases");
-  const semua = (daftarKantong ?? []) as Pick<Kantong, "id" | "name" | "kind" | "aliases">[];
+  const { data: daftarKantong } = await supabase.from("user_accounts").select("id, name, kind, aliases, saldo_per, saldo_sejak");
+  const semua = (daftarKantong ?? []) as Pick<Kantong, "id" | "name" | "kind" | "aliases" | "saldo_per" | "saldo_sejak">[];
+  const saldoDari = (id: string) => {
+    const k = semua.find((x) => x.id === id);
+    return k ? saldoSejak(k) : undefined;
+  };
+  // Jam masih perlu ditanyakan untuk tanggal & jam ini? (hari saldo kantongnya)
+  const masihRagu = (t: Pick<Transaction, "transaction_date" | "kantong_id" | "kantong_tujuan_id">, waktu: string | null, perkiraan: boolean) =>
+    [t.kantong_id, t.kantong_tujuan_id].some((kid) => kid && perluTanyaJam({ transaction_date: t.transaction_date, waktu, perkiraan }, saldoDari(kid)));
   // Orang (Lend & Borrow) hanya lewat pindah kantong, seperti di simpanTransaksi.
   const pilihan = (type: string) => (type === "transfer" ? semua : semua.filter((k) => k.kind !== "orang"));
   const tolak = (error: string) => NextResponse.json({ error }, { status: 422 });
@@ -57,6 +65,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const k = kantongDariJawaban(nilai, semua);
     if (!k || k.id === tx.kantong_id) return tolak("Pilih kantong tujuan yang lain ya.");
     patch.kantong_tujuan_id = k.id;
+  } else if (jenis === "waktu") {
+    const b = bacaJam(nilai);
+    if (!b) return tolak("Jamnya belum kebaca. Coba mis. “jam 10” atau “10.30”.");
+    // "siang" padahal saldo diisi jam 14.00: masih bisa sebelum atau sesudah.
+    if (masihRagu(tx, b.jam, b.perkiraan)) return tolak("Kira-kira jam berapa? Mis. “jam 13” atau “13.30”.");
+    patch.waktu = b.jam;
   } else if (jenis === "cerita") {
     if (!nilai) return tolak("Ceritain sedikit transaksinya ya.");
     // Digabung dengan teks/OCR sebelumnya, tapi ditandai jelas sebagai
@@ -84,11 +98,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (k) Object.assign(patch, { kantong_id: k.id, payment_method: k.name });
     const t = type === "transfer" && e?.payment_target ? kantongDariJawaban(e.payment_target, semua) : null;
     if (t && t.id !== (k?.id ?? tx.kantong_id)) patch.kantong_tujuan_id = t.id;
+    // Jam dari cerita ("tadi jam 10 beli roti"); yang masih ragu ditanya berikutnya.
+    if (e && (e.time || e.time_hint)) {
+      const j = jamTransaksi({ time: e.time, hint: e.time_hint }, patch.transaction_date ?? tx.transaction_date);
+      patch.waktu = masihRagu({ ...tx, ...patch }, j.waktu, j.perkiraan) ? null : j.waktu;
+    }
   }
 
   // Setelah dijawab, "konfirmasi" berarti tidak ada yang kurang lagi: langsung
   // dikonfirmasi. Pertanyaan konfirmasi hanya diajukan saat draft dibuka.
-  const sesudah = pertanyaanDraft({ ...tx, ...patch });
+  const sesudah = pertanyaanDraft({ ...tx, ...patch }, saldoDari);
   const selesai = sesudah === null || sesudah === "konfirmasi";
   if (selesai) Object.assign(patch, { status: "confirmed", raw_ocr_text: null });
 

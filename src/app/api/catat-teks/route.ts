@@ -5,7 +5,6 @@ import { ambilKonteksAI } from "@/lib/kategori-server";
 import { simpanTransaksi } from "@/lib/simpan-transaksi";
 import { dbErrorMessage } from "@/lib/errors";
 import { TEKS_MAKS } from "@/lib/transaksi-input";
-import { pertanyaanDraft } from "@/lib/draft";
 import type { Transaction } from "@/types/transaction";
 
 export const runtime = "nodejs";
@@ -41,7 +40,7 @@ export async function POST(req: NextRequest) {
   const result = await processReceiptText(text, await ambilKonteksAI(supabase));
 
   try {
-    const { transaction } = await simpanTransaksi(supabase, user.id, {
+    const { transaction, pertanyaan } = await simpanTransaksi(supabase, user.id, {
       ...toTransactionRow(result, user.id),
       // Kalau jadi draft, teks aslinya ikut disimpan supaya bisa dibenerin
       // tanpa harus mengingat lagi apa yang diketik (dibuang kalau tidak).
@@ -55,7 +54,7 @@ export async function POST(req: NextRequest) {
         // Status akhir: bisa jadi draft di simpanTransaksi (kantong tak cocok).
         status: (transaction as Transaction).status,
         // Yang perlu ditanyakan di obrolan kalau belum lengkap.
-        pertanyaan: pertanyaanDraft(transaction as Transaction),
+        pertanyaan,
         notes: result.notes,
       },
       { status: 201 },

@@ -7,6 +7,7 @@ import { namaKategori } from "@/lib/kategori";
 import { processReceiptText } from "@/lib/receipt";
 import { TEKS_MAKS } from "@/lib/transaksi-input";
 import type { Kantong } from "@/lib/kantong";
+import { fmtJam } from "@/lib/waktu";
 import type { Transaction } from "@/types/transaction";
 
 export const runtime = "nodejs";
@@ -16,7 +17,7 @@ export const maxDuration = 30;
 /** Kolom yang bisa dikoreksi lewat obrolan (dan dikembalikan saat dibatalkan). */
 type IsianKoreksi = Pick<
   Transaction,
-  "amount" | "type" | "category" | "merchant" | "description" | "transaction_date" | "kantong_id" | "kantong_tujuan_id" | "payment_method"
+  "amount" | "type" | "category" | "merchant" | "description" | "transaction_date" | "waktu" | "kantong_id" | "kantong_tujuan_id" | "payment_method"
 >;
 
 /**
@@ -57,6 +58,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     tx.payment_method ? `pakai ${tx.payment_method}` : null,
     tujuanLama ? `ke ${tujuanLama}` : null,
     `tanggal ${tx.transaction_date}`,
+    tx.waktu ? `jam ${fmtJam(tx.waktu)}` : null,
     tx.description ? `keterangan: ${tx.description}` : null,
   ]
     .filter(Boolean)
@@ -84,6 +86,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (e.merchant) ganti("merchant", e.merchant, `Nama: ${tx.merchant ?? "—"} → ${e.merchant}`);
   if (e.description) ganti("description", e.description);
   ganti("transaction_date", e.transaction_date, `Tanggal: ${fmtTanggal(tx.transaction_date)} → ${fmtTanggal(e.transaction_date)}`);
+  if (e.time && e.time !== tx.waktu?.slice(0, 5)) {
+    patch.waktu = e.time;
+    perubahan.push(`Jam: ${fmtJam(tx.waktu) ?? "—"} → ${fmtJam(e.time)}`);
+  }
 
   const type = patch.type ?? tx.type;
   const k = e.payment_method ? kantongDariJawaban(e.payment_method, type === "transfer" ? semua : semua.filter((x) => x.kind !== "orang")) : null;

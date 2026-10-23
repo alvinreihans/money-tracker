@@ -3,6 +3,8 @@ import { isoLokal } from "@/lib/format";
 import { cocokkanKantong, type Kantong } from "@/lib/kantong";
 import { arahPindah, EMOJI_ORANG, kantongUang, pilihCicilan, SALDO_PER_PINJAMAN, type Cicilan } from "@/lib/pinjaman";
 import { barisIkutan } from "@/lib/transaksi-input";
+import { pertanyaanDraft, type JenisTanya } from "@/lib/draft";
+import { jamTransaksi, perluTanyaJam, saldoSejak, type PetunjukJam } from "@/lib/waktu";
 
 /** Toleransi selisih tanggal saat mencocokkan dengan baris rekening koran lama. */
 const DEDUPE_DAY_WINDOW = 2;
@@ -30,14 +32,15 @@ export async function simpanTransaksi(
   supabase: SupabaseClient,
   userId: string,
   input: Record<string, unknown>,
-): Promise<{ supersededStatement: boolean; transaction: unknown }> {
-  const { payment_target, biaya_admin, cashback, pinjaman, cicilan: sebutanCicilan, ...row } = input;
+): Promise<{ supersededStatement: boolean; transaction: unknown; pertanyaan: JenisTanya | null }> {
+  const { payment_target, biaya_admin, cashback, pinjaman, cicilan: sebutanCicilan, jam, petunjuk_jam, ...row } = input;
   const dariAi = "payment_target" in input;
 
   // Tautkan ke kantong. Form mengirim id-nya langsung (dicek memang milik
   // user); teks dan struk membawa nama ("gopay", "BRImo") yang dicocokkan.
-  const { data } = await supabase.from("user_accounts").select("id, name, kind, aliases").eq("user_id", userId);
-  const daftar = (data ?? []) as Pick<Kantong, "id" | "name" | "kind" | "aliases">[];
+  const KOLOM = "id, name, kind, aliases, saldo_per, saldo_sejak";
+  const { data } = await supabase.from("user_accounts").select(KOLOM).eq("user_id", userId);
+  const daftar = (data ?? []) as Pick<Kantong, "id" | "name" | "kind" | "aliases" | "saldo_per" | "saldo_sejak">[];
 
   let kantong: (typeof daftar)[number] | null;
   let tujuan: (typeof daftar)[number] | null;
@@ -51,7 +54,7 @@ export async function simpanTransaksi(
       const { data: baru } = await supabase
         .from("user_accounts")
         .insert({ user_id: userId, name: p.pihak, kind: "orang", emoji: EMOJI_ORANG, saldo_awal: 0, saldo_per: SALDO_PER_PINJAMAN })
-        .select("id, name, kind, aliases")
+        .select(KOLOM)
         .single();
       pihak = (baru as (typeof daftar)[number] | null) ?? null;
     }
@@ -113,6 +116,20 @@ export async function simpanTransaksi(
   // Belum punya kantong sama sekali: "transfer" dari AI tidak bisa dipastikan
   // pindah kantong sendiri, jadi dicatat pengeluaran seperti dulu.
   if (dariAi && daftar.length === 0 && row.type === "transfer") row.type = "expense";
+  // Jam transaksi (SPEC-saldo-waktu). Dari AI: jam tertera/disebut, perkiraan
+  // bagian hari, atau jam saat dicatat. Di hari saldo kantongnya, jam yang
+  // belum pasti ditanyakan dulu ("Tadi itu jam berapa?") — transaksi sebelum
+  // jam saldo tidak boleh memotong saldo yang sudah mencakupnya.
+  if (dariAi) {
+    const j = jamTransaksi({ time: jam as string | null, hint: petunjuk_jam as PetunjukJam | null }, String(row.transaction_date));
+    row.waktu = j.waktu;
+    const cek = { transaction_date: String(row.transaction_date), waktu: j.waktu, perkiraan: j.perkiraan };
+    if ([kantong, tujuan].some((k) => k && perluTanyaJam(cek, saldoSejak(k)))) {
+      row.waktu = null;
+      row.status = "needs_review";
+    }
+  }
+
   // Teks asli/OCR hanya disimpan untuk draft, sebagai bahan membetulkan.
   if (row.status === "confirmed") row.raw_ocr_text = null;
 
@@ -156,5 +173,11 @@ export async function simpanTransaksi(
   );
   if (ikutan) await supabase.from("transactions").insert(ikutan);
 
-  return { supersededStatement, transaction: tersimpan };
+  // Pertanyaan berikutnya untuk obrolan, kalau belum lengkap.
+  const semua = [...daftar, ...[kantong, tujuan].filter((k): k is NonNullable<typeof k> => Boolean(k))];
+  const pertanyaan = pertanyaanDraft(tersimpan, (id) => {
+    const k = semua.find((x) => x.id === id);
+    return k ? saldoSejak(k) : undefined;
+  });
+  return { supersededStatement, transaction: tersimpan, pertanyaan };
 }

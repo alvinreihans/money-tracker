@@ -49,6 +49,9 @@ export interface TransactionRow {
   pinjaman: ExtractedReceipt["pinjaman"];
   cicilan: string | null;
   transaction_date: string;
+  /** Bukan kolom: jam & petunjuknya dari AI, diolah simpanTransaksi jadi `waktu`. */
+  jam: string | null;
+  petunjuk_jam: ExtractedReceipt["time_hint"];
   status: ReceiptStatus;
   raw_ocr_text: string | null;
   /** receipt | payment_proof | text — ditampilkan sebagai "Masuk lewat". */
@@ -75,6 +78,8 @@ function emptyDraft(): ExtractedReceipt {
     pinjaman: null,
     cicilan: null,
     transaction_date: today(),
+    time: null,
+    time_hint: null,
     document_type: "receipt",
   };
 }
@@ -205,6 +210,8 @@ export function toTransactionRow(
     pinjaman: e.pinjaman,
     cicilan: e.cicilan,
     transaction_date: e.transaction_date,
+    jam: e.time,
+    petunjuk_jam: e.time_hint,
     status: result.status,
     // Dibuang lagi oleh simpanTransaksi kalau transaksinya akhirnya tidak
     // jadi draft — draft bisa juga muncul di sana (kantong tak cocok).

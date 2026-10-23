@@ -2,6 +2,7 @@ import { SchemaType, type GenerationConfig } from "@google/generative-ai";
 import { getGeminiClient, GEMINI_MODEL } from "@/lib/gemini";
 import { runGroqChain, parseJsonLoose } from "@/lib/groq";
 import { isoLokal } from "@/lib/format";
+import type { PetunjukJam } from "@/lib/waktu";
 import { KATEGORI_BAWAAN, kategoriJenis, LAINNYA, type Kategori } from "@/lib/kategori";
 import type { ExtractedReceipt, TransactionType } from "@/types/transaction";
 
@@ -69,6 +70,8 @@ Skema:
   "merchant": string | null,
   "category": string,
   "transaction_date": "YYYY-MM-DD",
+  "time": "HH:MM" | null,
+  "time_hint": "pagi" | "siang" | "sore" | "malam" | "lampau" | null,
   "description": string | null,
   "payment_method": string | null,
   "payment_target": string | null,
@@ -128,6 +131,13 @@ ${daftarPrompt(kategori, "income")}
   "income": sumber uangnya bila disebut ("Ibu", "Kantor"). Nama bank/dompet
   BUKAN merchant — itu payment_method.
 - transaction_date: format "YYYY-MM-DD". Jika tidak disebut, gunakan hari ini: ${todayISO}.
+- time: jam transaksi format 24 jam "HH:MM" bila TERTERA di struk/bukti ("Waktu Selesai
+  23 Okt 2026, 13:57" -> "13:57"; "14:05:33" -> "14:05") atau DISEBUT ("jam 10" -> "10:00",
+  "jam 2 siang" -> "14:00", "pukul 19.30" -> "19:30"). Jangan menebak. Selain itu null.
+- time_hint: HANYA bila time null. Bagian hari yang disebut: "pagi", "siang", "sore",
+  "malam" ("tadi pagi beli roti" -> "pagi"). "lampau" bila teks menyatakan sudah terjadi
+  tanpa bagian hari ("tadi beli roti", "tadi bayar parkir"). Tanpa petunjuk waktu sama
+  sekali ("kopi 25rb gopay", "kemarin makan") -> null.
 - description: ringkasan singkat isi transaksi, boleh null.
 - payment_method: metode bayar bila disebut, normalkan istilah gaul/singkatan:
   "sopipay"/"spay"/"shopee pay"=ShopeePay; "gopay"=GoPay; "ovo"=OVO; "dana"=DANA;
@@ -232,7 +242,16 @@ export function normalize(parsed: Partial<ExtractedReceipt>, kategori: Kategori[
       typeof parsed.transaction_date === "string" && parsed.transaction_date
         ? parsed.transaction_date
         : toISODate(new Date()),
+    ...jamAtauNull(parsed.time, parsed.time_hint),
   };
+}
+
+/** "HH:MM" yang sah, atau petunjuk bagian hari bila jamnya tidak ada. */
+function jamAtauNull(time: unknown, hint: unknown): Pick<ExtractedReceipt, "time" | "time_hint"> {
+  const m = typeof time === "string" ? time.trim().match(/^(\d{1,2})[:.](\d{2})/) : null;
+  if (m && Number(m[1]) <= 23 && Number(m[2]) <= 59) return { time: `${m[1].padStart(2, "0")}:${m[2]}`, time_hint: null };
+  const h = typeof hint === "string" ? hint.trim().toLowerCase() : "";
+  return { time: null, time_hint: ["pagi", "siang", "sore", "malam", "lampau"].includes(h) ? (h as PetunjukJam) : null };
 }
 
 /**
@@ -285,6 +304,8 @@ const geminiSchema: GenerationConfig["responseSchema"] = {
     merchant: { type: SchemaType.STRING, nullable: true },
     category: { type: SchemaType.STRING },
     transaction_date: { type: SchemaType.STRING },
+    time: { type: SchemaType.STRING, nullable: true },
+    time_hint: { type: SchemaType.STRING, format: "enum", enum: ["pagi", "siang", "sore", "malam", "lampau"], nullable: true },
     description: { type: SchemaType.STRING, nullable: true },
     payment_method: { type: SchemaType.STRING, nullable: true },
     payment_target: { type: SchemaType.STRING, nullable: true },

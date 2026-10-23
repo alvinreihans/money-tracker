@@ -1,4 +1,5 @@
 import { cocokkanKantong, type Kantong } from "@/lib/kantong";
+import { perluTanyaJam, type SaldoSejak } from "@/lib/waktu";
 
 /**
  * Catat sebagai obrolan (SPEC-catat-chat.md): apa yang masih kurang dari
@@ -6,7 +7,7 @@ import { cocokkanKantong, type Kantong } from "@/lib/kantong";
  * scripts/uji-draft.mts.
  */
 
-export type JenisTanya = "cerita" | "nominal" | "kantong" | "kantong_tujuan" | "konfirmasi";
+export type JenisTanya = "cerita" | "nominal" | "kantong" | "kantong_tujuan" | "waktu" | "konfirmasi";
 
 interface BarisDraft {
   status: string;
@@ -16,20 +17,30 @@ interface BarisDraft {
   merchant: string | null;
   kantong_id: string | null;
   kantong_tujuan_id: string | null;
+  transaction_date?: string;
+  waktu?: string | null;
 }
 
 /**
  * Pertanyaan berikutnya untuk sebuah draft, satu per satu ("satu pilihan,
- * satu tugas"): nominal dulu, lalu kantong, lalu kantong tujuan. Tidak
- * terbaca sama sekali → minta diceritakan. Semua sudah ada tapi masih draft
- * (mis. hasil AI dianggap tidak valid) → minta konfirmasi. Null kalau bukan
- * draft.
+ * satu tugas"): nominal dulu, lalu kantong, lalu kantong tujuan, lalu jam
+ * (hanya di hari saldo kantongnya, kalau jamnya belum diketahui —
+ * SPEC-saldo-waktu). Tidak terbaca sama sekali → minta diceritakan. Semua
+ * sudah ada tapi masih draft (mis. hasil AI dianggap tidak valid) → minta
+ * konfirmasi. Null kalau bukan draft.
+ *
+ * `saldoDari`: saldo sejak kapan untuk tiap kantong (id) — tanpa ini jam
+ * tidak pernah ditanyakan.
  */
-export function pertanyaanDraft(t: BarisDraft): JenisTanya | null {
+export function pertanyaanDraft(t: BarisDraft, saldoDari?: (id: string) => SaldoSejak | undefined): JenisTanya | null {
   if (t.status !== "needs_review") return null;
   if (!(Number(t.amount) > 0)) return t.merchant || (t.category && t.category !== "other") ? "nominal" : "cerita";
   if (!t.kantong_id) return "kantong";
   if (t.type === "transfer" && !t.kantong_tujuan_id) return "kantong_tujuan";
+  if (t.transaction_date && saldoDari && !t.waktu) {
+    const tx = { transaction_date: t.transaction_date, waktu: null };
+    if ([t.kantong_id, t.kantong_tujuan_id].some((id) => id && perluTanyaJam(tx, saldoDari(id)))) return "waktu";
+  }
   return "konfirmasi";
 }
 
@@ -38,6 +49,7 @@ export const KALIMAT_TANYA: Record<JenisTanya, string> = {
   nominal: "Berapa nominalnya?",
   kantong: "Pakai kantong apa?",
   kantong_tujuan: "Pindah ke kantong mana?",
+  waktu: "Tadi itu jam berapa?",
   konfirmasi: "Sudah benar begini?",
 };
 

@@ -26,6 +26,8 @@ export interface Transaction {
   cicilan_id?: string | null;
   cicilan_ke?: number | null;
   transaction_date: string; // ISO date: "YYYY-MM-DD"
+  /** Jam transaksi (WIB), "HH:MM:SS"; opsional. Lihat SPEC-saldo-waktu.md. */
+  waktu?: string | null;
   status: TransactionStatus;
   /** Rekening/dompet tempat uang bergerak, mis. "SeaBank". */
   account: string | null;
@@ -46,6 +48,10 @@ export interface ExtractedReceipt {
   merchant: string | null;
   category: string;
   transaction_date: string; // "YYYY-MM-DD"
+  /** Jam yang tertera/disebut, "HH:MM". */
+  time: string | null;
+  /** Bila jam tidak ada: bagian hari yang disebut, atau "lampau" ("tadi …"). */
+  time_hint: "pagi" | "siang" | "sore" | "malam" | "lampau" | null;
   description: string | null;
   payment_method: string | null;
   /** Hanya untuk transfer: kantong tujuan, mis. "GoPay" pada "topup gopay dari bca". */

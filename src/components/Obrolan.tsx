@@ -84,6 +84,7 @@ const KURANG: Record<JenisTanya, string> = {
   nominal: "Nominal belum kebaca",
   kantong: "Kantong belum jelas",
   kantong_tujuan: "Kantong tujuan belum jelas",
+  waktu: "Jamnya belum jelas",
   konfirmasi: "Tinggal dicek",
 };
 

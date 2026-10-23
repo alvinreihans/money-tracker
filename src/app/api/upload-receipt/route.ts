@@ -4,7 +4,7 @@ import { processReceiptImage, toTransactionRow } from "@/lib/receipt";
 import { ambilKonteksAI } from "@/lib/kategori-server";
 import { simpanTransaksi } from "@/lib/simpan-transaksi";
 import { dbErrorMessage } from "@/lib/errors";
-import { pertanyaanDraft } from "@/lib/draft";
+import type { JenisTanya } from "@/lib/draft";
 import { kabariDraft, simpanThumbnail } from "@/lib/draft-server";
 import { TEKS_MAKS } from "@/lib/transaksi-input";
 import type { Transaction } from "@/types/transaction";
@@ -64,6 +64,7 @@ export async function POST(req: NextRequest) {
     // 4. Simpan. Bila baris rekening koran untuk transaksi yang sama sudah
     //    terlanjur masuk, baris itu disingkirkan — bukti bayar lebih lengkap.
     let inserted: Transaction;
+    let pertanyaan: JenisTanya | null = null;
     let supersededStatement = false;
     try {
       const hasil = await simpanTransaksi(
@@ -73,6 +74,7 @@ export async function POST(req: NextRequest) {
       );
       inserted = hasil.transaction as Transaction;
       supersededStatement = hasil.supersededStatement;
+      pertanyaan = hasil.pertanyaan;
     } catch (dbError) {
       return NextResponse.json(
         {
@@ -95,7 +97,7 @@ export async function POST(req: NextRequest) {
       {
         success: true,
         transaction: inserted,
-        pertanyaan: pertanyaanDraft(inserted),
+        pertanyaan,
         // Status akhir: bisa jadi draft di simpanTransaksi (kantong tak cocok).
         status: inserted.status,
         source: result.source,
