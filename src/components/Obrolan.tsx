@@ -44,6 +44,9 @@ import type { Transaction } from "@/types/transaction";
 /** Lama hitung mundur penutup perbaikan (detik). */
 const TUTUP_DETIK = 8;
 
+/** Lama kartu hasil catatan lengkap tampil di lembar ringkas (milidetik). */
+const KARTU_RINGKAS_MS = 5000;
+
 type Pesan =
   | { t: "saya"; teks: string }
   | { t: "foto"; src: string }
@@ -269,6 +272,18 @@ export default function LembarCatat({
     setDetik(TUTUP_DETIK);
     router.refresh();
   }
+
+  // Kartu hasil di lembar ringkas hilang sendiri; saran muncul lagi dan
+  // ketikan berikutnya jadi catatan baru (bukan koreksi kartu yang sudah
+  // tidak terlihat). Batalkan memulai ulang hitungannya.
+  useEffect(() => {
+    if (!ringkas || besar) return;
+    const t = setTimeout(() => {
+      setRingkas(null);
+      setPesan([]);
+    }, KARTU_RINGKAS_MS);
+    return () => clearTimeout(t);
+  }, [ringkas, besar]);
 
   // Hitung mundur penutup.
   useEffect(() => {
