@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { ikutSaldo, saldoSejak } from "@/lib/waktu";
 
 /**
  * Kantong = rekening, dompet digital, atau uang tunai milik user (tabel
@@ -33,8 +34,10 @@ export interface Kantong {
   kind: JenisKantong;
   aliases: string[] | null;
   saldo_awal: number | string;
-  /** "YYYY-MM-DD": saldo_awal adalah saldo di awal tanggal ini. */
+  /** "YYYY-MM-DD": tanggal WIB dari saldo_sejak (disinkronkan trigger database). */
   saldo_per: string;
+  /** Sejak kapan saldo_awal berlaku (timestamptz). Lihat SPEC-saldo-waktu.md. */
+  saldo_sejak?: string | null;
   /** Kantong tunai bawaan: tidak bisa dihapus, jenisnya tetap tunai. */
   bawaan?: boolean;
   emoji?: string | null;
@@ -116,29 +119,32 @@ export interface BarisSaldo {
   amount: number | string;
   type: string;
   transaction_date: string;
+  /** Jam transaksi (WIB), opsional. */
+  waktu?: string | null;
   kantong_id: string | null;
   kantong_tujuan_id: string | null;
 }
 
 /**
  * Saldo tiap kantong = saldo_awal + masuk − keluar − pindah keluar + pindah
- * masuk, dari transaksi bertanggal saldo_per atau sesudahnya. `transaksi`
+ * masuk, dari transaksi sejak saldo_sejak (di hari itu: pada/sesudah jamnya;
+ * tanpa jam dianggap sesudah). Sama dengan RPC saldo_kantong(). `transaksi`
  * cukup yang terkonfirmasi; draft belum bisa dipercaya nominalnya.
  */
 export function hitungSaldo(daftar: Kantong[], transaksi: BarisSaldo[]): { id: string; saldo: number }[] {
   const saldo = new Map(daftar.map((k) => [k.id, Number(k.saldo_awal)]));
-  const per = new Map(daftar.map((k) => [k.id, k.saldo_per]));
-  const tambah = (id: string | null, n: number, tanggal: string) => {
-    if (id && saldo.has(id) && tanggal >= per.get(id)!) saldo.set(id, saldo.get(id)! + n);
+  const sejak = new Map(daftar.map((k) => [k.id, saldoSejak(k)]));
+  const tambah = (id: string | null, n: number, t: BarisSaldo) => {
+    if (id && saldo.has(id) && ikutSaldo(t, sejak.get(id)!)) saldo.set(id, saldo.get(id)! + n);
   };
 
   for (const t of transaksi) {
     const n = Number(t.amount);
-    if (t.type === "income") tambah(t.kantong_id, n, t.transaction_date);
-    else if (t.type === "expense") tambah(t.kantong_id, -n, t.transaction_date);
+    if (t.type === "income") tambah(t.kantong_id, n, t);
+    else if (t.type === "expense") tambah(t.kantong_id, -n, t);
     else if (t.type === "transfer") {
-      tambah(t.kantong_id, -n, t.transaction_date);
-      tambah(t.kantong_tujuan_id, n, t.transaction_date);
+      tambah(t.kantong_id, -n, t);
+      tambah(t.kantong_tujuan_id, n, t);
     }
   }
   return daftar.map((k) => ({ id: k.id, saldo: saldo.get(k.id)! }));

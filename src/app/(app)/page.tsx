@@ -52,6 +52,7 @@ export default async function BerandaPage({ searchParams }: { searchParams: Prom
       .eq("status", "confirmed")
       .in("transaction_date", [hariIni, geserHari(hariIni, -1)])
       .order("transaction_date", { ascending: false })
+      .order("waktu", { ascending: false, nullsFirst: false })
       .order("created_at", { ascending: false }),
     supabase
       .from("transactions")

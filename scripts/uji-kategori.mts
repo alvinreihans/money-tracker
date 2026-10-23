@@ -5,7 +5,7 @@
  * Pemakaian: npm run uji:kategori
  */
 import assert from "node:assert/strict";
-import { normalize } from "../src/lib/extract.ts";
+import { nominalDariPromo, normalize } from "../src/lib/extract.ts";
 import {
   cariKategori,
   KATEGORI_BAWAAN,
@@ -68,4 +68,14 @@ assert.equal(normalize({ amount: 5e5, type: "income", category: "c-kopi12345" },
 assert.equal(rapikanBudget({ "c-kucing123": "300000" }, milikku).ok, true);
 assert.equal(rapikanBudget({ food: "300000" }, milikku).ok, false);
 
-console.log("✓ kategori: daftar per jenis, validasi, transaksi & AI memakai kategori milik user");
+// Nominal dari baris promo (bukti ShopeePay byU Rp 5.000 terbaca Rp 100.000).
+const bukti = "= ShopeePay\nRp 5 . 0 0 0\nNama Merchant byU\nTa Fe: : Cashback Saldo s.d Rp100.000\nNol # Download on the GET ITON";
+assert.equal(nominalDariPromo(bukti, 100000), true);
+assert.equal(nominalDariPromo(bukti, 5000), false); // "Rp 5 . 0 0 0" dirapatkan = Rp5.000
+assert.equal(nominalDariPromo(bukti.replace("Rp 5 . 0 0 0\n", ""), 100000), true);
+assert.equal(nominalDariPromo("TOTAL 100.000\nCashback s.d Rp100.000", 100000), false); // ada juga di baris TOTAL
+assert.equal(nominalDariPromo("TOTAL 37.000\nTUNAI 50.000", 13000), false); // tidak tertulis: tidak dinilai
+assert.equal(nominalDariPromo("Diskon maks Rp10.000\nTotal Rp 110.000", 10000), true);
+assert.equal(nominalDariPromo("Total Rp 110.000", 10000), false); // 10.000 bukan bagian dari 110.000
+
+console.log("✓ kategori: daftar per jenis, validasi, transaksi & AI memakai kategori milik user; nominal dari baris promo ditolak");

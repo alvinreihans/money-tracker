@@ -24,6 +24,8 @@ export interface TransaksiValid {
   type: TransactionType;
   category: string;
   transaction_date: string;
+  /** Jam (WIB) "HH:MM", opsional. */
+  waktu: string | null;
   merchant: string | null;
   payment_method: string | null;
   kantong_id: string | null;
@@ -112,6 +114,11 @@ export function validasiTransaksi(
   if (!tanggalSah(input.transaction_date)) {
     return { ok: false, error: "Tanggalnya nggak valid." };
   }
+  // Jam opsional; kosong = tidak diisi (ditentukan server, lihat catat-manual).
+  const waktu = input.waktu === undefined || input.waktu === null || input.waktu === "" ? null : String(input.waktu).slice(0, 5);
+  if (waktu !== null && !/^([01]\d|2[0-3]):[0-5]\d$/.test(waktu)) {
+    return { ok: false, error: "Jamnya nggak valid." };
+  }
 
   const merchant = teksOpsional(input.merchant, 120);
   const payment_method = teksOpsional(input.payment_method, 60);
@@ -159,6 +166,7 @@ export function validasiTransaksi(
       type: type as TransactionType,
       category,
       transaction_date: input.transaction_date,
+      waktu,
       merchant,
       payment_method,
       kantong_id,

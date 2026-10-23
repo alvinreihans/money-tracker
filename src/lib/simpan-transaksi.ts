@@ -1,8 +1,19 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isoLokal } from "@/lib/format";
 import { cocokkanKantong, type Kantong } from "@/lib/kantong";
-import { arahPindah, EMOJI_ORANG, kantongUang, pilihCicilan, SALDO_PER_PINJAMAN, type Cicilan } from "@/lib/pinjaman";
+import {
+  arahPindah,
+  EMOJI_ORANG,
+  kantongUang,
+  pilihCicilan,
+  rencanaPaylater,
+  SALDO_PER_PINJAMAN,
+  type Cicilan,
+  type InfoPaylater,
+} from "@/lib/pinjaman";
 import { barisIkutan } from "@/lib/transaksi-input";
+import { pertanyaanDraft, type JenisTanya } from "@/lib/draft";
+import { jamTransaksi, perluTanyaJam, saldoSejak, type PetunjukJam } from "@/lib/waktu";
 
 /** Toleransi selisih tanggal saat mencocokkan dengan baris rekening koran lama. */
 const DEDUPE_DAY_WINDOW = 2;
@@ -11,6 +22,28 @@ function shiftDate(iso: string, days: number): string {
   const d = new Date(`${iso}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().slice(0, 10);
+}
+
+/**
+ * Belanja paylater jadi rencana cicilan (SPEC-paylater): tidak ada pengeluaran
+ * dan tidak ada saldo yang berubah; tiap cicilan dicatat saat dibayar.
+ * `draftId`: draft yang menunggu tenornya — dihapus begitu rencananya ada.
+ */
+export async function jadikanCicilan(
+  supabase: SupabaseClient,
+  userId: string,
+  belanja: Parameters<typeof rencanaPaylater>[0] & { description?: string | null },
+  info: InfoPaylater & { tenor: number },
+  draftId?: string,
+): Promise<Cicilan> {
+  const { data, error } = await supabase
+    .from("cicilan")
+    .insert({ user_id: userId, ...rencanaPaylater(belanja, info), catatan: belanja.description?.slice(0, 500) || null })
+    .select()
+    .single();
+  if (error) throw new Error(error.message);
+  if (draftId) await supabase.from("transactions").delete().eq("id", draftId);
+  return data as Cicilan;
 }
 
 /** Isian manual tanpa kantong padahal user sudah punya kantong. */
@@ -30,14 +63,43 @@ export async function simpanTransaksi(
   supabase: SupabaseClient,
   userId: string,
   input: Record<string, unknown>,
-): Promise<{ supersededStatement: boolean; transaction: unknown }> {
-  const { payment_target, biaya_admin, cashback, pinjaman, cicilan: sebutanCicilan, ...row } = input;
+): Promise<{ supersededStatement: boolean; transaction: unknown; pertanyaan: JenisTanya | null; cicilan?: Cicilan }> {
+  const { payment_target, biaya_admin, cashback, pinjaman, cicilan: sebutanCicilan, jam, petunjuk_jam, info_paylater, ...row } = input;
   const dariAi = "payment_target" in input;
+
+  // Belanja pakai paylater: bukan pengeluaran dari kantong mana pun. Tenor
+  // diketahui → langsung jadi rencana cicilan; belum → draft yang menanyakannya.
+  const paylater = dariAi && row.type === "expense" ? (info_paylater as InfoPaylater | null) : null;
+  if (paylater) {
+    const belanja = {
+      amount: Number(row.amount),
+      merchant: (row.merchant as string | null) ?? null,
+      category: String(row.category),
+      transaction_date: String(row.transaction_date),
+      description: (row.description as string | null) ?? null,
+    };
+    if (paylater.tenor && belanja.amount > 0) {
+      const cicilan = await jadikanCicilan(supabase, userId, belanja, { ...paylater, tenor: paylater.tenor });
+      return { supersededStatement: false, transaction: null, pertanyaan: null, cicilan };
+    }
+    const draft = {
+      ...row,
+      paylater: paylater.penyedia,
+      payment_method: paylater.penyedia,
+      kantong_id: null,
+      kantong_tujuan_id: null,
+      status: "needs_review",
+    };
+    const { data: tersimpan, error } = await supabase.from("transactions").insert(draft).select().single();
+    if (error) throw new Error(error.message);
+    return { supersededStatement: false, transaction: tersimpan, pertanyaan: pertanyaanDraft(tersimpan) };
+  }
 
   // Tautkan ke kantong. Form mengirim id-nya langsung (dicek memang milik
   // user); teks dan struk membawa nama ("gopay", "BRImo") yang dicocokkan.
-  const { data } = await supabase.from("user_accounts").select("id, name, kind, aliases").eq("user_id", userId);
-  const daftar = (data ?? []) as Pick<Kantong, "id" | "name" | "kind" | "aliases">[];
+  const KOLOM = "id, name, kind, aliases, saldo_per, saldo_sejak";
+  const { data } = await supabase.from("user_accounts").select(KOLOM).eq("user_id", userId);
+  const daftar = (data ?? []) as Pick<Kantong, "id" | "name" | "kind" | "aliases" | "saldo_per" | "saldo_sejak">[];
 
   let kantong: (typeof daftar)[number] | null;
   let tujuan: (typeof daftar)[number] | null;
@@ -51,7 +113,7 @@ export async function simpanTransaksi(
       const { data: baru } = await supabase
         .from("user_accounts")
         .insert({ user_id: userId, name: p.pihak, kind: "orang", emoji: EMOJI_ORANG, saldo_awal: 0, saldo_per: SALDO_PER_PINJAMAN })
-        .select("id, name, kind, aliases")
+        .select(KOLOM)
         .single();
       pihak = (baru as (typeof daftar)[number] | null) ?? null;
     }
@@ -113,6 +175,20 @@ export async function simpanTransaksi(
   // Belum punya kantong sama sekali: "transfer" dari AI tidak bisa dipastikan
   // pindah kantong sendiri, jadi dicatat pengeluaran seperti dulu.
   if (dariAi && daftar.length === 0 && row.type === "transfer") row.type = "expense";
+  // Jam transaksi (SPEC-saldo-waktu). Dari AI: jam tertera/disebut, perkiraan
+  // bagian hari, atau jam saat dicatat. Di hari saldo kantongnya, jam yang
+  // belum pasti ditanyakan dulu ("Tadi itu jam berapa?") — transaksi sebelum
+  // jam saldo tidak boleh memotong saldo yang sudah mencakupnya.
+  if (dariAi) {
+    const j = jamTransaksi({ time: jam as string | null, hint: petunjuk_jam as PetunjukJam | null }, String(row.transaction_date));
+    row.waktu = j.waktu;
+    const cek = { transaction_date: String(row.transaction_date), waktu: j.waktu, perkiraan: j.perkiraan };
+    if ([kantong, tujuan].some((k) => k && perluTanyaJam(cek, saldoSejak(k)))) {
+      row.waktu = null;
+      row.status = "needs_review";
+    }
+  }
+
   // Teks asli/OCR hanya disimpan untuk draft, sebagai bahan membetulkan.
   if (row.status === "confirmed") row.raw_ocr_text = null;
 
@@ -156,5 +232,11 @@ export async function simpanTransaksi(
   );
   if (ikutan) await supabase.from("transactions").insert(ikutan);
 
-  return { supersededStatement, transaction: tersimpan };
+  // Pertanyaan berikutnya untuk obrolan, kalau belum lengkap.
+  const semua = [...daftar, ...[kantong, tujuan].filter((k): k is NonNullable<typeof k> => Boolean(k))];
+  const pertanyaan = pertanyaanDraft(tersimpan, (id) => {
+    const k = semua.find((x) => x.id === id);
+    return k ? saldoSejak(k) : undefined;
+  });
+  return { supersededStatement, transaction: tersimpan, pertanyaan };
 }

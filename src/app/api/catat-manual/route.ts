@@ -4,6 +4,7 @@ import { ambilKategori } from "@/lib/kategori-server";
 import { KantongKurang, simpanTransaksi } from "@/lib/simpan-transaksi";
 import { dbErrorMessage } from "@/lib/errors";
 import { validasiTransaksi } from "@/lib/transaksi-input";
+import { jamTransaksi } from "@/lib/waktu";
 import type { Transaction } from "@/types/transaction";
 
 export const runtime = "nodejs";
@@ -34,6 +35,8 @@ export async function POST(req: NextRequest) {
   try {
     const { transaction } = await simpanTransaksi(supabase, user.id, {
       ...hasil.data,
+      // Tanpa jam (bayar cicilan, pinjaman): hari ini = sekarang.
+      waktu: hasil.data.waktu ?? jamTransaksi({ time: null, hint: null }, hasil.data.transaction_date).waktu,
       user_id: user.id,
       // Diisi sendiri oleh pemiliknya, jadi nominalnya sudah bisa dipercaya.
       status: "confirmed",

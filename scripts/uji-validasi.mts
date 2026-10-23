@@ -24,6 +24,7 @@ assert.deepEqual(hasil.data, {
   type: "expense",
   category: "food",
   transaction_date: "2026-10-21",
+  waktu: null,
   merchant: "Kopi Kenangan",
   payment_method: null,
   kantong_id: null,
@@ -32,6 +33,14 @@ assert.deepEqual(hasil.data, {
   biaya_admin: null,
   cashback: null,
 });
+
+// Jam opsional (SPEC-saldo-waktu): "HH:MM" atau kosong.
+const jam = (waktu: unknown) => validasiTransaksi({ ...sah, waktu });
+assert.equal(jam("10:30").ok && jam("10:30").data.waktu, "10:30");
+assert.equal(jam("09:05:00").ok && jam("09:05:00").data.waktu, "09:05");
+assert.equal(jam("").ok && jam("").data.waktu, null);
+assert.equal(jam("24:00").ok, false);
+assert.equal(jam("jam 10").ok, false);
 
 // Kantong: id harus uuid; tujuan hanya untuk pindah kantong dan tidak boleh sama dengan asal.
 const ID_A = "0b6c1b1e-6f3a-4d2b-9c1e-3a7f0e2d4c5b";

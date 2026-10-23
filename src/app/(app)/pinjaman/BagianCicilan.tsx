@@ -5,13 +5,13 @@ import { useRouter } from "next/navigation";
 import { Banknote, CalendarClock, CalendarDays, Check, ListChecks, NotebookPen, Package, Shapes, Store, Trash2, Wallet } from "lucide-react";
 import { useKategori } from "@/components/Catat";
 import { tandaKategori } from "@/components/kategori";
-import { Field, InputNominal, Konfirmasi, Lembar, Pesan, Pilih, Spinner } from "@/components/oneui";
+import { Field, InputNominal, Konfirmasi, Lembar, Pesan, Pilih, Segmen, Spinner } from "@/components/oneui";
 import s from "@/components/ui.module.css";
 import { dbErrorMessage } from "@/lib/errors";
 import { fmtIDR, fmtTanggal, fmtTanggalPendek, isianNominal, isoLokal } from "@/lib/format";
 import { emojiKantong, type Kantong } from "@/lib/kantong";
 import { kategoriJenis, LAINNYA } from "@/lib/kategori";
-import { jadwalCicilan, kantongUang, statusCicilan, type Cicilan } from "@/lib/pinjaman";
+import { bagiRata, jadwalCicilan, kantongUang, statusCicilan, type Angsuran, type Cicilan } from "@/lib/pinjaman";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 type KantongSaldo = Kantong & { saldo: number };
@@ -43,7 +43,8 @@ export default function BagianCicilan({
 }) {
   const router = useRouter();
   const [aksi, setAksi] = useState<Cicilan | null>(null);
-  const [bayar, setBayar] = useState<Cicilan | null>(null);
+  // Bayar: rencananya & berapa cicilan sekaligus yang dipilih di awal.
+  const [bayar, setBayar] = useState<{ rencana: Cicilan; jumlah: number } | null>(null);
   const [jadwal, setJadwal] = useState<Cicilan | null>(null);
   const [hapus, setHapus] = useState<Cicilan | null>(null);
   const [loading, setLoading] = useState(false);
@@ -107,7 +108,11 @@ export default function BagianCicilan({
             const st = statusCicilan(aksi, dibayar[aksi.id] ?? [], hariIni);
             const pilihan = [
               ...(st.berikutnya
-                ? [{ label: `Bayar cicilan ke-${st.berikutnya.ke} · ${fmtIDR(Number(aksi.nominal))}`, ikon: Banknote, jalan: () => setBayar(aksi) }]
+                ? [{ label: `Bayar cicilan ke-${st.berikutnya.ke} · ${fmtIDR(Number(aksi.nominal))}`, ikon: Banknote, jalan: () => setBayar({ rencana: aksi, jumlah: 1 }) }]
+                : []),
+              // Seperti di aplikasi paylater: sisa cicilan boleh dilunasi sekaligus.
+              ...(st.sisa > 1
+                ? [{ label: `Lunasi ${st.sisa} cicilan sisa · ${fmtIDR(st.sisaNominal)}`, ikon: Check, jalan: () => setBayar({ rencana: aksi, jumlah: st.sisa }) }]
                 : []),
               { label: "Lihat jadwal", ikon: ListChecks, jalan: () => setJadwal(aksi) },
               { label: "Hapus rencana", ikon: Trash2, jalan: () => setHapus(aksi) },
@@ -168,8 +173,9 @@ export default function BagianCicilan({
 
       {bayar && (
         <FormBayar
-          rencana={bayar}
-          ke={statusCicilan(bayar, dibayar[bayar.id] ?? [], hariIni).berikutnya!}
+          rencana={bayar.rencana}
+          belum={jadwalCicilan(bayar.rencana, dibayar[bayar.rencana.id] ?? []).filter((a) => !a.dibayar)}
+          jumlahAwal={bayar.jumlah}
           pembayar={pembayar}
           onClose={() => setBayar(null)}
         />
@@ -180,21 +186,32 @@ export default function BagianCicilan({
   );
 }
 
-/** Bayar satu cicilan: pengeluaran biasa (kategori rencana) yang menempel ke rencananya. */
+/**
+ * Bayar cicilan: pengeluaran biasa (kategori rencana) yang menempel ke
+ * rencananya. Boleh beberapa sekaligus (1, 2, … semua sisa) — tercatat satu
+ * pengeluaran per cicilan, nominalnya dibagi rata (SPEC-paylater).
+ */
 function FormBayar({
   rencana,
-  ke,
+  belum,
+  jumlahAwal,
   pembayar,
   onClose,
 }: {
   rencana: Cicilan;
-  ke: { ke: number; jatuhTempo: string };
+  /** Cicilan yang belum dibayar, urut nomor. */
+  belum: Angsuran[];
+  jumlahAwal: number;
   pembayar: KantongSaldo[];
   onClose: () => void;
 }) {
   const router = useRouter();
   const kategori = useKategori();
-  const [nominal, setNominal] = useState(isianNominal(rencana.nominal));
+  const [jumlah, setJumlah] = useState(Math.min(jumlahAwal, belum.length));
+  const dipilih = belum.slice(0, jumlah);
+  const ke = dipilih[0];
+  const pilihanJumlah = [...new Set([1, 2, 3, belum.length])].filter((n) => n <= belum.length).sort((a, b) => a - b);
+  const [nominal, setNominal] = useState(isianNominal(jumlah * Number(rencana.nominal)));
   const [kantongId, setKantongId] = useState(rencana.kantong_id ?? pembayar.find((k) => k.bawaan)?.id ?? "");
   const [tanggal, setTanggal] = useState(isoLokal(new Date()));
   const [loading, setLoading] = useState(false);
@@ -207,25 +224,31 @@ function FormBayar({
     setError(null);
     // Kategori rencana bisa sudah dihapus: jatuh ke Lainnya.
     const category = kategoriJenis(kategori, "expense").some((k) => k.slug === rencana.category) ? rencana.category : LAINNYA;
-    const res = await fetch("/api/catat-manual", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        amount: nominal,
-        type: "expense",
-        category,
-        transaction_date: tanggal,
-        merchant: rencana.nama,
-        description: `Cicilan ${ke.ke}/${rencana.tenor}${rencana.penyedia ? ` · ${rencana.penyedia}` : ""}`,
-        kantong_id: kantongId,
-        cicilan_id: rencana.id,
-        cicilan_ke: ke.ke,
-      }),
-    }).catch(() => null);
-    const hasil = (await res?.json().catch(() => ({}))) as { error?: string } | undefined;
-    if (!res?.ok) {
-      setLoading(false);
-      return setError(hasil?.error ?? "Gagal nyimpen.");
+    const bagian = bagiRata(Number(nominal), dipilih.length);
+    // Satu per cicilan, berurutan: yang gagal berhenti di situ, yang sudah
+    // tersimpan tetap (cicilan itu memang sudah dibayar).
+    for (const [i, a] of dipilih.entries()) {
+      const res = await fetch("/api/catat-manual", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: bagian[i],
+          type: "expense",
+          category,
+          transaction_date: tanggal,
+          merchant: rencana.nama,
+          description: `Cicilan ${a.ke}/${rencana.tenor}${rencana.penyedia ? ` · ${rencana.penyedia}` : ""}`,
+          kantong_id: kantongId,
+          cicilan_id: rencana.id,
+          cicilan_ke: a.ke,
+        }),
+      }).catch(() => null);
+      const hasil = (await res?.json().catch(() => ({}))) as { error?: string } | undefined;
+      if (!res?.ok) {
+        setLoading(false);
+        if (i > 0) router.refresh();
+        return setError(`${i > 0 ? `Cicilan ke-${a.ke} gagal disimpan (yang sebelumnya sudah). ` : ""}${hasil?.error ?? "Gagal nyimpen."}`);
+      }
     }
     onClose();
     router.refresh();
@@ -233,8 +256,8 @@ function FormBayar({
 
   return (
     <Lembar
-      judul={`Bayar cicilan ke-${ke.ke}`}
-      sub={`${rencana.nama} · jatuh tempo ${fmtTanggal(ke.jatuhTempo)}`}
+      judul={jumlah > 1 ? `Bayar cicilan ke-${ke.ke}–${dipilih[jumlah - 1].ke}` : `Bayar cicilan ke-${ke.ke}`}
+      sub={jumlah > 1 ? `${rencana.nama} · ${jumlah} cicilan sekaligus` : `${rencana.nama} · jatuh tempo ${fmtTanggal(ke.jatuhTempo)}`}
       posisi="penuh"
       onClose={() => !loading && onClose()}
       pil={[
@@ -243,8 +266,19 @@ function FormBayar({
       ]}
     >
       <form onSubmit={simpan} className={s.form}>
+        {belum.length > 1 && (
+          <Segmen
+            label="Berapa cicilan"
+            pilihan={pilihanJumlah.map((n) => ({ id: String(n), label: n === belum.length && n > 1 ? `Semua (${n})` : `${n} cicilan` }))}
+            nilai={String(jumlah)}
+            onChange={(id) => {
+              setJumlah(Number(id));
+              setNominal(isianNominal(Number(id) * Number(rencana.nominal)));
+            }}
+          />
+        )}
         <div className={`${s.blok} ${s.blokForm}`}>
-          <Field label="Nominal (Rp)" ikon={Banknote}>
+          <Field label="Nominal (Rp)" ikon={Banknote} keterangan={jumlah > 1 ? "Ubah kalau pelunasannya lebih murah atau lebih mahal." : undefined}>
             <InputNominal required value={nominal} onChange={setNominal} placeholder="Nominal (Rp)" />
           </Field>
           <Pilih
@@ -260,7 +294,9 @@ function FormBayar({
           </Field>
         </div>
         <p className={s.redup} style={{ margin: "0 20px" }}>
-          Dicatat sebagai pengeluaran {rencana.nama} bulan ini.
+          {jumlah > 1
+            ? `Dicatat sebagai ${jumlah} pengeluaran ${rencana.nama}, satu per cicilan.`
+            : `Dicatat sebagai pengeluaran ${rencana.nama} bulan ini.`}
         </p>
         {error && <Pesan jenis="bahaya">{error}</Pesan>}
         <button type="submit" hidden />

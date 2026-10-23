@@ -2,6 +2,8 @@ import { SchemaType, type GenerationConfig } from "@google/generative-ai";
 import { getGeminiClient, GEMINI_MODEL } from "@/lib/gemini";
 import { runGroqChain, parseJsonLoose } from "@/lib/groq";
 import { isoLokal } from "@/lib/format";
+import type { InfoPaylater } from "@/lib/pinjaman";
+import type { PetunjukJam } from "@/lib/waktu";
 import { KATEGORI_BAWAAN, kategoriJenis, LAINNYA, type Kategori } from "@/lib/kategori";
 import type { ExtractedReceipt, TransactionType } from "@/types/transaction";
 
@@ -69,6 +71,8 @@ Skema:
   "merchant": string | null,
   "category": string,
   "transaction_date": "YYYY-MM-DD",
+  "time": "HH:MM" | null,
+  "time_hint": "pagi" | "siang" | "sore" | "malam" | "lampau" | null,
   "description": string | null,
   "payment_method": string | null,
   "payment_target": string | null,
@@ -76,6 +80,7 @@ Skema:
   "cashback": number | null,
   "pinjaman": { "arah": "beri" | "terima_bayar" | "pinjam" | "bayar", "pihak": string } | null,
   "cicilan": string | null,
+  "paylater": { "penyedia": string, "tenor": number | null, "per_cicilan": number | null, "jatuh_tempo": "YYYY-MM-DD" | null } | null,
   "document_type": "receipt" | "payment_proof"
 }
 
@@ -98,8 +103,10 @@ Aturan:
 
   Pada bukti pembayaran digital (ShopeePay/GoPay/OVO/DANA/QRIS), ambil nominal
   utama transaksi yang biasanya tercetak paling besar di bagian atas. JANGAN
-  mengambil angka promo/cashback ("Cashback up to ..."), sisa saldo, nomor
-  kartu, PAN, RRN, atau ID transaksi.
+  mengambil angka promo/iklan ("Cashback up to ...", "Cashback Saldo s.d
+  Rp100.000", baris "Download Aplikasi"), sisa saldo, nomor kartu, PAN, RRN,
+  atau ID transaksi. Kalau nominal utamanya tidak terbaca, amount 0 — jangan
+  mengambil angka lain sebagai gantinya.
 - type: arah uang dari sudut pandang PEMILIK catatan.
   "income" bila uang MASUK ke pemilik: gaji/gajian, THR, bonus, cashback,
   refund, bunga, hasil jual barang, atau uang yang dikasih/dikirim/ditransfer
@@ -128,6 +135,13 @@ ${daftarPrompt(kategori, "income")}
   "income": sumber uangnya bila disebut ("Ibu", "Kantor"). Nama bank/dompet
   BUKAN merchant — itu payment_method.
 - transaction_date: format "YYYY-MM-DD". Jika tidak disebut, gunakan hari ini: ${todayISO}.
+- time: jam transaksi format 24 jam "HH:MM" bila TERTERA di struk/bukti ("Waktu Selesai
+  23 Okt 2026, 13:57" -> "13:57"; "14:05:33" -> "14:05") atau DISEBUT ("jam 10" -> "10:00",
+  "jam 2 siang" -> "14:00", "pukul 19.30" -> "19:30"). Jangan menebak. Selain itu null.
+- time_hint: HANYA bila time null. Bagian hari yang disebut: "pagi", "siang", "sore",
+  "malam" ("tadi pagi beli roti" -> "pagi"). "lampau" bila teks menyatakan sudah terjadi
+  tanpa bagian hari ("tadi beli roti", "tadi bayar parkir"). Tanpa petunjuk waktu sama
+  sekali ("kopi 25rb gopay", "kemarin makan") -> null.
 - description: ringkasan singkat isi transaksi, boleh null.
 - payment_method: metode bayar bila disebut, normalkan istilah gaul/singkatan:
   "sopipay"/"spay"/"shopee pay"=ShopeePay; "gopay"=GoPay; "ovo"=OVO; "dana"=DANA;
@@ -164,6 +178,12 @@ ${daftarPrompt(kategori, "income")}
       ? ` Rencana cicilan milik user (nama — penyedia): ${cicilan.map((c) => `${c.nama}${c.penyedia ? ` — ${c.penyedia}` : ""}`).join("; ")}. Pakai nama barang atau penyedia persis dari daftar ini.`
       : ""
   } Selain itu null.
+- paylater: HANYA untuk "expense" yang DIBAYAR pakai paylater (SPayLater/Shopee PayLater, GoPayLater,
+  Kredivo, Akulaku, Atome, Indodana, Traveloka PayLater). Paylater BUKAN e-wallet: "SPayLater" bukan
+  ShopeePay, "GoPayLater" bukan GoPay — payment_method null. penyedia = nama paylater-nya; tenor =
+  berapa kali cicilan bila tertera/disebut ("3x", "cicilan 3 bulan"), "bayar bulan depan"/"30 hari" = 1;
+  per_cicilan & jatuh_tempo bila tertera. Yang tidak ada null. Selain itu paylater null.
+  Membayar tagihan/cicilan paylater = field cicilan, bukan paylater.
 - document_type: "payment_proof" bila ini tangkapan layar bukti bayar dari
   aplikasi (ShopeePay/GoPay/OVO/DANA/QRIS/m-banking), "receipt" bila ini struk
   kertas dari mesin kasir. Dipakai untuk mencegah transaksi tercatat dua kali
@@ -183,6 +203,7 @@ Contoh teks ketikan (field lain mengikuti aturan di atas):
 - "budi balikin 100rb ke bca" -> type "transfer", payment_method "BCA", pinjaman { "arah": "terima_bayar", "pihak": "Budi" }
 - "bayar tagihan kartu kredit bca 2jt dari bca" -> type "transfer", payment_method "BCA", pinjaman { "arah": "bayar", "pihak": "Kartu kredit BCA" }
 - "bayar cicilan spaylater 150rb pake bca" -> type "expense", payment_method "BCA", cicilan "Shopee PayLater"
+- "beli hp 3jt kredivo 6x" -> type "expense", payment_method null, paylater { "penyedia": "Kredivo", "tenor": 6, "per_cicilan": null, "jatuh_tempo": null }
 
 Jangan menambahkan teks/penjelasan/markdown di luar JSON.`;
 }
@@ -227,12 +248,36 @@ export function normalize(parsed: Partial<ExtractedReceipt>, kategori: Kategori[
     cashback: type === "expense" ? nominalAtauNull(parsed.cashback) : null,
     pinjaman,
     cicilan: type === "expense" && typeof parsed.cicilan === "string" && parsed.cicilan.trim() ? parsed.cicilan.trim().slice(0, 60) : null,
+    // Membayar cicilan paylater (field cicilan) bukan belanja paylater baru.
+    paylater: type === "expense" && !(typeof parsed.cicilan === "string" && parsed.cicilan.trim()) ? paylaterAtauNull(parsed.paylater) : null,
     document_type: parsed.document_type === "payment_proof" ? "payment_proof" : "receipt",
     transaction_date:
       typeof parsed.transaction_date === "string" && parsed.transaction_date
         ? parsed.transaction_date
         : toISODate(new Date()),
+    ...jamAtauNull(parsed.time, parsed.time_hint),
   };
+}
+
+/** Paylater yang sah: penyedia wajib; tenor 1–120, nominal & tanggal hanya bila masuk akal. */
+function paylaterAtauNull(p: unknown): InfoPaylater | null {
+  const x = p as Partial<Record<keyof InfoPaylater, unknown>> | null | undefined;
+  if (!x || typeof x.penyedia !== "string" || !x.penyedia.trim()) return null;
+  const tenor = Number(x.tenor);
+  return {
+    penyedia: x.penyedia.trim().slice(0, 40),
+    tenor: Number.isInteger(tenor) && tenor >= 1 && tenor <= 120 ? tenor : null,
+    per_cicilan: nominalAtauNull(x.per_cicilan),
+    jatuh_tempo: typeof x.jatuh_tempo === "string" && /^\d{4}-\d{2}-\d{2}$/.test(x.jatuh_tempo) ? x.jatuh_tempo : null,
+  };
+}
+
+/** "HH:MM" yang sah, atau petunjuk bagian hari bila jamnya tidak ada. */
+function jamAtauNull(time: unknown, hint: unknown): Pick<ExtractedReceipt, "time" | "time_hint"> {
+  const m = typeof time === "string" ? time.trim().match(/^(\d{1,2})[:.](\d{2})/) : null;
+  if (m && Number(m[1]) <= 23 && Number(m[2]) <= 59) return { time: `${m[1].padStart(2, "0")}:${m[2]}`, time_hint: null };
+  const h = typeof hint === "string" ? hint.trim().toLowerCase() : "";
+  return { time: null, time_hint: ["pagi", "siang", "sore", "malam", "lampau"].includes(h) ? (h as PetunjukJam) : null };
 }
 
 /**
@@ -253,6 +298,24 @@ export function isValidExtraction(r: ExtractedReceipt, kategori: Kategori[] = KA
   if (date > besok || date < batasBawah) return false;
 
   return r.type === "transfer" || kategoriJenis(kategori, r.type).some((k) => k.slug === r.category);
+}
+
+/** Baris iklan/promo di struk & bukti bayar ("Cashback Saldo s.d Rp100.000", "Download Aplikasi"). */
+const BARIS_PROMO = /\bs\.?\s?d\b|s\/d|\bhingga\b|\bup to\b|\bmaks|\bpromo|\bvoucher|\bdownload|\bunduh/i;
+
+/**
+ * Nominal hasil AI yang di teks OCR hanya muncul di baris promo — tanda
+ * nominal aslinya tidak terbaca dan model mengambil angka iklan (bukti
+ * ShopeePay Rp 5.000 terbaca Rp 100.000 dari "Cashback Saldo s.d Rp100.000").
+ * Nominal yang tidak tertulis di teks sama sekali tidak dinilai di sini.
+ */
+export function nominalDariPromo(teks: string, amount: number): boolean {
+  const bentuk = [String(amount), amount.toLocaleString("id-ID"), amount.toLocaleString("en-US")];
+  const baris = teks.split("\n").filter((b) => {
+    const rapat = b.replace(/\s+/g, "");
+    return bentuk.some((x) => new RegExp(`(^|[^\\d.,])${x.replace(/[.,]/g, "\\$&")}(?![\\d]|[.,]\\d)`).test(rapat));
+  });
+  return baris.length > 0 && baris.every((b) => BARIS_PROMO.test(b));
 }
 
 // ---------------------------------------------------------------------------
@@ -285,6 +348,8 @@ const geminiSchema: GenerationConfig["responseSchema"] = {
     merchant: { type: SchemaType.STRING, nullable: true },
     category: { type: SchemaType.STRING },
     transaction_date: { type: SchemaType.STRING },
+    time: { type: SchemaType.STRING, nullable: true },
+    time_hint: { type: SchemaType.STRING, format: "enum", enum: ["pagi", "siang", "sore", "malam", "lampau"], nullable: true },
     description: { type: SchemaType.STRING, nullable: true },
     payment_method: { type: SchemaType.STRING, nullable: true },
     payment_target: { type: SchemaType.STRING, nullable: true },
@@ -299,6 +364,16 @@ const geminiSchema: GenerationConfig["responseSchema"] = {
       },
     },
     cicilan: { type: SchemaType.STRING, nullable: true },
+    paylater: {
+      type: SchemaType.OBJECT,
+      nullable: true,
+      properties: {
+        penyedia: { type: SchemaType.STRING },
+        tenor: { type: SchemaType.INTEGER, nullable: true },
+        per_cicilan: { type: SchemaType.NUMBER, nullable: true },
+        jatuh_tempo: { type: SchemaType.STRING, nullable: true },
+      },
+    },
     document_type: { type: SchemaType.STRING, format: "enum", enum: ["receipt", "payment_proof"] },
   },
   required: ["amount", "type", "category", "transaction_date"],

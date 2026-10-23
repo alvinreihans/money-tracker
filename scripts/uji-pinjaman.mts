@@ -7,7 +7,9 @@ import assert from "node:assert/strict";
 import { hitungSaldo, type Kantong } from "../src/lib/kantong.ts";
 import {
   arahPindah,
+  bagiRata,
   jadwalCicilan,
+  rencanaPaylater,
   jatuhTempoKe,
   kantongUang,
   pilihCicilan,
@@ -113,4 +115,25 @@ assert.deepEqual(pilihCicilan("KREDIVO", rencana, sudah, "2026-10-22"), { rencan
 assert.equal(pilihCicilan("Akulaku", rencana, sudah, "2026-10-22"), null);
 assert.equal(pilihCicilan("", rencana, sudah, "2026-10-22"), null);
 
-console.log("✓ pinjaman: jatuh tempo, jadwal & status cicilan, arah pindah, ringkasan Lend & Borrow, kartu Beranda");
+// Paylater → rencana cicilan (SPEC-paylater).
+const bensin = { amount: "15680.00", merchant: "BP Gunung Puteri", category: "transport", transaction_date: "2026-10-23" };
+const sp = { penyedia: "SPayLater", per_cicilan: null, jatuh_tempo: null };
+assert.deepEqual(rencanaPaylater(bensin, { ...sp, tenor: 3 }), {
+  nama: "BP Gunung Puteri", penyedia: "SPayLater", category: "transport", nominal: 5227, tenor: 3, jatuh_tempo_awal: "2026-11-23",
+});
+const tertera = rencanaPaylater(bensin, { ...sp, tenor: 3, per_cicilan: 5800, jatuh_tempo: "2026-11-05" });
+assert.equal(tertera.nominal, 5800);
+assert.equal(tertera.jatuh_tempo_awal, "2026-11-05");
+assert.equal(rencanaPaylater(bensin, { ...sp, tenor: 1, jatuh_tempo: "2026-01-01" }).jatuh_tempo_awal, "2026-11-23"); // tanggal ngawur
+assert.equal(rencanaPaylater({ ...bensin, merchant: null }, { ...sp, tenor: 1 }).nama, "Belanja SPayLater");
+assert.equal(rencanaPaylater({ ...bensin, merchant: null, description: "Beli sepatu" }, { ...sp, tenor: 3 }).nama, "Beli sepatu");
+assert.equal(rencanaPaylater({ ...bensin, transaction_date: "2026-01-31" }, { ...sp, tenor: 1 }).jatuh_tempo_awal, "2026-02-28");
+
+// Bayar beberapa cicilan sekaligus.
+assert.deepEqual(bagiRata(10454, 2), [5227, 5227]);
+assert.deepEqual(bagiRata(10000, 3), [3333, 3333, 3334]);
+assert.deepEqual(bagiRata(5000, 1), [5000]);
+const sudahDua = statusCicilan({ tenor: 3, jatuh_tempo_awal: "2026-11-23", nominal: 5227 }, [1, 2, 3], "2026-10-23");
+assert.ok(sudahDua.lunas);
+
+console.log("✓ pinjaman: jatuh tempo, jadwal & status cicilan, arah pindah, ringkasan Lend & Borrow, kartu Beranda, paylater → cicilan, bayar beberapa sekaligus");

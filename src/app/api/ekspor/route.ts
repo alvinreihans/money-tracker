@@ -29,6 +29,7 @@ export async function GET() {
       .from("transactions")
       .select(KOLOM_EKSPOR)
       .order("transaction_date")
+      .order("waktu")
       .order("created_at")
       .order("id")
       .range(dari, dari + 999);
