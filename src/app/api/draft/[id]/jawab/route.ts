@@ -110,7 +110,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     // "13:57:00" dari database = "13:57"; "15680.00" = 15680.
     const teks = (x: unknown) => String(x ?? "").replace(/^(\d\d:\d\d):00$/, "$1");
     const sama = (a: unknown, b: unknown) => teks(a) === teks(b) || (a != null && b != null && Number(a) === Number(b));
-    const PENTING = ["amount", "type", "transaction_date", "waktu", "kantong_id", "kantong_tujuan_id"] as const;
+    // Yang sedang ditanyakan tetap harus dari jawaban user, bukan tebakan AI
+    // (mis. AI mengisi "Tunai" padahal user tidak menyebut kantong).
+    if (gagal) {
+      const ditanya = { kantong: ["kantong_id", "payment_method"], kantong_tujuan: ["kantong_tujuan_id"], waktu: ["waktu"] } as const;
+      for (const k of ditanya[jenis as keyof typeof ditanya] ?? []) delete patch[k];
+    }
+    const PENTING =["amount", "type", "transaction_date", "waktu", "kantong_id", "kantong_tujuan_id"] as const;
     if (gagal && PENTING.every((k) => !(k in patch) || sama(patch[k], tx[k]))) return tolak(gagal);
   } else if (gagal) return tolak(gagal);
 
