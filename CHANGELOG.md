@@ -36,6 +36,14 @@ Belum dikerjakan; dicatat supaya tidak lupa.
 - Foto bisa diberi **keterangan** (mis. "pakai BCA") sebelum dikirim.
 - **Bagikan** dari aplikasi lain tetap diproses walau aplikasinya langsung
   ditutup dan HP dikunci; struk yang belum lengkap dikabari lewat notifikasi.
+- **Saldo per jam.** Saldo kantong berlaku sejak jam diisi, bukan sejak awal
+  hari: transaksi tadi pagi tidak lagi memotong saldo yang diisi siang ini.
+  Transaksi punya kolom **Jam** (terisi otomatis; AI membacanya dari struk
+  atau "tadi jam 10"). Kalau jamnya belum jelas dan berpengaruh ke saldo,
+  ditanya "Tadi itu jam berapa?". Jam tampil di detail dan ikut di ekspor CSV.
+- Di obrolan Catat, ketik **"hapus aja"** / **"ga jadi"** untuk membuang
+  catatannya, dan jawaban bebas (mis. "nominalnya 40rb" saat ditanya kantong)
+  dibaca ulang oleh AI.
 
 ### Diubah
 - Satu foto = satu transaksi: kamera sekali jepret, galeri satu gambar.

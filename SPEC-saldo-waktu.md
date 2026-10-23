@@ -1,6 +1,6 @@
 # Spec: Saldo per jam (bukan cuma tanggal)
 
-Status: **draf, menunggu persetujuan** · 23 Oktober 2026
+Status: **diterapkan** (feat/saldo-waktu) · 23 Oktober 2026
 
 ## Masalah
 
