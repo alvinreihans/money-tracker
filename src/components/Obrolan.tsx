@@ -137,7 +137,7 @@ export default function LembarCatat({
 
   const dialogRef = useRef<HTMLDialogElement>(null);
   const badanRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const judulRef = useRef<HTMLHeadingElement>(null);
   const galeriRef = useRef<HTMLInputElement>(null);
   const urlRef = useRef<string[]>([]);
@@ -803,11 +803,24 @@ export default function LembarCatat({
                   <Paperclip size={22} />
                 </button>
               )}
-              <input
+              {/* textarea, bukan input: Chrome Android tidak memasang bilah isi
+                  otomatis (kunci, kartu, lokasi) di atas keyboard untuknya.
+                  Enter mengirim, seperti aplikasi chat; baris baru dibuang. */}
+              <textarea
                 ref={inputRef}
+                rows={1}
                 aria-label="Tulis transaksinya"
                 value={teks}
-                onChange={(e) => setTeks(modeNominal ? angkaRibuan(angkaMentah(e.target.value)) : e.target.value)}
+                onChange={(e) => {
+                  const v = e.target.value.replace(/\n/g, " ");
+                  setTeks(modeNominal ? angkaRibuan(angkaMentah(v)) : v);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+                    e.preventDefault();
+                    kirim();
+                  }
+                }}
                 inputMode={modeNominal ? "numeric" : "text"}
                 placeholder={
                   lampiran
