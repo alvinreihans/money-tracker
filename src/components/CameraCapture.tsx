@@ -4,6 +4,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Lembar, Pesan } from "@/components/oneui";
 import s from "@/components/ui.module.css";
 
+/** Sama dengan LEBAR_MAKS di src/lib/gambar.ts (yang memakai sharp, khusus server). */
+const LEBAR_MAKS = 1080;
+
 /**
  * Kamera dalam aplikasi, bukan sekadar input file dengan atribut `capture`.
  *
@@ -86,10 +89,13 @@ export default function CameraCapture({ onCapture, onClose }: Props) {
     const video = videoRef.current;
     if (!video || !siap) return;
 
+    // Lebar maks 1080px seperti yang dibaca Gemini (SPEC-catat-andal): foto
+    // kamera 3–5 MB jadi ratusan KB, unggahan di data seluler lebih cepat.
+    const skala = Math.min(1, LEBAR_MAKS / video.videoWidth);
     const canvas = document.createElement("canvas");
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    canvas.getContext("2d")?.drawImage(video, 0, 0);
+    canvas.width = Math.round(video.videoWidth * skala);
+    canvas.height = Math.round(video.videoHeight * skala);
+    canvas.getContext("2d")?.drawImage(video, 0, 0, canvas.width, canvas.height);
 
     canvas.toBlob(
       (blob) => {
