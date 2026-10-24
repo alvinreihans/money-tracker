@@ -24,6 +24,8 @@ export function queryRiwayat(supabase: SupabaseClient, filter: string, q: string
     .order("transaction_date", { ascending: false })
     .order("waktu", { ascending: false, nullsFirst: false })
     .order("created_at", { ascending: false })
+    // Cashback/biaya admin berwaktu catat sama dengan induknya: induk dulu, ikutan tepat di bawahnya.
+    .order("induk_id", { ascending: true, nullsFirst: true })
     // Pemecah seri: tanpa ini, baris bertanggal & waktu catat sama bisa
     // terlewat atau dobel di antara dua halaman.
     .order("id", { ascending: false });
