@@ -21,6 +21,14 @@ Belum dikerjakan; dicatat supaya tidak lupa.
 ## [Unreleased]
 
 ### Ditambahkan
+- **Navigasi 5 tab**: Beranda · Riwayat · + · Analitik · Profil.
+  - **Analitik** berisi ringkasan bulan, tren, komposisi kategori, budget, dan streak (dulu di Beranda).
+  - **Profil** (dulu Pengaturan dari menu ⋮) ada di `/profil`, dengan kartu akun di atasnya.
+  - Beranda kini fokus ke hari ini & yang perlu perhatian, termasuk kartu **Budget hampir habis**.
+  - Judul besar Beranda bisa diketuk untuk membuka Analitik.
+- **Pintasan aplikasi**: tekan lama ikon aplikasi untuk langsung ke Catat, Riwayat, atau Analitik.
+- Ekspor CSV memberi umpan balik: "Menyiapkan file…", lalu snackbar dengan tombol Bagikan.
+- Cashback & biaya admin selalu tepat di bawah transaksi induknya.
 - **Catat sebagai obrolan.** Kalau AI kurang yakin, ia langsung bertanya di
   lembar Catat — kantong lewat pilihan, nominal lewat kolom ketik, atau minta
   diceritakan — lalu transaksinya tersimpan. Lembar Catat membesar sendiri
@@ -57,6 +65,7 @@ Belum dikerjakan; dicatat supaya tidak lupa.
 - Riwayat dan Beranda hanya menampilkan transaksi yang sudah lengkap.
 
 ### Dihapus
+- Menu ⋮ di Beranda & Riwayat (isinya pindah ke tab Profil).
 - Tab "Perlu dibenerin" di Riwayat (diganti "Belum selesai" di lembar Catat).
 
 ### Diperbaiki

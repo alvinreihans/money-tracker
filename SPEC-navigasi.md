@@ -1,6 +1,6 @@
 # Spec: Navigasi 5 tab (Beranda · Riwayat · + · Analitik · Profil)
 
-Status: **disetujui** (24 Okt 2026, pertanyaan terbuka memakai usulan bawaan) · branch `feat/navigasi`
+Status: **fase 1 diterapkan** (24 Okt 2026, pertanyaan terbuka memakai usulan bawaan) · branch `feat/navigasi`
 
 Menggantikan sebagian [SPEC-analitik](SPEC-analitik.md): di sana Beranda dijadikan pusat analitik dan Pengaturan dibuka dari menu ⋮. Sekarang analitik pindah ke tab sendiri dan Pengaturan jadi tab **Profil**.
 
