@@ -655,12 +655,18 @@ export default function LembarCatat({
               <span className={s.barisTeks}>
                 <span className={s.barisJudul}>{p.c.nama}</span>
                 <span className={s.redup}>
-                  {[p.c.penyedia, `mulai ${fmtTanggalPendek(p.c.jatuh_tempo_awal)}`].filter(Boolean).join(" · ")}
+                  {/* Tenor di sini, bukan di nominal: nominal yang lebar memotong nama & tanggalnya. */}
+                  {[
+                    p.c.penyedia,
+                    p.c.tenor === 1
+                      ? `bayar ${fmtTanggalPendek(p.c.jatuh_tempo_awal)}`
+                      : `${p.c.tenor}× · mulai ${fmtTanggalPendek(p.c.jatuh_tempo_awal)}`,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
                 </span>
               </span>
-              <span className={s.nominal}>
-                {p.c.tenor}× {fmtIDR(Number(p.c.nominal))}
-              </span>
+              <span className={s.nominal}>{fmtIDR(Number(p.c.nominal))}</span>
             </div>
             <div className={s.aksiKartu}>
               <button

@@ -107,6 +107,10 @@ Aturan:
   Rp100.000", baris "Download Aplikasi"), sisa saldo, nomor kartu, PAN, RRN,
   atau ID transaksi. Kalau nominal utamanya tidak terbaca, amount 0 — jangan
   mengambil angka lain sebagai gantinya.
+  Bila ada rincian harga dan potongan, amount = yang BENAR-BENAR dibayar setelah
+  diskon ("Kamu Membayar", "Total Bayar", "Total Pembayaran"), BUKAN harga sebelum
+  diskon ("Total Pembelian", "Subtotal"). Contoh: "Kamu Membayar Rp15.680 / Total
+  Pembelian Rp35.680 / SPayLater Diskon -Rp20.000" -> amount 15680.
 - type: arah uang dari sudut pandang PEMILIK catatan.
   "income" bila uang MASUK ke pemilik: gaji/gajian, THR, bonus, cashback,
   refund, bunga, hasil jual barang, atau uang yang dikasih/dikirim/ditransfer
@@ -181,7 +185,8 @@ ${daftarPrompt(kategori, "income")}
 - paylater: HANYA untuk "expense" yang DIBAYAR pakai paylater (SPayLater/Shopee PayLater, GoPayLater,
   Kredivo, Akulaku, Atome, Indodana, Traveloka PayLater). Paylater BUKAN e-wallet: "SPayLater" bukan
   ShopeePay, "GoPayLater" bukan GoPay — payment_method null. penyedia = nama paylater-nya; tenor =
-  berapa kali cicilan bila tertera/disebut ("3x", "cicilan 3 bulan"), "bayar bulan depan"/"30 hari" = 1;
+  berapa kali cicilan bila tertera/disebut ("3x", "cicilan 3 bulan", "SPayLater - 3 Bulan" = 3;
+  OCR bisa memecah "Bulan" ke baris berikutnya), "bayar bulan depan"/"30 hari"/"- 1 Bulan" = 1;
   per_cicilan & jatuh_tempo bila tertera. Yang tidak ada null. Selain itu paylater null.
   Membayar tagihan/cicilan paylater = field cicilan, bukan paylater.
 - document_type: "payment_proof" bila ini tangkapan layar bukti bayar dari
@@ -265,7 +270,9 @@ function paylaterAtauNull(p: unknown): InfoPaylater | null {
   if (!x || typeof x.penyedia !== "string" || !x.penyedia.trim()) return null;
   const tenor = Number(x.tenor);
   return {
-    penyedia: x.penyedia.trim().slice(0, 40),
+    // Satu ejaan per penyedia (sama dengan saran di form cicilan): model kadang
+    // menulis "SPayLater", "Shopee PayLater", bahkan "ShopeePay".
+    penyedia: /shopee|spay/i.test(x.penyedia) ? "Shopee PayLater" : /gopay|gojek/i.test(x.penyedia) ? "GoPayLater" : x.penyedia.trim().slice(0, 40),
     tenor: Number.isInteger(tenor) && tenor >= 1 && tenor <= 120 ? tenor : null,
     per_cicilan: nominalAtauNull(x.per_cicilan),
     jatuh_tempo: typeof x.jatuh_tempo === "string" && /^\d{4}-\d{2}-\d{2}$/.test(x.jatuh_tempo) ? x.jatuh_tempo : null,
@@ -298,6 +305,16 @@ export function isValidExtraction(r: ExtractedReceipt, kategori: Kategori[] = KA
   if (date > besok || date < batasBawah) return false;
 
   return r.type === "transfer" || kategoriJenis(kategori, r.type).some((k) => k.slug === r.category);
+}
+
+/**
+ * Tenor paylater dari teks bukti bayar ("Metode Pembayaran SPayLater - 3 Bulan")
+ * kalau model melewatkannya — OCR sering memecah "Bulan" ke baris lain.
+ */
+export function tenorDariTeks(teks: string): number | null {
+  const m = teks.match(/later\s*-\s*(\d{1,2})\b/i);
+  const n = m ? Number(m[1]) : NaN;
+  return n >= 1 && n <= 36 ? n : null;
 }
 
 /** Baris iklan/promo di struk & bukti bayar ("Cashback Saldo s.d Rp100.000", "Download Aplikasi"). */

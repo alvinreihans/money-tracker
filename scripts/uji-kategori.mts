@@ -5,7 +5,7 @@
  * Pemakaian: npm run uji:kategori
  */
 import assert from "node:assert/strict";
-import { nominalDariPromo, normalize } from "../src/lib/extract.ts";
+import { nominalDariPromo, normalize, tenorDariTeks } from "../src/lib/extract.ts";
 import {
   cariKategori,
   KATEGORI_BAWAAN,
@@ -78,4 +78,14 @@ assert.equal(nominalDariPromo("TOTAL 37.000\nTUNAI 50.000", 13000), false); // t
 assert.equal(nominalDariPromo("Diskon maks Rp10.000\nTotal Rp 110.000", 10000), true);
 assert.equal(nominalDariPromo("Total Rp 110.000", 10000), false); // 10.000 bukan bagian dari 110.000
 
-console.log("✓ kategori: daftar per jenis, validasi, transaksi & AI memakai kategori milik user; nominal dari baris promo ditolak");
+// Tenor paylater dari teks OCR yang terpecah ("SPayLater - 1 )" / "Pembayaran Bulan").
+assert.equal(tenorDariTeks("Metode SPayLater - 1 )\nPembayaran Bulan"), 1);
+assert.equal(tenorDariTeks("Metode Pembayaran GoPayLater - 3 Bulan"), 3);
+assert.equal(tenorDariTeks("SPaylL ater Diskon 20RB -Rp20.000"), null);
+assert.equal(tenorDariTeks("Saldo ShopeePay"), null);
+// Nama penyedia paylater diseragamkan.
+for (const [ditulis, harap] of [["SPayLater", "Shopee PayLater"], ["ShopeePay", "Shopee PayLater"], ["gopaylater", "GoPayLater"], ["Kredivo", "Kredivo"]]) {
+  assert.equal(normalize({ amount: 1000, type: "expense", category: "food", paylater: { penyedia: ditulis, tenor: 1, per_cicilan: null, jatuh_tempo: null } }).paylater?.penyedia, harap, ditulis);
+}
+
+console.log("✓ kategori: daftar per jenis, validasi, transaksi & AI memakai kategori milik user; nominal dari baris promo ditolak; tenor paylater dari teks");
