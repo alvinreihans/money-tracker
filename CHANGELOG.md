@@ -21,6 +21,7 @@ Belum dikerjakan; dicatat supaya tidak lupa.
 ## [Unreleased]
 
 ### Ditambahkan
+- **Filter Riwayat**: chip **Tanggal** (Hari ini, 7 hari, Bulan ini, Bulan lalu, atau pilih rentang), **Kantong** (asal atau tujuan), dan **Kategori**, bisa digabung dan tersimpan di alamat halaman. Riwayat kini dikelompokkan **per bulan** dengan total keluar & masuk untuk seluruh hasil filter; jumlah dan totalnya juga tampil di bawah judul.
 - **Navigasi 5 tab**: Beranda · Riwayat · + · Analitik · Profil.
   - **Analitik** berisi ringkasan bulan, tren, komposisi kategori, budget, dan streak (dulu di Beranda).
   - **Profil** (dulu Pengaturan dari menu ⋮) ada di `/profil`, dengan kartu akun di atasnya.

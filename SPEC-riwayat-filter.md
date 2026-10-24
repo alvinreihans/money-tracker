@@ -1,6 +1,6 @@
 # Spec: Filter Riwayat (fase 2 SPEC-navigasi)
 
-Status: **draf, menunggu persetujuan** · 24 Oktober 2026 · branch `feat/riwayat-filter` (ditumpuk di atas PR #33)
+Status: **diterapkan** (header per bulan, total keluar & masuk) · 24 Oktober 2026 · branch `feat/riwayat-filter` (ditumpuk di atas PR #33)
 
 ## Masalah
 

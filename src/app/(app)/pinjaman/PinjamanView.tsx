@@ -144,7 +144,8 @@ export default function PinjamanView({
               onClick={() => {
                 setAksi(null);
                 if (arah) setForm({ arah, pihak: aksi });
-                else router.push(`/riwayat?q=${encodeURIComponent(aksi.name)}`);
+                // Riwayat tersaring ke kantong orang/kartu ini (SPEC-riwayat-filter).
+                else router.push(`/riwayat?kantong=${aksi.id}`);
               }}
             >
               <span className={s.barisIkon} aria-hidden>
