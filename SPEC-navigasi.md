@@ -34,7 +34,6 @@ Begitu ada mode desktop, alamat terlihat di address bar, bisa di-bookmark, dan d
   - `/profil`, dengan halaman di bawahnya `/profil/kantong`, `/profil/kategori`, `/profil/budget`
 - **Lend & Borrow tetap `/pinjaman`.** Ini fitur tersendiri dan notifikasi sudah menautkan ke sana. Di desktop ia bisa jadi item sidebar sendiri.
 - **Keadaan yang layak disimpan atau dibagikan masuk query string.** Contohnya filter Riwayat di fase 2: `?jenis=keluar&dari=2026-10-01&sampai=2026-10-31&kantong=…`. Lembar sementara (pilih kantong, konfirmasi) tidak mengubah alamat.
-- **Alamat lama tidak boleh mati.** Alamat yang diganti dialihkan permanen (308) lewat `redirects` di `next.config.ts`.
 - **Daftar navigasi ditulis sekali.** Satu array `NAVIGASI` di satu file memuat alamat, label, ikon, dan alamat mana saja yang membuat tab menyala. Bottom bar sekarang dan rail/sidebar desktop nanti sama-sama membacanya.
 
 ## Fase 1: rancangan
@@ -90,8 +89,8 @@ Query Beranda ikut berkurang. Tren 6 bulan dan rerata kategori tidak diambil lag
 ### Profil (`/profil`)
 
 - **Pindah alamat.** `/pengaturan` jadi `/profil`, dan sub-halamannya pindah ke `/profil/kantong`, `/profil/kategori`, `/profil/budget`.
-  - Semua alamat `/pengaturan/*` dialihkan permanen ke padanannya, jadi bookmark dan tautan lama tetap jalan.
   - Ada 13 tautan di kode yang ikut diganti.
+  - **Tanpa pengalihan dari alamat lama.** PWA yang terpasang selalu memuat halaman terbaru dari server dan dimulai dari `/`. Service worker hanya menyimpan foto yang dibagikan, bukan halaman. Yang kena hanya bookmark atau riwayat browser ke `/pengaturan`, dan untuk aplikasi pribadi itu tidak sepadan.
 - AppBar berjudul **"Profil"**, tanpa tombol kembali karena sekarang halaman ini sebuah tab.
 - Di atas ada **kartu akun**: lingkaran berisi huruf awal email, lalu email di sebelahnya. Mengikuti pola halaman akun Samsung.
 - Di bawahnya grup yang sudah ada:
@@ -106,7 +105,6 @@ Query Beranda ikut berkurang. Tren 6 bulan dan rerata kategori tidak diambil lag
 
 - **Pintasan aplikasi** di manifest (`shortcuts`). Ikon aplikasi yang ditekan lama di Android memunculkan **Catat**, **Riwayat**, dan **Analitik**.
   - Pintasan Catat memakai `/?catat=1`, yang sudah ada.
-- **`id` & `scope` manifest** diisi eksplisit (`/`). Tanpa itu, aplikasi yang sudah terpasang bisa dianggap aplikasi lain kalau alamat mulainya kelak berubah.
 
 ### Riwayat
 
@@ -123,7 +121,6 @@ Fase 1 tidak mengubah isi Riwayat. Satu-satunya perubahan: menu ⋮ dihapus. Fil
   - kartu "Budget hampir habis" muncul di ≥ 80% dan hilang di bawahnya;
   - Profil menampilkan email dan semua menu;
   - sub-halaman (Kantong dan lainnya) kembali ke Profil;
-  - alamat lama (`/pengaturan`, `/pengaturan/kantong`, …) dialihkan dengan 308 ke `/profil/…`;
   - tombol kembali browser dari tiap tab dan sub-halaman berjalan benar;
   - tidak ada error di console.
 - Tangkapan layar tiap tab dilampirkan di PR.
@@ -131,7 +128,7 @@ Fase 1 tidak mengubah isi Riwayat. Satu-satunya perubahan: menu ⋮ dihapus. Fil
 ## Boundaries
 
 - **Selalu:** komponen yang sudah ada dipindah, bukan ditulis ulang. Pola One UI yang dipakai sama dengan yang sudah ada di aplikasi.
-- **Disetujui lewat spec ini:** pindah `/pengaturan/*` ke `/profil/*`, dengan pengalihan dari alamat lama.
+- **Disetujui lewat spec ini:** pindah `/pengaturan/*` ke `/profil/*`, tanpa pengalihan.
 - **Tanya dulu:** mengganti alamat lain atau menghapus fitur yang sudah ada.
 - **Jangan:**
   - mengubah database (fase 1 tidak butuh migrasi);
