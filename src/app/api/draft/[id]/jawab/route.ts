@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
 // "cerita" membaca ulang lewat rantai Groq.
 export const maxDuration = 30;
 
-const JENIS: JenisTanya[] = ["cerita", "nominal", "kantong", "kantong_tujuan", "waktu", "tenor", "konfirmasi"];
+const JENIS: JenisTanya[] = ["cerita", "nominal", "kantong", "kantong_tujuan", "waktu", "tenor", "duplikat", "konfirmasi"];
 
 /**
  * Jawaban user untuk pertanyaan di percakapan sebuah draft (SPEC-catat-chat).
@@ -73,6 +73,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const k = kantongDariJawaban(nilai, semua);
     if (k && k.id !== tx.kantong_id) patch.kantong_tujuan_id = k.id;
     else gagal = "Pilih kantong tujuan yang lain ya.";
+  } else if (jenis === "duplikat") {
+    // "Ya, catat lagi": penandanya dilepas, transaksinya tersimpan seperti biasa.
+    // "Bukan" ditangani obrolan dengan menghapus draft-nya langsung.
+    if (!/^(ya|iya|y|yes|catat|lanjut|oke|ok)\b/i.test(nilai)) return tolak("Pilih “Ya, catat lagi” atau “Bukan, buang” ya.");
+    patch.duplikat_dari = null;
   } else if (jenis === "tenor") {
     tenor = bacaTenor(nilai);
     if (!tenor) gagal = "Berapa kali? Mis. 3 atau 6.";

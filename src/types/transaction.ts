@@ -28,6 +28,8 @@ export interface Transaction {
   cicilan_ke?: number | null;
   /** Draft belanja paylater yang menunggu tenornya: nama penyedianya (SPEC-paylater). */
   paylater?: string | null;
+  /** Draft yang sama persis dengan transaksi tercatat ini (SPEC-catat-andal). */
+  duplikat_dari?: string | null;
   transaction_date: string; // ISO date: "YYYY-MM-DD"
   /** Jam transaksi (WIB), "HH:MM:SS"; opsional. Lihat SPEC-saldo-waktu.md. */
   waktu?: string | null;

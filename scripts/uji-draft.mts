@@ -66,4 +66,9 @@ const tenor: [string, number | null][] = [
 ];
 for (const [teks, harap] of tenor) assert.equal(bacaTenor(teks), harap, teks);
 
-console.log("✓ draft: urutan pertanyaan, nominal ketikan (rb/jt/Rp/titik), kantong dari chip & kalimat, koreksi vs catatan baru, minta hapus, tenor paylater");
+// Duplikat: draft lengkap yang sama persis dengan transaksi tercatat ditanya dulu.
+assert.equal(d({ amount: 30, kantong_id: "k1", duplikat_dari: "t1" }), "duplikat");
+assert.equal(d({ amount: 30, kantong_id: "k1", duplikat_dari: null }), "konfirmasi");
+assert.equal(d({ amount: 0, merchant: "X", duplikat_dari: "t1" }), "nominal"); // yang kurang tetap ditanya dulu
+
+console.log("✓ draft: urutan pertanyaan, nominal ketikan (rb/jt/Rp/titik), kantong dari chip & kalimat, koreksi vs catatan baru, minta hapus, tenor paylater, duplikat");

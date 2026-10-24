@@ -7,7 +7,7 @@ import { perluTanyaJam, type SaldoSejak } from "@/lib/waktu";
  * scripts/uji-draft.mts.
  */
 
-export type JenisTanya = "cerita" | "nominal" | "kantong" | "kantong_tujuan" | "waktu" | "tenor" | "konfirmasi";
+export type JenisTanya = "cerita" | "nominal" | "kantong" | "kantong_tujuan" | "waktu" | "tenor" | "duplikat" | "konfirmasi";
 
 interface BarisDraft {
   status: string;
@@ -21,6 +21,8 @@ interface BarisDraft {
   waktu?: string | null;
   /** Belanja paylater yang menunggu berapa kali cicilannya (SPEC-paylater). */
   paylater?: string | null;
+  /** Transaksi tercatat yang sama persis (SPEC-catat-andal): ditanya "Catat lagi?". */
+  duplikat_dari?: string | null;
 }
 
 /**
@@ -45,6 +47,7 @@ export function pertanyaanDraft(t: BarisDraft, saldoDari?: (id: string) => Saldo
     const tx = { transaction_date: t.transaction_date, waktu: null };
     if ([t.kantong_id, t.kantong_tujuan_id].some((id) => id && perluTanyaJam(tx, saldoDari(id)))) return "waktu";
   }
+  if (t.duplikat_dari) return "duplikat";
   return "konfirmasi";
 }
 
@@ -55,6 +58,7 @@ export const KALIMAT_TANYA: Record<JenisTanya, string> = {
   kantong_tujuan: "Pindah ke kantong mana?",
   waktu: "Tadi itu jam berapa?",
   tenor: "Dicicil berapa kali?",
+  duplikat: "Sepertinya ini sudah tercatat. Catat lagi?",
   konfirmasi: "Sudah benar begini?",
 };
 

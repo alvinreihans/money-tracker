@@ -21,6 +21,16 @@ Belum dikerjakan; dicatat supaya tidak lupa.
 ## [Unreleased]
 
 ### Ditambahkan
+- **Navigasi 5 tab**: Beranda · Riwayat · + · Analitik · Profil.
+  - **Analitik** berisi ringkasan bulan, tren, komposisi kategori, budget, dan streak (dulu di Beranda).
+  - **Profil** (dulu Pengaturan dari menu ⋮) ada di `/profil`, dengan kartu akun di atasnya.
+  - Beranda kini fokus ke 5 transaksi terakhir & yang perlu perhatian, termasuk kartu **Budget hampir habis**.
+  - Judul besar Beranda bisa diketuk untuk membuka Analitik.
+- **Pintasan aplikasi**: tekan lama ikon aplikasi untuk langsung ke Catat, Riwayat, atau Analitik.
+- Ekspor CSV memberi umpan balik: "Menyiapkan file…", lalu snackbar dengan tombol Bagikan.
+- Cashback & biaya admin selalu tepat di bawah transaksi induknya.
+- **Deteksi duplikat**: transaksi dari foto/teks yang sama persis dengan yang sudah tercatat (nominal, jenis, tanggal, jam, kantong) ditanya dulu "Catat lagi?". Pilih **Ya, catat lagi** atau **Bukan, buang**.
+- **Struk dibaca Gemini Flash-Lite** dari gambar yang dikompres (1080px). Lebih tepat (diskon, paylater, nominal besar di atas) dan lebih cepat; OCR + Groq tetap jadi cadangan. Foto kamera dikecilkan sebelum diunggah.
 - **Catat sebagai obrolan.** Kalau AI kurang yakin, ia langsung bertanya di
   lembar Catat — kantong lewat pilihan, nominal lewat kolom ketik, atau minta
   diceritakan — lalu transaksinya tersimpan. Lembar Catat membesar sendiri
@@ -57,9 +67,11 @@ Belum dikerjakan; dicatat supaya tidak lupa.
 - Riwayat dan Beranda hanya menampilkan transaksi yang sudah lengkap.
 
 ### Dihapus
+- Menu ⋮ di Beranda & Riwayat (isinya pindah ke tab Profil).
 - Tab "Perlu dibenerin" di Riwayat (diganti "Belum selesai" di lembar Catat).
 
 ### Diperbaiki
+- Biaya admin/cashback ikut terhapus saat jenis transaksinya berubah (dulu tertinggal dan memotong saldo).
 - Transaksi yang dicatat sebelum jam 07.00 tidak lagi bertanggal kemarin
   (AI dulu memakai tanggal UTC).
 

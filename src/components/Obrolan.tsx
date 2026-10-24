@@ -90,6 +90,7 @@ const KURANG: Record<JenisTanya, string> = {
   kantong_tujuan: "Kantong tujuan belum jelas",
   waktu: "Jamnya belum jelas",
   tenor: "Berapa kali cicilannya belum jelas",
+  duplikat: "Mungkin tercatat dua kali",
   konfirmasi: "Tinggal dicek",
 };
 
@@ -188,6 +189,28 @@ export default function LembarCatat({
   /** Ajukan pertanyaan untuk draft yang sedang dibahas. */
   function mulaiTanya(tx: Transaction, jenis: JenisTanya, ronde: number) {
     setAktif({ tx, jenis, ronde });
+    if (jenis === "duplikat" && tx.duplikat_dari) {
+      // Tunjukkan transaksi yang sudah tercatat, supaya user bisa memutuskan.
+      void db
+        .from("transactions")
+        .select("merchant, amount, type, category, transaction_date, waktu, payment_method")
+        .eq("id", tx.duplikat_dari)
+        .maybeSingle()
+        .then(({ data: o }) => {
+          const apa = o
+            ? [
+                o.merchant ?? namaKategori(kategori, o.category, o.type),
+                fmtIDR(Number(o.amount)),
+                `${fmtTanggalPendek(o.transaction_date)}${o.waktu ? ` ${String(o.waktu).slice(0, 5).replace(":", ".")}` : ""}`,
+                o.payment_method,
+              ]
+                .filter(Boolean)
+                .join(" · ")
+            : null;
+          tambah({ t: "tanya", jenis, teks: apa ? `Sepertinya ini sudah tercatat: ${apa}. Catat lagi?` : KALIMAT_TANYA.duplikat });
+        });
+      return;
+    }
     if (jenis === "cerita" && ronde >= MAKS_CERITA) {
       tambah({ t: "tanya", jenis: "manual", teks: "Masih belum kebaca nih. Isi manual aja?" });
     } else {
@@ -454,6 +477,10 @@ export default function LembarCatat({
     }
     // "hapus aja" / "ga jadi": catatan yang sedang ditanyakan dibuang.
     if (tanyaBuka && aktif && mauHapus(isi)) return void hapusDraft(aktif.tx, isi);
+    // Ditanya "Catat lagi?" lalu dijawab "bukan"/"nggak": draft-nya dibuang.
+    if (tanyaBuka === "duplikat" && aktif && /^(bukan|tidak|ga|gak|nggak|enggak|no|jangan)\b/i.test(isi)) {
+      return void hapusDraft(aktif.tx, isi, "Oke, tidak dicatat.");
+    }
     // Ketikan saat ada pertanyaan = jawabannya. Saat konfirmasi, ketikan
     // dianggap koreksi yang dibaca ulang.
     if (tanyaBuka) return void jawab(isi, undefined, tanyaBuka === "konfirmasi" ? "cerita" : undefined);
@@ -528,7 +555,7 @@ export default function LembarCatat({
     router.refresh();
   }
 
-  async function hapusDraft(tx: Transaction, isi: string) {
+  async function hapusDraft(tx: Transaction, isi: string, penutup = "Oke, catatannya dihapus. 🗑️") {
     setPesan((prev) => prev.map((p) => (p.t === "tanya" ? { ...p, selesai: true } : p)));
     tambah({ t: "saya", teks: isi });
     setSibuk(true);
@@ -537,7 +564,7 @@ export default function LembarCatat({
     if (error) return tambah({ t: "app", teks: "Gagal menghapus catatannya." });
     setAktif(null);
     const { count } = await db.from("draft_catat").select("transaksi_id", { count: "exact", head: true });
-    tambah({ t: "tutup", lagi: count ?? 0, teks: "Oke, catatannya dihapus. 🗑️" });
+    tambah({ t: "tutup", lagi: count ?? 0, teks: penutup });
     setDetik(TUTUP_DETIK);
     router.refresh();
   }
@@ -655,12 +682,18 @@ export default function LembarCatat({
               <span className={s.barisTeks}>
                 <span className={s.barisJudul}>{p.c.nama}</span>
                 <span className={s.redup}>
-                  {[p.c.penyedia, `mulai ${fmtTanggalPendek(p.c.jatuh_tempo_awal)}`].filter(Boolean).join(" · ")}
+                  {/* Tenor di sini, bukan di nominal: nominal yang lebar memotong nama & tanggalnya. */}
+                  {[
+                    p.c.penyedia,
+                    p.c.tenor === 1
+                      ? `bayar ${fmtTanggalPendek(p.c.jatuh_tempo_awal)}`
+                      : `${p.c.tenor}× · mulai ${fmtTanggalPendek(p.c.jatuh_tempo_awal)}`,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
                 </span>
               </span>
-              <span className={s.nominal}>
-                {p.c.tenor}× {fmtIDR(Number(p.c.nominal))}
-              </span>
+              <span className={s.nominal}>{fmtIDR(Number(p.c.nominal))}</span>
             </div>
             <div className={s.aksiKartu}>
               <button
@@ -708,6 +741,12 @@ export default function LembarCatat({
                     {k.name}
                   </button>
                 ))}
+              </div>
+            )}
+            {buka && p.jenis === "duplikat" && aktif && (
+              <div className={s.pilihanJawab}>
+                <button type="button" onClick={() => void jawab("ya", "Ya, catat lagi")}>Ya, catat lagi</button>
+                <button type="button" onClick={() => void hapusDraft(aktif.tx, "Bukan, buang", "Oke, tidak dicatat.")}>Bukan, buang</button>
               </div>
             )}
             {buka && p.jenis === "tenor" && (
@@ -919,6 +958,8 @@ export default function LembarCatat({
                           ? "mis. jam 10 atau 10.30"
                           : tanyaBuka === "tenor"
                           ? "mis. 3 kali"
+                          : tanyaBuka === "duplikat"
+                          ? "Ya atau bukan"
                           : tanyaBuka === "cerita"
                           ? "Ceritain di sini…"
                           : tanyaBuka === "konfirmasi" || (besar && pesan.at(-1)?.t === "kartu")

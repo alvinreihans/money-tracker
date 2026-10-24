@@ -31,6 +31,7 @@ export async function GET() {
       .order("transaction_date")
       .order("waktu")
       .order("created_at")
+      .order("induk_id", { nullsFirst: true })
       .order("id")
       .range(dari, dari + 999);
     if (error) return NextResponse.json({ error: "Gagal mengambil transaksi." }, { status: 500 });
@@ -43,6 +44,8 @@ export async function GET() {
       "content-type": "text/csv; charset=utf-8",
       "content-disposition": `attachment; filename="money-tracker-${hariWIB(new Date())}.csv"`,
       "cache-control": "no-store",
+      // Untuk snackbar "N transaksi diekspor" di Pengaturan.
+      "x-jumlah": String(transaksi.length),
     },
   });
 }

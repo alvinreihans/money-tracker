@@ -20,10 +20,9 @@ export function getGeminiClient(): GoogleGenerativeAI {
 }
 
 /**
- * Nama model default. `gemini-flash-latest` otomatis menunjuk ke model Flash
- * terbaru yang tersedia untuk akun (saat ini gemini-3.5-flash) — aman untuk
- * akun baru karena tidak kena pembatasan model lama yang di-retire.
- * Untuk production yang butuh perilaku 100% konsisten, pin ke versi spesifik
- * (mis. "gemini-3.5-flash") setelah dites.
+ * Model pembaca gambar (SPEC-catat-andal): Flash-Lite, ditulis persis. Alias
+ * `-latest` pernah diam-diam pindah ke gemini-3.8-flash yang kuota gratisnya
+ * 20/hari dan pernah butuh 64 detik. Bisa diganti lewat env GEMINI_MODEL di
+ * Vercel tanpa deploy ulang.
  */
-export const GEMINI_MODEL = "gemini-flash-latest";
+export const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3.5-flash-lite";

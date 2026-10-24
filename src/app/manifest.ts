@@ -27,6 +27,12 @@ export default function manifest(): MetadataRoute.Manifest {
         files: [{ name: "struk", accept: ["image/*"] }],
       },
     },
+    // Tekan lama ikon aplikasi di Android (SPEC-navigasi).
+    shortcuts: [
+      { name: "Catat transaksi", short_name: "Catat", url: "/?catat=baru", icons: [{ src: "/logo.png", sizes: "192x192" }] },
+      { name: "Riwayat", url: "/riwayat", icons: [{ src: "/logo.png", sizes: "192x192" }] },
+      { name: "Analitik", url: "/analitik", icons: [{ src: "/logo.png", sizes: "192x192" }] },
+    ],
     background_color: "#000000",
     theme_color: "#000000",
     // Chrome butuh 192 & 512 supaya bisa dipasang sebagai aplikasi. Versi

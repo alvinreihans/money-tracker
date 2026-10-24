@@ -458,12 +458,16 @@ button.blok { background: var(--blok); }
   border-radius: 999px;
   background: #262626;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  /* 4 tab + tombol +: muat di layar 360px tanpa memotong label. */
+  width: min(calc(100% - 24px), 440px);
 }
 
 .nav a {
-  min-width: 108px;
+  flex: 1;
+  min-width: 0;
   height: 56px;
-  padding: 0 20px;
+  padding: 0 2px;
+  white-space: nowrap;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -471,8 +475,41 @@ button.blok { background: var(--blok); }
   gap: 2px;
   border-radius: 999px;
   color: var(--teks-2);
-  font-size: 13px;
+  font-size: 12px;
   transition: background-color 150ms var(--gerak);
+}
+
+/* Profil: huruf awal email, seukuran ikon tab. */
+.avatarNav {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.7px solid currentColor;
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.avatarNav[data-aktif="true"] { border-color: transparent; background: var(--teks); color: #000; }
+
+/* Kartu akun di atas Profil. */
+.kartuAkun { min-height: 80px; }
+
+.avatar {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--fab);
+  color: #fff;
+  font-size: 20px;
+  font-weight: 700;
 }
 
 .nav a[aria-current="page"] { background: #3d3d3d; color: var(--teks); font-weight: 600; }
@@ -1281,3 +1318,6 @@ button.blok { background: var(--blok); }
 /* Placeholder tetap satu baris (terpotong "…"), seperti kolom ketik dulu;
    isi ketikan yang panjang tetap boleh tumbuh. */
 .ketik textarea:placeholder-shown { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Judul besar Beranda yang membuka Analitik: tetap tampil sebagai judul. */
+.tautanJudul { color: inherit; text-decoration: none; }

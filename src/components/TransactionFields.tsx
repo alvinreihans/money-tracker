@@ -171,7 +171,7 @@ export default function TransactionFields({
             ikon={CreditCard}
             keterangan={
               <>
-                <NextLink href="/pengaturan/kantong" className={s.tautan}>
+                <NextLink href="/profil/kantong" className={s.tautan}>
                   Tambah kantong
                 </NextLink>{" "}
                 biar saldonya ikut kehitung.

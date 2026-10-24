@@ -14,11 +14,12 @@ const WARNA_STATUS = { waspada: "var(--peringatan)", lewat: "var(--bahaya)" } as
  * memakai warna kategori selama aman, lalu kuning di atas 80% dan merah
  * kalau lewat — dan statusnya juga ditulis, bukan warna saja.
  */
-export default function KartuBudget({ data, bulan }: { data: ProgresBudget[]; bulan: string }) {
+/** `judul`: dipakai Beranda untuk "Budget hampir habis" (hanya yang > 80%), tanpa ringkasan total. */
+export default function KartuBudget({ data, bulan, judul }: { data: ProgresBudget[]; bulan: string; judul?: string }) {
   const kategori = useKategori();
   if (data.length === 0) {
     return (
-      <NextLink href="/pengaturan/budget" className={`${s.blok} ${s.baris} ${s.tekan}`}>
+      <NextLink href="/profil/budget" className={`${s.blok} ${s.baris} ${s.tekan}`}>
         <span className={s.barisIkon} style={{ background: "color-mix(in srgb, #3e91ff 18%, transparent)", color: "#3e91ff" }} aria-hidden>
           <Target size={20} />
         </span>
@@ -37,10 +38,12 @@ export default function KartuBudget({ data, bulan }: { data: ProgresBudget[]; bu
   return (
     <section className={s.blok}>
       <div className={s.blokIsi} style={{ paddingBottom: 4 }}>
-        <h2 className={s.blokJudul}>Budget {bulan}</h2>
-        <p className={s.blokSub}>
-          Terpakai {fmtIDRRingkas(terpakai)} dari {fmtIDRRingkas(total)}.
-        </p>
+        <h2 className={s.blokJudul}>{judul ?? `Budget ${bulan}`}</h2>
+        {!judul && (
+          <p className={s.blokSub}>
+            Terpakai {fmtIDRRingkas(terpakai)} dari {fmtIDRRingkas(total)}.
+          </p>
+        )}
       </div>
 
       {data.map((b) => {
@@ -78,7 +81,7 @@ export default function KartuBudget({ data, bulan }: { data: ProgresBudget[]; bu
         );
       })}
 
-      <NextLink href="/pengaturan/budget" className={s.blokKaki}>
+      <NextLink href="/profil/budget" className={s.blokKaki}>
         Atur budget
       </NextLink>
     </section>

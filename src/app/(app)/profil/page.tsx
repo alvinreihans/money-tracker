@@ -1,9 +1,9 @@
 import { ambilUser, createSupabaseServerClient } from "@/lib/supabase/server";
-import PengaturanView from "./PengaturanView";
+import ProfilView from "./ProfilView";
 
 export const dynamic = "force-dynamic";
 
-export default async function PengaturanPage() {
+export default async function ProfilPage() {
   const supabase = await createSupabaseServerClient();
   const [
     user,
@@ -15,5 +15,5 @@ export default async function PengaturanPage() {
     supabase.from("user_accounts").select("id", { count: "exact", head: true }).in("kind", ["bank", "ewallet", "cash"]),
   ]);
 
-  return <PengaturanView email={user?.email ?? null} jumlahKantong={jumlahKantong ?? 0} jumlahBudget={jumlahBudget ?? 0} />;
+  return <ProfilView email={user?.email ?? null} jumlahKantong={jumlahKantong ?? 0} jumlahBudget={jumlahBudget ?? 0} />;
 }

@@ -1,9 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import NextLink from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronRight, Download, HandCoins, LogOut, Shapes, Target, UserRound, Wallet } from "lucide-react";
-import { useKategori } from "@/components/Catat";
+import { useCatat, useKategori } from "@/components/Catat";
 import { AppBar } from "@/components/oneui";
 import SakelarNotifikasi from "@/components/SakelarNotifikasi";
 import s from "@/components/ui.module.css";
@@ -38,10 +39,10 @@ export function BarisMenu({
 }
 
 /**
- * Pengaturan, dibuka dari menu ⋮ di Beranda. Tidak jadi tab: jarang dibuka,
- * dan navigasi bawah disimpan untuk yang dipakai tiap hari.
+ * Tab Profil (SPEC-navigasi): akun di atas, lalu pengaturan per grup ala
+ * Pengaturan Samsung. Sub-halamannya di /profil/*.
  */
-export default function PengaturanView({
+export default function ProfilView({
   email,
   jumlahKantong,
   jumlahBudget,
@@ -51,6 +52,39 @@ export default function PengaturanView({
   jumlahBudget: number;
 }) {
   const router = useRouter();
+  const { kabari } = useCatat();
+  const [mengekspor, setMengekspor] = useState(false);
+
+  /**
+   * Ekspor CSV: diunduh lewat fetch supaya ada umpan balik — baris berputar
+   * selama file disiapkan, lalu snackbar dengan aksi Bagikan (lembar berbagi
+   * Android: Drive, WhatsApp, …) kalau browser mendukung berbagi file.
+   */
+  async function ekspor() {
+    if (mengekspor) return;
+    setMengekspor(true);
+    const res = await fetch("/api/ekspor").catch(() => null);
+    if (!res?.ok) {
+      setMengekspor(false);
+      return kabari("Gagal mengekspor. Coba lagi ya.");
+    }
+    const jumlah = Number(res.headers.get("x-jumlah") ?? 0);
+    const nama = res.headers.get("content-disposition")?.match(/filename="([^"]+)"/)?.[1] ?? "money-tracker.csv";
+    const berkas = new File([await res.blob()], nama, { type: "text/csv" });
+    setMengekspor(false);
+    if (!jumlah) return kabari("Belum ada transaksi untuk diekspor.");
+
+    const url = URL.createObjectURL(berkas);
+    const a = Object.assign(document.createElement("a"), { href: url, download: nama });
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 10_000);
+
+    const bisaBagikan = typeof navigator.canShare === "function" && navigator.canShare({ files: [berkas] });
+    kabari(
+      `${jumlah} transaksi diekspor ke Unduhan`,
+      bisaBagikan ? { label: "Bagikan", jalankan: () => void navigator.share({ files: [berkas], title: nama }).catch(() => {}) } : undefined,
+    );
+  }
   const kategori = useKategori();
 
   async function keluar() {
@@ -61,20 +95,33 @@ export default function PengaturanView({
 
   return (
     <>
-      <AppBar judul="Pengaturan" kembali="/" />
+      <AppBar judul="Profil" />
 
       <div className={s.isi}>
+        {/* Kartu akun ala halaman akun Samsung: huruf awal dalam lingkaran. */}
+        {email && (
+          <div className={`${s.blok} ${s.baris} ${s.kartuAkun}`}>
+            <span className={s.avatar} aria-hidden>
+              {email.charAt(0).toUpperCase()}
+            </span>
+            <span className={s.barisTeks}>
+              <span className={s.barisJudul}>{email}</span>
+              <span className={s.redup}>Email masuk</span>
+            </span>
+          </div>
+        )}
+
         <h2 className={s.subheader}>Keuangan</h2>
         <div className={s.blok}>
           <BarisMenu
-            href="/pengaturan/kantong"
+            href="/profil/kantong"
             ikon={Wallet}
             warna="#bf7af0"
             judul="Kantong"
             ket={jumlahKantong > 0 ? `${jumlahKantong} kantong` : "Rekening, e-wallet, tunai"}
           />
           <BarisMenu
-            href="/pengaturan/kategori"
+            href="/profil/kategori"
             ikon={Shapes}
             warna="#ff9f43"
             judul="Kategori"
@@ -88,7 +135,7 @@ export default function PengaturanView({
             ket="Pinjaman, kartu kredit, cicilan"
           />
           <BarisMenu
-            href="/pengaturan/budget"
+            href="/profil/budget"
             ikon={Target}
             warna="#3e91ff"
             judul="Budget"
@@ -101,29 +148,21 @@ export default function PengaturanView({
           <SakelarNotifikasi />
         </div>
 
-        <h2 className={s.subheader}>Akun</h2>
+        <h2 className={s.subheader}>Data</h2>
         <div className={s.blok}>
-          {email && (
-            <div className={s.baris}>
-              <span className={s.barisIkon} aria-hidden>
-                <UserRound size={20} />
-              </span>
-              <span className={s.barisTeks}>
-                <span className={s.barisJudul}>{email}</span>
-                <span className={s.redup}>Email masuk</span>
-              </span>
-            </div>
-          )}
-          {/* Tautan unduhan biasa (bukan NextLink): yang dibuka berkas, bukan halaman. */}
-          <a href="/api/ekspor" download className={`${s.baris} ${s.tekan}`}>
+          <button type="button" className={`${s.baris} ${s.tekan}`} onClick={() => void ekspor()} disabled={mengekspor} aria-busy={mengekspor}>
             <span className={s.barisIkon} aria-hidden>
-              <Download size={20} />
+              {mengekspor ? <span className={s.spinner} /> : <Download size={20} />}
             </span>
             <span className={s.barisTeks}>
               <span className={s.barisJudul}>Ekspor data</span>
-              <span className={s.redup}>Semua transaksi sebagai file CSV</span>
+              <span className={s.redup}>{mengekspor ? "Menyiapkan file…" : "Semua transaksi sebagai file CSV"}</span>
             </span>
-          </a>
+          </button>
+        </div>
+
+        <h2 className={s.subheader}>Akun</h2>
+        <div className={s.blok}>
           <button type="button" className={`${s.baris} ${s.tekan}`} onClick={() => void keluar()}>
             <span className={`${s.barisIkon} ${s.bahaya}`} aria-hidden>
               <LogOut size={20} />

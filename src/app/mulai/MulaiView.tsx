@@ -136,7 +136,7 @@ export default function MulaiView({ userId, kantong }: { userId: string; kantong
           <>
             <header className={s.viewing}>
               <h1 className={s.judulBesar}>Uangmu disimpan di mana?</h1>
-              <p className={s.judulSub}>Pilih rekening & e-wallet yang kamu pakai. Bisa ditambah nanti di Pengaturan.</p>
+              <p className={s.judulSub}>Pilih rekening & e-wallet yang kamu pakai. Bisa ditambah nanti di Profil.</p>
             </header>
             <div className={s.isi}>
               <div className={s.chipsBungkus}>
@@ -187,7 +187,7 @@ export default function MulaiView({ userId, kantong }: { userId: string; kantong
               <div className={s.blok}>
                 <Baris ikon={Plus} warna="#3e91ff" judul="Ketuk + di bawah" ket="Untuk mencatat dengan ketik, foto, atau manual." />
                 <Baris ikon={TriangleAlert} warna="#ffb340" judul="Belum selesai" ket="Kalau AI kurang yakin, dia langsung nanya. Yang belum dijawab menunggu di sini — titik oranye di tombol +." />
-                <Baris ikon={Settings} warna="#9b9b9b" judul="Pengaturan" ket="Kantong, kategori & budget, dari menu ⋮." />
+                <Baris ikon={Settings} warna="#9b9b9b" judul="Profil" ket="Kantong, kategori & budget, dari tab Profil." />
               </div>
               {error && <Pesan jenis="bahaya">{error}</Pesan>}
             </div>

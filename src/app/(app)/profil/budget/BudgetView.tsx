@@ -60,7 +60,7 @@ export default function BudgetView({
 
   return (
     <>
-      <AppBar judul="Budget" sub={total > 0 ? `${fmtIDR(total)} per bulan` : "Batas pengeluaran per bulan"} kembali="/pengaturan" />
+      <AppBar judul="Budget" sub={total > 0 ? `${fmtIDR(total)} per bulan` : "Batas pengeluaran per bulan"} kembali="/profil" />
 
       <form className={`${s.isi} ${s.form}`} onSubmit={simpan}>
         <p className={s.redup} style={{ margin: "0 20px" }}>
