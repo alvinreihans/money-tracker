@@ -36,7 +36,12 @@ Pemakai bisa bertanya dengan bahasa sehari-hari tentang keuangannya sendiri, lal
 
 ## Tampilan
 
-- **Pintu masuk.** Di Analitik, di bawah pemilih bulan, ada baris **"✨ Tanya soal keuanganmu"**. Mengetuknya membuka lembar obrolan layar penuh dengan gaya gelembung yang sama seperti lembar Catat.
+- **Pintu masuk** (diubah 24 Okt, permintaan user): **tombol melayang** di kanan bawah Analitik, tepat di atas navigasi, seperti tombol AI di WhatsApp. Bentuknya kotak membulat dengan ikon sparkle bergradasi buatan sendiri (bukan logo Meta). Mengetuknya membuka lembar layar penuh.
+- **Tampilan ala ChatGPT** (diubah 24 Okt):
+  - layar kosong: ikon, sapaan "Mau tahu apa soal keuanganmu?", dan 4 kartu saran di atas kolom ketik;
+  - pesan user berupa gelembung abu di kanan;
+  - jawaban AI berupa teks biasa selebar layar, tanpa gelembung, dengan tautan berbentuk chip;
+  - kolom ketik berbentuk kapsul dengan tombol kirim bulat, selalu di bawah layar.
 - **Saran pertanyaan.** Sebelum bertanya, tampil chip yang menyesuaikan bulan terpilih:
   - "Kenapa {bulan} boros?"
   - "Bandingin sama {bulan lalu}"
