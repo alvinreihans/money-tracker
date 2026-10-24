@@ -26,4 +26,4 @@ export function getGeminiClient(): GoogleGenerativeAI {
  * Untuk production yang butuh perilaku 100% konsisten, pin ke versi spesifik
  * (mis. "gemini-3.5-flash") setelah dites.
  */
-export const GEMINI_MODEL = "gemini-flash-latest";
+export const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-flash-latest";
