@@ -1384,3 +1384,6 @@ button.blok { background: var(--blok); }
 .kalenderTgl[data-hari-ini="true"]:not([data-ujung="true"]) > span { box-shadow: inset 0 0 0 1.5px var(--primer); }
 .kalenderTgl:focus-visible { outline: none; }
 .kalenderTgl:focus-visible > span { outline: 2px solid var(--teks); outline-offset: 1px; }
+
+/* Pilih bulan di tab Analitik: ‹ Oktober 2026 ›. */
+.pilihBulan { display: flex; align-items: center; justify-content: space-between; margin: -4px 4px 0; font-size: 17px; font-weight: 600; }

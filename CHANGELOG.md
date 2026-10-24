@@ -21,6 +21,7 @@ Belum dikerjakan; dicatat supaya tidak lupa.
 ## [Unreleased]
 
 ### Ditambahkan
+- **Analitik per bulan**: pilih bulan (‹ Oktober 2026 ›), ringkasan dibanding bulan lalu, **sorotan** (proyeksi akhir bulan, hari paling boros, paling sering, kategori yang paling naik), pengeluaran per kategori bulan itu (bukan lagi rata-rata 3 bulan), dan **merchant teratas**. Hampir semua baris bisa diketuk untuk membuka Riwayat yang sudah tersaring.
 - **Filter Riwayat**: chip **Tanggal** (Hari ini, 7 hari, Bulan ini, Bulan lalu, atau pilih rentang), **Kantong** (asal atau tujuan), dan **Kategori**, bisa digabung dan tersimpan di alamat halaman. Riwayat kini dikelompokkan **per bulan** dengan total keluar & masuk untuk seluruh hasil filter; jumlah dan totalnya juga tampil di bawah judul.
 - **Navigasi 5 tab**: Beranda · Riwayat · + · Analitik · Profil.
   - **Analitik** berisi ringkasan bulan, tren, komposisi kategori, budget, dan streak (dulu di Beranda).

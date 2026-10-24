@@ -1,6 +1,6 @@
 # Spec: Analitik insight (fase 3 SPEC-navigasi)
 
-Status: **draf, menunggu persetujuan** · 24 Oktober 2026 · branch `feat/analitik-insight` (ditumpuk di atas PR #34)
+Status: **diterapkan** (streak hanya di Beranda; merchant digabung tanpa huruf besar-kecil & spasi) · 24 Oktober 2026 · branch `feat/analitik-insight` (ditumpuk di atas PR #34)
 
 ## Masalah
 
@@ -33,7 +33,7 @@ Analitik
    - **Paling sering**: "Warteg Selera Bahari · 12× · Rp 180.000".
    - **Kategori yang paling naik**: "Makan naik Rp 120 rb (+32%) dari September".
 3. **Kategori bulan ini**, menggantikan rata-rata 3 bulan. Isinya bar tersegmen plus daftar.
-   - Tiap kategori menampilkan nominal, porsi (%), dan perubahan dari bulan sebelumnya. Kategori yang bulan lalu kosong ditandai "baru".
+   - Tiap kategori menampilkan nominal, porsi (%), dan perubahan dari bulan sebelumnya (nama bulan pendek, mis. "dari Sep"). Kategori yang bulan lalu kosong ditandai "baru".
    - Hanya pengeluaran yang dihitung, sama seperti sekarang.
 4. **Merchant teratas**: 5 teratas menurut total, dengan jumlah transaksi.
    - Penggabungannya sederhana: nama dibandingkan tanpa memedulikan huruf besar-kecil dan spasi ("DNID RIDX" = "Dnid Ridx").
@@ -65,7 +65,7 @@ Tidak ada perubahan database.
 - **Perhitungan.** Fungsi murni baru, `analisisBulan(ini, lalu, { bulan, hariIni, budget })`, di `src/lib/analitik.ts`. Fungsi ini menghasilkan ringkasan, sorotan, kategori, dan merchant.
   - Pindah kantong tidak dihitung, sama seperti di tempat lain.
   - Cashback ikut dihitung sebagai masuk.
-- **RPC `get_avg_monthly_expense_by_category`** tidak dipakai lagi oleh halaman mana pun, tapi fungsinya dibiarkan di database.
+- **RPC `get_avg_monthly_expense_by_category`** tidak dipakai lagi di Analitik. Halaman Budget masih memakainya untuk saran nominal.
 - Total dihitung dari seluruh baris bulan itu, diambil per 1.000 baris seperti Riwayat.
 - `// ponytail:` pindahkan ke RPC SQL kalau sebulan sudah ribuan transaksi.
 
