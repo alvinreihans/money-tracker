@@ -1,6 +1,6 @@
 # Spec: Catat yang lebih andal (Gemini dulu, gambar dikompres, deteksi duplikat)
 
-Status: **draf, menunggu persetujuan** · 24 Oktober 2026 · branch `feat/catat-andal` (ditumpuk di atas `feat/navigasi`)
+Status: **disetujui** (24 Okt; duplikat = sama persis, tanpa jendela waktu) · 24 Oktober 2026 · branch `feat/catat-andal` (ditumpuk di atas `feat/navigasi`)
 
 ## Masalah
 
@@ -64,10 +64,18 @@ Foto/gambar
 
 ### 2. Deteksi duplikat (keputusan tetap di tangan user)
 
-**Yang dianggap mirip.** Sebelum transaksi dari foto/teks disimpan, aplikasi mencari transaksi yang sudah tercatat dengan:
-- nominal sama, jenis sama, tanggal sama;
-- kantong sama (kalau ada);
-- **jam selisih ≤ 5 menit**, atau salah satunya tanpa jam.
+**Yang dianggap sama persis** (keputusan 24 Okt: tanpa jendela waktu). Sebelum transaksi dari foto/teks disimpan, aplikasi mencari transaksi yang sudah tercatat dengan isian berikut **sama persis**:
+- nominal;
+- jenis;
+- tanggal;
+- **jam (sampai menit)**;
+- kantong (dan kantong tujuan untuk "Pindah kantong").
+
+Merchant **tidak** ikut dibandingkan. AI membacanya berbeda-beda antar unggahan; contohnya bunga SeaBank yang sama terbaca "Tanpa nama" dan "SeaBank".
+
+Ketikan biasa mendapat jam saat dicatat, jadi "kopi 20rb" yang diketik dua kali di menit berbeda tidak dianggap duplikat.
+
+**Penanda.** Draft yang dicurigai duplikat menyimpan id transaksi yang mirip di kolom baru `duplikat_dari`. Dengan begitu, pertanyaannya tetap muncul saat draft dibuka lagi dari "Belum selesai".
 
 **Kalau ketemu,** transaksinya disimpan sebagai **draft** (belum dihitung), lalu obrolan bertanya:
 
@@ -99,12 +107,12 @@ Satu migrasi:
 - trigger penghapus anak yang tidak cocok;
 - pembersihan data lama.
 
-Deteksi duplikat tidak butuh kolom baru. Ia memakai pertanyaan baru `duplikat` di obrolan, dan penandanya disimpan di draft lewat `raw_ocr_text`/status yang sudah ada. Detail teknisnya ditentukan saat implementasi.
+Kolom baru `transaksi_data.duplikat_dari` (id transaksi yang mirip; kosong lagi kalau transaksi itu dihapus), ikut ke view `transactions`.
 
 ## Pengujian
 
 - **Unit:**
-  - aturan "mirip" untuk duplikat (nominal, tanggal, jam ±5 menit, kantong, tanpa jam);
+  - pertanyaan duplikat muncul untuk draft bertanda `duplikat_dari`;
   - ukuran hasil kompres.
 - **AI sungguhan:**
   - kumpulan struk/bukti yang pernah bermasalah (byU, SPayLater diskon, BP lama, bunga SeaBank, Kopi Kenangan cashback) lewat Gemini terkompres;
@@ -130,4 +138,3 @@ Deteksi duplikat tidak butuh kolom baru. Ia memakai pertanyaan baru `duplikat` d
 ## Pertanyaan terbuka
 
 1. **Paid tier atau tetap free tier?** Rekomendasinya paid (≈ Rp 35/struk), karena privasi dan kuota. Kode tetap sama di keduanya; bedanya hanya pengaturan billing di AI Studio.
-2. **Jarak jam untuk duplikat** diusulkan **5 menit**. Lebih lebar menangkap lebih banyak, tapi pertanyaan juga lebih sering muncul.

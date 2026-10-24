@@ -189,8 +189,6 @@ export async function simpanTransaksi(
     }
   }
 
-  // Teks asli/OCR hanya disimpan untuk draft, sebagai bahan membetulkan.
-  if (row.status === "confirmed") row.raw_ocr_text = null;
 
   const amount = Number(row.amount);
   const date = String(row.transaction_date);
@@ -217,6 +215,33 @@ export async function simpanTransaksi(
       if (!error) supersededStatement = true;
     }
   }
+
+  // Duplikat (SPEC-catat-andal): hasil AI yang sama persis dengan transaksi
+  // tercatat — nominal, jenis, tanggal, jam (menit), kantong — jadi draft dan
+  // ditanya "Catat lagi?"; user yang memutuskan. Merchant sengaja tidak
+  // dibandingkan: AI membacanya berbeda-beda antar unggahan.
+  if (dariAi && row.status === "confirmed") {
+    const sama = (q: ReturnType<typeof cariSama>, kolom: string, nilai: unknown) => (nilai == null ? q.is(kolom, null) : q.eq(kolom, nilai));
+    const cariSama = () =>
+      supabase
+        .from("transactions")
+        .select("id")
+        .eq("status", "confirmed")
+        .is("induk_id", null)
+        .eq("type", String(row.type))
+        .eq("amount", amount)
+        .eq("transaction_date", date);
+    let q = sama(sama(cariSama(), "waktu", row.waktu), "kantong_id", row.kantong_id);
+    if (row.type === "transfer") q = sama(q, "kantong_tujuan_id", row.kantong_tujuan_id);
+    const { data: kembar } = await q.limit(1);
+    if (kembar?.[0]) {
+      row.duplikat_dari = (kembar[0] as { id: string }).id;
+      row.status = "needs_review";
+    }
+  }
+
+  // Teks asli/OCR hanya disimpan untuk draft, sebagai bahan membetulkan.
+  if (row.status === "confirmed") row.raw_ocr_text = null;
 
   const { data: tersimpan, error } = await supabase.from("transactions").insert(row).select().single();
 

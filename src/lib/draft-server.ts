@@ -16,7 +16,11 @@ export async function kabariDraft(supabase: SupabaseClient, tx: Transaction, asa
     const apa = [tx.merchant ?? "Struk", Number(tx.amount) > 0 ? fmtIDR(Number(tx.amount)) : null].filter(Boolean).join(" · ");
     const r = await kirimPush(
       data as Langganan[],
-      [{ judul: "Struk barusan belum lengkap", isi: `${apa} — ketuk untuk melengkapi.`, url: `/?catat=${tx.id}`, tag: `draft-${tx.id}` }],
+      [
+        tx.duplikat_dari
+          ? { judul: "Struk barusan sepertinya sudah tercatat", isi: `${apa} — ketuk untuk memastikan.`, url: `/?catat=${tx.id}`, tag: `draft-${tx.id}` }
+          : { judul: "Struk barusan belum lengkap", isi: `${apa} — ketuk untuk melengkapi.`, url: `/?catat=${tx.id}`, tag: `draft-${tx.id}` },
+      ],
       asal,
     );
     if (r.mati.length) await supabase.from("push_langganan").delete().in("endpoint", r.mati);
