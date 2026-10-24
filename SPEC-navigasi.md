@@ -65,7 +65,7 @@ Urutan isi dari atas ke bawah:
 
 1. **Judul besar tetap** "Rp X keluar di Oktober" dengan "↓ turun 12% dari September". Seluruh judul bisa diketuk dan membuka **Analitik**.
 2. **Catatan belum selesai** (kartu oranye), hanya kalau ada. Sama seperti sekarang.
-3. **Transaksi hari ini & kemarin**, lalu tautan "Lihat semua riwayat". Sama seperti sekarang.
+3. **5 transaksi terakhir**, lalu tautan "Lihat semua riwayat".
 4. **Kantong** berisi saldo dan Total aset.
 5. **Perlu dibayar**: cicilan dan Lend & Borrow yang jatuh tempo (`KartuPinjaman`).
 6. **Budget hampir habis**: hanya kategori yang sudah terpakai ≥ 80%, misalnya "Makan · sisa Rp 50.000 (90%)". Kalau tidak ada, kartunya tidak muncul.

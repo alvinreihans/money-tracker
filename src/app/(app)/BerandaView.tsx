@@ -100,8 +100,7 @@ export default function BerandaView({
           </button>
         )}
 
-        {/* Cuma hari ini & kemarin — Beranda untuk sekilas, riwayat lengkap di
-            tab Riwayat. */}
+        {/* Cuma 5 terakhir — Beranda untuk sekilas, riwayat lengkap di tab Riwayat. */}
         {terbaru.length > 0 ? (
           <TransactionList
             kembali="/"
@@ -114,7 +113,7 @@ export default function BerandaView({
           />
         ) : (
           <div className={s.blok}>
-            <Kosong ikon={Inbox} judul="Belum ada transaksi hari ini">
+            <Kosong ikon={Inbox} judul="Belum ada transaksi">
               Ketik aja, mis. &ldquo;beli makan di warteg 20k shopeepay&rdquo;.
               <br />
               <button type="button" className={s.tombol} style={{ marginTop: 16 }} onClick={() => catat.buka()}>

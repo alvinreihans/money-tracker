@@ -1,6 +1,6 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { hitungStreak, progresBudget } from "@/lib/analitik";
-import { geserHari, isoLokal } from "@/lib/format";
+import { isoLokal } from "@/lib/format";
 import { ambilKantong } from "@/lib/kantong";
 import { kantongUang, ringkasBeranda, type Cicilan } from "@/lib/pinjaman";
 import { rentangBulan } from "@/lib/periode";
@@ -12,6 +12,7 @@ export const dynamic = "force-dynamic";
 // ponytail: streak dihitung dari catatan 90 hari terakhir; lebih dari itu
 // tetap tampil "90 hari". Pindahkan ke RPC kalau ada yang betah selama itu.
 const HARI_STREAK = 90;
+const BERANDA_TERBARU = 5;
 
 export default async function BerandaPage({ searchParams }: { searchParams: Promise<{ catat?: string }> }) {
   // ?catat=<id> dari push "catatan belum selesai": langsung buka percakapannya.
@@ -37,17 +38,17 @@ export default async function BerandaPage({ searchParams }: { searchParams: Prom
     { data: cicilan },
     { data: bayarCicilan },
   ] = await Promise.all([
-    // Beranda cuma hari ini & kemarin; selebihnya di Riwayat. Yang belum
-    // selesai tidak di sini — ada di lembar Catat.
+    // Beranda cuma 5 transaksi terakhir (urutan sama dengan Riwayat);
+    // selebihnya di Riwayat. Yang belum selesai tidak di sini — ada di lembar Catat.
     supabase
       .from("transactions")
       .select("*")
       .eq("status", "confirmed")
-      .in("transaction_date", [hariIni, geserHari(hariIni, -1)])
       .order("transaction_date", { ascending: false })
       .order("waktu", { ascending: false, nullsFirst: false })
       .order("created_at", { ascending: false })
-      .order("induk_id", { ascending: true, nullsFirst: true }),
+      .order("induk_id", { ascending: true, nullsFirst: true })
+      .limit(BERANDA_TERBARU),
     supabase
       .from("transactions")
       .select("amount, category")

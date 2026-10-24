@@ -24,7 +24,7 @@ Belum dikerjakan; dicatat supaya tidak lupa.
 - **Navigasi 5 tab**: Beranda · Riwayat · + · Analitik · Profil.
   - **Analitik** berisi ringkasan bulan, tren, komposisi kategori, budget, dan streak (dulu di Beranda).
   - **Profil** (dulu Pengaturan dari menu ⋮) ada di `/profil`, dengan kartu akun di atasnya.
-  - Beranda kini fokus ke hari ini & yang perlu perhatian, termasuk kartu **Budget hampir habis**.
+  - Beranda kini fokus ke 5 transaksi terakhir & yang perlu perhatian, termasuk kartu **Budget hampir habis**.
   - Judul besar Beranda bisa diketuk untuk membuka Analitik.
 - **Pintasan aplikasi**: tekan lama ikon aplikasi untuk langsung ke Catat, Riwayat, atau Analitik.
 - Ekspor CSV memberi umpan balik: "Menyiapkan file…", lalu snackbar dengan tombol Bagikan.
