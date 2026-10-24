@@ -6,7 +6,7 @@ versinya mengikuti [Semantic Versioning](https://semver.org/lang/id/):
 **mayor** naik kalau ada fitur yang dihapus atau berubah tidak kompatibel,
 **minor** untuk fitur baru, **patch** untuk perbaikan.
 
-Versi yang tampil di aplikasi (menu ⋮ di Beranda dan halaman masuk) dibaca dari
+Versi yang tampil di aplikasi (halaman Profil dan halaman masuk) dibaca dari
 `version` di `package.json`. Saat merilis, naikkan angka itu dan tambahkan
 bagiannya di sini.
 
@@ -20,7 +20,11 @@ Belum dikerjakan; dicatat supaya tidak lupa.
 
 ## [Unreleased]
 
+## [2.1.0] — 2026-10-25
+
 ### Ditambahkan
+- **Tanya AI** di Analitik: tanya soal keuanganmu dengan bahasa sehari-hari ("Kenapa bulan ini boros?", "Total kopi bulan ini?", "Utangku ke siapa aja?"). Bisa juga "kalau Laku6 tidak dihitung…", "transaksi di atas 1 juta", dan "bagaimana kondisi keuanganku". Angkanya diambil langsung dari catatanmu; selisih & persen dihitung kalkulator, bukan ditebak AI, dan nominal di jawaban diperiksa, dengan tombol untuk membuka Riwayat/Analitik yang sesuai. Obrolan tidak disimpan.
+- **Analitik per bulan**: pilih bulan (‹ Oktober 2026 ›), ringkasan dibanding bulan lalu, **sorotan** (proyeksi akhir bulan, hari paling boros, paling sering, kategori yang paling naik), pengeluaran per kategori bulan itu (bukan lagi rata-rata 3 bulan), dan **merchant teratas**. Hampir semua baris bisa diketuk untuk membuka Riwayat yang sudah tersaring.
 - **Filter Riwayat**: chip **Tanggal** (Hari ini, 7 hari, Bulan ini, Bulan lalu, atau pilih rentang), **Kantong** (asal atau tujuan), dan **Kategori**, bisa digabung dan tersimpan di alamat halaman. Riwayat kini dikelompokkan **per bulan** dengan total keluar & masuk untuk seluruh hasil filter; jumlah dan totalnya juga tampil di bawah judul.
 - **Navigasi 5 tab**: Beranda · Riwayat · + · Analitik · Profil.
   - **Analitik** berisi ringkasan bulan, tren, komposisi kategori, budget, dan streak (dulu di Beranda).

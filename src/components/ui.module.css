@@ -1384,3 +1384,66 @@ button.blok { background: var(--blok); }
 .kalenderTgl[data-hari-ini="true"]:not([data-ujung="true"]) > span { box-shadow: inset 0 0 0 1.5px var(--primer); }
 .kalenderTgl:focus-visible { outline: none; }
 .kalenderTgl:focus-visible > span { outline: 2px solid var(--teks); outline-offset: 1px; }
+
+/* Pilih bulan di tab Analitik: ‹ Oktober 2026 ›. */
+.pilihBulan { display: flex; align-items: center; justify-content: space-between; margin: -4px 4px 0; font-size: 17px; font-weight: 600; }
+
+/* Tanya AI: kolom ketik menempel di bawah lembar; tautan telusur berbentuk chip. */
+.tanyaBawah { position: sticky; bottom: 0; margin-top: auto; padding: 8px 0 calc(8px + env(safe-area-inset-bottom)); background: #000; }
+/* Isi lembar Tanya AI setinggi layar: kolom ketik selalu di bawah. */
+.gptRuang { display: flex; flex-direction: column; min-height: 100%; }
+.pilihanJawab a {
+  min-height: 36px; padding: 0 12px; display: inline-flex; align-items: center; border: 1px solid var(--garis); border-radius: 18px;
+  background: var(--blok); color: var(--primer); font-size: 14px; font-weight: 600;
+}
+
+/* Tanya AI ala ChatGPT: layar kosong di tengah, gelembung user abu di kanan,
+   jawaban AI teks biasa selebar layar, kolom ketik kapsul. */
+.gptKosong { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 24px 16px; text-align: center; }
+.gptKosong h3 { margin: 0; font-size: 22px; font-weight: 700; }
+.gptKosong p { margin: 0; max-width: 300px; font-size: 14px; }
+.gptPesan { display: flex; flex-direction: column; gap: 22px; padding: 8px 6px 20px; }
+.gptSaya { align-self: flex-end; max-width: 85%; padding: 10px 16px; border-radius: 22px; background: var(--blok-2); font-size: 16px; line-height: 1.45; overflow-wrap: anywhere; }
+.gptAI { font-size: 16px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+.gptAI small { display: block; margin-top: 8px; color: var(--teks-2); font-size: 13px; }
+.gptTautan { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; white-space: normal; }
+.gptTautan a {
+  min-height: 36px; padding: 0 14px; display: inline-flex; align-items: center; border: 1px solid var(--garis); border-radius: 18px;
+  color: var(--teks); font-size: 14px; font-weight: 600;
+}
+.gptMemuat span { display: block; width: 12px; height: 12px; border-radius: 50%; background: var(--teks); animation: gptDenyut 1s ease-in-out infinite; }
+@keyframes gptDenyut { 0%, 100% { transform: scale(0.7); opacity: 0.5; } 50% { transform: scale(1); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .gptMemuat span { animation: none; } }
+.gptSaran { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+.gptSaran button {
+  display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; border: 1px solid var(--garis); border-radius: 18px;
+  background: transparent; color: var(--teks); font-size: 14px; font-weight: 600; text-align: left; cursor: pointer;
+}
+.gptSaran button .redup { font-size: 13px; font-weight: 400; }
+.gptKomposer { display: flex; align-items: flex-end; gap: 8px; padding: 6px 6px 6px 18px; border-radius: 28px; background: var(--blok-2); }
+.gptKomposer textarea { flex: 1; min-width: 0; max-height: 140px; padding: 10px 0; border: 0; background: transparent; color: var(--teks); font-size: 16px; line-height: 1.4; resize: none; outline: none; }
+.gptKirim { width: 40px; height: 40px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 50%; background: var(--teks); color: #000; cursor: pointer; }
+.gptKirim:disabled { background: var(--garis); color: var(--teks-2); cursor: default; }
+.gptCatatan { margin: 8px 0 0; color: var(--teks-2); font-size: 12px; text-align: center; }
+
+/* Tombol AI melayang di kanan bawah, di atas navigasi (seperti tombol AI di WhatsApp). */
+.tombolAI {
+  position: fixed;
+  right: max(16px, calc(50% - 212px));
+  bottom: calc(var(--tinggi-nav) + env(safe-area-inset-bottom) + 28px);
+  z-index: 25;
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 18px;
+  background: #2a2a2a;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+  transition: transform 120ms var(--gerak);
+}
+.tombolAI:active { transform: scale(0.94); }
+.gptMemuat { display: flex; align-items: center; gap: 10px; }
+.gptMemuat p { margin: 0; font-size: 14px; }

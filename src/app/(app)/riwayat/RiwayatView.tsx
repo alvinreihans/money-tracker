@@ -139,7 +139,11 @@ export default function RiwayatView({
     router.push(ke(perubahan));
   }
   // Kalender muncul di bawah daftar periode: gulir sekali ke sana saat dibuka.
-  const gulirKeSini = useCallback((el: HTMLDivElement | null) => el?.scrollIntoView({ block: "nearest", behavior: "smooth" }), []);
+  // Berkurung kurawal: scrollIntoView di Chromium baru mengembalikan Promise,
+  // dan nilai kembalian ref callback dianggap React 19 sebagai pembersih.
+  const gulirKeSini = useCallback((el: HTMLDivElement | null) => {
+    el?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, []);
   const pilihGanda = (kolom: "kantong" | "kategori", nilai: string) =>
     setDraf((d) => ({ ...d, [kolom]: d[kolom].includes(nilai) ? d[kolom].filter((x) => x !== nilai) : [...d[kolom], nilai] }));
 

@@ -1,6 +1,6 @@
 {
   "name": "money-tracker",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -26,7 +26,9 @@
     "uji:ekspor": "tsx scripts/uji-ekspor.mts",
     "uji:draft": "tsx scripts/uji-draft.mts",
     "uji:waktu": "tsx scripts/uji-waktu.mts",
-    "uji:riwayat": "tsx scripts/uji-riwayat.mts"
+    "uji:riwayat": "tsx scripts/uji-riwayat.mts",
+    "uji:tanya": "tsx scripts/uji-tanya.mts",
+    "eval:tanya": "node --env-file=.env.local scripts/eval-tanya.mjs"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

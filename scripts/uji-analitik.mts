@@ -4,7 +4,7 @@
  * Pemakaian: npm run uji:analitik
  */
 import assert from "node:assert/strict";
-import { hitungStreak, progresBudget, trenBulanan } from "../src/lib/analitik.ts";
+import { analisisBulan, hitungStreak, progresBudget, trenBulanan } from "../src/lib/analitik.ts";
 
 // 22 Okt 2026, 10.00 WIB.
 const sekarang = new Date("2026-10-22T03:00:00Z");
@@ -70,4 +70,45 @@ assert.equal(budget[0].sisa, -50000);
 assert.equal(budget[1].sisa, 150000);
 assert.deepEqual(progresBudget([], [{ category: "food", amount: 1 }]), []);
 
-console.log("✓ analitik: tren bulanan, streak, budget");
+// --- Analitik per bulan (SPEC-analitik-insight) ---
+const r = (amount: number, type: string, category: string, merchant: string | null, transaction_date: string) => ({ amount, type, category, merchant, transaction_date });
+const okt = [
+  r(25000, "expense", "food", "Warteg Selera Bahari", "2026-10-02"),
+  r(18000, "expense", "food", "WARTEG  SELERA BAHARI", "2026-10-05"),
+  r(17000, "expense", "food", "Warteg Selera Bahari", "2026-10-15"),
+  r(245000, "expense", "shopping", "Shopee", "2026-10-15"),
+  r(50, "income", "refund", "Cashback", "2026-10-15"),
+  r(500000, "transfer", "other", null, "2026-10-10"), // bukan keluar/masuk
+  r(5000000, "income", "salary", "Kantor", "2026-10-01"),
+  r(12000, "expense", "transport", null, "2026-10-20"),
+];
+const sep = [r(40000, "expense", "food", "Warteg", "2026-09-10"), r(300000, "expense", "shopping", "Toko", "2026-09-11")];
+const a = analisisBulan(okt, sep, { bulan: "2026-10", hariIni: "2026-10-22" });
+assert.equal(a.keluar, 317000);
+assert.equal(a.masuk, 5000050);
+assert.equal(a.keluarLalu, 340000);
+assert.equal(a.perubahanKeluar, -7); // 317 rb vs 340 rb
+assert.equal(a.proyeksi, Math.round((317000 / 22) * 31));
+assert.deepEqual(a.hariBoros, { tanggal: "2026-10-15", total: 262000 });
+assert.deepEqual(
+  a.kategori.map((k) => [k.kategori, k.total, k.porsi, k.perubahan]),
+  [["shopping", 245000, 77, -18], ["food", 60000, 19, 50], ["transport", 12000, 4, null]], // transport baru
+);
+assert.deepEqual(a.kategoriNaik, { kategori: "food", selisih: 20000, persen: 50 });
+// Merchant: huruf besar-kecil & spasi digabung; ejaan terbanyak yang tampil; tanpa nama dilewati.
+assert.deepEqual(a.merchant, [
+  { nama: "Shopee", total: 245000, kali: 1 },
+  { nama: "Warteg Selera Bahari", total: 60000, kali: 3 },
+]);
+// Proyeksi hanya bulan berjalan dan mulai hari ke-3.
+assert.equal(analisisBulan(okt, sep, { bulan: "2026-10", hariIni: "2026-10-02" }).proyeksi, null);
+assert.equal(analisisBulan(okt, sep, { bulan: "2026-10", hariIni: "2026-11-05" }).proyeksi, null);
+assert.equal(analisisBulan([r(28000, "expense", "food", null, "2026-02-03")], [], { bulan: "2026-02", hariIni: "2026-02-04" }).proyeksi, 196000); // 7 rb/hari × 28
+// Bulan lalu kosong: tanpa persen; bulan ini kosong: tanpa sorotan.
+const baru = analisisBulan(okt, [], { bulan: "2026-10", hariIni: "2026-10-22" });
+assert.equal(baru.perubahanKeluar, null);
+assert.deepEqual(baru.kategoriNaik, { kategori: "shopping", selisih: 245000, persen: null });
+const kosong = analisisBulan([], sep, { bulan: "2026-10", hariIni: "2026-10-22" });
+assert.deepEqual([kosong.keluar, kosong.proyeksi, kosong.hariBoros, kosong.kategori, kosong.kategoriNaik, kosong.merchant], [0, null, null, [], null, []]);
+
+console.log("✓ analitik: tren bulanan, streak, budget, analisis per bulan (sorotan, kategori, merchant, proyeksi)");
