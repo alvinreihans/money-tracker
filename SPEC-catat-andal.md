@@ -1,6 +1,6 @@
 # Spec: Catat yang lebih andal (Gemini dulu, gambar dikompres, deteksi duplikat)
 
-Status: **disetujui** (24 Okt; duplikat = sama persis, tanpa jendela waktu) · 24 Oktober 2026 · branch `feat/catat-andal` (ditumpuk di atas `feat/navigasi`)
+Status: **diterapkan** (24 Okt; duplikat = sama persis, tanpa jendela waktu) · 24 Oktober 2026 · branch `feat/catat-andal` (ditumpuk di atas `feat/navigasi`)
 
 ## Masalah
 
