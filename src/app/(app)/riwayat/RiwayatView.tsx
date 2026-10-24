@@ -3,7 +3,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Inbox, Search, SearchX, X } from "lucide-react";
-import MenuAkun from "@/components/MenuAkun";
 import { AppBar, Kosong, Spinner } from "@/components/oneui";
 import TransactionList from "@/components/TransactionList";
 import s from "@/components/ui.module.css";
@@ -90,14 +89,11 @@ export default function RiwayatView({
         judul="Riwayat"
         sub={q ? `${total} hasil untuk “${q}”` : `${total} transaksi`}
         aksi={
-          <>
-            {!cariBuka && (
-              <button type="button" className={s.ikonTombol} aria-label="Cari transaksi" onClick={() => setCariBuka(true)}>
-                <Search size={22} />
-              </button>
-            )}
-            <MenuAkun />
-          </>
+          !cariBuka && (
+            <button type="button" className={s.ikonTombol} aria-label="Cari transaksi" onClick={() => setCariBuka(true)}>
+              <Search size={22} />
+            </button>
+          )
         }
       />
 

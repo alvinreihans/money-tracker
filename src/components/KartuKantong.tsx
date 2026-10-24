@@ -8,7 +8,7 @@ import { emojiKantong, type Kantong } from "@/lib/kantong";
 export default function KartuKantong({ data }: { data: (Pick<Kantong, "id" | "name" | "kind" | "emoji"> & { saldo: number })[] }) {
   if (data.length === 0) {
     return (
-      <NextLink href="/pengaturan/kantong" className={`${s.blok} ${s.baris} ${s.tekan}`}>
+      <NextLink href="/profil/kantong" className={`${s.blok} ${s.baris} ${s.tekan}`}>
         <span className={s.barisIkon} style={{ background: "color-mix(in srgb, #bf7af0 18%, transparent)", color: "#bf7af0" }} aria-hidden>
           <Wallet size={20} />
         </span>
@@ -45,7 +45,7 @@ export default function KartuKantong({ data }: { data: (Pick<Kantong, "id" | "na
         );
       })}
 
-      <NextLink href="/pengaturan/kantong" className={s.blokKaki}>
+      <NextLink href="/profil/kantong" className={s.blokKaki}>
         Atur kantong
       </NextLink>
     </section>

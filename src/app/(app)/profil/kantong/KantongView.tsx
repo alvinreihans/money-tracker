@@ -109,7 +109,7 @@ export default function KantongView({ userId, daftar }: { userId: string; daftar
       <AppBar
         judul="Kantong"
         sub={daftar.length > 0 ? `Total aset ${fmtIDR(total)}` : "Rekening, e-wallet, dan tunai"}
-        kembali="/pengaturan"
+        kembali="/profil"
         aksi={
           <button type="button" className={s.ikonTombol} aria-label="Tambah kantong" onClick={() => buka()}>
             <Plus size={24} />

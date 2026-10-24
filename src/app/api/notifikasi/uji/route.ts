@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
 
   const r = await kirimPush(
     data,
-    [{ judul: "Notifikasi nyala", isi: "Pengingat jatuh tempo & catat dikirim tiap jam 19.00.", url: "/pengaturan", tag: "uji" }],
+    [{ judul: "Notifikasi nyala", isi: "Pengingat jatuh tempo & catat dikirim tiap jam 19.00.", url: "/profil", tag: "uji" }],
     new URL(req.url).origin,
   );
   if (r.mati.length) await supabase.from("push_langganan").delete().in("endpoint", r.mati);

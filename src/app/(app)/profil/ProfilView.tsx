@@ -39,10 +39,10 @@ export function BarisMenu({
 }
 
 /**
- * Pengaturan, dibuka dari menu ⋮ di Beranda. Tidak jadi tab: jarang dibuka,
- * dan navigasi bawah disimpan untuk yang dipakai tiap hari.
+ * Tab Profil (SPEC-navigasi): akun di atas, lalu pengaturan per grup ala
+ * Pengaturan Samsung. Sub-halamannya di /profil/*.
  */
-export default function PengaturanView({
+export default function ProfilView({
   email,
   jumlahKantong,
   jumlahBudget,
@@ -95,20 +95,33 @@ export default function PengaturanView({
 
   return (
     <>
-      <AppBar judul="Pengaturan" kembali="/" />
+      <AppBar judul="Profil" />
 
       <div className={s.isi}>
+        {/* Kartu akun ala halaman akun Samsung: huruf awal dalam lingkaran. */}
+        {email && (
+          <div className={`${s.blok} ${s.baris} ${s.kartuAkun}`}>
+            <span className={s.avatar} aria-hidden>
+              {email.charAt(0).toUpperCase()}
+            </span>
+            <span className={s.barisTeks}>
+              <span className={s.barisJudul}>{email}</span>
+              <span className={s.redup}>Email masuk</span>
+            </span>
+          </div>
+        )}
+
         <h2 className={s.subheader}>Keuangan</h2>
         <div className={s.blok}>
           <BarisMenu
-            href="/pengaturan/kantong"
+            href="/profil/kantong"
             ikon={Wallet}
             warna="#bf7af0"
             judul="Kantong"
             ket={jumlahKantong > 0 ? `${jumlahKantong} kantong` : "Rekening, e-wallet, tunai"}
           />
           <BarisMenu
-            href="/pengaturan/kategori"
+            href="/profil/kategori"
             ikon={Shapes}
             warna="#ff9f43"
             judul="Kategori"
@@ -122,7 +135,7 @@ export default function PengaturanView({
             ket="Pinjaman, kartu kredit, cicilan"
           />
           <BarisMenu
-            href="/pengaturan/budget"
+            href="/profil/budget"
             ikon={Target}
             warna="#3e91ff"
             judul="Budget"
@@ -135,19 +148,8 @@ export default function PengaturanView({
           <SakelarNotifikasi />
         </div>
 
-        <h2 className={s.subheader}>Akun</h2>
+        <h2 className={s.subheader}>Data</h2>
         <div className={s.blok}>
-          {email && (
-            <div className={s.baris}>
-              <span className={s.barisIkon} aria-hidden>
-                <UserRound size={20} />
-              </span>
-              <span className={s.barisTeks}>
-                <span className={s.barisJudul}>{email}</span>
-                <span className={s.redup}>Email masuk</span>
-              </span>
-            </div>
-          )}
           <button type="button" className={`${s.baris} ${s.tekan}`} onClick={() => void ekspor()} disabled={mengekspor} aria-busy={mengekspor}>
             <span className={s.barisIkon} aria-hidden>
               {mengekspor ? <span className={s.spinner} /> : <Download size={20} />}
@@ -157,6 +159,10 @@ export default function PengaturanView({
               <span className={s.redup}>{mengekspor ? "Menyiapkan file…" : "Semua transaksi sebagai file CSV"}</span>
             </span>
           </button>
+        </div>
+
+        <h2 className={s.subheader}>Akun</h2>
+        <div className={s.blok}>
           <button type="button" className={`${s.baris} ${s.tekan}`} onClick={() => void keluar()}>
             <span className={`${s.barisIkon} ${s.bahaya}`} aria-hidden>
               <LogOut size={20} />

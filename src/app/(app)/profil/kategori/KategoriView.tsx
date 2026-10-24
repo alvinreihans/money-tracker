@@ -113,7 +113,7 @@ export default function KategoriView() {
 
   return (
     <>
-      <AppBar judul="Kategori" sub={`${kategori.length} kategori`} kembali="/pengaturan" />
+      <AppBar judul="Kategori" sub={`${kategori.length} kategori`} kembali="/profil" />
 
       <div className={s.isi}>
         {(["expense", "income"] as const).map((type) => (

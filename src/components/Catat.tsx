@@ -46,7 +46,7 @@ const CatatContext = createContext<{
   kabari: (teks: string, aksi?: Kabar["aksi"]) => void;
   kantong: PilihanKantong[];
   kategori: Kategori[];
-  /** Email yang sedang masuk, untuk menu ⋮. */
+  /** Email yang sedang masuk, untuk tab Profil. */
   email: string | null;
   /** Jumlah catatan yang belum selesai. */
   jumlahDraft: number;

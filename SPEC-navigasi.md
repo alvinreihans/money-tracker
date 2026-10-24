@@ -1,6 +1,6 @@
 # Spec: Navigasi 5 tab (Beranda · Riwayat · + · Analitik · Profil)
 
-Status: **draf, menunggu persetujuan** · 24 Oktober 2026 · branch `feat/navigasi` (ditumpuk di atas PR #32)
+Status: **disetujui** (24 Okt 2026, pertanyaan terbuka memakai usulan bawaan) · branch `feat/navigasi`
 
 Menggantikan sebagian [SPEC-analitik](SPEC-analitik.md): di sana Beranda dijadikan pusat analitik dan Pengaturan dibuka dari menu ⋮. Sekarang analitik pindah ke tab sendiri dan Pengaturan jadi tab **Profil**.
 
@@ -104,7 +104,7 @@ Query Beranda ikut berkurang. Tren 6 bulan dan rerata kategori tidak diambil lag
 ### PWA
 
 - **Pintasan aplikasi** di manifest (`shortcuts`). Ikon aplikasi yang ditekan lama di Android memunculkan **Catat**, **Riwayat**, dan **Analitik**.
-  - Pintasan Catat memakai `/?catat=1`, yang sudah ada.
+  - Pintasan Catat memakai `/?catat=baru` (membuka lembar Catat; `?catat=<id>` tetap membuka draft).
 
 ### Riwayat
 
