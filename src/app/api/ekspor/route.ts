@@ -31,6 +31,7 @@ export async function GET() {
       .order("transaction_date")
       .order("waktu")
       .order("created_at")
+      .order("induk_id", { nullsFirst: true })
       .order("id")
       .range(dari, dari + 999);
     if (error) return NextResponse.json({ error: "Gagal mengambil transaksi." }, { status: 500 });
