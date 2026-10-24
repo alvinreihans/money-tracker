@@ -20,7 +20,7 @@ Belum dikerjakan; dicatat supaya tidak lupa.
 
 ## [Unreleased]
 
-## [2.1.0] — 2026-10-24
+## [2.1.0] — 2026-10-25
 
 ### Ditambahkan
 - **Tanya AI** di Analitik: tanya soal keuanganmu dengan bahasa sehari-hari ("Kenapa bulan ini boros?", "Total kopi bulan ini?", "Utangku ke siapa aja?"). Bisa juga "kalau Laku6 tidak dihitung…", "transaksi di atas 1 juta", dan "bagaimana kondisi keuanganku". Angkanya diambil langsung dari catatanmu; selisih & persen dihitung kalkulator, bukan ditebak AI, dan nominal di jawaban diperiksa, dengan tombol untuk membuka Riwayat/Analitik yang sesuai. Obrolan tidak disimpan.
