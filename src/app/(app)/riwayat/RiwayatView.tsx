@@ -239,6 +239,7 @@ export default function RiwayatView({
             items={semua}
             kembali={alamatRiwayat(filter)}
             perBulan={ringkasan.perBulan}
+            perHari={ringkasan.perHari}
             kaki={
               semua.length < total && (
                 <button

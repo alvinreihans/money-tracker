@@ -51,7 +51,12 @@ assert.deepEqual(
     { amount: 500000, type: "transfer", transaction_date: "2026-10-20" },
     { amount: 3000, type: "expense", transaction_date: "2026-09-30" },
   ]),
-  { keluar: 15000, masuk: 50, perBulan: { "2026-10": { keluar: 12000, masuk: 50 }, "2026-09": { keluar: 3000, masuk: 0 } } },
+  {
+    keluar: 15000,
+    masuk: 50,
+    perBulan: { "2026-10": { keluar: 12000, masuk: 50 }, "2026-09": { keluar: 3000, masuk: 0 } },
+    perHari: { "2026-10-24": { keluar: 12000, masuk: 50 }, "2026-09-30": { keluar: 3000, masuk: 0 } },
+  },
 );
 
-console.log("✓ riwayat: baca & bersihkan filter URL, rentang periode (batas bulan/tahun), alamat bolak-balik, total per bulan");
+console.log("✓ riwayat: baca & bersihkan filter URL, rentang periode (batas bulan/tahun), alamat bolak-balik, total per bulan & per hari");

@@ -5,7 +5,7 @@ import { useCatat, useKategori } from "@/components/Catat";
 import { tandaTransaksi } from "@/components/kategori";
 import { namaKategori } from "@/lib/kategori";
 import s from "@/components/ui.module.css";
-import { alamatDetail, fmtIDR, fmtIDRRingkas, fmtTanggal, fmtTanggalPendek, geserHari, isoLokal, kelompokWaktu, namaBulan } from "@/lib/format";
+import { alamatDetail, fmtIDR, fmtIDRRingkas, fmtTanggal, geserHari, isoLokal, kelompokWaktu, namaBulan } from "@/lib/format";
 import { fmtJam } from "@/lib/waktu";
 import type { Transaction } from "@/types/transaction";
 
@@ -20,8 +20,9 @@ import type { Transaction } from "@/types/transaction";
  * saat membuka riwayat adalah "kemarin habis berapa".
  *
  * Dengan `perBulan` (Riwayat, SPEC-riwayat-filter): dikelompokkan per bulan,
- * dengan total keluar & masuk bulan itu untuk SELURUH hasil filter (dihitung
- * server), bukan hanya baris yang sudah termuat. Tanggal & jam di tiap kartu.
+ * lalu per hari di dalamnya ("Senin, 20 Okt"), masing-masing dengan total
+ * keluar & masuk untuk SELURUH hasil filter (dihitung server), bukan hanya
+ * baris yang sudah termuat. Tiap kartu cukup menampilkan jamnya.
  */
 
 /**
@@ -76,6 +77,7 @@ export default function TransactionList({
   kaki,
   kembali,
   perBulan,
+  perHari,
 }: {
   items: Transaction[];
   /** Aksi penutup di bawah daftar, mis. "Lihat semua riwayat". */
@@ -84,6 +86,8 @@ export default function TransactionList({
   kembali?: string;
   /** "YYYY-MM" → total keluar & masuk seluruh hasil: kelompok per bulan. */
   perBulan?: Record<string, { keluar: number; masuk: number }>;
+  /** "YYYY-MM-DD" → total hari itu, untuk subheader hari di dalam bulan. */
+  perHari?: Record<string, { keluar: number; masuk: number }>;
 }) {
   const hariIni = isoLokal(new Date());
   const kemarin = geserHari(hariIni, -1);
@@ -93,13 +97,20 @@ export default function TransactionList({
     const bulan = namaBulan(`${k}-01`);
     return `${bulan.charAt(0).toUpperCase()}${bulan.slice(1)} ${k.slice(0, 4)}`;
   };
-  // Per bulan: "Hari ini 07.30" / "Kemarin" / "24 Okt 07.30". Per waktu: di
-  // "Hari ini"/"Kemarin" tanggalnya sudah jelas dari subheader.
+  // Per bulan: tanggalnya ada di subheader hari, kartu cukup jamnya. Per
+  // waktu: di "Hari ini"/"Kemarin" tanggalnya sudah jelas dari subheader.
   const tanggal = (t: Transaction, k: string) => {
-    if (!perBulan) return k === "Hari ini" || k === "Kemarin" ? null : fmtTanggal(t.transaction_date);
-    const hari = t.transaction_date === hariIni ? "Hari ini" : t.transaction_date === kemarin ? "Kemarin" : fmtTanggalPendek(t.transaction_date);
-    return [hari, fmtJam(t.waktu)].filter(Boolean).join(" ");
+    if (perBulan) return fmtJam(t.waktu);
+    return k === "Hari ini" || k === "Kemarin" ? null : fmtTanggal(t.transaction_date);
   };
+  const labelHari = (iso: string) =>
+    iso === hariIni
+      ? "Hari ini"
+      : iso === kemarin
+        ? "Kemarin"
+        : new Intl.DateTimeFormat("id-ID", { weekday: "long", day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(`${iso}T00:00:00Z`));
+  const teksTotal = (t: { keluar: number; masuk: number }) =>
+    [t.keluar > 0 && `−${fmtIDRRingkas(t.keluar)}`, t.masuk > 0 && `+${fmtIDRRingkas(t.masuk)}`].filter(Boolean).join(" · ");
 
   // Data sudah terurut menurut tanggal dari query, jadi cukup dipecah urut.
   const kelompok: { kunci: string; isi: Transaction[] }[] = [];
@@ -118,7 +129,16 @@ export default function TransactionList({
           keluar: k.isi.filter((t) => t.type === "expense" && t.status === "confirmed").reduce((n, t) => n + Number(t.amount), 0),
           masuk: 0,
         };
-        const nilai = [total.keluar > 0 && `−${fmtIDRRingkas(total.keluar)}`, total.masuk > 0 && `+${fmtIDRRingkas(total.masuk)}`].filter(Boolean).join(" · ");
+        const nilai = teksTotal(total);
+        // Di dalam bulan: dipecah per hari (data sudah urut tanggal).
+        const hari: { iso: string; isi: Transaction[] }[] = [];
+        if (perBulan) {
+          for (const t of k.isi) {
+            const akhir = hari[hari.length - 1];
+            if (akhir?.iso === t.transaction_date) akhir.isi.push(t);
+            else hari.push({ iso: t.transaction_date, isi: [t] });
+          }
+        }
 
         return (
           <section key={`${k.kunci}-${i}`} className={s.kelompok}>
@@ -131,9 +151,27 @@ export default function TransactionList({
                 </>
               )}
             </h2>
-            {k.isi.map((t) => (
-              <Kartu key={t.id} t={t} tanggal={tanggal(t, k.kunci)} kembali={kembali} />
-            ))}
+            {perBulan
+              ? hari.map((h) => {
+                  const nilaiHari = perHari?.[h.iso] ? teksTotal(perHari[h.iso]) : "";
+                  return (
+                    <div key={h.iso} className={s.kelompok}>
+                      <h3 className={`${s.subheader} ${s.subheaderBaris}`}>
+                        <span>{labelHari(h.iso)}</span>
+                        {nilaiHari && (
+                          <>
+                            <span className={s.titikTitik} aria-hidden />
+                            <span className={s.subheaderNilai}>{nilaiHari}</span>
+                          </>
+                        )}
+                      </h3>
+                      {h.isi.map((t) => (
+                        <Kartu key={t.id} t={t} tanggal={tanggal(t, k.kunci)} kembali={kembali} />
+                      ))}
+                    </div>
+                  );
+                })
+              : k.isi.map((t) => <Kartu key={t.id} t={t} tanggal={tanggal(t, k.kunci)} kembali={kembali} />)}
           </section>
         );
       })}

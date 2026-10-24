@@ -164,17 +164,20 @@ export interface RingkasanRiwayat {
   masuk: number;
   /** "YYYY-MM" → total bulan itu. */
   perBulan: Record<string, { keluar: number; masuk: number }>;
+  /** "YYYY-MM-DD" → total hari itu. */
+  perHari: Record<string, { keluar: number; masuk: number }>;
 }
 
-/** Total keluar & masuk (keseluruhan dan per bulan). Pindah kantong tidak dihitung. */
+/** Total keluar & masuk (keseluruhan, per bulan, per hari). Pindah kantong tidak dihitung. */
 export function ringkasRiwayat(baris: { amount: number | string; type: string; transaction_date: string }[]): RingkasanRiwayat {
-  const r: RingkasanRiwayat = { keluar: 0, masuk: 0, perBulan: {} };
+  const r: RingkasanRiwayat = { keluar: 0, masuk: 0, perBulan: {}, perHari: {} };
   for (const t of baris) {
     const arah = t.type === "expense" ? "keluar" : t.type === "income" ? "masuk" : null;
     if (!arah) continue;
     const n = Number(t.amount);
     const b = (r.perBulan[t.transaction_date.slice(0, 7)] ??= { keluar: 0, masuk: 0 });
     b[arah] += n;
+    (r.perHari[t.transaction_date] ??= { keluar: 0, masuk: 0 })[arah] += n;
     r[arah] += n;
   }
   return r;
