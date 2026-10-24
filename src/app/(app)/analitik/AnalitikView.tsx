@@ -1,12 +1,14 @@
 "use client";
 
+import { useState } from "react";
 import NextLink from "next/link";
-import { ArrowUpRight, CalendarDays, ChevronLeft, ChevronRight, Store, TrendingUp } from "lucide-react";
+import { ArrowUpRight, CalendarDays, ChevronLeft, ChevronRight, Sparkles, Store, TrendingUp } from "lucide-react";
 import { useKategori } from "@/components/Catat";
 import KartuBudget from "@/components/KartuBudget";
 import KomposisiKategori from "@/components/KomposisiKategori";
 import { AppBar } from "@/components/oneui";
 import RingkasanBulan from "@/components/RingkasanBulan";
+import TanyaAI from "@/components/TanyaAI";
 import TrenBulanan from "@/components/TrenBulanan";
 import s from "@/components/ui.module.css";
 import { fmtIDR, fmtIDRRingkas, geserHari, namaBulan } from "@/lib/format";
@@ -67,6 +69,7 @@ export default function AnalitikView({
   totalBudget: number;
 }) {
   const kategori = useKategori();
+  const [tanya, setTanya] = useState(false);
   const awal = `${bulan}-01`;
   const akhir = geserHari(`${geserBulan(bulan, 1)}-01`, -1);
   const label = `${Besar(namaBulan(awal))} ${bulan.slice(0, 4)}`;
@@ -147,6 +150,18 @@ export default function AnalitikView({
           )}
         </nav>
 
+        {/* Tanya AI (SPEC-analitik-ai): angka dari database, AI menjelaskan. */}
+        <button type="button" className={`${s.blok} ${s.baris} ${s.tekan}`} onClick={() => setTanya(true)}>
+          <span className={s.barisIkon} style={{ background: "color-mix(in srgb, #bf7af0 18%, transparent)", color: "#bf7af0" }} aria-hidden>
+            <Sparkles size={20} />
+          </span>
+          <span className={s.barisTeks}>
+            <span className={s.barisJudul}>Tanya soal keuanganmu</span>
+            <span className={s.redup}>Mis. “Kenapa {Besar(namaBulan(awal))} boros?”</span>
+          </span>
+          <ChevronRight size={20} color="var(--teks-2)" aria-hidden />
+        </button>
+
         <RingkasanBulan
           keluar={a.keluar}
           masuk={a.masuk}
@@ -193,6 +208,7 @@ export default function AnalitikView({
         <TrenBulanan data={tren} />
         <KartuBudget data={budget} bulan={namaBulan(awal)} />
       </div>
+      {tanya && <TanyaAI bulan={bulan} namaBulan={Besar(namaBulan(awal))} namaBulanLalu={bulanLalu} onClose={() => setTanya(false)} />}
     </>
   );
 }

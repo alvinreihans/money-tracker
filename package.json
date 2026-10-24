@@ -26,7 +26,8 @@
     "uji:ekspor": "tsx scripts/uji-ekspor.mts",
     "uji:draft": "tsx scripts/uji-draft.mts",
     "uji:waktu": "tsx scripts/uji-waktu.mts",
-    "uji:riwayat": "tsx scripts/uji-riwayat.mts"
+    "uji:riwayat": "tsx scripts/uji-riwayat.mts",
+    "uji:tanya": "tsx scripts/uji-tanya.mts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

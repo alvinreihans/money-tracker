@@ -1,6 +1,6 @@
 # Spec: Tanya AI di Analitik (fase 4 SPEC-navigasi)
 
-Status: **draf, menunggu persetujuan** · 24 Oktober 2026 · branch `feat/analitik-insight`
+Status: **diterapkan** (tanpa cadangan Groq; pintu masuk hanya di Analitik) · 24 Oktober 2026 · branch `feat/analitik-insight`
 
 ## Tujuan
 
@@ -64,7 +64,8 @@ Tidak ada perubahan database dan tidak ada tabel baru.
 - **Endpoint:** `POST /api/tanya` dengan `{ pertanyaan, riwayat: [...6 pesan], bulan }`. Balasannya `{ jawaban, tautan: [{ label, href }], ragu: boolean }`.
 - **Kode baru:**
   - `src/lib/tanya.ts`: definisi fungsi, pemeriksa angka, pembuat tautan (fungsi murni, diuji);
-  - `src/app/api/tanya/route.ts`: putaran model dan fungsi;
+  - `src/app/api/tanya/route.ts`: putaran model dan fungsi. Riwayat pesan dikelola sendiri lewat `generateContent`, bukan `startChat`: SDK `@google/generative-ai` mengirim hasil fungsi dengan role "function" yang ditolak model Gemini baru;
+- `src/lib/tanya-server.ts`: keempat fungsi;
   - `src/components/TanyaAI.tsx`: lembar obrolan.
 
 ## Pengujian
