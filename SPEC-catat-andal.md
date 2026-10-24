@@ -36,7 +36,7 @@ Nama model bisa diganti lewat env `GEMINI_MODEL` di Vercel tanpa deploy ulang.
 **Rekomendasi: aktifkan billing (paid tier) di Google AI Studio.**
 
 - **Privasi.** Untuk free tier, Google memakai isi permintaan untuk melatih modelnya, dan isinya bisa dibaca reviewer manusia. Ketentuannya sendiri meminta *"Do not submit sensitive, confidential, or personal information to the Unpaid Services."* Bukti transfer memuat nama, nomor rekening, dan nominal. Di paid tier: "Used to improve our products: **No**".
-- **Kuota.** Tidak lagi dibatasi jumlah per hari seperti free tier.
+- **Kuota.** Jauh lebih longgar daripada free tier (Tier 1), jadi tidak lagi habis setelah beberapa puluh struk.
 - **Biaya** (perkiraan dari harga resmi $0,30/1 juta token input, $2,50/1 juta token output): ± 4.500 token masuk dan ± 400 token keluar per struk, jadi ± **$0,002 (≈ Rp 35) per struk**. 100 struk/bulan ≈ Rp 3.500; 1.000 struk/bulan ≈ Rp 35.000.
 
 Kalau tetap memakai free tier, aplikasi tetap jalan. Begitu kuota Gemini habis, otomatis turun ke Tesseract + Groq. Batas harian Flash-Lite untuk akun ini bisa dicek di https://aistudio.google.com/rate-limit.
