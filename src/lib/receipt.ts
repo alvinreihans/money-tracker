@@ -8,8 +8,27 @@ import {
   type KonteksAI,
 } from "@/lib/extract";
 import { isoLokal } from "@/lib/format";
+import { kompresGambar } from "@/lib/gambar";
+import { GEMINI_MODEL } from "@/lib/gemini";
 import { KATEGORI_BAWAAN } from "@/lib/kategori";
 import type { ExtractedReceipt } from "@/types/transaction";
+
+/**
+ * Hasil baca Gemini sebagai teks pengganti OCR di draft: bahan saat user
+ * menjelaskan di obrolan ("cerita"), supaya pembacaan ulangnya tidak mulai
+ * dari nol.
+ */
+function ringkasBacaan(e: ExtractedReceipt): string {
+  return "Hasil baca gambar: " + [
+    e.merchant,
+    e.amount > 0 ? `Rp ${e.amount}` : null,
+    [e.transaction_date, e.time].filter(Boolean).join(" "),
+    e.payment_method,
+    e.description,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
 
 /**
  * Orkestrasi pipeline ekstraksi struk sesuai FALLBACK.md.
@@ -113,6 +132,28 @@ export async function processReceiptImage(
   // kecil" dari "OCR-nya yang bermasalah".
   notes.push(`Gambar masuk: ${Math.round(image.byteLength / 1024)} KB, ${mimeType}`);
 
+  // --- 1. Gemini pada gambar terkompres (SPEC-catat-andal) ---
+  // Membaca tata letak bukti bayar (nominal besar di atas, diskon, "SPayLater -
+  // 1 Bulan") jauh lebih andal daripada OCR, dan tidak kena batas token Groq.
+  // Bisa dimatikan lewat env, mis. saat kuota Gemini habis.
+  if (process.env.DISABLE_VISION_FALLBACK === "1") {
+    notes.push("Gemini dimatikan (DISABLE_VISION_FALLBACK=1), langsung OCR + Groq");
+  } else {
+    try {
+      const kecil = await kompresGambar(image);
+      const extracted = await extractWithGeminiVision(kecil.toString("base64"), "image/jpeg", konteks, catatan);
+      best = extracted;
+      if (isValidExtraction(extracted, konteks.kategori)) {
+        notes.push(`Ekstraksi berhasil via Gemini (${GEMINI_MODEL}, ${Math.round(kecil.byteLength / 1024)} KB)`);
+        return done("confirmed", extracted, null, "gemini_vision", notes, undefined, ringkasBacaan(extracted));
+      }
+      notes.push("Gemini menghasilkan data tidak valid, coba OCR + Groq");
+    } catch (err) {
+      notes.push(`Gemini gagal: ${errMsg(err)} — coba OCR + Groq`);
+    }
+  }
+
+  // --- 2. Cadangan: OCR + rantai Groq ---
   try {
     ocr = await runOcr(image);
     notes.push(
@@ -129,17 +170,18 @@ export async function processReceiptImage(
     try {
       const { extracted, model } = await extractWithGroq(denganCatatan(ocr.text, catatan), konteks);
       // Nominal yang hanya ada di baris promo = nominal asli tak terbaca:
-      // jangan dipakai, biar vision membaca gambarnya (atau ditanyakan).
+      // jangan dipakai, biar ditanyakan.
       const promo = nominalDariPromo(ocr.text, extracted.amount);
-      best = promo ? { ...extracted, amount: 0 } : extracted;
       if (!promo && isValidExtraction(extracted, konteks.kategori)) {
         notes.push(`Ekstraksi berhasil via Groq (${model})`);
         return done("confirmed", extracted, ocr, "groq", notes);
       }
+      // Hasil Gemini yang tidak valid tetap lebih berguna daripada hasil Groq yang juga tidak valid.
+      best ??= promo ? { ...extracted, amount: 0 } : extracted;
       notes.push(
         promo
-          ? `Groq (${model}) mengambil nominal dari baris promo (${extracted.amount}), eskalasi ke vision`
-          : `Groq (${model}) menghasilkan data tidak valid, eskalasi ke vision`,
+          ? `Groq (${model}) mengambil nominal dari baris promo (${extracted.amount})`
+          : `Groq (${model}) menghasilkan data tidak valid`,
       );
     } catch (err) {
       notes.push(`Seluruh rantai Groq gagal: ${errMsg(err)}`);
@@ -148,33 +190,7 @@ export async function processReceiptImage(
     notes.push("Teks OCR tidak lolos gerbang kualitas, lewati Groq");
   }
 
-  // --- 3. Jaring pengaman: Gemini Vision pada gambar ASLI ---
-  // Bisa dimatikan lewat env: berguna saat kuota Gemini habis (lebih baik
-  // langsung jadi draft daripada menunggu panggilan yang pasti ditolak) dan
-  // saat menguji mutu Tesseract+Groq tanpa membakar kuota.
-  if (process.env.DISABLE_VISION_FALLBACK === "1") {
-    notes.push("Fallback Gemini Vision dimatikan (DISABLE_VISION_FALLBACK=1)");
-    return done("needs_review", best ?? emptyDraft(), ocr, "none", notes);
-  }
-
-  try {
-    const extracted = await extractWithGeminiVision(
-      image.toString("base64"),
-      mimeType,
-      konteks,
-      catatan,
-    );
-    best = extracted;
-    if (isValidExtraction(extracted, konteks.kategori)) {
-      notes.push("Ekstraksi berhasil via Gemini Vision");
-      return done("confirmed", extracted, ocr, "gemini_vision", notes);
-    }
-    notes.push("Gemini Vision menghasilkan data tidak valid");
-  } catch (err) {
-    notes.push(`Gemini Vision gagal: ${errMsg(err)}`);
-  }
-
-  // --- 4. Semua jalur gagal: simpan sebagai draft, jangan buang data user ---
+  // --- 3. Semua jalur gagal: simpan sebagai draft, jangan buang data user ---
   return done("needs_review", best ?? emptyDraft(), ocr, "none", notes);
 }
 
@@ -242,6 +258,8 @@ function done(
   notes: string[],
   /** Teks yang dibaca model (OCR atau ketikan), untuk melengkapi tenor paylater. */
   teks = ocr?.text,
+  /** Teks mentah yang disimpan di draft; bawaannya teks OCR. */
+  mentah = ocr?.text ?? null,
 ): ProcessedReceipt {
   // "SPayLater - 1 / Bulan" yang dipecah OCR: tenornya dibaca langsung dari teks.
   if (extracted?.paylater && !extracted.paylater.tenor && teks) {
@@ -254,7 +272,7 @@ function done(
   return {
     status,
     extracted,
-    rawOcrText: ocr?.text ?? null,
+    rawOcrText: mentah,
     ocrConfidence: ocr?.confidence ?? null,
     source,
     notes,
