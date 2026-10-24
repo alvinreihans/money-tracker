@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CalendarDays, Check, ChevronDown, Inbox, Search, SearchX, Shapes, Wallet, X } from "lucide-react";
 import { useCatat, useKategori } from "@/components/Catat";
 import { tandaKategori } from "@/components/kategori";
-import { AppBar, Field, Kosong, Lembar, Spinner } from "@/components/oneui";
+import KalenderRentang from "@/components/KalenderRentang";
+import { AppBar, Kosong, Lembar, Spinner } from "@/components/oneui";
 import TransactionList from "@/components/TransactionList";
 import s from "@/components/ui.module.css";
 import { fmtIDRRingkas, fmtTanggalPendek, isoLokal } from "@/lib/format";
@@ -137,6 +138,8 @@ export default function RiwayatView({
     setLembar(null);
     router.push(ke(perubahan));
   }
+  // Kalender muncul di bawah daftar periode: gulir sekali ke sana saat dibuka.
+  const gulirKeSini = useCallback((el: HTMLDivElement | null) => el?.scrollIntoView({ block: "nearest", behavior: "smooth" }), []);
   const pilihGanda = (kolom: "kantong" | "kategori", nilai: string) =>
     setDraf((d) => ({ ...d, [kolom]: d[kolom].includes(nilai) ? d[kolom].filter((x) => x !== nilai) : [...d[kolom], nilai] }));
 
@@ -285,7 +288,8 @@ export default function RiwayatView({
           daftar
           onClose={() => setLembar(null)}
           pil={pilHapusTerapkan({ periode: null, dari: null, sampai: null }, () =>
-            rentangSendiri ? { periode: null, dari: draf.dari, sampai: draf.sampai } : { periode: draf.periode, dari: null, sampai: null },
+            // Satu tanggal saja = rentang sehari.
+            rentangSendiri ? { periode: null, dari: draf.dari, sampai: draf.sampai ?? draf.dari } : { periode: draf.periode, dari: null, sampai: null },
           )}
         >
           <div role="radiogroup" aria-label="Periode">
@@ -302,14 +306,8 @@ export default function RiwayatView({
             </BarisPilih>
           </div>
           {rentangSendiri && (
-            <div className={`${s.blokForm}`} style={{ padding: "0 4px 8px" }}>
-              {/* Isian tanggal bawaan: di HP muncul kalender sistem. */}
-              <Field label="Dari" ikon={CalendarDays}>
-                <input type="date" value={draf.dari ?? ""} onChange={(e) => setDraf((d) => ({ ...d, dari: e.target.value || null }))} />
-              </Field>
-              <Field label="Sampai" ikon={CalendarDays}>
-                <input type="date" value={draf.sampai ?? ""} onChange={(e) => setDraf((d) => ({ ...d, sampai: e.target.value || null }))} />
-              </Field>
+            <div ref={gulirKeSini}>
+              <KalenderRentang nilai={{ dari: draf.dari, sampai: draf.sampai }} onChange={(r) => setDraf((d) => ({ ...d, ...r }))} />
             </div>
           )}
         </Lembar>

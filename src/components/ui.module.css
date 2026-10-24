@@ -1341,3 +1341,46 @@ button.blok { background: var(--blok); }
 }
 
 .centang[data-aktif="true"] { border-color: var(--primer); background: var(--primer); }
+
+/* Kalender rentang (filter Riwayat), ala Kalender Samsung. */
+.kalender { padding: 4px 12px 8px; }
+.kalenderRentang { margin: 4px 12px 12px; font-size: 22px; font-weight: 700; }
+.kalenderKepala { display: flex; align-items: center; justify-content: space-between; padding: 0 0 8px; font-size: 17px; font-weight: 600; }
+.kalenderGrid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); row-gap: 4px; }
+.kalenderNamaHari { padding-bottom: 6px; color: var(--teks-2); font-size: 13px; text-align: center; }
+.kalenderNamaHari[data-minggu="true"] { color: var(--bahaya); }
+
+.kalenderTgl {
+  min-width: 0;
+  height: 44px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: var(--teks);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.kalenderTgl[data-minggu="true"] { color: var(--bahaya); }
+
+.kalenderTgl > span {
+  width: min(40px, 100%);
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+/* Pita rentang: hari di antara awal & akhir, menyambung setengah ke ujungnya. */
+.kalenderTgl[data-antara="true"] { background: color-mix(in srgb, var(--primer) 22%, transparent); }
+.kalenderTgl[data-awal="true"] { background: linear-gradient(to right, transparent 50%, color-mix(in srgb, var(--primer) 22%, transparent) 50%); }
+.kalenderTgl[data-akhir="true"] { background: linear-gradient(to left, transparent 50%, color-mix(in srgb, var(--primer) 22%, transparent) 50%); }
+.kalenderTgl[data-ujung="true"] > span { background: var(--primer); color: #000; font-weight: 700; }
+.kalenderTgl[data-hari-ini="true"]:not([data-ujung="true"]) > span { box-shadow: inset 0 0 0 1.5px var(--primer); }
+.kalenderTgl:focus-visible { outline: none; }
+.kalenderTgl:focus-visible > span { outline: 2px solid var(--teks); outline-offset: 1px; }

@@ -43,7 +43,7 @@ September 2026               −Rp 2,1 jt · +Rp 8 jt
 - 7 hari terakhir;
 - Bulan ini;
 - Bulan lalu;
-- **Pilih rentang**, dengan dua isian tanggal bawaan (kalender sistem di HP).
+- **Pilih rentang**: kalender rentang sendiri ala Kalender Samsung (ketuk awal lalu akhir, pita di antaranya, minggu mulai Senin, Minggu merah, bisa dengan panah keyboard), sama di HP dan desktop.
 
 **Kantong.** Pilihan ganda dari semua kantong, termasuk orang dan kartu kredit.
 - Transaksi ikut kalau kantong itu **asal atau tujuan**, jadi "GoPay" juga menampilkan topup ke GoPay.

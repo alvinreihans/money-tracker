@@ -4,6 +4,7 @@
  * Pemakaian: npm run uji:riwayat
  */
 import assert from "node:assert/strict";
+import { geserBulan, gridBulan, ketukTanggal } from "../src/lib/kalender.ts";
 import { adaFilter, alamatRiwayat, bacaFilter, FILTER_KOSONG, rentangTanggal, ringkasRiwayat } from "../src/lib/riwayat.ts";
 
 const K1 = "0b6c1b1e-6f3a-4d2b-9c1e-3a7f0e2d4c5b";
@@ -59,4 +60,21 @@ assert.deepEqual(
   },
 );
 
-console.log("✓ riwayat: baca & bersihkan filter URL, rentang periode (batas bulan/tahun), alamat bolak-balik, total per bulan & per hari");
+// Kalender rentang: minggu mulai Senin, kosong di depan & belakang.
+const okt = gridBulan("2026-10"); // 1 Okt 2026 = Kamis
+assert.equal(okt.length % 7, 0);
+assert.deepEqual(okt.slice(0, 4), [null, null, null, "2026-10-01"]);
+assert.equal(okt.filter(Boolean).length, 31);
+assert.equal(gridBulan("2026-02").filter(Boolean).length, 28);
+assert.equal(gridBulan("2026-06")[0], "2026-06-01"); // 1 Juni 2026 = Senin
+assert.equal(geserBulan("2026-01", -1), "2025-12");
+assert.equal(geserBulan("2026-12", 1), "2027-01");
+// Ketuk: awal → akhir (ditukar kalau lebih awal) → mulai baru.
+let rg = ketukTanggal({ dari: null, sampai: null }, "2026-09-20");
+assert.deepEqual(rg, { dari: "2026-09-20", sampai: null });
+rg = ketukTanggal(rg, "2026-09-10");
+assert.deepEqual(rg, { dari: "2026-09-10", sampai: "2026-09-20" });
+assert.deepEqual(ketukTanggal(rg, "2026-09-05"), { dari: "2026-09-05", sampai: null });
+assert.deepEqual(ketukTanggal({ dari: "2026-09-10", sampai: null }, "2026-09-10"), { dari: "2026-09-10", sampai: "2026-09-10" });
+
+console.log("✓ riwayat: baca & bersihkan filter URL, rentang periode (batas bulan/tahun), alamat bolak-balik, total per bulan & per hari, kalender rentang");
