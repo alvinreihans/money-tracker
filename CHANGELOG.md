@@ -6,7 +6,7 @@ versinya mengikuti [Semantic Versioning](https://semver.org/lang/id/):
 **mayor** naik kalau ada fitur yang dihapus atau berubah tidak kompatibel,
 **minor** untuk fitur baru, **patch** untuk perbaikan.
 
-Versi yang tampil di aplikasi (menu ⋮ di Beranda dan halaman masuk) dibaca dari
+Versi yang tampil di aplikasi (halaman Profil dan halaman masuk) dibaca dari
 `version` di `package.json`. Saat merilis, naikkan angka itu dan tambahkan
 bagiannya di sini.
 
@@ -19,6 +19,8 @@ Belum dikerjakan; dicatat supaya tidak lupa.
   yang jarang berubah (kategori, kantong) disimpan sementara di server.
 
 ## [Unreleased]
+
+## [2.1.0] — 2026-10-24
 
 ### Ditambahkan
 - **Analitik per bulan**: pilih bulan (‹ Oktober 2026 ›), ringkasan dibanding bulan lalu, **sorotan** (proyeksi akhir bulan, hari paling boros, paling sering, kategori yang paling naik), pengeluaran per kategori bulan itu (bukan lagi rata-rata 3 bulan), dan **merchant teratas**. Hampir semua baris bisa diketuk untuk membuka Riwayat yang sudah tersaring.
