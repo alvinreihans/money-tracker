@@ -207,7 +207,7 @@ export function Lembar({
         judul && <h2 className={s.dialogJudul}>{judul}</h2>
       )}
       {sub && <p className={s.dialogSub}>{sub}</p>}
-      <div className={daftar ? s.dialogBadanDaftar : `${s.dialogBadan} ${pil ? s.dialogBadanPil : ""}`}>{children}</div>
+      <div className={`${daftar ? s.dialogBadanDaftar : s.dialogBadan} ${pil ? s.dialogBadanPil : ""}`}>{children}</div>
       {tombol && <div className={s.dialogTombol}>{tombol}</div>}
       {pil && (
         <div className={s.pil}>

@@ -106,7 +106,6 @@ export default function ProfilView({
             </span>
             <span className={s.barisTeks}>
               <span className={s.barisJudul}>{email}</span>
-              <span className={s.redup}>Email masuk</span>
             </span>
           </div>
         )}
