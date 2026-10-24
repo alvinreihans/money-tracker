@@ -4,6 +4,7 @@ import {
   extractWithGeminiVision,
   isValidExtraction,
   nominalDariPromo,
+  tenorDariTeks,
   type KonteksAI,
 } from "@/lib/extract";
 import { isoLokal } from "@/lib/format";
@@ -191,10 +192,10 @@ export async function processReceiptText(
     const { extracted, model } = await extractWithGroq(text, konteks);
     if (isValidExtraction(extracted, konteks.kategori)) {
       notes.push(`Ekstraksi berhasil via Groq (${model})`);
-      return done("confirmed", extracted, null, "groq", notes);
+      return done("confirmed", extracted, null, "groq", notes, text);
     }
     notes.push(`Groq (${model}) menghasilkan data tidak valid`);
-    return done("needs_review", extracted, null, "groq", notes);
+    return done("needs_review", extracted, null, "groq", notes, text);
   } catch (err) {
     notes.push(`Seluruh rantai Groq gagal: ${errMsg(err)}`);
     return done("needs_review", emptyDraft(), null, "none", notes);
@@ -239,7 +240,17 @@ function done(
   ocr: OcrResult | null,
   source: ExtractionSource,
   notes: string[],
+  /** Teks yang dibaca model (OCR atau ketikan), untuk melengkapi tenor paylater. */
+  teks = ocr?.text,
 ): ProcessedReceipt {
+  // "SPayLater - 1 / Bulan" yang dipecah OCR: tenornya dibaca langsung dari teks.
+  if (extracted?.paylater && !extracted.paylater.tenor && teks) {
+    const tenor = tenorDariTeks(teks);
+    if (tenor) {
+      extracted = { ...extracted, paylater: { ...extracted.paylater, tenor } };
+      notes.push(`Tenor paylater dari teks: ${tenor}`);
+    }
+  }
   return {
     status,
     extracted,
