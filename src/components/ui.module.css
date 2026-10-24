@@ -1445,3 +1445,5 @@ button.blok { background: var(--blok); }
   transition: transform 120ms var(--gerak);
 }
 .tombolAI:active { transform: scale(0.94); }
+.gptMemuat { display: flex; align-items: center; gap: 10px; }
+.gptMemuat p { margin: 0; font-size: 14px; }

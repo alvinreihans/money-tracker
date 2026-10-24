@@ -11,7 +11,7 @@ import { alamatRiwayat, bacaFilter, type FilterRiwayat } from "@/lib/riwayat";
  * Diuji di scripts/uji-tanya.mts.
  */
 
-export const NAMA_FUNGSI = ["ringkasan_bulan", "cari_transaksi", "saldo_kantong", "pinjaman_cicilan"] as const;
+export const NAMA_FUNGSI = ["ringkasan_bulan", "cari_transaksi", "saldo_kantong", "pinjaman_cicilan", "hitung"] as const;
 export type NamaFungsi = (typeof NAMA_FUNGSI)[number];
 
 export const DEKLARASI_FUNGSI: FunctionDeclaration[] = [
@@ -32,18 +32,38 @@ export const DEKLARASI_FUNGSI: FunctionDeclaration[] = [
     parameters: {
       type: SchemaType.OBJECT,
       properties: {
-        dari: { type: SchemaType.STRING, description: "Tanggal awal YYYY-MM-DD (inklusif)" },
+        dari: { type: SchemaType.STRING, description: "Tanggal awal YYYY-MM-DD (inklusif). Kalau dari & sampai kosong, dipakai bulan yang sedang dilihat; untuk semua waktu isi 2000-01-01." },
         sampai: { type: SchemaType.STRING, description: "Tanggal akhir YYYY-MM-DD (inklusif)" },
         jenis: { type: SchemaType.STRING, format: "enum", enum: ["semua", "keluar", "masuk", "pindah"] },
         kategori: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING }, description: "Slug kategori milik pengguna" },
         kantong: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING }, description: "Nama kantong milik pengguna" },
         kata: { type: SchemaType.STRING, description: "Kata yang dicari di merchant/keterangan, mis. 'kopi'" },
+        kecuali: {
+          type: SchemaType.ARRAY,
+          items: { type: SchemaType.STRING },
+          description: "Kecualikan transaksi yang merchant/keterangannya memuat salah satu kata ini, mis. ['Laku6'] untuk 'kalau Laku6 tidak dihitung'",
+        },
+        minimal: { type: SchemaType.NUMBER, description: "Hanya transaksi dengan nominal >= ini" },
+        maksimal: { type: SchemaType.NUMBER, description: "Hanya transaksi dengan nominal <= ini" },
       },
     },
   },
   {
     name: "saldo_kantong",
     description: "Saldo tiap kantong (bank, e-wallet, tunai, orang, kartu kredit) dan total aset.",
+  },
+  {
+    name: "hitung",
+    description:
+      "Kalkulator: hitung ekspresi aritmetika (+ - * / dan kurung) dengan angka biasa tanpa titik ribuan, mis. '13356219 - 10300000' atau '(367000 / 8000000) * 100'. WAJIB dipakai untuk selisih, jumlah, rata-rata, atau persen yang tidak ada langsung di hasil fungsi lain. Angka >= 1000 harus berasal dari hasil fungsi sebelumnya.",
+    parameters: {
+      type: SchemaType.OBJECT,
+      properties: {
+        ekspresi: { type: SchemaType.STRING },
+        keterangan: { type: SchemaType.STRING, description: "Apa yang dihitung, mis. 'pengeluaran tanpa Laku6'" },
+      },
+      required: ["ekspresi"],
+    },
   },
   {
     name: "pinjaman_cicilan",
@@ -89,9 +109,12 @@ export function filterDariArgumen(args: Record<string, unknown>, k: KonteksTanya
   );
 }
 
-/** Tombol telusur untuk satu pemanggilan fungsi. */
+/** Tombol telusur untuk satu pemanggilan fungsi (kalkulator tidak punya tujuan). */
 export function tautanDari(nama: NamaFungsi, args: Record<string, unknown>, k: KonteksTanya): { label: string; href: string } | null {
-  if (nama === "cari_transaksi") return { label: "Lihat di Riwayat", href: alamatRiwayat(filterDariArgumen(args, k)) };
+  if (nama === "hitung") return null;
+  // Riwayat belum bisa mengecualikan atau membatasi nominal: tautannya menampilkan sebelum dikecualikan.
+  const disaring = (Array.isArray(args.kecuali) && args.kecuali.length > 0) || args.minimal != null || args.maksimal != null;
+  if (nama === "cari_transaksi") return { label: disaring ? "Lihat semua di Riwayat" : "Lihat di Riwayat", href: alamatRiwayat(filterDariArgumen(args, k)) };
   if (nama === "ringkasan_bulan") {
     const bulan = bulanDariArgumen(args, k.hariIni);
     const nama = new Intl.DateTimeFormat("id-ID", { month: "long", timeZone: "UTC" }).format(new Date(`${bulan}-01T00:00:00Z`));
@@ -140,3 +163,69 @@ export function rupiahTakTerverifikasi(jawaban: string, hasilFungsi: unknown[]):
 
 /** Rentang satu bulan "YYYY-MM" → [awal, akhir]. */
 export const rentangBulan = (bulan: string) => [`${bulan}-01`, geserHari(`${geserBulan(bulan, 1)}-01`, -1)] as const;
+
+/**
+ * Kalkulator untuk AI (SPEC-analitik-ai): hanya angka, + - * / dan kurung —
+ * diurai sendiri, tanpa eval. Angka >= 1000 harus sudah ada di hasil fungsi
+ * sebelumnya (`data`), supaya kalkulator tidak jadi jalan untuk angka karangan;
+ * angka kecil (hari, persen, pengali) boleh.
+ */
+export function hitungEkspresi(ekspresi: string, data: number[]): { hasil: number } | { error: string } {
+  const teks = ekspresi.replace(/\s+/g, "");
+  if (!teks || teks.length > 200 || !/^[\d.+\-*/()]+$/.test(teks)) return { error: "Ekspresi hanya boleh angka, + - * / dan kurung." };
+  const asing = (teks.match(/\d+(\.\d+)?/g) ?? []).map(Number).filter((n) => n >= 1000 && !data.some((d) => Math.abs(d - n) < 0.5));
+  if (asing.length) return { error: `Angka ${asing.join(", ")} tidak ada di hasil fungsi; ambil dulu lewat fungsi lain.` };
+
+  let i = 0;
+  const lihat = () => teks[i];
+  // ekspresi := suku (('+'|'-') suku)* ; suku := faktor (('*'|'/') faktor)* ; faktor := angka | '(' ekspresi ')' | '-' faktor
+  const ekspresiP = (): number => {
+    let n = suku();
+    while (lihat() === "+" || lihat() === "-") n = teks[i++] === "+" ? n + suku() : n - suku();
+    return n;
+  };
+  const suku = (): number => {
+    let n = faktor();
+    while (lihat() === "*" || lihat() === "/") {
+      const op = teks[i++];
+      const b = faktor();
+      if (op === "/" && b === 0) throw new Error("bagi nol");
+      n = op === "*" ? n * b : n / b;
+    }
+    return n;
+  };
+  const faktor = (): number => {
+    if (lihat() === "-") {
+      i++;
+      return -faktor();
+    }
+    if (lihat() === "(") {
+      i++;
+      const n = ekspresiP();
+      if (teks[i++] !== ")") throw new Error("kurung");
+      return n;
+    }
+    const m = teks.slice(i).match(/^\d+(\.\d+)?/);
+    if (!m) throw new Error("angka");
+    i += m[0].length;
+    return Number(m[0]);
+  };
+  try {
+    const n = ekspresiP();
+    if (i !== teks.length || !Number.isFinite(n)) return { error: "Ekspresi tidak bisa dihitung." };
+    return { hasil: Math.round(n * 100) / 100 };
+  } catch (e) {
+    return { error: e instanceof Error && e.message === "bagi nol" ? "Tidak bisa dibagi nol." : "Ekspresi tidak bisa dihitung." };
+  }
+}
+
+/**
+ * Argumen dari AI sebelum dipakai: cari_transaksi tanpa dari & sampai =
+ * bulan yang sedang dilihat (bukan semua waktu) — tanpa ini "bulan ini"
+ * yang lupa diberi tanggal diam-diam menjumlah semua bulan.
+ */
+export function lengkapiArgumen(nama: NamaFungsi, args: Record<string, unknown>, bulan: string): Record<string, unknown> {
+  if (nama !== "cari_transaksi" || args.dari || args.sampai) return args;
+  const [dari, sampai] = rentangBulan(bulan);
+  return { ...args, dari, sampai };
+}

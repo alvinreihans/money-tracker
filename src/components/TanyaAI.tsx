@@ -39,6 +39,13 @@ export default function TanyaAI({ bulan, namaBulan, namaBulanLalu, onClose }: { 
   const [pesan, setPesan] = useState<Pesan[]>([]);
   const [teks, setTeks] = useState("");
   const [sibuk, setSibuk] = useState(false);
+  // Pertanyaan bertahap bisa lama: setelah 8 detik, beri tahu masih dikerjakan.
+  const [lama, setLama] = useState(false);
+  useEffect(() => {
+    if (!sibuk) return setLama(false);
+    const t = setTimeout(() => setLama(true), 8000);
+    return () => clearTimeout(t);
+  }, [sibuk]);
   const akhirRef = useRef<HTMLDivElement>(null);
   const ketikRef = useRef<HTMLTextAreaElement>(null);
   const saran = [
@@ -127,6 +134,7 @@ export default function TanyaAI({ bulan, namaBulan, namaBulanLalu, onClose }: { 
             {sibuk && (
               <div className={s.gptMemuat} role="status" aria-label="Menghitung">
                 <span />
+                {lama && <p className={s.redup}>Masih menghitung, pertanyaan ini butuh beberapa langkah…</p>}
               </div>
             )}
             <div ref={akhirRef} />

@@ -34,6 +34,23 @@ Pemakai bisa bertanya dengan bahasa sehari-hari tentang keuangannya sendiri, lal
    - `ringkasan_bulan` menghasilkan tombol **Buka Analitik [bulan]**.
    - Dengan begitu, pemakai bisa mengecek sendiri angka yang dijawab.
 
+## Peningkatan 25 Okt (AI kurang pintar)
+
+Pemicunya: "kalau Laku6 tidak dihitung, bagaimana kondisi keuanganku?" ditolak karena AI dilarang berhitung.
+
+- **Kalkulator `hitung(ekspresi)`.** Aritmetika (+ − × ÷, kurung) diurai sendiri, tanpa `eval`. Angka ≥ 1.000 harus sudah ada di hasil fungsi atau percakapan, jadi kalkulator tidak bisa dipakai untuk angka karangan. Hasilnya ikut diperiksa seperti hasil fungsi lain.
+- **`cari_transaksi` diperluas** dengan `kecuali` (merchant/keterangan) dan `minimal` / `maksimal` nominal. Bagian yang dikecualikan dilaporkan supaya bisa disebut di jawaban.
+- **Periode bawaan.** `cari_transaksi` tanpa tanggal memakai bulan yang sedang dilihat, bukan semua waktu. Sebelumnya "bulan ini" yang lupa diberi tanggal ikut menjumlah bulan lain.
+- **Prompt.**
+  - "Kondisi keuangan" = masuk vs keluar + selisih + total aset + utang, lalu satu kalimat kesimpulan.
+  - Pertanyaan "tanpa X" diawali asumsinya.
+  - "Di atas/di bawah N" memakai batas nominal.
+  - Semua fungsi yang perlu dipanggil sekaligus dalam satu giliran.
+- **Nominal dari percakapan dianggap sah.** Termasuk jawaban sebelumnya dan angka yang diketik user. Tanpa ini, pertanyaan lanjutan selalu dianggap mengarang lalu diminta ulang sampai waktu habis.
+- **Batas waktu 55 detik** (`maxDuration` 60, batas Vercel Hobby). Setelah 8 detik, obrolan menampilkan "Masih menghitung…".
+- **Inti dipindah ke `jawabTanya()`** (`src/lib/tanya-server.ts`) supaya bisa dijalankan skrip evaluasi/debug.
+- **Evaluasi `npm run eval:tanya`**: 13 pertanyaan sulit dengan jawaban diketahui, akun uji sementara. Skor 25 Okt: **13/13**. Waktu jawab 8–40 detik, sebagian besar waktu tunggu Gemini (free tier).
+
 ## Tampilan
 
 - **Pintu masuk** (diubah 24 Okt, permintaan user): **tombol melayang** di kanan bawah Analitik, tepat di atas navigasi, seperti tombol AI di WhatsApp. Bentuknya kotak membulat dengan ikon sparkle bergradasi buatan sendiri (bukan logo Meta). Mengetuknya membuka lembar layar penuh.

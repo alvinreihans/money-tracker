@@ -4,7 +4,7 @@
  * Pemakaian: npm run uji:tanya
  */
 import assert from "node:assert/strict";
-import { bulanDariArgumen, filterDariArgumen, rupiahDiJawaban, rupiahTakTerverifikasi, tautanDari } from "../src/lib/tanya.ts";
+import { bulanDariArgumen, filterDariArgumen, hitungEkspresi, rupiahDiJawaban, rupiahTakTerverifikasi, tautanDari } from "../src/lib/tanya.ts";
 
 const GOPAY = "0b6c1b1e-6f3a-4d2b-9c1e-3a7f0e2d4c5b";
 const k = {
@@ -56,4 +56,21 @@ assert.deepEqual(tautanDari("cari_transaksi", { dari: "2026-10-01", sampai: "202
 assert.deepEqual(tautanDari("ringkasan_bulan", { bulan: "2026-09" }, k), { label: "Buka Analitik September", href: "/analitik?bulan=2026-09" });
 assert.deepEqual(tautanDari("ringkasan_bulan", { bulan: "2026-10" }, k), { label: "Buka Analitik Oktober", href: "/analitik" });
 
-console.log("✓ tanya: nominal di jawaban (penuh & ringkas), pemeriksa angka, argumen AI dibersihkan, bulan, tautan telusur");
+// Kalkulator: aritmetika biasa, urutan operasi & kurung, tanpa eval.
+const data = [13356219, 10300000, 367000, 8000000];
+assert.deepEqual(hitungEkspresi("13356219 - 10300000", data), { hasil: 3056219 });
+assert.deepEqual(hitungEkspresi("8000000 - 367000", data), { hasil: 7633000 });
+assert.deepEqual(hitungEkspresi("(367000 / 8000000) * 100", data), { hasil: 4.59 });
+assert.deepEqual(hitungEkspresi("2 + 3 * 4", []), { hasil: 14 });
+assert.deepEqual(hitungEkspresi("-(10 - 4) / 3", []), { hasil: -2 });
+assert.ok("error" in hitungEkspresi("10 / 0", []));
+// Angka besar harus dari hasil fungsi; selain aritmetika ditolak.
+assert.ok("error" in hitungEkspresi("13356219 - 999999", data));
+assert.ok("error" in hitungEkspresi("process.exit()", data));
+assert.ok("error" in hitungEkspresi("1e9", data));
+assert.ok("error" in hitungEkspresi("(1 + 2", []));
+// Tautan: kalkulator tanpa tautan; pencarian berpengecualian memberi tahu tautannya sebelum dikecualikan.
+assert.equal(tautanDari("hitung", { ekspresi: "1+1" }, k), null);
+assert.equal(tautanDari("cari_transaksi", { kecuali: ["Laku6"] }, k)?.label, "Lihat semua di Riwayat");
+
+console.log("✓ tanya: nominal di jawaban (penuh & ringkas), pemeriksa angka, argumen AI dibersihkan, bulan, tautan telusur, kalkulator aman");
