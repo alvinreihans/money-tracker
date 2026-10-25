@@ -121,6 +121,13 @@ Foto struk bisa diseret dari File Explorer, Galeri (layar terpisah di tablet/Fol
 - **Pop-up & panel samping:** tombol di kepala jadi × (tutup). Layar penuh di HP tetap ‹.
 - **Detail dari luar Riwayat** (Beranda, snackbar "Lihat", notifikasi, Fold dibuka) di layar lebar langsung membuka dua panel Riwayat (`/riwayat?id=`). `/transactions/[id]` tetap dipakai di HP.
 
+### Aksesibilitas (review UI/UX Pro Max, 25 Okt)
+
+- **Satu h1 per halaman.** Judul panel detail jadi h2 hanya saat dua panel benar-benar berdampingan (`PanelDetail` + `useLayarLebar`). Di HP judul detail tetap h1.
+- **Fokus tidak tertutup** (WCAG 2.2): `scroll-padding` setinggi baris aksi yang menempel (atas) dan navigasi bawah (bawah, HP), juga di panel detail.
+- **Margin samping** lewat `--tepi`: 16px di HP, 24px mulai 600px (One UI: minimal 24dp).
+- **Area sentuh.** One UI tidak memberi angka (hanya "cukup besar & berjarak"), jadi kita ikut UI/UX Pro Max: 48dp untuk Android. Chip (40 & 36px) dan pegangan Catat (36×4) diberi area sentuh tak terlihat 48px, sehingga tampilannya tetap. Ikon di kolom ketik dibiarkan 40×48: lulus WCAG 2.2 (min. 24px), dan melebarkannya memakan ~24px ruang ketik di HP 360px.
+
 ### Mouse & keyboard (desktop)
 
 - Setiap elemen yang bisa diklik punya efek *hover* dan cincin fokus saat dinavigasi dengan Tab (`:focus-visible`). Efek hover hanya aktif di perangkat dengan mouse (`@media (hover: hover)`), jadi HP tidak terpengaruh.

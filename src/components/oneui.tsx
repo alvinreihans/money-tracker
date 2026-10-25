@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { createContext, Fragment, useContext, useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import NextLink from "next/link";
 import { Check, ChevronDown, ChevronLeft, ChevronUp, CircleCheck, CircleX, EllipsisVertical, Info, TriangleAlert, X } from "lucide-react";
 import { LAYAR_LEBAR } from "@/components/navigasi";
@@ -12,6 +12,34 @@ import { angkaMentah, angkaRibuan } from "@/lib/format";
  * jadi ini dibangun sendiri mengikuti panduannya
  * (https://developer.samsung.com/one-ui).
  */
+
+/** Apakah layar sedang lebar (dua panel). Di server selalu false. */
+export function useLayarLebar() {
+  return useSyncExternalStore(
+    (ubah) => {
+      const m = window.matchMedia(LAYAR_LEBAR);
+      m.addEventListener("change", ubah);
+      return () => m.removeEventListener("change", ubah);
+    },
+    () => window.matchMedia(LAYAR_LEBAR).matches,
+    () => false,
+  );
+}
+
+const DiPanelDetail = createContext(false);
+
+/**
+ * Panel kanan dua panel (Riwayat, Profil). Selama ia berisi, panel daftar di
+ * layar sempit disembunyikan (CSS `:empty`); `kosong` tampil sebagai petunjuk
+ * di layar lebar. App bar di dalamnya tahu ia bukan judul utama halaman.
+ */
+export function PanelDetail({ kosong, children }: { kosong: string; children: React.ReactNode }) {
+  return (
+    <div className={s.panelDetail} data-kosong={kosong}>
+      <DiPanelDetail.Provider value>{children}</DiPanelDetail.Provider>
+    </div>
+  );
+}
 
 /**
  * App bar extended ala One UI 8 (Voice Recorder, Telepon): judul besar di area
@@ -43,6 +71,11 @@ export function AppBar({
 }) {
   const ref = useRef<HTMLElement>(null);
   const [ciut, setCiut] = useState(false);
+  // Satu h1 per halaman: di dua panel, judul panel detail jadi h2 (judul
+  // daftarnya yang h1). Di layar sempit hanya satu panel yang tampil → h1.
+  const diPanel = useContext(DiPanelDetail);
+  const lebar = useLayarLebar();
+  const Judul = diPanel && lebar ? "h2" : "h1";
 
   useEffect(() => {
     const el = ref.current;
@@ -59,7 +92,7 @@ export function AppBar({
     <>
       <header ref={ref} className={s.viewing}>
         {ikon}
-        <h1 className={s.judulBesar}>{judul}</h1>
+        <Judul className={s.judulBesar}>{judul}</Judul>
         {sub && <p className={s.judulSub}>{sub}</p>}
       </header>
       <div className={s.barAksi} data-ciut={ciut}>

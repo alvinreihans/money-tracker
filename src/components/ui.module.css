@@ -11,7 +11,7 @@
 }
 
 .isi {
-  padding: 0 16px;
+  padding: 0 var(--tepi);
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -180,8 +180,8 @@
   gap: 8px;
   overflow-x: auto;
   scrollbar-width: none;
-  margin: 0 -16px;
-  padding: 0 16px;
+  margin: 0 calc(-1 * var(--tepi));
+  padding: 0 var(--tepi);
 }
 
 .chipsBungkus { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -1554,6 +1554,7 @@ button.blok { background: var(--blok); }
     top: 0;
     max-height: 100dvh;
     overflow-y: auto;
+    scroll-padding-top: 72px;
     overscroll-behavior: contain;
   }
 
@@ -1671,3 +1672,18 @@ button.blok { background: var(--blok); }
 
 /* Beberapa kartu yang harus tetap bersama (mis. daftar + "Lihat semua"). */
 .tumpuk { display: flex; flex-direction: column; gap: 16px; }
+
+/* Area sentuh 48dp (Android; One UI sendiri tidak memberi angka) tanpa
+   mengubah tampilan: chip 40px & 36px dan pegangan lembar Catat diberi area
+   sentuh tak terlihat. Baris chip yang bisa digeser memotong isi di luar
+   kotaknya, jadi diberi padding atas-bawah (dan margin negatif sebesar itu). */
+.chip, .pegangan { position: relative; }
+.chip::after { content: ""; position: absolute; inset: -4px 0; }
+.chips { padding-top: 4px; padding-bottom: 4px; margin-top: -4px; margin-bottom: -4px; }
+.saran .chip::after { inset: -6px 0; }
+.saran, .badanCatat .saran { padding-top: 6px; padding-bottom: 6px; margin-top: -6px; margin-bottom: -6px; }
+/* Pegangan 36×4: area sentuhnya 48×48, dari tepi atas lembar ke bawah. */
+.pegangan::after { content: ""; position: absolute; inset: -10px -6px -34px; }
+/* Badan lembar Catat memotong isinya: ruang atas 6px supaya area sentuh chip
+   saran (yang paling atas) tidak terpotong. */
+.badanCatat { padding-top: 6px; }

@@ -25,6 +25,13 @@ Belum dikerjakan; dicatat supaya tidak lupa.
 
 ### Diubah
 - Di layar lebar, lembar **Catat** lebih lebar (640px, sama dengan pop-up besar lain).
+- Margin samping isi 24px mulai layar 600px (panduan One UI: minimal 24dp). Di HP tetap 16px.
+
+### Diperbaiki
+- **Aksesibilitas** (dari review UI/UX Pro Max):
+  - Di dua panel, judul panel detail kini h2, jadi tiap halaman punya satu judul utama untuk pembaca layar.
+  - Elemen yang difokus dengan Tab tidak lagi tertutup baris aksi yang menempel atau navigasi bawah.
+  - Chip filter, chip saran, dan pegangan lembar Catat punya area sentuh 48dp tanpa mengubah tampilannya.
 
 ## [2.2.0] — 2026-10-25
 

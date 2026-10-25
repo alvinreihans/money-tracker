@@ -7,7 +7,7 @@ import DetailView from "@/app/(app)/transactions/[id]/DetailView";
 import { useCatat, useKategori } from "@/components/Catat";
 import { tandaKategori } from "@/components/kategori";
 import KalenderRentang from "@/components/KalenderRentang";
-import { AppBar, Kosong, Lembar, Spinner } from "@/components/oneui";
+import { AppBar, Kosong, Lembar, PanelDetail, Spinner } from "@/components/oneui";
 import { LAYAR_LEBAR } from "@/components/navigasi";
 import TransactionList from "@/components/TransactionList";
 import s from "@/components/ui.module.css";
@@ -253,7 +253,7 @@ export default function RiwayatView({
             </div>
 
             {/* Filter lain: chip berisi nilainya, ketuk → lembar pilihan. */}
-            <div className={s.chips} role="group" aria-label="Saring transaksi" style={{ marginTop: -4 }}>
+            <div className={s.chips} role="group" aria-label="Saring transaksi" style={{ marginTop: -8 }}>
               <button type="button" className={s.chip} aria-pressed={Boolean(filter.periode || filter.dari || filter.sampai)} aria-haspopup="dialog" onClick={() => buka("tanggal")}>
                 <CalendarDays size={16} aria-hidden /> {labelTanggal} <ChevronDown size={16} aria-hidden />
               </button>
@@ -317,9 +317,9 @@ export default function RiwayatView({
             )}
           </div>
         </div>
-        <div className={s.panelDetail} data-kosong="Pilih transaksi untuk melihat detailnya.">
+        <PanelDetail kosong="Pilih transaksi untuk melihat detailnya.">
           {detail && <DetailView key={detail.t.id} t={detail.t} ikutan={detail.ikutan} kembali={alamatRiwayat(filter)} />}
-        </div>
+        </PanelDetail>
       </div>
 
       {lembar === "tanggal" && (
