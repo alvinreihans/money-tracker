@@ -108,9 +108,10 @@ export default function EditTransactionForm({
           judul={draft ? "Betulkan transaksi" : "Edit transaksi"}
           sub={draft ? "Begitu disimpan, transaksinya ikut dihitung di laporan." : undefined}
           posisi="penuh"
+          isian={nilai}
           onClose={() => !loading && setBuka(false)}
           pil={[
-            { label: "Batal", onClick: () => setBuka(false), disabled: loading },
+            { label: "Batal", batal: true, disabled: loading },
             { label: loading ? <Spinner /> : "Simpan", onClick: () => void simpan(), disabled: loading },
           ]}
         >

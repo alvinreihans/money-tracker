@@ -1,6 +1,7 @@
 /**
  * Service worker Money Tracker: "Bagikan" dari aplikasi lain (Web Share
- * Target, lihat share_target di app/manifest.ts) dan push notifikasi.
+ * Target, lihat share_target di app/manifest.ts), push notifikasi, dan
+ * halaman offline (public/offline.html) saat aplikasi dibuka tanpa internet.
  *
  * Android mengirim berkas yang dibagikan sebagai POST /bagikan. Gambarnya
  * diunggah oleh service worker ini sendiri, di latar: tetap jalan walau
@@ -13,8 +14,17 @@
  * halaman /bagikan (sesi biasa) mengambil dan mengunggahnya lewat antrean.
  */
 const CACHE = "bagikan";
+const CACHE_OFFLINE = "offline-v1";
+const HALAMAN_OFFLINE = "/offline.html";
 
-self.addEventListener("install", () => self.skipWaiting());
+self.addEventListener("install", (event) =>
+  event.waitUntil(
+    caches
+      .open(CACHE_OFFLINE)
+      .then((c) => c.add(HALAMAN_OFFLINE))
+      .then(() => self.skipWaiting()),
+  ),
+);
 self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()));
 
 async function simpanUntukHalaman(berkas) {
@@ -53,6 +63,14 @@ async function unggahLatar(berkas) {
     });
   }
 }
+
+// Membuka halaman tanpa internet: halaman offline kita, bukan dinosaurus
+// browser. Hanya navigasi GET; POST /bagikan ditangani di bawah. Selain itu
+// semuanya tetap langsung ke jaringan (tidak ada data yang di-cache).
+self.addEventListener("fetch", (event) => {
+  if (event.request.mode !== "navigate" || event.request.method !== "GET") return;
+  event.respondWith(fetch(event.request).catch(async () => (await caches.match(HALAMAN_OFFLINE)) ?? Response.error()));
+});
 
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);

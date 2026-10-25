@@ -296,9 +296,10 @@ function ManualDialog({ onClose, onTersimpan }: { onClose: () => void; onTersimp
             : "Catat pengeluaran"
       }
       posisi="penuh"
+      isian={nilai}
       onClose={() => !loading && onClose()}
       pil={[
-        { label: "Batal", onClick: onClose, disabled: loading },
+        { label: "Batal", batal: true, disabled: loading },
         { label: loading ? <Spinner /> : "Simpan", onClick: () => void simpan(), disabled: loading },
       ]}
     >

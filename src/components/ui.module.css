@@ -1687,3 +1687,12 @@ button.blok { background: var(--blok); }
 /* Badan lembar Catat memotong isinya: ruang atas 6px supaya area sentuh chip
    saran (yang paling atas) tidak terpotong. */
 .badanCatat { padding-top: 6px; }
+/* Pilihan emoji & warna (44px) dan tombol kirim Tanya AI (40px): area sentuh
+   48px, celah di antaranya (8–12px) cukup untuk perluasan ini. */
+.gridEmoji button, .gridWarna button, .gptKirim { position: relative; }
+.gridEmoji button::after, .gridWarna button::after { content: ""; position: absolute; inset: -2px; }
+.gptKirim::after { content: ""; position: absolute; inset: -4px; }
+/* Tautan teks kecil (mis. "Lupa password?"): area sentuh minimal 48×48 di
+   tengahnya, tampilan tetap. */
+.areaSentuh { position: relative; }
+.areaSentuh::after { content: ""; position: absolute; top: 50%; left: 50%; width: max(100%, 48px); height: max(100%, 48px); transform: translate(-50%, -50%); }

@@ -153,9 +153,10 @@ export default function KategoriView() {
         <Lembar
           judul={edit.id ? "Ubah kategori" : `Kategori ${JUDUL[edit.type].toLowerCase()} baru`}
           posisi="penuh"
+          isian={edit}
           onClose={tutup}
           pil={[
-            { label: "Batal", onClick: tutup, disabled: loading },
+            { label: "Batal", batal: true, disabled: loading },
             { label: loading ? <Spinner /> : "Simpan", onClick: () => void simpan(), disabled: loading },
           ]}
         >

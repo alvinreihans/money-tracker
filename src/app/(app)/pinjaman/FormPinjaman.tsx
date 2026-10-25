@@ -133,9 +133,10 @@ export default function FormPinjaman({
     <Lembar
       judul={judul}
       posisi="penuh"
+      isian={[nama, nominal, kantongId, tanggal, jatuhTempo, keterangan]}
       onClose={() => !loading && onClose()}
       pil={[
-        { label: "Batal", onClick: onClose, disabled: loading },
+        { label: "Batal", batal: true, disabled: loading },
         { label: loading ? <Spinner /> : "Simpan", onClick: () => void simpan(), disabled: loading },
       ]}
     >

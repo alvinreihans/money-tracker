@@ -151,9 +151,10 @@ export default function KantongView({ userId, daftar }: { userId: string; daftar
         <Lembar
           judul={edit.id ? "Ubah kantong" : "Tambah kantong"}
           posisi="penuh"
+          isian={edit.isian}
           onClose={tutup}
           pil={[
-            { label: "Batal", onClick: tutup, disabled: loading },
+            { label: "Batal", batal: true, disabled: loading },
             { label: loading ? <Spinner /> : "Simpan", onClick: () => void simpan(), disabled: loading },
           ]}
         >

@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#000000">
+  <title>Offline · Money Tracker</title>
+  <!-- Ditampilkan service worker (public/sw.js) saat halaman dibuka tanpa
+       internet. Berdiri sendiri: tanpa CSS/JS/gambar lain yang perlu diambil. -->
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; }
+    body {
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+      padding: 24px; background: #000; color: #fafafa; text-align: center;
+      font: 16px/1.4 "SamsungOne", "Samsung Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    .ikon { width: 72px; height: 72px; display: grid; place-items: center; border-radius: 50%; background: #171717; color: #9b9b9b; margin-bottom: 8px; }
+    h1 { margin: 0; font-size: 24px; font-weight: 600; }
+    p { margin: 0; max-width: 320px; color: #9b9b9b; font-size: 15px; }
+    button {
+      margin-top: 16px; min-width: 160px; min-height: 52px; padding: 0 24px; border: 0; border-radius: 18px;
+      background: #0072de; color: #fff; font: inherit; font-weight: 700; cursor: pointer;
+    }
+    button:focus-visible { outline: 2px solid #3e91ff; outline-offset: 2px; }
+  </style>
+</head>
+<body>
+  <div class="ikon" aria-hidden="true">
+    <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 20h.01"/><path d="M8.5 16.43a5 5 0 0 1 7 0"/><path d="M5 12.86a10 10 0 0 1 5.17-2.69"/><path d="M19 12.86a10 10 0 0 0-2.01-1.57"/><path d="M2 8.82a15 15 0 0 1 4.18-2.65"/><path d="M22 8.82a15 15 0 0 0-11.29-3.76"/><path d="m2 2 20 20"/>
+    </svg>
+  </div>
+  <h1>Kamu sedang offline</h1>
+  <p>Catatanmu aman. Sambungkan internet, lalu coba lagi — halaman ini terbuka sendiri begitu sinyal kembali.</p>
+  <button type="button" onclick="location.reload()">Coba lagi</button>
+  <script>
+    // Sinyal kembali: muat ulang halaman yang tadi dibuka.
+    addEventListener("online", () => location.reload());
+  </script>
+</body>
+</html>

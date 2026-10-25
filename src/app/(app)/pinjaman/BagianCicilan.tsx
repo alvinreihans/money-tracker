@@ -259,9 +259,10 @@ function FormBayar({
       judul={jumlah > 1 ? `Bayar cicilan ke-${ke.ke}–${dipilih[jumlah - 1].ke}` : `Bayar cicilan ke-${ke.ke}`}
       sub={jumlah > 1 ? `${rencana.nama} · ${jumlah} cicilan sekaligus` : `${rencana.nama} · jatuh tempo ${fmtTanggal(ke.jatuhTempo)}`}
       posisi="penuh"
+      isian={[jumlah, nominal, kantongId, tanggal]}
       onClose={() => !loading && onClose()}
       pil={[
-        { label: "Batal", onClick: onClose, disabled: loading },
+        { label: "Batal", batal: true, disabled: loading },
         { label: loading ? <Spinner /> : "Bayar", onClick: () => void simpan(), disabled: loading },
       ]}
     >
@@ -357,9 +358,10 @@ function FormRencana({ userId, pembayar, onClose }: { userId: string; pembayar: 
     <Lembar
       judul="Cicilan baru"
       posisi="penuh"
+      isian={isian}
       onClose={() => !loading && onClose()}
       pil={[
-        { label: "Batal", onClick: onClose, disabled: loading },
+        { label: "Batal", batal: true, disabled: loading },
         { label: loading ? <Spinner /> : "Simpan", onClick: () => void simpan(), disabled: loading },
       ]}
     >

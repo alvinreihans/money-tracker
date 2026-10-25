@@ -166,6 +166,10 @@ export function KembaliKeAtas() {
  * tugas singkat di pop-up, bukan layar penuh). `samping`: di layar lebar
  * menempel di kanan sebagai panel non-modal — halaman di sebelahnya tetap
  * bisa dilihat dan digulir (Tanya AI di samping grafik Analitik).
+ *
+ * `isian`: nilai form di dalamnya. Kalau sudah diubah sejak lembar dibuka,
+ * menutup lewat jalan mana pun (kembali/×, Esc, ketuk di luar, Batal)
+ * bertanya dulu "Buang perubahan?" — ketikan tidak hilang tanpa sengaja.
  */
 export function Lembar({
   judul,
@@ -175,6 +179,7 @@ export function Lembar({
   tombol,
   pil,
   label,
+  isian,
   onClose,
   children,
 }: {
@@ -190,14 +195,20 @@ export function Lembar({
    * Tombol sebagai kapsul melayang di tengah bawah ("Batal | Simpan"), pola
    * form Kontak Samsung. Untuk form halaman penuh, sebagai ganti `tombol`.
    */
-  pil?: { label: React.ReactNode; onClick: () => void; disabled?: boolean }[];
+  pil?: ({ label: React.ReactNode; disabled?: boolean } & ({ onClick: () => void } | { batal: true }))[];
+  /** Nilai form; dibandingkan dengan nilainya saat lembar dibuka. */
+  isian?: unknown;
   onClose: () => void;
   children: React.ReactNode;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
-  const tutup = useRef(onClose);
+  const isianAwal = useRef(JSON.stringify(isian));
+  const berubah = isian !== undefined && JSON.stringify(isian) !== isianAwal.current;
+  const [tanyaBuang, setTanyaBuang] = useState(false);
+  const cobaTutup = () => (berubah ? setTanyaBuang(true) : onClose());
+  const tutup = useRef(cobaTutup);
   useEffect(() => {
-    tutup.current = onClose;
+    tutup.current = cobaTutup;
   });
 
   // useLayoutEffect, bukan useEffect: berjalan masih di dalam ketukan yang
@@ -252,14 +263,14 @@ export function Lembar({
       className={kelas}
       aria-label={label ?? (typeof judul === "string" ? judul : undefined)}
       // Ketuk di luar kotak (area backdrop) menutup dialog.
-      onClick={(e) => e.target === e.currentTarget && e.currentTarget.matches(":modal") && onClose()}
+      onClick={(e) => e.target === e.currentTarget && e.currentTarget.matches(":modal") && cobaTutup()}
     >
       {posisi === "penuh" || posisi === "samping" ? (
         // Halaman penuh: tombol kembali lalu judul dalam satu baris, seperti
         // "‹ Add boarding passes" di Samsung Wallet. Begitu jadi pop-up atau
         // panel samping (layar lebar), ia tidak lagi "halaman": tombolnya ×.
         <div className={s.dialogKepala}>
-          <button type="button" className={s.ikonTombol} aria-label={posisi === "samping" ? "Tutup" : "Kembali"} onClick={onClose}>
+          <button type="button" className={s.ikonTombol} aria-label={posisi === "samping" ? "Tutup" : "Kembali"} onClick={cobaTutup}>
             <ChevronLeft size={26} className={s.hanyaSempit} />
             <X size={24} className={s.hanyaLebar} />
           </button>
@@ -276,12 +287,17 @@ export function Lembar({
           {pil.map((p, i) => (
             <Fragment key={i}>
               {i > 0 && <span className={s.pilPemisah} aria-hidden />}
-              <button type="button" onClick={p.onClick} disabled={p.disabled}>
+              <button type="button" onClick={"batal" in p ? cobaTutup : p.onClick} disabled={p.disabled}>
                 {p.label}
               </button>
             </Fragment>
           ))}
         </div>
+      )}
+      {tanyaBuang && (
+        <Konfirmasi tanya="Buang perubahan?" ya="Buang" onBatal={() => setTanyaBuang(false)} onYa={onClose}>
+          Yang sudah diisi di sini belum disimpan.
+        </Konfirmasi>
       )}
     </dialog>
   );

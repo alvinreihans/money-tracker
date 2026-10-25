@@ -234,9 +234,10 @@ function FormKartu({ userId, onClose }: { userId: string; onClose: () => void })
     <Lembar
       judul="Tambah kartu kredit"
       posisi="penuh"
+      isian={[nama, tagihan, per]}
       onClose={() => !loading && onClose()}
       pil={[
-        { label: "Batal", onClick: onClose, disabled: loading },
+        { label: "Batal", batal: true, disabled: loading },
         { label: loading ? <Spinner /> : "Simpan", onClick: () => void simpan(), disabled: loading },
       ]}
     >
