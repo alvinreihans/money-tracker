@@ -71,6 +71,7 @@ export interface TransactionRow {
   cicilan: string | null;
   /** Bukan kolom: belanja paylater (SPEC-paylater), diolah simpanTransaksi. */
   info_paylater: ExtractedReceipt["paylater"];
+  bukti_transfer: ExtractedReceipt["bukti_transfer"];
   transaction_date: string;
   /** Bukan kolom: jam & petunjuknya dari AI, diolah simpanTransaksi jadi `waktu`. */
   jam: string | null;
@@ -105,6 +106,7 @@ function emptyDraft(): ExtractedReceipt {
     time: null,
     time_hint: null,
     document_type: "receipt",
+    bukti_transfer: null,
   };
 }
 
@@ -238,6 +240,7 @@ export function toTransactionRow(
     pinjaman: e.pinjaman,
     cicilan: e.cicilan,
     info_paylater: e.paylater,
+    bukti_transfer: e.bukti_transfer,
     transaction_date: e.transaction_date,
     jam: e.time,
     petunjuk_jam: e.time_hint,

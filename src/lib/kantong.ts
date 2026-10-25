@@ -84,7 +84,7 @@ export const normal = (teks: string) => teks.toLowerCase().replace(/[^a-z0-9]/g,
  * null kalau tidak ada yang cocok persis. Sengaja persis, bukan "mengandung":
  * "Transfer" atau "QRIS" tidak boleh nyasar ke kantong mana pun.
  */
-export function cocokkanKantong<K extends Pick<Kantong, "name" | "aliases">>(
+export function cocokkanKantong<K extends Pick<Kantong, "name"> & Partial<Pick<Kantong, "aliases">>>(
   teks: string | null | undefined,
   daftar: K[],
 ): K | null {
@@ -109,8 +109,11 @@ export function alasanDraft(t: {
   type: string;
   kantong_id: string | null;
   kantong_tujuan_id: string | null;
-}): "baca" | "kantong" | null {
+  bukti_transfer?: string | null;
+}): "baca" | "kantong" | "arah" | null {
   if (t.status !== "needs_review") return null;
+  // Bukti transfer antar dua pihak yang belum jelas kirim atau terima (SPEC-catat-tuntas).
+  if (t.bukti_transfer && Number(t.amount) > 0) return "arah";
   const kurangKantong = !t.kantong_id || (t.type === "transfer" && !t.kantong_tujuan_id);
   return Number(t.amount) > 0 && kurangKantong ? "kantong" : "baca";
 }

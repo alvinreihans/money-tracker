@@ -37,6 +37,16 @@ async function simpanUntukHalaman(berkas) {
   );
 }
 
+/**
+ * Kabari jendela aplikasi yang terbuka bahwa transaksi mungkin berubah
+ * (struk selesai diproses di latar, push "perlu dicek" masuk). AppShell lalu
+ * menyegarkan datanya: titik di tombol + dan Riwayat ikut terbarui tanpa
+ * muat ulang (SPEC-catat-tuntas).
+ */
+async function kabariJendela() {
+  for (const c of await self.clients.matchAll({ type: "window", includeUncontrolled: true })) c.postMessage({ jenis: "transaksi-berubah" });
+}
+
 /** Satu per satu, seperti antrean di halaman: OCR berat & Groq berbatas. */
 async function unggahLatar(berkas) {
   const gagal = [];
@@ -50,6 +60,8 @@ async function unggahLatar(berkas) {
     } catch {
       gagal.push(f);
     }
+    // Tiap struk selesai — berhasil atau jadi "belum selesai" — langsung tampil.
+    await kabariJendela();
   }
   if (!gagal.length) return;
   await simpanUntukHalaman(gagal);
@@ -99,15 +111,18 @@ self.addEventListener("fetch", (event) => {
 self.addEventListener("push", (event) => {
   const n = event.data ? event.data.json() : {};
   event.waitUntil(
-    self.registration.showNotification(n.judul || "Money Tracker", {
-      body: n.isi,
-      tag: n.tag,
-      icon: "/logo.png",
-      // Ikon kecil di status bar Android: harus putih polos (hanya alfa yang
-      // dipakai); tanpa ini Chrome memakai ikonnya sendiri.
-      badge: "/badge.png",
-      data: { url: n.url || "/" },
-    }),
+    Promise.all([
+      kabariJendela(),
+      self.registration.showNotification(n.judul || "Money Tracker", {
+        body: n.isi,
+        tag: n.tag,
+        icon: "/logo.png",
+        // Ikon kecil di status bar Android: harus putih polos (hanya alfa yang
+        // dipakai); tanpa ini Chrome memakai ikonnya sendiri.
+        badge: "/badge.png",
+        data: { url: n.url || "/" },
+      }),
+    ]),
   );
 });
 

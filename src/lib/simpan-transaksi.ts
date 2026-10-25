@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isoLokal } from "@/lib/format";
+import { isianArah, kantongBank, tentukanArah, type BuktiTransfer } from "@/lib/arah";
 import { cocokkanKantong, type Kantong } from "@/lib/kantong";
 import {
   arahPindah,
@@ -50,6 +51,17 @@ export async function jadikanCicilan(
 export class KantongKurang extends Error {}
 
 /**
+ * Nama user di rekening/dompetnya, dipelajari dari jawaban "kirim atau
+ * terima?" (SPEC-catat-tuntas). Dibaca dari Auth, bukan dari token: nama yang
+ * baru disimpan belum ada di token sampai token diperbarui.
+ */
+export async function namaRekening(supabase: SupabaseClient): Promise<string[]> {
+  const { data } = await supabase.auth.getUser();
+  const n = data.user?.user_metadata?.nama_rekening;
+  return Array.isArray(n) ? n.filter((x): x is string => typeof x === "string") : [];
+}
+
+/**
  * Simpan satu transaksi (dari struk, teks, atau isian manual) sambil
  * menyingkirkan baris rekening koran yang ternyata mewakili transaksi sama.
  *
@@ -64,7 +76,7 @@ export async function simpanTransaksi(
   userId: string,
   input: Record<string, unknown>,
 ): Promise<{ supersededStatement: boolean; transaction: unknown; pertanyaan: JenisTanya | null; cicilan?: Cicilan }> {
-  const { payment_target, biaya_admin, cashback, pinjaman, cicilan: sebutanCicilan, jam, petunjuk_jam, info_paylater, ...row } = input;
+  const { payment_target, biaya_admin, cashback, pinjaman, cicilan: sebutanCicilan, jam, petunjuk_jam, info_paylater, bukti_transfer, ...row } = input;
   const dariAi = "payment_target" in input;
 
   // Belanja pakai paylater: bukan pengeluaran dari kantong mana pun. Tenor
@@ -101,6 +113,27 @@ export async function simpanTransaksi(
   const { data } = await supabase.from("user_accounts").select(KOLOM).eq("user_id", userId);
   const daftar = (data ?? []) as Pick<Kantong, "id" | "name" | "kind" | "aliases" | "saldo_per" | "saldo_sejak">[];
 
+  // Bukti transfer antar dua pihak dari AI (SPEC-catat-tuntas): arahnya
+  // diputuskan di sini — nama user yang sudah dikenal, lalu kantongnya.
+  // Masih ragu → draft yang menanyakan "kirim atau terima?"; kantongnya
+  // belum ditautkan, karena belum jelas sisi mana yang milik user.
+  let target = payment_target as string | null;
+  const bukti = dariAi ? ((bukti_transfer as BuktiTransfer | null) ?? null) : null;
+  if (bukti) {
+    const uang = daftar.filter((k) => k.kind !== "orang");
+    const arah = tentukanArah(bukti, await namaRekening(supabase), uang);
+    if (arah) {
+      const isi = isianArah(bukti, arah);
+      Object.assign(row, { type: isi.type, merchant: isi.merchant, ...("category" in isi ? { category: isi.category } : {}) });
+      row.payment_method = kantongBank(isi.payment_method, uang)?.name ?? isi.payment_method;
+      target = isi.payment_target ? (kantongBank(isi.payment_target, uang)?.name ?? isi.payment_target) : null;
+    } else {
+      row.bukti_transfer = JSON.stringify(bukti);
+      row.payment_method = null;
+      row.status = "needs_review";
+    }
+  }
+
   let kantong: (typeof daftar)[number] | null;
   let tujuan: (typeof daftar)[number] | null;
   const p = dariAi ? (pinjaman as { arah: "beri" | "terima_bayar" | "pinjam" | "bayar"; pihak: string } | null) : null;
@@ -132,7 +165,7 @@ export async function simpanTransaksi(
       cocokkanKantong(row.payment_method as string | null, row.type === "transfer" ? daftar : daftar.filter((k) => k.kind !== "orang"));
     tujuan =
       row.type === "transfer"
-        ? (daftar.find((k) => k.id === row.kantong_tujuan_id) ?? cocokkanKantong(payment_target as string | null, daftar))
+        ? (daftar.find((k) => k.id === row.kantong_tujuan_id) ?? cocokkanKantong(target, daftar))
         : null;
   }
   row.kantong_id = kantong?.id ?? null;

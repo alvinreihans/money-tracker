@@ -22,6 +22,7 @@ import { Spinner } from "@/components/oneui";
 import s from "@/components/ui.module.css";
 import { useCatat } from "@/components/Catat";
 import { ACCEPT_STRUK } from "@/components/UploadReceiptForm";
+import { bacaBukti, kalimatArah, kantongBank, rapikanNama } from "@/lib/arah";
 import { apakahKoreksi, CERITA_ULANG, KALIMAT_TANYA, MAKS_CERITA, mauHapus, pertanyaanDraft, PILIHAN_TENOR, type JenisTanya } from "@/lib/draft";
 import { alamatDetail, angkaMentah, angkaRibuan, fmtIDR, fmtTanggalPendek } from "@/lib/format";
 import { namaKategori } from "@/lib/kategori";
@@ -74,6 +75,19 @@ interface Draft {
   tx: Transaction;
 }
 
+/**
+ * Ketikan transaksi baru yang belum dikirim disimpan seperti draf di Samsung
+ * Messages: menutup lembar Catat tidak membuangnya (SPEC-catat-tuntas).
+ */
+const KUNCI_DRAF = "catat-draf";
+const bacaDraf = () => {
+  try {
+    return localStorage.getItem(KUNCI_DRAF) ?? "";
+  } catch {
+    return "";
+  }
+};
+
 /** Cara lembar dibuka. Ganti `id` = lembar baru (sesi bersih). */
 export interface PerintahCatat {
   id: number;
@@ -86,6 +100,7 @@ export interface PerintahCatat {
 const KURANG: Record<JenisTanya, string> = {
   cerita: "Belum kebaca sama sekali",
   nominal: "Nominal belum kebaca",
+  arah: "Kirim atau terima belum jelas",
   kantong: "Kantong belum jelas",
   kantong_tujuan: "Kantong tujuan belum jelas",
   waktu: "Jamnya belum jelas",
@@ -139,7 +154,7 @@ export default function LembarCatat({
   const [layar, setLayar] = useState(perintah.layar);
   const [pesan, setPesan] = useState<Pesan[]>([]);
   const [aktif, setAktif] = useState<Aktif | null>(null);
-  const [teks, setTeks] = useState(perintah.teks ?? "");
+  const [teks, setTeks] = useState(() => perintah.teks || (perintah.draft || perintah.layar !== "obrolan" ? "" : bacaDraf()));
   const [lampiran, setLampiran] = useState<{ file: File; url: string } | null>(null);
   const [sibuk, setSibuk] = useState(false);
   const [ringkas, setRingkas] = useState<{ tx: Transaction; batal?: boolean } | null>(null);
@@ -154,6 +169,20 @@ export default function LembarCatat({
   const judulRef = useRef<HTMLHeadingElement>(null);
   const galeriRef = useRef<HTMLInputElement>(null);
   const urlRef = useRef<string[]>([]);
+
+  // Hanya ketikan transaksi baru; jawaban atas pertanyaan ("BCA") tidak
+  // disimpan, supaya tidak muncul lagi sebagai transaksi baru. Begitu dikirim,
+  // kolomnya kosong → drafnya ikut terhapus.
+  const ketikanBaru = !aktif && !perintah.draft;
+  useEffect(() => {
+    if (!ketikanBaru) return;
+    try {
+      if (teks.trim()) localStorage.setItem(KUNCI_DRAF, teks);
+      else localStorage.removeItem(KUNCI_DRAF);
+    } catch {
+      // Penyimpanan diblokir (mode privat): drafnya hanya hilang, tidak apa-apa.
+    }
+  }, [teks, ketikanBaru]);
 
   const tambah = (...p: Pesan[]) => setPesan((prev) => [...prev, ...p]);
   const sesiBaru = () => {
@@ -185,6 +214,31 @@ export default function LembarCatat({
       }),
     );
   }, [db]);
+
+  /**
+   * Chip jawaban "kirim atau terima?" (SPEC-catat-tuntas). "Pindah antar
+   * rekeningku" hanya bila kedua bank memang kantong user.
+   */
+  function pilihanArah(tx: Transaction) {
+    const b = bacaBukti(tx.bukti_transfer);
+    const depan = (n: string | null) => rapikanNama(n)?.split(" ")[0];
+    const ke = b && depan(b.penerima.nama);
+    const dari = b && depan(b.pengirim.nama);
+    const keduanya = b && kantongBank(b.pengirim.bank, kantong) && kantongBank(b.penerima.bank, kantong);
+    const kirim = ke ? `Aku kirim ke ${ke}` : "Uang keluar";
+    const terima = dari ? `Aku terima dari ${dari}` : "Uang masuk";
+    return (
+      <div className={s.pilihanJawab}>
+        <button type="button" onClick={() => void jawab("kirim", kirim)}>{kirim}</button>
+        <button type="button" onClick={() => void jawab("terima", terima)}>{terima}</button>
+        {keduanya && (
+          <button type="button" onClick={() => void jawab("pindah", "Pindah antar rekeningku")}>
+            Pindah antar rekeningku
+          </button>
+        )}
+      </div>
+    );
+  }
 
   /** Ajukan pertanyaan untuk draft yang sedang dibahas. */
   function mulaiTanya(tx: Transaction, jenis: JenisTanya, ronde: number) {
@@ -219,7 +273,9 @@ export default function LembarCatat({
           ? CERITA_ULANG
           : jenis === "tenor" && tx.paylater
             ? `Pakai ${tx.paylater} ya. ${KALIMAT_TANYA.tenor}`
-            : KALIMAT_TANYA[jenis];
+            : jenis === "arah" && bacaBukti(tx.bukti_transfer)
+              ? kalimatArah(bacaBukti(tx.bukti_transfer)!)
+              : KALIMAT_TANYA[jenis];
       tambah({ t: "tanya", jenis, teks });
     }
   }
@@ -749,6 +805,7 @@ export default function LembarCatat({
                 <button type="button" onClick={() => void hapusDraft(aktif.tx, "Bukan, buang", "Oke, tidak dicatat.")}>Bukan, buang</button>
               </div>
             )}
+            {buka && p.jenis === "arah" && aktif && pilihanArah(aktif.tx)}
             {buka && p.jenis === "tenor" && (
               <div className={s.pilihanJawab}>
                 {PILIHAN_TENOR.map((n) => (

@@ -7,6 +7,7 @@ import { ChevronRight, Download, HandCoins, LogOut, Shapes, Target, UserRound, W
 import { useCatat, useKategori } from "@/components/Catat";
 import { LAYAR_LEBAR } from "@/components/navigasi";
 import { AppBar } from "@/components/oneui";
+import NamaRekening from "@/components/NamaRekening";
 import SakelarNotifikasi from "@/components/SakelarNotifikasi";
 import s from "@/components/ui.module.css";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -171,6 +172,10 @@ export default function ProfilView({
         </div>
 
         <h2 className={s.subheader}>Akun</h2>
+        <div className={s.blok}>
+          <NamaRekening />
+        </div>
+        {/* Keluar dipisah dari pengaturan lain: aksi yang mengakhiri sesi. */}
         <div className={s.blok}>
           <button type="button" className={`${s.baris} ${s.tekan}`} onClick={() => void keluar()}>
             <span className={`${s.barisIkon} ${s.bahaya}`} aria-hidden>

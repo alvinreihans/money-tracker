@@ -9,6 +9,7 @@ import { tandaTransaksi } from "@/components/kategori";
 import { LAYAR_LEBAR } from "@/components/navigasi";
 import { AppBar, Pesan } from "@/components/oneui";
 import s from "@/components/ui.module.css";
+import { bacaBukti, rapikanNama } from "@/lib/arah";
 import { alasanDraft } from "@/lib/kantong";
 import { namaKategori } from "@/lib/kategori";
 import { fmtIDR, fmtTanggal, fmtWaktu, JENIS, labelSumber } from "@/lib/format";
@@ -41,6 +42,8 @@ export default function DetailView({
   }, [halaman, router, t.id]);
   const draft = t.status === "needs_review";
   const alasan = alasanDraft(t);
+  const bukti = bacaBukti(t.bukti_transfer);
+  const pihak = bukti && [bukti.pengirim.nama, bukti.penerima.nama].map(rapikanNama).filter(Boolean).join(" dan ");
   const nama = t.merchant ?? "Tanpa nama";
   const kategori = useKategori();
   const { ikon: Ikon, warna } = tandaTransaksi(t, kategori);
@@ -69,7 +72,7 @@ export default function DetailView({
         judul={`${t.type === "income" ? "+" : ""}${fmtIDR(Number(t.amount))}`}
         judulKecil={nama}
         sub={[nama, fmtTanggal(t.transaction_date), fmtJam(t.waktu)].filter(Boolean).join(" · ")}
-        aksi={<DeleteTransactionButton id={t.id} kembali={kembali} />}
+        aksi={<DeleteTransactionButton id={t.id} kembali={kembali} draft={draft} />}
         ikon={
           <span
             className={s.ikonBesar}
@@ -88,11 +91,13 @@ export default function DetailView({
             judul="Belum selesai"
             aksi={<EditTransactionForm tx={t} ikutan={ikutan} />}
           >
-            {alasan === "kantong"
-              ? t.payment_method
-                ? `Nggak ada kantong yang cocok dengan “${t.payment_method}”. Pilih kantongnya dulu; sampai itu transaksi ini belum ikut dihitung.`
-                : "Kantongnya nggak disebut. Pilih kantongnya dulu; sampai itu transaksi ini belum ikut dihitung."
-              : "Struk atau teksnya nggak berhasil dibaca, jadi nominalnya belum benar dan belum ikut dihitung di laporan."}
+            {alasan === "arah"
+              ? `Ini bukti transfer${pihak ? ` antara ${pihak}` : ""}. Kamu yang kirim atau yang terima? Jawab di Catat (titik di tombol +), atau betulkan di sini.`
+              : alasan === "kantong"
+                ? t.payment_method
+                  ? `Nggak ada kantong yang cocok dengan “${t.payment_method}”. Pilih kantongnya dulu; sampai itu transaksi ini belum ikut dihitung.`
+                  : "Kantongnya nggak disebut. Pilih kantongnya dulu; sampai itu transaksi ini belum ikut dihitung."
+                : "Struk atau teksnya nggak berhasil dibaca, jadi nominalnya belum benar dan belum ikut dihitung di laporan."}
           </Pesan>
         )}
 

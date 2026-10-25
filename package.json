@@ -28,7 +28,8 @@
     "uji:waktu": "tsx scripts/uji-waktu.mts",
     "uji:riwayat": "tsx scripts/uji-riwayat.mts",
     "uji:tanya": "tsx scripts/uji-tanya.mts",
-    "eval:tanya": "node --env-file=.env.local scripts/eval-tanya.mjs"
+    "eval:tanya": "node --env-file=.env.local scripts/eval-tanya.mjs",
+    "uji:arah": "tsx scripts/uji-arah.mts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
