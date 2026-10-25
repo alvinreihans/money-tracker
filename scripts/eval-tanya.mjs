@@ -52,6 +52,8 @@ const KASUS = [
     harus: [367000, 8000000],
   },
   { tanya: "rekomendasi saham yang bagus dong", harus: [], pola: /(hanya|cuma|tidak bisa)/i, tanpaTautan: true },
+  // Menjelaskan "kenapa" dengan cerita transaksinya, bukan sekadar kategori.
+  { tanya: "kenapa bulan ini boros?", harus: [10300000], pola: /\bHP\b/i },
 ];
 
 let uid;
@@ -69,7 +71,8 @@ try {
   const tx = (amount, type, category, merchant, transaction_date, kantong_id, extra = {}) => ({ user_id: uid, status: "confirmed", source: "text", amount, type, category, merchant, transaction_date, kantong_id, ...extra });
   const { error: e2 } = await sb.from("transactions").insert([
     tx(8000000, "income", "salary", "Kantor", tgl(B, 1), bca.id),
-    tx(10300000, "expense", "shopping", "Laku6", tgl(B, 3), bca.id),
+    // Cerita di balik transaksi (SPEC-cerita-tanya): dipakai menjawab "kenapa".
+    tx(10300000, "expense", "shopping", "Laku6", tgl(B, 3), bca.id, { description: "Beli HP baru, HP lama rusak" }),
     tx(25000, "expense", "food", "Warteg Selera Bahari", tgl(B, 2), tunai.id),
     tx(18000, "expense", "food", "Warteg Selera Bahari", tgl(B, 4), tunai.id),
     tx(17000, "expense", "food", "Warteg Selera Bahari", tgl(B, 5), tunai.id),

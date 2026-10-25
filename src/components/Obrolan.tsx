@@ -158,6 +158,9 @@ export default function LembarCatat({
   const [lampiran, setLampiran] = useState<{ file: File; url: string } | null>(null);
   const [sibuk, setSibuk] = useState(false);
   const [ringkas, setRingkas] = useState<{ tx: Transaction; batal?: boolean } | null>(null);
+  // "+ Tambah cerita" (SPEC-cerita-tanya): transaksi yang sedang diberi cerita;
+  // ketikan berikutnya jadi keterangannya.
+  const [cerita, setCerita] = useState<Transaction | null>(null);
   const [drafts, setDrafts] = useState<Draft[] | null>(null);
   const [detik, setDetik] = useState<number | null>(null);
   const [kamera, setKamera] = useState(false);
@@ -173,7 +176,7 @@ export default function LembarCatat({
   // Hanya ketikan transaksi baru; jawaban atas pertanyaan ("BCA") tidak
   // disimpan, supaya tidak muncul lagi sebagai transaksi baru. Begitu dikirim,
   // kolomnya kosong → drafnya ikut terhapus.
-  const ketikanBaru = !aktif && !perintah.draft;
+  const ketikanBaru = !aktif && !perintah.draft && !cerita;
   useEffect(() => {
     if (!ketikanBaru) return;
     try {
@@ -377,13 +380,14 @@ export default function LembarCatat({
   // ketikan berikutnya jadi catatan baru (bukan koreksi kartu yang sudah
   // tidak terlihat). Batalkan memulai ulang hitungannya.
   useEffect(() => {
-    if (!ringkas || besar) return;
+    // Sedang menulis cerita untuk kartu itu: jangan dihilangkan dulu.
+    if (!ringkas || besar || cerita) return;
     const t = setTimeout(() => {
       setRingkas(null);
       setPesan([]);
     }, KARTU_RINGKAS_MS);
     return () => clearTimeout(t);
-  }, [ringkas, besar]);
+  }, [ringkas, besar, cerita]);
 
   // Hitung mundur penutup.
   useEffect(() => {
@@ -526,6 +530,7 @@ export default function LembarCatat({
     if (sibuk || (!isi && !lampiran)) return;
     if (isi.length > TEKS_MAKS) return tambah({ t: "app", teks: `Maksimal ${TEKS_MAKS} karakter.` });
     setTeks("");
+    if (cerita && !lampiran) return void simpanCerita(cerita, isi);
     if (lampiran) {
       const l = lampiran;
       setLampiran(null);
@@ -551,6 +556,24 @@ export default function LembarCatat({
     }
     if (terakhir?.t === "kartu" && !terakhir.batal && apakahKoreksi(isi)) return void koreksi(terakhir.tx, isi);
     void catatTeks(isi);
+  }
+
+  /** Cerita di balik transaksi yang barusan tersimpan → keterangannya (SPEC-cerita-tanya). */
+  async function simpanCerita(tx: Transaction, isi: string) {
+    setSibuk(true);
+    const { data } = await db.from("transactions").update({ description: isi.slice(0, 500) }).eq("id", tx.id).select().single();
+    setSibuk(false);
+    setCerita(null);
+    if (!data) return tambah({ t: "app", teks: "Gagal menyimpan ceritanya." });
+    const baru = data as Transaction;
+    // Di lembar ringkas, pesan "app" terakhir tampil sebagai galat: cukup
+    // kartunya yang kini memuat ceritanya.
+    setPesan((prev) => [
+      ...prev.map((p) => (p.t === "kartu" && p.tx.id === tx.id ? { ...p, tx: baru } : p)),
+      ...(besar ? [{ t: "app" as const, teks: "Cerita tersimpan." }] : []),
+    ]);
+    setRingkas((r) => (r && r.tx.id === tx.id ? { ...r, tx: baru } : r));
+    router.refresh();
   }
 
   /** Koreksi lewat ketikan untuk transaksi yang barusan tersimpan (Fase B). */
@@ -654,6 +677,7 @@ export default function LembarCatat({
             <span className={s.redup}>
               {tx.type === "transfer" ? "Pindah kantong" : nama} · {tx.payment_method ?? "—"} · {fmtTanggalPendek(tx.transaction_date)}
             </span>
+            {tx.description && <span className={s.redup}>“{tx.description}”</span>}
           </span>
           <span className={s.nominal}>
             {tanda}
@@ -671,6 +695,20 @@ export default function LembarCatat({
               <>
                 <button type="button" className={s.flat} onClick={() => void batalkan(tx)}>Batalkan</button>
                 <button type="button" className={s.flat} onClick={() => keDetail(tx)}>Ubah</button>
+                {/* Cerita di baliknya, untuk Tanya AI nanti — tidak memaksa. */}
+                {!tx.description && (
+                  <button
+                    type="button"
+                    className={s.flat}
+                    aria-pressed={cerita?.id === tx.id}
+                    onClick={() => {
+                      setCerita((c) => (c?.id === tx.id ? null : tx));
+                      inputRef.current?.focus();
+                    }}
+                  >
+                    {cerita?.id === tx.id ? "Batal cerita" : "+ Tambah cerita"}
+                  </button>
+                )}
               </>
             )}
           </div>
@@ -1013,7 +1051,9 @@ export default function LembarCatat({
                 }}
                 inputMode={modeNominal ? "numeric" : "text"}
                 placeholder={
-                  lampiran
+                  cerita
+                    ? "Ceritain singkat, mis. “kopi sama klien”"
+                    : lampiran
                     ? "Tambah keterangan…"
                     : tanyaBuka === "nominal"
                       ? "mis. 150.000"

@@ -156,7 +156,13 @@ ${daftarPrompt(kategori, "income")}
   "malam" ("tadi pagi beli roti" -> "pagi"). "lampau" bila teks menyatakan sudah terjadi
   tanpa bagian hari ("tadi beli roti", "tadi bayar parkir"). Tanpa petunjuk waktu sama
   sekali ("kopi 25rb gopay", "kemarin makan") -> null.
-- description: ringkasan singkat isi transaksi, boleh null.
+- description: cerita/konteks transaksi yang DITULIS ORANG, boleh null.
+  Utamakan catatan dari pengguna atau pengirim: berita transfer, "Keperluan
+  Transfer", "Catatan", catatan pesanan ("Kado nikahan Rina", "Bayar arisan
+  Oktober", "Patungan makan tim"). Teks bawaan aplikasi yang tidak bercerita
+  ("Transfer Dana", "Pembayaran", "Top Up", "Transfer", "Pembelian") BUKAN
+  description -> null. Untuk struk belanja tanpa catatan: ringkasan singkat
+  barangnya boleh ("Beras 5 kg, minyak goreng"), atau null.
 - payment_method: metode bayar bila disebut, normalkan istilah gaul/singkatan:
   "sopipay"/"spay"/"shopee pay"=ShopeePay; "gopay"=GoPay; "ovo"=OVO; "dana"=DANA;
   "qris"=QRIS; "cash"/"tunai"/"cod"=Tunai; "transfer"/"tf"/"m-banking"=Transfer;

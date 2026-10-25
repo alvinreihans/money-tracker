@@ -13,19 +13,8 @@ bagiannya di sini.
 ## Rencana
 
 Belum dikerjakan; dicatat supaya tidak lupa. Urutan fase ada di
-SPEC-catat-tuntas.md (fase 1 selesai di 2.4.0).
+SPEC-catat-tuntas.md (fase 1 & 2 selesai di 2.4.0).
 
-- **Cerita di balik transaksi.**
-  - **Masalahnya:** tiap transaksi bisa diberi konteks ("kopi sama klien",
-    "kado nikahan teman"), supaya Tanya AI bisa menjawab "kenapa bulan ini
-    boros". Sekarang Tanya AI hanya memakai keterangan untuk *mencari*, belum
-    untuk *menjelaskan*.
-  - **Usul tampilan:** setelah catat/unggah selesai dan user masih di
-    aplikasi, tawarkan "Tambah cerita?" (opsional, sekali ketuk untuk
-    lewati). Isi otomatis dari catatan yang sudah ada di struk/bukti transfer
-    ("Keperluan Transfer", berita transfer).
-  - Pertanyaan `cerita` yang sudah ada di Catat beda fungsi: itu hanya untuk
-    transaksi yang gagal dibaca.
 - **Metode budgeting pilihan user** (acuan: artikel Prudential "Metode
   Budgeting"). Semua metode ditampung oleh tiga mesin:
   - **A. Budget per kategori.**
@@ -60,7 +49,13 @@ SPEC-catat-tuntas.md (fase 1 selesai di 2.4.0).
   - **Cara memutuskan:** aplikasi mengenali kamu dari nama di rekening (pengirim atau penerima) atau dari kantongmu (bank penerima atau pengirim).
   - **Kalau belum jelas,** Catat bertanya *"Ini kamu yang kirim ke …, atau terima dari …?"*. Jawaban pertama menyimpan namamu, jadi berikutnya tidak ditanya lagi.
   - Nama yang dikenali bisa dilihat, ditambah, dan dihapus di **Profil → Nama di rekening**.
+- **Cerita di balik transaksi:** setelah mencatat, kartu "Tersimpan" menawarkan **"+ Tambah cerita"** ("traktir teman", "kado nikahan"). Ceritanya tersimpan di Keterangan. Catatan yang ditulis orang di struk/bukti transfer ("Bayar arisan Oktober") juga terisi sendiri.
+- **Tanya AI menjelaskan "kenapa"** memakai cerita itu: "kenapa bulan ini boros?" dijawab dengan transaksi besarnya beserta alasannya.
+- Tombol **Tanya AI juga di Beranda**. Di layar lebar panelnya tetap terbuka saat membuka tautan "Lihat di Riwayat"; di HP obrolannya tetap ada saat dibuka lagi.
 - **Urungkan hapus:** setelah menghapus transaksi, snackbar menampilkan "Urungkan". Transaksi beserta cashback/biaya adminnya kembali persis seperti semula.
+
+### Diubah
+- **Tanya AI jauh lebih cepat** untuk pertanyaan perbandingan ("bandingin sama bulan lalu", "selisihnya berapa"): dari ±20 detik jadi ±3 detik. Ringkasan bulan yang sedang dilihat kini dihitung di depan.
 
 ### Diperbaiki
 - **Hasil "Bagikan" langsung tampil.** Struk dari e-wallet yang diproses di latar langsung muncul di Riwayat, atau sebagai titik di tombol + kalau perlu dicek, tanpa refresh. Kembali ke aplikasi juga menyegarkan data.

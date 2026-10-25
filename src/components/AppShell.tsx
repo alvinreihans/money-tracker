@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { CatatProvider, TombolCatat, type PilihanKantong } from "@/components/Catat";
 import { NAVIGASI } from "@/components/navigasi";
 import { KembaliKeAtas } from "@/components/oneui";
+import { TanyaProvider } from "@/components/TanyaAI";
 import type { Kategori } from "@/lib/kategori";
 import s from "@/components/ui.module.css";
 
@@ -84,7 +85,9 @@ export default function AppShell({
 
   return (
     <CatatProvider saran={saran} kantong={kantong} kategori={kategori} email={email} jumlahDraft={draftCount}>
-      <div className={s.app}>{children}</div>
+      <TanyaProvider>
+        <div className={s.app}>{children}</div>
+      </TanyaProvider>
       <KembaliKeAtas />
 
       <nav className={s.nav} aria-label="Navigasi utama">

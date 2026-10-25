@@ -1282,7 +1282,7 @@ button.blok { background: var(--blok); }
 .kartuHasil { align-self: stretch; padding: 14px 16px 6px; border: 1px solid var(--garis); border-radius: 20px; background: var(--bg); }
 .tersimpan { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; color: var(--sukses); font-size: 13px; font-weight: 600; }
 .kartuHasil .baris { padding: 0; min-height: 0; }
-.aksiKartu { display: flex; justify-content: flex-end; gap: 4px; margin-top: 6px; }
+.aksiKartu { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; margin-top: 6px; }
 .kartuBatal { opacity: 0.5; }
 .kartuBatal .tersimpan { color: var(--teks-2); }
 .kartuBatal .barisJudul, .kartuBatal .nominal { text-decoration: line-through; }
