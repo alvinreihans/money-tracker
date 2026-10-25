@@ -43,13 +43,28 @@ Belum dikerjakan; dicatat supaya tidak lupa.
     ("Keperluan Transfer", berita transfer).
   - Pertanyaan `cerita` yang sudah ada di Catat beda fungsi: itu hanya untuk
     transaksi yang gagal dibaca.
-- **Kelompok kebutuhan: needs, wants, saving, invest** (ala 50/30/20).
-  - **Usul:** tiap kategori punya kelompok bawaan (Makan → needs, Jajan →
-    wants, …). Tiap transaksi boleh mengubahnya, mis. makan di restoran mewah
-    jadi wants. AI menyarankan kelompok dari merchant/harganya, user yang
-    memutuskan.
-  - Analitik dan Tanya AI lalu bisa menjawab "berapa persen untuk wants bulan ini".
-  - Butuh kolom baru → migrasi.
+- **Metode budgeting pilihan user** (acuan: artikel Prudential "Metode
+  Budgeting"). Semua metode ditampung oleh tiga mesin:
+  - **A. Budget per kategori.**
+    - **Tradisional** sudah ada (Profil → Budget).
+    - **Zero-Based** menambah penanda "sisa belum dialokasikan" yang harus jadi Rp 0.
+  - **B. Persentase per kelompok.** Satu mesin dengan banyak preset:
+    - preset: 50/30/20, 80/20, 70/20/10, Jar/6 Jars, Kakeibo (4 kelompoknya
+      sendiri), Pay Yourself First, dan kustom;
+    - tiap kategori punya kelompok bawaan (Makan → needs, Jajan → wants);
+    - tiap transaksi boleh mengubahnya, mis. makan di restoran mewah jadi
+      wants. AI menyarankan dari merchant/harganya, user yang memutuskan;
+    - Analitik menampilkan realisasi vs target per kelompok;
+    - butuh kolom baru → migrasi.
+  - **C. Pelunasan utang.** Debt Snowball (sisa terkecil dulu) dan Debt
+    Avalanche (bunga tertinggi dulu) di Lend & Borrow. Avalanche butuh isian
+    bunga baru di cicilan/pinjaman.
+  - **Aturan pilihan:** A atau B satu yang aktif; C boleh berjalan
+    bersamaan. Tanya AI menjelaskan dengan bahasa metode yang dipilih.
+  - **Pertanyaan terbuka:** persentase dihitung dari pemasukan nyata bulan
+    itu atau dari pemasukan bulanan yang diisi user?
+  - **Urutan usul:** B (50/30/20, 80/20, 70/20/10, kustom) → Zero-Based →
+    Jar/Kakeibo → Snowball/Avalanche.
 
 - **Caching data di server** (lanjutan), kalau setelah diukur di produksi
   halaman masih terasa lambat atau kuota Supabase/Vercel menipis: mis. data
