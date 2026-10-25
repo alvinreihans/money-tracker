@@ -1,7 +1,7 @@
 "use client";
 
 import NextLink from "next/link";
-import { ArrowDownToLine, BadgePercent, Banknote, CalendarDays, Clock, Coins, CreditCard, NotebookPen, Shapes, Store, UserRound, Wallet } from "lucide-react";
+import { ArrowDownToLine, BadgePercent, Banknote, CalendarDays, Clock, Coins, CreditCard, NotebookPen, PieChart, Shapes, Store, UserRound, Wallet } from "lucide-react";
 import { useCatat, useKategori } from "@/components/Catat";
 import { tandaKategori } from "@/components/kategori";
 import { Field, InputNominal, Pilih, Segmen } from "@/components/oneui";
@@ -11,6 +11,7 @@ import { jamWIB } from "@/lib/waktu";
 import { emojiKantong } from "@/lib/kantong";
 import { kantongUang } from "@/lib/pinjaman";
 import { kategoriJenis, LAINNYA } from "@/lib/kategori";
+import { KELOMPOK, NAMA_KELOMPOK, type Kelompok } from "@/lib/metode";
 import { TIPE_TRANSAKSI } from "@/lib/transaksi-input";
 import type { Transaction, TransactionType } from "@/types/transaction";
 
@@ -33,6 +34,8 @@ export interface NilaiTransaksi {
   kantong_id: string;
   kantong_tujuan_id: string;
   description: string;
+  /** Pengeluaran: kelompok budgeting; kosong = ikut kategori (SPEC-metode-budget). */
+  kelompok: string;
   /** Hanya pindah kantong; tersimpan sebagai transaksi ikutan. */
   biaya_admin: string;
   /** Hanya pengeluaran; tersimpan sebagai transaksi ikutan. */
@@ -54,6 +57,7 @@ export function nilaiAwal(tx?: Transaction, type: TransactionType = "expense", i
     kantong_id: tx?.kantong_id ?? "",
     kantong_tujuan_id: tx?.kantong_tujuan_id ?? "",
     description: tx?.description ?? "",
+    kelompok: tx?.kelompok ?? "",
     biaya_admin: tx?.type === "transfer" && ikutan ? isianNominal(ikutan) : "",
     cashback: tx?.type === "expense" && ikutan ? isianNominal(ikutan) : "",
   };
@@ -62,9 +66,15 @@ export function nilaiAwal(tx?: Transaction, type: TransactionType = "expense", i
 export default function TransactionFields({
   nilai,
   onChange,
+  terpecah = false,
 }: {
   nilai: NilaiTransaksi;
   onChange: (patch: Partial<NilaiTransaksi>) => void;
+  /**
+   * Transaksi yang dipecah (SPEC-metode-budget): jenis, nominal, kategori,
+   * kelompok, cashback & keterangan diatur per bagian di "Atur pecahan".
+   */
+  terpecah?: boolean;
 }) {
   const { kantong } = useCatat();
   const kategori = useKategori();
@@ -108,26 +118,30 @@ export default function TransactionFields({
     <div className={s.form}>
       {/* Jenis paling atas dan selalu terlihat: menentukan isian di bawahnya
           dan apakah ini masuk hitungan pengeluaran atau pemasukan. */}
-      <Segmen
-        label="Jenis transaksi"
-        // "Pindah kantong" terlalu panjang untuk sepertiga lebar HP; artinya
-        // dijelaskan di keterangan di bawahnya begitu dipilih.
-        pilihan={TIPE_TRANSAKSI.map((t) => (t.id === "transfer" ? { ...t, label: "Pindah" } : t))}
-        nilai={type}
-        onChange={(baru) =>
-          // Kategori pengeluaran tidak berlaku untuk pemasukan dan sebaliknya.
-          onChange({
-            type: baru,
-            ...(kategoriJenis(kategori, baru).some((k) => k.slug === nilai.category) ? {} : { category: LAINNYA }),
-          })
-        }
-      />
+      {!terpecah && (
+        <Segmen
+          label="Jenis transaksi"
+          // "Pindah kantong" terlalu panjang untuk sepertiga lebar HP; artinya
+          // dijelaskan di keterangan di bawahnya begitu dipilih.
+          pilihan={TIPE_TRANSAKSI.map((t) => (t.id === "transfer" ? { ...t, label: "Pindah" } : t))}
+          nilai={type}
+          onChange={(baru) =>
+            // Kategori pengeluaran tidak berlaku untuk pemasukan dan sebaliknya.
+            onChange({
+              type: baru,
+              ...(kategoriJenis(kategori, baru).some((k) => k.slug === nilai.category) ? {} : { category: LAINNYA }),
+            })
+          }
+        />
+      )}
       {type === "transfer" && <span className={s.keterangan}>Pindah kantong tidak dihitung sebagai pengeluaran.</span>}
 
       <div className={`${s.blok} ${s.blokForm}`}>
-        <Field label="Nominal (Rp)" ikon={Banknote} kolom="amount">
-          <InputNominal required value={nilai.amount} onChange={(amount) => onChange({ amount })} placeholder="Nominal (Rp)" />
-        </Field>
+        {!terpecah && (
+          <Field label="Nominal (Rp)" ikon={Banknote} kolom="amount">
+            <InputNominal required value={nilai.amount} onChange={(amount) => onChange({ amount })} placeholder="Nominal (Rp)" />
+          </Field>
+        )}
 
         <Field label="Tanggal" ikon={CalendarDays} kolom="transaction_date">
           {/* Input tanggal bawaan: di HP muncul kalender sistem. */}
@@ -146,7 +160,7 @@ export default function TransactionFields({
         </Field>
 
         {/* Pindah kantong tidak berkategori. */}
-        {type !== "transfer" && (
+        {type !== "transfer" && !terpecah && (
           <Pilih
             label="Kategori"
             ikon={Shapes}
@@ -154,6 +168,25 @@ export default function TransactionFields({
             nilai={nilai.category}
             pilihan={kategoriJenis(kategori, type).map((k) => ({ id: k.slug, label: k.name, ...tandaKategori(k) }))}
             onChange={(category) => onChange({ category })}
+          />
+        )}
+
+        {/* Kelompok budgeting (SPEC-metode-budget): bawaannya dari kategori;
+            ubah kalau transaksi ini beda, mis. makan di restoran mewah. */}
+        {type === "expense" && !terpecah && (
+          <Pilih
+            label="Kelompok"
+            ikon={PieChart}
+            kolom="kelompok"
+            nilai={nilai.kelompok}
+            pilihan={[
+              {
+                id: "",
+                label: `Ikut kategori (${NAMA_KELOMPOK[(kategori.find((k) => k.type === "expense" && k.slug === nilai.category)?.kelompok as Kelompok) ?? "keinginan"]})`,
+              },
+              ...KELOMPOK.map((k) => ({ id: k, label: NAMA_KELOMPOK[k] })),
+            ]}
+            onChange={(kelompok) => onChange({ kelompok })}
           />
         )}
 
@@ -202,19 +235,21 @@ export default function TransactionFields({
           </Field>
         )}
 
-        {type === "expense" &&
+        {type === "expense" && !terpecah &&
           nominalPelengkap("cashback", "Cashback (Rp)", BadgePercent, "Opsional. Dicatat sebagai pemasukan ke kantong yang sama.")}
         {type === "transfer" &&
           nominalPelengkap("biaya_admin", "Biaya admin (Rp)", Coins, "Opsional. Dicatat sebagai pengeluaran dari kantong asal.")}
 
-        <Field label="Keterangan" ikon={NotebookPen} kolom="description">
-          <textarea
-            rows={1}
-            value={nilai.description}
-            onChange={(e) => onChange({ description: e.target.value })}
-            placeholder="Keterangan"
-          />
-        </Field>
+        {!terpecah && (
+          <Field label="Keterangan" ikon={NotebookPen} kolom="description">
+            <textarea
+              rows={1}
+              value={nilai.description}
+              onChange={(e) => onChange({ description: e.target.value })}
+              placeholder="Keterangan"
+            />
+          </Field>
+        )}
       </div>
     </div>
   );

@@ -9,6 +9,7 @@ import { namaKategori } from "@/lib/kategori";
 import s from "@/components/ui.module.css";
 import { alamatDetail, fmtIDR, fmtIDRRingkas, fmtTanggal, geserHari, isoLokal, kelompokWaktu, namaBulan } from "@/lib/format";
 import { fmtJam } from "@/lib/waktu";
+import type { InfoPecahan } from "@/lib/riwayat";
 import type { Transaction } from "@/types/transaction";
 
 /**
@@ -41,7 +42,14 @@ function kelasNominal(t: Transaction): string {
 
 type Pilih = { terpilih?: string | null; onPilih?: (e: React.MouseEvent, t: Transaction) => void };
 
-function Kartu({ t, tanggal, kembali, terpilih, onPilih }: { t: Transaction; tanggal: string | null; kembali?: string } & Pilih) {
+function Kartu({
+  t,
+  tanggal,
+  kembali,
+  terpilih,
+  onPilih,
+  pecahan,
+}: { t: Transaction; tanggal: string | null; kembali?: string; pecahan?: InfoPecahan[string] } & Pilih) {
   const kategori = useKategori();
   const router = useRouter();
   const { ikon: Ikon, warna } = tandaTransaksi(t, kategori);
@@ -50,19 +58,31 @@ function Kartu({ t, tanggal, kembali, terpilih, onPilih }: { t: Transaction; tan
   const keDuaPanel = (e: React.MouseEvent) => {
     if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey || !window.matchMedia(LAYAR_LEBAR).matches) return;
     e.preventDefault();
-    router.push(`/riwayat?id=${t.id}`);
+    router.push(`/riwayat?id=${t.pecahan_dari ?? t.id}`);
   };
   const { kantong } = useCatat();
   const tujuan = t.type === "transfer" ? kantong.find((k) => k.id === t.kantong_tujuan_id)?.name : undefined;
   const lewat = tujuan ? `${t.payment_method ?? "?"} → ${tujuan}` : t.payment_method;
   // Pindah kantong tidak berkategori; arahnya sudah cukup.
-  const rincian = [tanggal, t.type === "transfer" ? null : namaKategori(kategori, t.category, t.type), lewat].filter(Boolean).join(" · ");
+  // Transaksi yang dipecah (SPEC-metode-budget) tampil satu kartu: aslinya
+  // dengan total semua bagian; bagian yang tampil sendiri (karena filter)
+  // diberi tanda dan membuka transaksi aslinya.
+  const bagian = Boolean(t.pecahan_dari);
+  const nominal = pecahan && !bagian ? pecahan.total : Number(t.amount);
+  const rincian = [
+    tanggal,
+    t.type === "transfer" ? null : pecahan && !bagian ? `${pecahan.jumlah} bagian` : namaKategori(kategori, t.category, t.type),
+    lewat,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  const id = t.pecahan_dari ?? t.id;
 
   return (
     <NextLink
-      href={alamatDetail(t.id, kembali)}
+      href={alamatDetail(id, kembali)}
       className={`${s.kartuTx} ${s.tekan}`}
-      aria-current={terpilih === t.id || undefined}
+      aria-current={terpilih === id || undefined}
       onClick={onPilih ? (e) => onPilih(e, t) : keDuaPanel}
     >
       <span className={s.baris}>
@@ -78,10 +98,11 @@ function Kartu({ t, tanggal, kembali, terpilih, onPilih }: { t: Transaction; tan
           <span className={s.barisJudul}>{t.merchant ?? "Tanpa nama"}</span>
           <span className={s.redup}>{rincian}</span>
           {t.status === "needs_review" && <span className={`${s.lencana} ${s.lencanaBahaya}`}>Belum selesai</span>}
+          {bagian && pecahan && <span className={s.redup}>Bagian dari {fmtIDR(pecahan.total)}</span>}
         </span>
         <span className={`${s.nominal} ${kelasNominal(t)}`}>
           {t.type === "income" ? "+" : ""}
-          {fmtIDR(Number(t.amount))}
+          {fmtIDR(nominal)}
         </span>
       </span>
       {t.description && <span className={s.kartuCatatan} style={{ display: "block" }}>{t.description}</span>}
@@ -97,7 +118,10 @@ export default function TransactionList({
   perHari,
   terpilih,
   onPilih,
+  pecahan = {},
 }: Pilih & {
+  /** Transaksi yang dipecah: total & jumlah bagian per id aslinya (infoPecahan). */
+  pecahan?: InfoPecahan;
   items: Transaction[];
   /** Aksi penutup di bawah daftar, mis. "Lihat semua riwayat". */
   kaki?: React.ReactNode;
@@ -131,9 +155,13 @@ export default function TransactionList({
   const teksTotal = (t: { keluar: number; masuk: number }) =>
     [t.keluar > 0 && `−${fmtIDRRingkas(t.keluar)}`, t.masuk > 0 && `+${fmtIDRRingkas(t.masuk)}`].filter(Boolean).join(" · ");
 
+  // Bagian yang aslinya ikut tampil sudah terwakili kartu aslinya.
+  const ada = new Set(items.map((t) => t.id));
+  const tampil = items.filter((t) => !(t.pecahan_dari && ada.has(t.pecahan_dari)));
+
   // Data sudah terurut menurut tanggal dari query, jadi cukup dipecah urut.
   const kelompok: { kunci: string; isi: Transaction[] }[] = [];
-  for (const t of items) {
+  for (const t of tampil) {
     const k = kunci(t.transaction_date);
     const akhir = kelompok[kelompok.length - 1];
     if (akhir?.kunci === k) akhir.isi.push(t);
@@ -145,7 +173,10 @@ export default function TransactionList({
       {kelompok.map((k, i) => {
         // Draft belum punya nominal yang benar; pindah kantong bukan pengeluaran.
         const total = perBulan?.[k.kunci] ?? {
-          keluar: k.isi.filter((t) => t.type === "expense" && t.status === "confirmed").reduce((n, t) => n + Number(t.amount), 0),
+          // Kartu transaksi yang dipecah membawa total semua bagiannya.
+          keluar: k.isi
+            .filter((t) => t.type === "expense" && t.status === "confirmed")
+            .reduce((n, t) => n + (!t.pecahan_dari && pecahan[t.id] ? pecahan[t.id].total : Number(t.amount)), 0),
           masuk: 0,
         };
         const nilai = teksTotal(total);
@@ -185,12 +216,14 @@ export default function TransactionList({
                         )}
                       </h3>
                       {h.isi.map((t) => (
-                        <Kartu key={t.id} t={t} tanggal={tanggal(t, k.kunci)} kembali={kembali} terpilih={terpilih} onPilih={onPilih} />
+                        <Kartu key={t.id} t={t} tanggal={tanggal(t, k.kunci)} kembali={kembali} terpilih={terpilih} onPilih={onPilih} pecahan={pecahan[t.pecahan_dari ?? t.id]} />
                       ))}
                     </div>
                   );
                 })
-              : k.isi.map((t) => <Kartu key={t.id} t={t} tanggal={tanggal(t, k.kunci)} kembali={kembali} terpilih={terpilih} onPilih={onPilih} />)}
+              : k.isi.map((t) => (
+                  <Kartu key={t.id} t={t} tanggal={tanggal(t, k.kunci)} kembali={kembali} terpilih={terpilih} onPilih={onPilih} pecahan={pecahan[t.pecahan_dari ?? t.id]} />
+                ))}
           </section>
         );
       })}

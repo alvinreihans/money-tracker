@@ -7,6 +7,7 @@ import { ChevronRight, ClipboardList, Inbox } from "lucide-react";
 import BarisStreak from "@/components/BarisStreak";
 import { useCatat } from "@/components/Catat";
 import KartuBudget from "@/components/KartuBudget";
+import KartuMetode from "@/components/KartuMetode";
 import KartuKantong from "@/components/KartuKantong";
 import KartuPinjaman from "@/components/KartuPinjaman";
 import { AppBar, Kosong } from "@/components/oneui";
@@ -17,6 +18,8 @@ import { fmtIDR, namaBulan } from "@/lib/format";
 import { rentangBulan } from "@/lib/periode";
 import type { RingkasBeranda } from "@/lib/pinjaman";
 import type { ProgresBudget } from "@/lib/analitik";
+import type { HasilMetode } from "@/lib/metode";
+import type { InfoPecahan } from "@/lib/riwayat";
 import type { Transaction } from "@/types/transaction";
 
 export default function BerandaView({
@@ -28,6 +31,8 @@ export default function BerandaView({
   budget,
   streak,
   bukaCatat,
+  metode,
+  pecahan,
 }: {
   ringkasan: { keluar: number; keluarBulanLalu: number };
   draft: number;
@@ -36,6 +41,10 @@ export default function BerandaView({
   pinjaman: RingkasBeranda;
   budget: ProgresBudget[];
   streak: { hari: number; hariIni: boolean };
+  /** Metode budgeting aktif (SPEC-metode-budget); null = budget per kategori. */
+  metode: HasilMetode | null;
+  /** Transaksi yang dipecah: total per transaksi asli (SPEC-metode-budget). */
+  pecahan: InfoPecahan;
   /** ?catat=<id> dari push: buka percakapan catatan itu. */
   bukaCatat?: string;
 }) {
@@ -109,6 +118,7 @@ export default function BerandaView({
             <TransactionList
               kembali="/"
               items={terbaru}
+              pecahan={pecahan}
               kaki={
                 <NextLink href="/riwayat" className={`${s.kartuTx} ${s.kartuKaki} ${s.tekan}`}>
                   Lihat semua riwayat
@@ -133,7 +143,12 @@ export default function BerandaView({
 
         <KartuKantong data={kantong} />
         <KartuPinjaman data={pinjaman} />
-        {budgetWaspada.length > 0 && <KartuBudget data={budgetWaspada} bulan={namaBulan(awalBulanIni)} judul="Budget hampir habis" />}
+        {metode ? (
+          // Hanya kelompok yang ≥ 80% jatahnya; kartu tidak tampil kalau semua aman.
+          <KartuMetode hasil={metode} judul="Budget hampir habis" />
+        ) : (
+          budgetWaspada.length > 0 && <KartuBudget data={budgetWaspada} bulan={namaBulan(awalBulanIni)} judul="Budget hampir habis" />
+        )}
         <BarisStreak streak={streak} />
       </div>
       {/* Pintasan Tanya AI (SPEC-cerita-tanya), sama dengan di Analitik. */}

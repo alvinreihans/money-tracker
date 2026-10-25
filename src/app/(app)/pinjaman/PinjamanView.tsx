@@ -68,8 +68,8 @@ export default function PinjamanView({
   return (
     <>
       <AppBar
-        judul="Lend & Borrow"
-        sub={kosong ? "Pinjaman, kartu kredit, dan cicilan" : `Lend ${fmtIDR(r.totalLend)} · Borrow ${fmtIDR(r.totalBorrow)}`}
+        judul="Utang & Piutang"
+        sub={kosong ? "Pinjaman, kartu kredit, dan cicilan" : `Utang ${fmtIDR(r.totalBorrow)} · Piutang ${fmtIDR(r.totalLend)}`}
         kembali="/"
       />
 
@@ -97,14 +97,14 @@ export default function PinjamanView({
 
         {r.lend.length > 0 && (
           <>
-            <h2 className={s.subheader}>Lend · {fmtIDR(r.totalLend)}</h2>
+            <h2 className={s.subheader}>Piutang · {fmtIDR(r.totalLend)}</h2>
             <div className={s.blok}>{r.lend.map((x) => baris(x.kantong, x.jumlah, tempo(x.kantong), s.masuk))}</div>
           </>
         )}
 
         {(r.borrow.length > 0 || r.kartu.length > 0) && (
           <>
-            <h2 className={s.subheader}>Borrow · {fmtIDR(r.totalBorrow)}</h2>
+            <h2 className={s.subheader}>Utang · {fmtIDR(r.totalBorrow)}</h2>
             <div className={s.blok}>
               {r.borrow.map((x) =>
                 baris(x.kantong, x.jumlah, x.kantong.kind === "kredit" ? <span className={s.redup}>Tagihan kartu kredit</span> : tempo(x.kantong)),
@@ -254,7 +254,7 @@ function FormKartu({ userId, onClose }: { userId: string; onClose: () => void })
           </Field>
         </div>
         <p className={s.redup} style={{ margin: "0 20px" }}>
-          Belanja pakai kartu dicatat seperti biasa dengan kantong kartu ini; bayar tagihan lewat Lend & Borrow.
+          Belanja pakai kartu dicatat seperti biasa dengan kantong kartu ini; bayar tagihan lewat Utang & Piutang.
         </p>
         {galat && !galat.kolom && <Pesan jenis="bahaya">{galat.pesan}</Pesan>}
         <button type="submit" hidden />

@@ -76,7 +76,7 @@ export async function simpanTransaksi(
   userId: string,
   input: Record<string, unknown>,
 ): Promise<{ supersededStatement: boolean; transaction: unknown; pertanyaan: JenisTanya | null; cicilan?: Cicilan }> {
-  const { payment_target, biaya_admin, cashback, pinjaman, cicilan: sebutanCicilan, jam, petunjuk_jam, info_paylater, bukti_transfer, ...row } = input;
+  const { payment_target, biaya_admin, cashback, pinjaman, cicilan: sebutanCicilan, jam, petunjuk_jam, info_paylater, bukti_transfer, rincian, ...row } = input;
   const dariAi = "payment_target" in input;
 
   // Belanja pakai paylater: bukan pengeluaran dari kantong mana pun. Tenor
@@ -276,6 +276,13 @@ export async function simpanTransaksi(
   // Teks asli/OCR hanya disimpan untuk draft, sebagai bahan membetulkan.
   if (row.status === "confirmed") row.raw_ocr_text = null;
 
+  // Belanja campuran yang diketik dengan rinciannya (SPEC-metode-budget):
+  // satu transaksi dengan beberapa bagian — aslinya memegang bagian pertama,
+  // bagian lain baris sendiri yang menempel lewat pecahan_dari.
+  type Bagian = { amount: number; category: string; kelompok: string | null; description: string | null };
+  const bagian = dariAi && row.type === "expense" && Array.isArray(rincian) && rincian.length > 1 ? (rincian as Bagian[]) : null;
+  if (bagian) Object.assign(row, { ...bagian[0], description: bagian[0].description ?? row.description });
+
   const { data: tersimpan, error } = await supabase.from("transactions").insert(row).select().single();
 
   if (error) throw new Error(error.message);
@@ -289,6 +296,22 @@ export async function simpanTransaksi(
     tujuan?.name,
   );
   if (ikutan) await supabase.from("transactions").insert(ikutan);
+
+  // Tanggal, jam, kantong, merchant, jenis & status disalin trigger dari aslinya.
+  if (bagian) {
+    await supabase.from("transactions").insert(
+      bagian.slice(1).map((b) => ({
+        ...b,
+        user_id: userId,
+        type: "expense",
+        status: tersimpan.status,
+        source: tersimpan.source,
+        transaction_date: tersimpan.transaction_date,
+        kantong_id: tersimpan.kantong_id,
+        pecahan_dari: tersimpan.id,
+      })),
+    );
+  }
 
   // Pertanyaan berikutnya untuk obrolan, kalau belum lengkap.
   const semua = [...daftar, ...[kantong, tujuan].filter((k): k is NonNullable<typeof k> => Boolean(k))];

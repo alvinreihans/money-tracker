@@ -1,3 +1,4 @@
+import { KELOMPOK, type Kelompok } from "@/lib/metode";
 import { KATEGORI_BAWAAN, kategoriJenis, type Kategori } from "@/lib/kategori";
 import { ambilEmoji } from "@/lib/kantong";
 import type { TransactionType } from "@/types/transaction";
@@ -23,6 +24,8 @@ export interface TransaksiValid {
   amount: number;
   type: TransactionType;
   category: string;
+  /** Pengeluaran saja: kelompok pilihan transaksi ini; null = ikut kategori. */
+  kelompok: Kelompok | null;
   transaction_date: string;
   /** Jam (WIB) "HH:MM", opsional. */
   waktu: string | null;
@@ -149,6 +152,10 @@ export function validasiTransaksi(
   if (cashback === undefined) return { ok: false, error: "Cashback-nya harus angka.", kolom: "cashback" };
   if (cashback && cashback > amount) return { ok: false, error: "Cashback-nya maksimal sebesar nominal belanjanya.", kolom: "cashback" };
 
+  // Kelompok budgeting (SPEC-metode-budget): kosong = ikut kategori.
+  const kelompok = type === "expense" && input.kelompok ? input.kelompok : null;
+  if (kelompok !== null && !(KELOMPOK as readonly unknown[]).includes(kelompok)) return { ok: false, error: "Kelompoknya nggak dikenal.", kolom: "kelompok" };
+
   const cicilan_id = idOpsional(input.cicilan_id);
   const cicilan_ke = input.cicilan_ke === undefined || input.cicilan_ke === null || input.cicilan_ke === "" ? null : Number(input.cicilan_ke);
   if (cicilan_id === undefined || (cicilan_ke !== null && !(Number.isInteger(cicilan_ke) && cicilan_ke >= 1 && cicilan_ke <= 120))) {
@@ -165,6 +172,7 @@ export function validasiTransaksi(
       amount: Math.round(amount * 100) / 100,
       type: type as TransactionType,
       category,
+      kelompok: kelompok as Kelompok | null,
       transaction_date: input.transaction_date,
       waktu,
       merchant,
@@ -295,4 +303,25 @@ export function validasiKantong(input: Record<string, unknown>): HasilKantong {
     ok: true,
     data: { name, emoji, saldo_awal: Math.round(saldo_awal), saldo_per: input.saldo_per },
   };
+}
+
+export type HasilTujuan =
+  | { ok: true; data: Extract<HasilKantong, { ok: true }>["data"] & { target: number; tenggat: string | null } }
+  | { ok: false; error: string; kolom?: string };
+
+/**
+ * Isian tambah/ubah tujuan tabungan (SPEC-tujuan-tabungan): seperti kantong,
+ * ditambah target (wajib) dan tenggat (opsional). Saldo awal = yang sudah
+ * terkumpul sebelum memakai aplikasi, tidak boleh minus.
+ */
+export function validasiTujuan(input: Record<string, unknown>): HasilTujuan {
+  const dasar = validasiKantong(input);
+  if (!dasar.ok) return dasar;
+  if (dasar.data.saldo_awal < 0) return { ok: false, error: "Yang sudah terkumpul tidak boleh minus.", kolom: "saldo_awal" };
+  const target = Number(typeof input.target === "string" ? input.target.trim() || NaN : input.target);
+  if (!(target > 0)) return { ok: false, error: "Targetnya diisi dulu.", kolom: "target" };
+  if (target >= NOMINAL_MAKS) return { ok: false, error: "Targetnya kebesaran.", kolom: "target" };
+  const tenggat = input.tenggat === "" || input.tenggat == null ? null : input.tenggat;
+  if (tenggat !== null && !tanggalSah(tenggat)) return { ok: false, error: "Tanggal tenggatnya nggak valid.", kolom: "tenggat" };
+  return { ok: true, data: { ...dasar.data, target: Math.round(target), tenggat } };
 }

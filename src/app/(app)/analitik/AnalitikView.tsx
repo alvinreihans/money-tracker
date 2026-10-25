@@ -4,6 +4,7 @@ import NextLink from "next/link";
 import { ArrowUpRight, CalendarDays, ChevronLeft, ChevronRight, Store, TrendingUp } from "lucide-react";
 import { useKategori } from "@/components/Catat";
 import KartuBudget from "@/components/KartuBudget";
+import KartuMetode from "@/components/KartuMetode";
 import KomposisiKategori from "@/components/KomposisiKategori";
 import { AppBar } from "@/components/oneui";
 import RingkasanBulan from "@/components/RingkasanBulan";
@@ -15,6 +16,7 @@ import { geserBulan } from "@/lib/kalender";
 import { namaKategori } from "@/lib/kategori";
 import { alamatRiwayat, FILTER_KOSONG, type FilterRiwayat } from "@/lib/riwayat";
 import type { AnalisisBulan, Bulan, ProgresBudget } from "@/lib/analitik";
+import type { HasilMetode } from "@/lib/metode";
 
 const Besar = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 const fmtHari = (iso: string) =>
@@ -57,6 +59,7 @@ export default function AnalitikView({
   tren,
   budget,
   totalBudget,
+  metode,
 }: {
   /** "YYYY-MM" terpilih */
   bulan: string;
@@ -66,6 +69,7 @@ export default function AnalitikView({
   tren: Bulan[];
   budget: ProgresBudget[];
   totalBudget: number;
+  metode: HasilMetode | null;
 }) {
   const kategori = useKategori();
   useTanyaBulan(bulan);
@@ -194,7 +198,15 @@ export default function AnalitikView({
         )}
 
         <TrenBulanan data={tren} />
-        <KartuBudget data={budget} bulan={namaBulan(awal)} />
+        {metode ? (
+          <KartuMetode
+            hasil={metode}
+            // Tabungan dihitung dari sisa, tidak ada daftar transaksinya.
+            href={(w) => (w.tabungan ? null : keRiwayat({ jenis: "keluar", kelompok: w.kelompok }))}
+          />
+        ) : (
+          <KartuBudget data={budget} bulan={namaBulan(awal)} />
+        )}
       </div>
       {/* Tanya AI (SPEC-cerita-tanya): obrolannya di kerangka aplikasi, memakai bulan yang dipilih di sini. */}
       <TombolTanya />

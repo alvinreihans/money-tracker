@@ -28,10 +28,12 @@ export default function DeleteTransactionButton({ id, kembali, draft = false }: 
     setError(null);
 
     const db = createSupabaseBrowserClient();
-    // Salinan untuk Urungkan: induknya dulu, lalu ikutannya.
+    // Salinan untuk Urungkan: induknya dulu, lalu ikutan (cashback/biaya
+    // admin), bagian pecahannya, dan transfer pelengkap tujuan tabungan —
+    // semuanya ikut terhapus bersamanya.
     const { data: salinan } = draft
       ? { data: null }
-      : await db.from("transactions").select("*").or(`id.eq.${id},induk_id.eq.${id}`);
+      : await db.from("transactions").select("*").or(`id.eq.${id},induk_id.eq.${id},pecahan_dari.eq.${id},pelengkap_tujuan.eq.${id}`);
     const { error: err } = await db.from("transactions").delete().eq("id", id);
 
     if (err) {

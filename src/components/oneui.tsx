@@ -694,3 +694,25 @@ export function Kosong({ ikon: Ikon, judul, children }: { ikon: React.ElementTyp
     </div>
   );
 }
+
+/** Baris pilihan (lembar filter, metode budget): bulatan centang di kanan, pola daftar pilihan One UI. */
+export function BarisPilih({
+  dipilih,
+  peran,
+  onClick,
+  children,
+}: {
+  dipilih: boolean;
+  peran: "checkbox" | "radio";
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button type="button" role={peran} aria-checked={dipilih} className={`${s.baris} ${s.tekan} ${s.barisPilih}`} onClick={onClick}>
+      {children}
+      <span className={s.centang} data-aktif={dipilih} aria-hidden>
+        {dipilih && <Check size={16} strokeWidth={3} />}
+      </span>
+    </button>
+  );
+}

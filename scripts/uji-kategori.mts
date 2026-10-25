@@ -44,8 +44,21 @@ assert.match(slugBaru(), /^c-[0-9a-f]{10}$/);
 // --- Validasi isian kategori ---
 assert.deepEqual(validasiKategori({ name: "  Kos   bulanan ", icon: "home", color: "#3e91ff" }), {
   ok: true,
-  data: { name: "Kos bulanan", icon: "home", color: "#3e91ff" },
+  data: { name: "Kos bulanan", icon: "home", color: "#3e91ff", kelompok: null, penghasilan: null },
 });
+// Penghasilan (SPEC-tujuan-tabungan): kategori pemasukan bawaannya ya, boleh dimatikan.
+const katMasuk = (penghasilan?: boolean) => validasiKategori({ type: "income", name: "Kos-kosan", icon: "home", color: "#5ecb7a", penghasilan });
+assert.equal((katMasuk() as { data: { penghasilan: boolean } }).data.penghasilan, true);
+assert.equal((katMasuk(false) as { data: { penghasilan: boolean } }).data.penghasilan, false);
+assert.equal((katKeluarAwal() as { data: { penghasilan: null } }).data.penghasilan, null);
+// Kelompok budgeting (SPEC-metode-budget): pengeluaran wajib berkelompok (bawaan keinginan).
+function katKeluarAwal() {
+  return validasiKategori({ type: "expense", name: "Kos", icon: "home", color: "#3e91ff", penghasilan: true });
+}
+const katKeluar = (kelompok?: string) => validasiKategori({ type: "expense", name: "Kos", icon: "home", color: "#3e91ff", kelompok });
+assert.equal((katKeluar("kebutuhan") as { data: { kelompok: string } }).data.kelompok, "kebutuhan");
+assert.equal((katKeluar() as { data: { kelompok: string } }).data.kelompok, "keinginan");
+assert.equal(katKeluar("mewah").ok, false);
 assert.equal(validasiKategori({ name: "kopi", icon: "coffee", color: "#ff9f43" }, keluar).ok, false); // nama kembar
 assert.equal(validasiKategori({ name: "", icon: "coffee", color: "#ff9f43" }).ok, false);
 assert.equal(validasiKategori({ name: "x".repeat(31), icon: "coffee", color: "#ff9f43" }).ok, false);

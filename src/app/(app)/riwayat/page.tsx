@@ -1,6 +1,6 @@
 import { isoLokal } from "@/lib/format";
 import { ambilKategori } from "@/lib/kategori-server";
-import { bacaFilter, PER_MUAT, queryRiwayat, ringkasRiwayat } from "@/lib/riwayat";
+import { bacaFilter, infoPecahan, PER_MUAT, queryRiwayat, ringkasRiwayat } from "@/lib/riwayat";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import RiwayatView from "./RiwayatView";
 import type { Transaction } from "@/types/transaction";
@@ -42,6 +42,8 @@ export default async function RiwayatPage({ searchParams }: { searchParams: Prom
       total={count ?? data?.length ?? 0}
       ringkasan={ringkasRiwayat(barisTotal)}
       daftar={(data ?? []) as unknown as Transaction[]}
+      // Transaksi yang dipecah tampil satu kartu dengan totalnya (SPEC-metode-budget).
+      pecahan={await infoPecahan(supabase, (data ?? []) as unknown as Transaction[])}
     />
   );
 }

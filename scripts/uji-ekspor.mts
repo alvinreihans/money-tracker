@@ -37,7 +37,19 @@ const tabel = tabelEkspor(
   [{ type: "expense", slug: "food", name: "Makan" }],
 );
 assert.deepEqual(tabel[0].slice(0, 4), ["Tanggal", "Jam", "Jenis", "Kategori"]);
-assert.deepEqual(tabel[1], ["2026-10-22", "23:15", "Pindah kantong", "transfer", 200000, null, "pinjam", "BCA", "Budi", null, "Tercatat", "2026-10-22 23:30"]);
-assert.deepEqual(tabel[2], ["2026-10-21", "", "Keluar", "Makan", 25000, "Warteg", null, "", "", "Tunai", "Belum selesai", "2026-10-21 08:05"]);
+assert.deepEqual(tabel[1], ["2026-10-22", "23:15", "Pindah kantong", "transfer", "", 200000, null, "pinjam", "BCA", "Budi", null, "Tercatat", "", "2026-10-22 23:30"]);
+assert.deepEqual(tabel[2], ["2026-10-21", "", "Keluar", "Makan", "", 25000, "Warteg", null, "", "", "Tunai", "Belum selesai", "", "2026-10-21 08:05"]);
+
+// Kelompok & pecahan (SPEC-metode-budget): asli dan bagiannya berkode sama.
+const pecah = tabelEkspor(
+  [
+    { id: "aaaaaaaa-1111", transaction_date: "2026-10-21", waktu: null, created_at: "2026-10-21T01:05:00Z", type: "expense", category: "food", amount: 10000, merchant: "Alfamart", description: "sabun", kantong_id: null, kantong_tujuan_id: null, payment_method: null, status: "confirmed", kelompok_efektif: "kebutuhan" },
+    { id: "bbbbbbbb-2222", pecahan_dari: "aaaaaaaa-1111", transaction_date: "2026-10-21", waktu: null, created_at: "2026-10-21T01:05:00Z", type: "expense", category: "food", amount: 5000, merchant: "Alfamart", description: "kopi", kantong_id: null, kantong_tujuan_id: null, payment_method: null, status: "confirmed", kelompok_efektif: "keinginan" },
+    { id: "cccccccc-3333", transaction_date: "2026-10-21", waktu: null, created_at: "2026-10-21T01:05:00Z", type: "expense", category: "food", amount: 9000, merchant: "Warteg", description: null, kantong_id: null, kantong_tujuan_id: null, payment_method: null, status: "confirmed", kelompok_efektif: "kebutuhan" },
+  ],
+  [],
+  [{ type: "expense", slug: "food", name: "Makan" }],
+);
+assert.deepEqual(pecah.slice(1).map((r) => [r[4], r[12]]), [["Kebutuhan", "aaaaaaaa"], ["Keinginan", "aaaaaaaa"], ["Kebutuhan", ""]]);
 
 console.log("✓ ekspor: sel CSV (kutip, rumus dinetralkan), BOM & CRLF, nama kantong & kategori, jam transaksi, waktu catat WIB");

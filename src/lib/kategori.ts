@@ -17,6 +17,10 @@ export interface Kategori {
   icon: string;
   color: string;
   sort: number;
+  /** Kelompok budgeting bawaan kategori pengeluaran (SPEC-metode-budget). */
+  kelompok?: string | null;
+  /** Kategori pemasukan: dihitung sebagai penghasilan yang dibagi metode (SPEC-tujuan-tabungan). */
+  penghasilan?: boolean | null;
 }
 
 /** Tempat jatuh: tidak bisa dihapus; transaksi dari kategori terhapus pindah ke sini. */
@@ -92,7 +96,7 @@ export function slugBaru(acak: () => string = () => crypto.randomUUID()): string
 }
 
 export type HasilKategori =
-  | { ok: true; data: { name: string; icon: string; color: string } }
+  | { ok: true; data: { name: string; icon: string; color: string; kelompok: string | null; penghasilan: boolean | null } }
   | { ok: false; error: string; kolom?: string };
 
 /** Isian tambah/ubah kategori. `lain`: kategori lain dengan jenis sama, untuk cek nama kembar. */
@@ -111,5 +115,12 @@ export function validasiKategori(input: Record<string, unknown>, lain: Kategori[
   if (typeof color !== "string" || !(WARNA_KATEGORI.includes(color) || color === "#9b9b9b")) {
     return { ok: false, error: "Pilih warnanya dulu.", kolom: "color" };
   }
-  return { ok: true, data: { name, icon, color } };
+  // Kelompok budgeting (SPEC-metode-budget): hanya kategori pengeluaran.
+  const kelompok = input.type === "expense" ? (input.kelompok || "keinginan") : null;
+  if (kelompok !== null && !["kebutuhan", "keinginan", "tabungan", "berbagi"].includes(String(kelompok))) {
+    return { ok: false, error: "Pilih kelompoknya dulu.", kolom: "kelompok" };
+  }
+  // Penghasilan (SPEC-tujuan-tabungan): hanya kategori pemasukan; bawaannya ya.
+  const penghasilan = input.type === "income" ? input.penghasilan !== false : null;
+  return { ok: true, data: { name, icon, color, kelompok: kelompok as string | null, penghasilan } };
 }

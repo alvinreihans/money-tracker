@@ -4,7 +4,7 @@ import { fmtIDR, fmtTanggalPendek } from "@/lib/format";
 import type { RingkasBeranda } from "@/lib/pinjaman";
 
 /**
- * Kartu "Lend & Borrow" di Beranda: total yang dipinjamkan & dipinjam,
+ * Kartu "Utang & Piutang" di Beranda: total yang dipinjamkan & dipinjam,
  * cicilan yang jatuh tempo bulan ini, dan tenggat terdekat. Tidak tampil
  * kalau belum ada pinjaman maupun cicilan (masuk lewat Pengaturan).
  */
@@ -15,7 +15,7 @@ export default function KartuPinjaman({ data }: { data: RingkasBeranda }) {
   return (
     <section className={s.blok}>
       <div className={s.blokIsi} style={{ paddingBottom: 4 }}>
-        <h2 className={s.blokJudul}>Lend & Borrow</h2>
+        <h2 className={s.blokJudul}>Utang & Piutang</h2>
         {terdekat && (
           <p className={`${s.blokSub} ${terdekat.telat ? s.bahaya : ""}`}>
             {terdekat.telat
@@ -26,7 +26,7 @@ export default function KartuPinjaman({ data }: { data: RingkasBeranda }) {
       </div>
       <div className={s.statBaris}>
         <span>
-          Lend
+          Piutang
           <br />
           <span className={s.redup}>{data.orangLend} orang utang ke kamu</span>
         </span>
@@ -34,7 +34,7 @@ export default function KartuPinjaman({ data }: { data: RingkasBeranda }) {
       </div>
       <div className={s.statBaris}>
         <span>
-          Borrow
+          Utang
           <br />
           <span className={s.redup}>Ke orang & kartu kredit</span>
         </span>
@@ -51,7 +51,7 @@ export default function KartuPinjaman({ data }: { data: RingkasBeranda }) {
         </div>
       )}
       <NextLink href="/pinjaman" className={s.blokKaki}>
-        Lihat Lend & Borrow
+        Lihat Utang & Piutang
       </NextLink>
     </section>
   );

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import NextLink from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { ChevronRight, Download, HandCoins, LogOut, Shapes, Target, UserRound, Wallet } from "lucide-react";
+import { ChevronRight, Download, HandCoins, LogOut, PiggyBank, Shapes, Target, UserRound, Wallet } from "lucide-react";
 import { useCatat, useKategori } from "@/components/Catat";
 import { LAYAR_LEBAR } from "@/components/navigasi";
 import { AppBar } from "@/components/oneui";
@@ -141,9 +141,10 @@ export default function ProfilView({
             href="/pinjaman"
             ikon={HandCoins}
             warna="#5ecb7a"
-            judul="Lend & Borrow"
+            judul="Utang & Piutang"
             ket="Pinjaman, kartu kredit, cicilan"
           />
+          <BarisMenu href="/profil/tujuan" ikon={PiggyBank} warna="#199e70" judul="Tujuan tabungan" ket="HP baru, liburan, dana darurat" />
           <BarisMenu
             href="/profil/budget"
             ikon={Target}

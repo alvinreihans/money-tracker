@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { geserHari } from "@/lib/format";
+import { KELOMPOK, type Kelompok } from "@/lib/metode";
 import { bersihkanCari } from "@/lib/transaksi-input";
 import type { Transaction } from "@/types/transaction";
 
@@ -32,9 +33,11 @@ export interface FilterRiwayat {
   kantong: string[];
   /** "expense:food" / "income:salary" — slug sama bisa ada di kedua jenis. */
   kategori: string[];
+  /** Kelompok budgeting (SPEC-metode-budget): kelompok yang berlaku tiap pengeluaran. */
+  kelompok: Kelompok[];
 }
 
-export const FILTER_KOSONG: FilterRiwayat = { jenis: "semua", q: "", periode: null, dari: null, sampai: null, kantong: [], kategori: [] };
+export const FILTER_KOSONG: FilterRiwayat = { jenis: "semua", q: "", periode: null, dari: null, sampai: null, kantong: [], kategori: [], kelompok: [] };
 
 /** Jumlah baris per muat. */
 export const PER_MUAT = 100;
@@ -70,6 +73,7 @@ export function bacaFilter(
     sampai,
     kantong: daftar(p.kantong, sah.kantong),
     kategori: daftar(p.kategori, sah.kategori),
+    kelompok: daftar(p.kelompok, [...KELOMPOK]) as Kelompok[],
   };
 }
 
@@ -98,7 +102,7 @@ export function rentangTanggal(f: Pick<FilterRiwayat, "periode" | "dari" | "samp
 }
 
 /** Filter selain jenis & cari yang sedang aktif (untuk chip Reset). */
-export const adaFilter = (f: FilterRiwayat) => Boolean(f.periode || f.dari || f.sampai || f.kantong.length || f.kategori.length);
+export const adaFilter = (f: FilterRiwayat) => Boolean(f.periode || f.dari || f.sampai || f.kantong.length || f.kategori.length || f.kelompok.length);
 
 /** Filter → alamat Riwayat. Tanpa filter = "/riwayat". */
 export function alamatRiwayat(f: FilterRiwayat): string {
@@ -109,6 +113,7 @@ export function alamatRiwayat(f: FilterRiwayat): string {
   if (!f.periode && f.sampai) p.set("sampai", f.sampai);
   if (f.kantong.length) p.set("kantong", f.kantong.join(","));
   if (f.kategori.length) p.set("kategori", f.kategori.join(","));
+  if (f.kelompok.length) p.set("kelompok", f.kelompok.join(","));
   if (f.q) p.set("q", f.q);
   const qs = p.toString().replaceAll("%2C", ",").replaceAll("%3A", ":");
   return qs ? `/riwayat?${qs}` : "/riwayat";
@@ -155,6 +160,9 @@ export function queryRiwayat(supabase: SupabaseClient, f: FilterRiwayat, hariIni
     query = query.or(bagian.join(","));
   }
 
+  // Hanya pengeluaran yang berkelompok; nilainya sudah divalidasi bacaFilter.
+  if (f.kelompok.length) query = query.in("kelompok_efektif", f.kelompok);
+
   if (f.q) query = query.or(`merchant.ilike.%${f.q}%,description.ilike.%${f.q}%,payment_method.ilike.%${f.q}%`);
 
   return query;
@@ -190,10 +198,42 @@ export function ringkasRiwayat(baris: { amount: number | string; type: string; t
  * membatasi ke baris milik user, jadi null = tidak ada atau bukan miliknya.
  */
 export async function ambilDetail(supabase: SupabaseClient, id: string) {
-  const [{ data }, { data: ikutan }] = await Promise.all([
-    supabase.from("transactions").select("*").eq("id", id).maybeSingle(),
-    supabase.from("transactions").select("id, amount").eq("induk_id", id).limit(1).maybeSingle(),
+  const { data: dibuka } = await supabase.from("transactions").select("*").eq("id", id).maybeSingle();
+  if (!dibuka) return null;
+  // Bagian dari transaksi yang dipecah (SPEC-metode-budget): yang dibuka
+  // selalu transaksi aslinya, lengkap dengan semua bagiannya.
+  const asliId = (dibuka.pecahan_dari as string | null) ?? id;
+  const [{ data: asli }, { data: ikutan }, { data: bagian }] = await Promise.all([
+    asliId === id ? Promise.resolve({ data: dibuka }) : supabase.from("transactions").select("*").eq("id", asliId).maybeSingle(),
+    supabase.from("transactions").select("id, amount").eq("induk_id", asliId).limit(1).maybeSingle(),
+    supabase.from("transactions").select("*").eq("pecahan_dari", asliId).order("amount", { ascending: false }),
   ]);
-  if (!data) return null;
-  return { t: data as Transaction, ikutan: ikutan ? { id: ikutan.id as string, amount: Number(ikutan.amount) } : null };
+  if (!asli) return null;
+  return {
+    t: asli as Transaction,
+    ikutan: ikutan ? { id: ikutan.id as string, amount: Number(ikutan.amount) } : null,
+    bagian: (bagian ?? []) as Transaction[],
+  };
+}
+
+/** Transaksi yang dipecah: total & jumlah bagiannya, per id transaksi asli. */
+export type InfoPecahan = Record<string, { total: number; jumlah: number }>;
+
+/**
+ * Info pecahan untuk baris yang tampil (SPEC-metode-budget): transaksi yang
+ * dipecah tampil satu kartu dengan totalnya, dan bagian yang tampil sendiri
+ * (karena filter) diberi tanda "bagian dari Rp X". Satu query untuk semua.
+ */
+export async function infoPecahan(supabase: SupabaseClient, baris: Pick<Transaction, "id" | "pecahan_dari">[]): Promise<InfoPecahan> {
+  const akar = [...new Set(baris.map((t) => t.pecahan_dari ?? t.id))];
+  if (!akar.length) return {};
+  const daftar = akar.join(",");
+  const { data } = await supabase.from("transactions").select("id, amount, pecahan_dari").or(`id.in.(${daftar}),pecahan_dari.in.(${daftar})`);
+  const info: InfoPecahan = {};
+  for (const r of (data ?? []) as { id: string; amount: number | string; pecahan_dari: string | null }[]) {
+    const k = r.pecahan_dari ?? r.id;
+    info[k] = { total: (info[k]?.total ?? 0) + Number(r.amount), jumlah: (info[k]?.jumlah ?? 0) + 1 };
+  }
+  // Yang tidak dipecah tidak perlu dicatat.
+  return Object.fromEntries(Object.entries(info).filter(([, v]) => v.jumlah > 1));
 }

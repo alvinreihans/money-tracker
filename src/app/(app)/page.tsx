@@ -1,5 +1,7 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { hitungStreak, progresBudget } from "@/lib/analitik";
+import { ambilPengaturanMetode, hitungMetode } from "@/lib/metode";
+import { infoPecahan } from "@/lib/riwayat";
 import { isoLokal } from "@/lib/format";
 import { ambilKantong } from "@/lib/kantong";
 import { kantongUang, ringkasBeranda, type Cicilan } from "@/lib/pinjaman";
@@ -37,6 +39,7 @@ export default async function BerandaPage({ searchParams }: { searchParams: Prom
     { kantong, saldo },
     { data: cicilan },
     { data: bayarCicilan },
+    pengaturan,
   ] = await Promise.all([
     // Beranda cuma 5 transaksi terakhir (urutan sama dengan Riwayat);
     // selebihnya di Riwayat. Yang belum selesai tidak di sini — ada di lembar Catat.
@@ -51,7 +54,7 @@ export default async function BerandaPage({ searchParams }: { searchParams: Prom
       .limit(BERANDA_TERBARU),
     supabase
       .from("transactions")
-      .select("amount, category")
+      .select("amount, category, type, kelompok_efektif, kantong_id")
       .eq("type", "expense")
       .eq("status", "confirmed")
       .gte("transaction_date", awalBulanIni),
@@ -71,6 +74,8 @@ export default async function BerandaPage({ searchParams }: { searchParams: Prom
     ambilKantong(supabase),
     supabase.from("cicilan").select("id, nama, tenor, jatuh_tempo_awal, nominal"),
     supabase.from("transactions").select("cicilan_id, cicilan_ke").not("cicilan_id", "is", null),
+    // Metode budgeting (SPEC-metode-budget): peringatan per kelompok.
+    ambilPengaturanMetode(supabase),
   ]);
 
   const dibayar: Record<string, number[]> = {};
@@ -87,7 +92,8 @@ export default async function BerandaPage({ searchParams }: { searchParams: Prom
       draft={draft ?? 0}
       bukaCatat={catat}
       terbaru={(terbaru ?? []) as Transaction[]}
-      // Total aset hanya kantong uang; orang & kartu kredit ada di Lend & Borrow.
+      pecahan={await infoPecahan(supabase, (terbaru ?? []) as Transaction[])}
+      // Total aset hanya kantong uang (termasuk tujuan tabungan); orang & kartu kredit ada di Utang & Piutang.
       kantong={kantong.filter(kantongUang).map((k) => ({ id: k.id, name: k.name, kind: k.kind, emoji: k.emoji, saldo: saldo.get(k.id) ?? 0 }))}
       pinjaman={ringkasBeranda(
         kantong.map((k) => ({ ...k, saldo: saldo.get(k.id) ?? 0 })),
@@ -96,6 +102,7 @@ export default async function BerandaPage({ searchParams }: { searchParams: Prom
         hariIni,
       )}
       budget={progresBudget(budgets ?? [], keluarIni ?? [])}
+      metode={hitungMetode(pengaturan, keluarIni ?? [])}
       streak={hitungStreak((catatan ?? []).map((c) => c.created_at as string), sekarang)}
     />
   );

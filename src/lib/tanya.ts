@@ -121,7 +121,7 @@ export function tautanDari(nama: NamaFungsi, args: Record<string, unknown>, k: K
     return { label: `Buka Analitik ${nama.charAt(0).toUpperCase()}${nama.slice(1)}`, href: bulan === k.hariIni.slice(0, 7) ? "/analitik" : `/analitik?bulan=${bulan}` };
   }
   if (nama === "saldo_kantong") return { label: "Lihat kantong", href: "/profil/kantong" };
-  return { label: "Buka Lend & Borrow", href: "/pinjaman" };
+  return { label: "Buka Utang & Piutang", href: "/pinjaman" };
 }
 
 /**

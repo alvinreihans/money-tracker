@@ -10,7 +10,7 @@ import { ikutSaldo, saldoSejak } from "@/lib/waktu";
  * Jenis di database. "cash" hanya untuk kantong Tunai bawaan; kantong buatan
  * user tidak memilih jenis — cukup emoji sebagai penanda.
  */
-export type JenisKantong = "bank" | "ewallet" | "cash" | "orang" | "kredit";
+export type JenisKantong = "bank" | "ewallet" | "cash" | "orang" | "kredit" | "tujuan";
 
 /** Pilihan cepat emoji kantong; emoji lain bisa diketik dari keyboard. */
 export const SARAN_EMOJI_KANTONG = ["🏦", "💳", "📱", "👛", "💰", "🐷", "💼", "🪙", "🏧", "💵"];
@@ -43,6 +43,9 @@ export interface Kantong {
   emoji?: string | null;
   /** Hanya kantong orang: jatuh tempo pinjaman (opsional). */
   jatuh_tempo?: string | null;
+  /** Hanya kantong tujuan tabungan (SPEC-tujuan-tabungan). */
+  target?: number | string | null;
+  tenggat?: string | null;
 }
 
 /**

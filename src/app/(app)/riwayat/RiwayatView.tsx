@@ -2,27 +2,30 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { CalendarDays, Check, ChevronDown, Inbox, Search, SearchX, Shapes, Wallet, X } from "lucide-react";
+import { CalendarDays, ChevronDown, Inbox, PieChart, Search, SearchX, Shapes, Wallet, X } from "lucide-react";
 import DetailView from "@/app/(app)/transactions/[id]/DetailView";
 import { useCatat, useKategori } from "@/components/Catat";
 import { tandaKategori } from "@/components/kategori";
 import KalenderRentang from "@/components/KalenderRentang";
-import { AppBar, Kosong, Lembar, PanelDetail, Spinner } from "@/components/oneui";
+import { AppBar, BarisPilih, Kosong, Lembar, PanelDetail, Spinner } from "@/components/oneui";
 import { LAYAR_LEBAR } from "@/components/navigasi";
 import TransactionList from "@/components/TransactionList";
 import s from "@/components/ui.module.css";
 import { fmtIDRRingkas, fmtTanggalPendek, isoLokal } from "@/lib/format";
 import { emojiKantong } from "@/lib/kantong";
 import { kategoriJenis, namaKategori } from "@/lib/kategori";
+import { NAMA_KELOMPOK } from "@/lib/metode";
 import {
   adaFilter,
   alamatRiwayat,
   ambilDetail,
+  infoPecahan,
   FILTER_KOSONG,
   PER_MUAT,
   PERIODE,
   queryRiwayat,
   type FilterRiwayat,
+  type InfoPecahan,
   type JenisRiwayat,
   type RingkasanRiwayat,
 } from "@/lib/riwayat";
@@ -36,28 +39,6 @@ const JENIS: { id: JenisRiwayat; label: string }[] = [
   { id: "pindah", label: "Pindah kantong" },
 ];
 
-/** Baris pilihan di lembar filter: bulatan centang di kanan, pola daftar pilihan One UI. */
-function BarisPilih({
-  dipilih,
-  peran,
-  onClick,
-  children,
-}: {
-  dipilih: boolean;
-  peran: "checkbox" | "radio";
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button type="button" role={peran} aria-checked={dipilih} className={`${s.baris} ${s.tekan} ${s.barisPilih}`} onClick={onClick}>
-      {children}
-      <span className={s.centang} data-aktif={dipilih} aria-hidden>
-        {dipilih && <Check size={16} strokeWidth={3} />}
-      </span>
-    </button>
-  );
-}
-
 /**
  * Riwayat dengan filter tanggal, kantong, dan kategori (SPEC-riwayat-filter).
  * Semua filter tinggal di URL; daftar dan totalnya dari server untuk seluruh
@@ -68,6 +49,7 @@ export default function RiwayatView({
   total,
   ringkasan,
   daftar,
+  pecahan,
 }: {
   filter: FilterRiwayat;
   /** Jumlah transaksi sebenarnya untuk filter ini. */
@@ -76,6 +58,8 @@ export default function RiwayatView({
   ringkasan: RingkasanRiwayat;
   /** 100 pertama dari server. */
   daftar: Transaction[];
+  /** Info transaksi yang dipecah untuk halaman pertama (infoPecahan). */
+  pecahan: InfoPecahan;
 }) {
   const router = useRouter();
   const { kantong } = useCatat();
@@ -102,8 +86,11 @@ export default function RiwayatView({
     );
     setMemuat(false);
     if (error) return setGagalMuat(true);
-    setLanjutan({ asal: daftar, isi: [...tambahan, ...((data ?? []) as unknown as Transaction[])] });
+    const baru = (data ?? []) as unknown as Transaction[];
+    setPecahanLanjutan(await infoPecahan(createSupabaseBrowserClient(), baru));
+    setLanjutan({ asal: daftar, isi: [...tambahan, ...baru] });
   }
+  const [pecahanLanjutan, setPecahanLanjutan] = useState<InfoPecahan>({});
 
   // --- Detail di panel kanan (layar lebar). Memilih transaksi hanya mengganti
   // ?id= lewat history (tanpa render ulang server), jadi daftar yang sudah
@@ -263,6 +250,12 @@ export default function RiwayatView({
               <button type="button" className={s.chip} aria-pressed={filter.kategori.length > 0} aria-haspopup="dialog" onClick={() => buka("kategori")}>
                 <Shapes size={16} aria-hidden /> {labelKategori} <ChevronDown size={16} aria-hidden />
               </button>
+              {/* Kelompok budgeting (dari kartu metode di Analitik): ketuk untuk melepas. */}
+              {filter.kelompok.length > 0 && (
+                <button type="button" className={s.chip} aria-pressed onClick={() => router.push(ke({ kelompok: [] }))} aria-label={`Lepas filter ${filter.kelompok.map((k) => NAMA_KELOMPOK[k]).join(", ")}`}>
+                  <PieChart size={16} aria-hidden /> {filter.kelompok.map((k) => NAMA_KELOMPOK[k]).join(" + ")} <X size={16} aria-hidden />
+                </button>
+              )}
               {aktif && (
                 <button type="button" className={s.chip} onClick={() => router.push(alamatRiwayat({ ...FILTER_KOSONG, jenis: filter.jenis, q }))}>
                   <X size={16} aria-hidden /> Reset
@@ -273,6 +266,7 @@ export default function RiwayatView({
             {daftar.length > 0 ? (
               <TransactionList
                 items={semua}
+                pecahan={{ ...pecahan, ...pecahanLanjutan }}
                 kembali={alamatRiwayat(filter)}
                 terpilih={idDetail}
                 onPilih={pilih}
@@ -318,7 +312,7 @@ export default function RiwayatView({
           </div>
         </div>
         <PanelDetail kosong="Pilih transaksi untuk melihat detailnya.">
-          {detail && <DetailView key={detail.t.id} t={detail.t} ikutan={detail.ikutan} kembali={alamatRiwayat(filter)} />}
+          {detail && <DetailView key={detail.t.id} t={detail.t} ikutan={detail.ikutan} bagian={detail.bagian} kembali={alamatRiwayat(filter)} />}
         </PanelDetail>
       </div>
 
