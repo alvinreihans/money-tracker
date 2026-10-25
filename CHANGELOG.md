@@ -28,10 +28,21 @@ Belum dikerjakan; dicatat supaya tidak lupa.
        dari Y?".
   - Jawaban pertama menyimpan nama user (user_metadata, bisa diubah di
     Profil), jadi berikutnya otomatis. Perlu spec (`SPEC-arah-transfer.md`).
-- **Transaksi baru tidak langsung muncul.** Yang berhasil dicatat maupun yang
-  gagal dipahami baru tampil setelah aplikasi di-refresh. Perlu ditelusuri:
-  jalur mana yang tidak memanggil `router.refresh()` (foto, Bagikan, chat,
-  push), dan apakah data halaman tertahan cache.
+- **Hasil "Bagikan" tidak langsung muncul di layar.** Struk yang dibagikan dari
+  e-wallet diproses di latar, tetapi hasilnya hanya muncul sebagai
+  notifikasi. Titik di tombol + (kalau bermasalah) dan transaksi di Riwayat
+  (kalau berhasil) baru tampil setelah refresh.
+  - **Penyebab:** service worker mengunggah di latar (`public/sw.js`,
+    `unggahLatar`) dan menerima push, tetapi tidak pernah mengabari jendela
+    aplikasi yang terbuka; aplikasi juga tidak mendengarkan pesan apa pun dari
+    service worker.
+  - **Usul:**
+    1. Setelah tiap unggahan latar selesai dan saat push masuk, service
+       worker mengirim `postMessage` "transaksi berubah" ke semua jendela.
+    2. AppShell mendengarkannya lalu `router.refresh()` (data diperbarui di
+       tempat, posisi gulir tetap).
+    3. Cadangan: saat aplikasi kembali terlihat (`visibilitychange`),
+       segarkan sekali.
 - **Cerita di balik transaksi.**
   - **Masalahnya:** tiap transaksi bisa diberi konteks ("kopi sama klien",
     "kado nikahan teman"), supaya Tanya AI bisa menjawab "kenapa bulan ini
