@@ -2,10 +2,11 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { Check, Plus, Tag } from "lucide-react";
+import { Check, PieChart, Plus, Tag } from "lucide-react";
 import { useKategori } from "@/components/Catat";
 import { IKON_KATEGORI, NAMA_IKON, tandaKategori } from "@/components/kategori";
-import { AppBar, Field, Konfirmasi, Lembar, Pesan, Spinner, useGalat } from "@/components/oneui";
+import { AppBar, Field, Konfirmasi, Lembar, Pesan, Pilih, Spinner, useGalat } from "@/components/oneui";
+import { KELOMPOK, NAMA_KELOMPOK } from "@/lib/metode";
 import s from "@/components/ui.module.css";
 import { dbErrorMessage } from "@/lib/errors";
 import {
@@ -30,6 +31,8 @@ interface Isian {
   name: string;
   icon: string;
   color: string;
+  /** Pengeluaran saja: kelompok budgeting bawaan (SPEC-metode-budget). */
+  kelompok: string;
 }
 
 /**
@@ -51,8 +54,8 @@ export default function KategoriView() {
     setAkanPindah(null);
     setEdit(
       k
-        ? { id: k.id ?? null, type, slug: k.slug, name: k.name, icon: k.icon, color: k.color }
-        : { id: null, type, slug: "", name: "", icon: KUNCI_IKON[0], color: type === "income" ? "#5ecb7a" : WARNA_KATEGORI[0] },
+        ? { id: k.id ?? null, type, slug: k.slug, name: k.name, icon: k.icon, color: k.color, kelompok: k.kelompok ?? (type === "expense" ? "keinginan" : "") }
+        : { id: null, type, slug: "", name: "", icon: KUNCI_IKON[0], color: type === "income" ? "#5ecb7a" : WARNA_KATEGORI[0], kelompok: type === "expense" ? "keinginan" : "" },
     );
   }
 
@@ -172,6 +175,17 @@ export default function KategoriView() {
               <Field label="Nama" ikon={Tag} galat={galat?.kolom === "name" ? galat.pesan : null} kolom="name">
                 <input required maxLength={30} value={edit.name} onChange={(e) => ubah({ name: e.target.value })} placeholder="Nama" />
               </Field>
+              {/* Kelompok budgeting: dipakai metode 50/30/20 dkk. (SPEC-metode-budget). */}
+              {edit.type === "expense" && (
+                <Pilih
+                  label="Kelompok"
+                  ikon={PieChart}
+                  kolom="kelompok"
+                  nilai={edit.kelompok}
+                  pilihan={KELOMPOK.map((k) => ({ id: k, label: NAMA_KELOMPOK[k] }))}
+                  onChange={(kelompok) => ubah({ kelompok })}
+                />
+              )}
             </div>
 
             <h3 className={s.subheader}>Ikon</h3>

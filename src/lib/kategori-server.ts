@@ -7,7 +7,7 @@ import { KATEGORI_BAWAAN, type Kategori } from "@/lib/kategori";
  * gagal ambil — berarti kategori bawaan, supaya mencatat tetap jalan.
  */
 export async function ambilKategori(supabase: SupabaseClient): Promise<Kategori[]> {
-  const { data } = await supabase.from("categories").select("id, type, slug, name, icon, color, sort").order("sort");
+  const { data } = await supabase.from("categories").select("id, type, slug, name, icon, color, sort, kelompok").order("sort");
   return data?.length ? (data as Kategori[]) : KATEGORI_BAWAAN;
 }
 

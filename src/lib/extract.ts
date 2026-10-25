@@ -83,7 +83,9 @@ Skema:
   "cicilan": string | null,
   "paylater": { "penyedia": string, "tenor": number | null, "per_cicilan": number | null, "jatuh_tempo": "YYYY-MM-DD" | null } | null,
   "document_type": "receipt" | "payment_proof",
-  "bukti_transfer": { "pengirim": { "nama": string | null, "bank": string | null }, "penerima": { "nama": string | null, "bank": string | null } } | null
+  "bukti_transfer": { "pengirim": { "nama": string | null, "bank": string | null }, "penerima": { "nama": string | null, "bank": string | null } } | null,
+  "kelompok": "kebutuhan" | "keinginan" | "tabungan" | "berbagi" | null,
+  "rincian": [{ "amount": number, "category": string, "kelompok": "kebutuhan" | "keinginan" | "tabungan" | "berbagi" | null, "description": string | null }] | null
 }
 
 Aturan:
@@ -137,6 +139,18 @@ Aturan:
   ("BANK SEABANK INDONESIA" -> "SeaBank", "Saldo ShopeePay" -> "ShopeePay").
   Bank pengirim yang tidak tertulis boleh diambil dari logo/nama aplikasi
   bukti itu (bukti dari aplikasi OCBC -> "OCBC"). Nomor rekening bukan nama bank.
+- kelompok: HANYA untuk "expense", dan HANYA bila jelas berbeda dari kelompok
+  biasa kategorinya; selain itu null (aplikasi memakai kelompok kategorinya).
+  "keinginan": makan di restoran mewah/fine dining, kafe premium, tiket
+  konser, liburan. "berbagi": zakat, sedekah, infak, donasi, kado/hadiah.
+  "tabungan": beli emas, reksadana, saham, deposito, setor tabungan/investasi.
+  Makan biasa, belanja harian, bensin, tagihan: null.
+- rincian: HANYA bila pengguna MENGETIK sendiri rincian belanja campuran
+  dengan nominal per bagian, mis. "15rb di indomaret, 10rb sabun 5rb kopi"
+  -> amount 15000, rincian [{amount 10000, category "groceries", kelompok
+  null, description "sabun"}, {amount 5000, category "food", kelompok
+  "keinginan", description "kopi"}]. Jumlah semua amount rincian HARUS sama
+  dengan amount. Jangan diisi dari struk/daftar barang di gambar; selain itu null.
 - category: isi dengan SLUG (kiri) dari daftar milik user di bawah, sesuai type.
   Pilih berdasarkan arti NAMA kategorinya (kanan); kalau ada yang lebih spesifik
   dan cocok, pilih yang itu. Kalau tidak ada yang cocok: "other".
@@ -249,6 +263,31 @@ function buktiAtauNull(b: unknown): BuktiTransfer | null {
   return hasil.pengirim.nama || hasil.penerima.nama ? hasil : null;
 }
 
+const KELOMPOK_SAH = ["kebutuhan", "keinginan", "tabungan", "berbagi"];
+const kelompokAtauNull = (k: unknown) => (typeof k === "string" && KELOMPOK_SAH.includes(k) ? k : null);
+
+/**
+ * Rincian belanja campuran (SPEC-metode-budget): minimal dua bagian bernominal
+ * yang jumlahnya persis sama dengan amount; selain itu dibuang (tetap satu
+ * transaksi utuh — lebih baik tidak dipecah daripada salah pecah).
+ */
+function rincianAtauNull(r: unknown, amount: number, kategori: Kategori[]): ExtractedReceipt["rincian"] {
+  if (!Array.isArray(r) || r.length < 2 || r.length > 10) return null;
+  const keluar = kategoriJenis(kategori, "expense");
+  const bagian = r.map((b) => {
+    const o = (b ?? {}) as Record<string, unknown>;
+    const slug = typeof o.category === "string" ? o.category.trim() : "";
+    return {
+      amount: Number(o.amount) || 0,
+      category: keluar.some((k) => k.slug === slug) ? slug : LAINNYA,
+      kelompok: kelompokAtauNull(o.kelompok),
+      description: typeof o.description === "string" && o.description.trim() ? o.description.trim().slice(0, 200) : null,
+    };
+  });
+  if (bagian.some((b) => !(b.amount > 0))) return null;
+  return bagian.reduce((n, b) => n + b.amount, 0) === amount ? bagian : null;
+}
+
 /** Rapikan hasil mentah model menjadi ExtractedReceipt yang konsisten. */
 export function normalize(parsed: Partial<ExtractedReceipt>, kategori: Kategori[] = KATEGORI_BAWAAN): ExtractedReceipt {
   const p = parsed.pinjaman as { arah?: unknown; pihak?: unknown } | null | undefined;
@@ -283,6 +322,8 @@ export function normalize(parsed: Partial<ExtractedReceipt>, kategori: Kategori[
     paylater: type === "expense" && !(typeof parsed.cicilan === "string" && parsed.cicilan.trim()) ? paylaterAtauNull(parsed.paylater) : null,
     document_type: parsed.document_type === "payment_proof" ? "payment_proof" : "receipt",
     bukti_transfer: pinjaman ? null : buktiAtauNull(parsed.bukti_transfer),
+    kelompok: type === "expense" ? kelompokAtauNull(parsed.kelompok) : null,
+    rincian: type === "expense" && !pinjaman ? rincianAtauNull(parsed.rincian, Number(parsed.amount) || 0, kategori) : null,
     transaction_date:
       typeof parsed.transaction_date === "string" && parsed.transaction_date
         ? parsed.transaction_date
@@ -428,6 +469,7 @@ const geminiSchema: GenerationConfig["responseSchema"] = {
       },
       required: ["pengirim", "penerima"],
     },
+    kelompok: { type: SchemaType.STRING, format: "enum", enum: ["kebutuhan", "keinginan", "tabungan", "berbagi"], nullable: true },
   },
   // bukti_transfer wajib ada (boleh null): kalau opsional, model sering
   // melewatkannya dan bukti kiriman orang lain jadi tercatat pengeluaran.

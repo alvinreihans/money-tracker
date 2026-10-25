@@ -33,6 +33,12 @@ export interface Transaction {
   duplikat_dari?: string | null;
   /** Bukti transfer yang arahnya belum dipastikan: JSON BuktiTransfer (SPEC-catat-tuntas). */
   bukti_transfer?: string | null;
+  /** Kelompok budgeting pilihan transaksi ini; null = ikut kategori (SPEC-metode-budget). */
+  kelompok?: string | null;
+  /** Dari view: kelompok yang berlaku (pilihan transaksi atau bawaan kategori). */
+  kelompok_efektif?: string | null;
+  /** Bagian dari transaksi yang dipecah: id transaksi aslinya. */
+  pecahan_dari?: string | null;
   transaction_date: string; // ISO date: "YYYY-MM-DD"
   /** Jam transaksi (WIB), "HH:MM:SS"; opsional. Lihat SPEC-saldo-waktu.md. */
   waktu?: string | null;
@@ -78,6 +84,10 @@ export interface ExtractedReceipt {
   document_type: "receipt" | "payment_proof";
   /** Bukti transfer antar dua pihak: nama & bank keduanya; arahnya diputuskan aplikasi (lib/arah). */
   bukti_transfer: BuktiTransfer | null;
+  /** Hanya expense: kelompok budgeting bila jelas beda dari bawaan kategorinya (SPEC-metode-budget). */
+  kelompok: string | null;
+  /** Hanya expense: rincian belanja campuran yang diketik user (jumlahnya = amount). */
+  rincian: { amount: number; category: string; kelompok: string | null; description: string | null }[] | null;
 }
 
 /** Bentuk baris yang dikembalikan RPC get_avg_monthly_expense_by_category(). */

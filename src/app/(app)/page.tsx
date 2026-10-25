@@ -1,5 +1,7 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { hitungStreak, progresBudget } from "@/lib/analitik";
+import { ambilPengaturanMetode, hitungMetode } from "@/lib/metode";
+import { infoPecahan } from "@/lib/riwayat";
 import { isoLokal } from "@/lib/format";
 import { ambilKantong } from "@/lib/kantong";
 import { kantongUang, ringkasBeranda, type Cicilan } from "@/lib/pinjaman";
@@ -37,6 +39,8 @@ export default async function BerandaPage({ searchParams }: { searchParams: Prom
     { kantong, saldo },
     { data: cicilan },
     { data: bayarCicilan },
+    pengaturan,
+    { data: masuk },
   ] = await Promise.all([
     // Beranda cuma 5 transaksi terakhir (urutan sama dengan Riwayat);
     // selebihnya di Riwayat. Yang belum selesai tidak di sini — ada di lembar Catat.
@@ -51,7 +55,7 @@ export default async function BerandaPage({ searchParams }: { searchParams: Prom
       .limit(BERANDA_TERBARU),
     supabase
       .from("transactions")
-      .select("amount, category")
+      .select("amount, category, type, kelompok_efektif")
       .eq("type", "expense")
       .eq("status", "confirmed")
       .gte("transaction_date", awalBulanIni),
@@ -71,7 +75,12 @@ export default async function BerandaPage({ searchParams }: { searchParams: Prom
     ambilKantong(supabase),
     supabase.from("cicilan").select("id, nama, tenor, jatuh_tempo_awal, nominal"),
     supabase.from("transactions").select("cicilan_id, cicilan_ke").not("cicilan_id", "is", null),
+    // Metode budgeting (SPEC-metode-budget): peringatan per kelompok.
+    ambilPengaturanMetode(supabase),
+    supabase.from("transactions").select("amount, category, type, transaction_date").eq("type", "income").eq("status", "confirmed").gte("transaction_date", awalBulanLalu),
   ]);
+  const masukIni = (masuk ?? []).filter((t) => t.transaction_date >= awalBulanIni);
+  const masukLalu = (masuk ?? []).filter((t) => t.transaction_date < awalBulanIni);
 
   const dibayar: Record<string, number[]> = {};
   for (const b of (bayarCicilan ?? []) as { cicilan_id: string; cicilan_ke: number | null }[]) {
@@ -87,6 +96,7 @@ export default async function BerandaPage({ searchParams }: { searchParams: Prom
       draft={draft ?? 0}
       bukaCatat={catat}
       terbaru={(terbaru ?? []) as Transaction[]}
+      pecahan={await infoPecahan(supabase, (terbaru ?? []) as Transaction[])}
       // Total aset hanya kantong uang; orang & kartu kredit ada di Lend & Borrow.
       kantong={kantong.filter(kantongUang).map((k) => ({ id: k.id, name: k.name, kind: k.kind, emoji: k.emoji, saldo: saldo.get(k.id) ?? 0 }))}
       pinjaman={ringkasBeranda(
@@ -96,6 +106,7 @@ export default async function BerandaPage({ searchParams }: { searchParams: Prom
         hariIni,
       )}
       budget={progresBudget(budgets ?? [], keluarIni ?? [])}
+      metode={hitungMetode(pengaturan, [...(keluarIni ?? []), ...masukIni], masukLalu)}
       streak={hitungStreak((catatan ?? []).map((c) => c.created_at as string), sekarang)}
     />
   );

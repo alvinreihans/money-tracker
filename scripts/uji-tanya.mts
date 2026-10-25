@@ -38,7 +38,7 @@ assert.deepEqual(rupiahTakTerverifikasi("Sekitar Rp 2 jt.", hasil), [2000000]);
 
 // Argumen cari_transaksi → filter yang sudah dibersihkan.
 const f = filterDariArgumen({ dari: "2026-10-01", sampai: "2026-10-31", jenis: "keluar", kategori: ["food", "judi", "other"], kantong: ["gopay", "BCA"], kata: "kopi)" }, k);
-assert.deepEqual(f, { jenis: "keluar", q: "kopi", periode: null, dari: "2026-10-01", sampai: "2026-10-31", kantong: [GOPAY], kategori: ["expense:food", "expense:other"] });
+assert.deepEqual(f, { jenis: "keluar", q: "kopi", periode: null, dari: "2026-10-01", sampai: "2026-10-31", kantong: [GOPAY], kategori: ["expense:food", "expense:other"], kelompok: [] });
 assert.deepEqual(filterDariArgumen({ jenis: "masuk", kategori: ["other"] }, k).kategori, ["income:other"]);
 assert.equal(filterDariArgumen({ dari: "2026-02-30", jenis: "aneh" }, k).dari, null);
 assert.equal(filterDariArgumen({ jenis: "aneh" }, k).jenis, "semua");

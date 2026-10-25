@@ -1,3 +1,4 @@
+import { ambilPengaturanMetode, hitungMetode } from "@/lib/metode";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { analisisBulan, progresBudget, trenBulanan, type BarisAnalitik } from "@/lib/analitik";
 import { geserHari, isoLokal } from "@/lib/format";
@@ -25,13 +26,13 @@ export default async function AnalitikPage({ searchParams }: { searchParams: Pro
 
   // Transfer dikecualikan di semua hitungan: itu uang pindah kantong sendiri.
   // ponytail: semua baris 6 bulan dijumlah di server; pindahkan ke RPC SQL kalau sebulan sudah ribuan transaksi.
-  const [baris, { data: budgets }] = await Promise.all([
+  const [baris, { data: budgets }, pengaturan] = await Promise.all([
     (async () => {
       const semua: BarisAnalitik[] = [];
       for (let dari = 0; ; dari += 1000) {
         const { data } = await supabase
           .from("transactions")
-          .select("amount, type, category, merchant, transaction_date")
+          .select("amount, type, category, merchant, transaction_date, kelompok_efektif")
           .eq("status", "confirmed")
           .in("type", ["income", "expense"])
           .gte("transaction_date", awalTren)
@@ -43,6 +44,7 @@ export default async function AnalitikPage({ searchParams }: { searchParams: Pro
       }
     })(),
     supabase.from("budgets").select("category, amount"),
+    ambilPengaturanMetode(supabase),
   ]);
 
   const lalu = geserBulan(bulan, -1);
@@ -58,6 +60,8 @@ export default async function AnalitikPage({ searchParams }: { searchParams: Pro
       tren={trenBulanan(baris, new Date(`${bulan}-15T12:00:00+07:00`), BULAN_TREN)}
       budget={progresBudget(budgets ?? [], barisIni)}
       totalBudget={(budgets ?? []).reduce((n, b) => n + Number(b.amount), 0)}
+      // Metode budgeting (SPEC-metode-budget): null = budget per kategori.
+      metode={hitungMetode(pengaturan, barisIni, barisLalu)}
     />
   );
 }

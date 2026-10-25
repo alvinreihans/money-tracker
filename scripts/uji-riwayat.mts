@@ -17,8 +17,13 @@ assert.equal(adaFilter(FILTER_KOSONG), false);
 
 // Nilai sah terbaca; yang asing dibuang (id kantong orang lain, kategori karangan, jenis aneh).
 const f = bacaFilter({ jenis: "keluar", periode: "bulan-ini", kantong: `${K1},bukan-uuid,${K1}`, kategori: "expense:food,expense:judi,income:salary", q: "kopi)" }, sah);
-assert.deepEqual(f, { jenis: "keluar", q: "kopi", periode: "bulan-ini", dari: null, sampai: null, kantong: [K1], kategori: ["expense:food", "income:salary"] });
+assert.deepEqual(f, { jenis: "keluar", q: "kopi", periode: "bulan-ini", dari: null, sampai: null, kantong: [K1], kategori: ["expense:food", "income:salary"], kelompok: [] });
 assert.equal(adaFilter(f), true);
+// Kelompok budgeting (SPEC-metode-budget): hanya keempat kelompok; ikut ke alamat.
+const fk = bacaFilter({ kelompok: "keinginan,mewah,kebutuhan" }, sah);
+assert.deepEqual(fk.kelompok, ["keinginan", "kebutuhan"]);
+assert.equal(adaFilter(fk), true);
+assert.equal(alamatRiwayat(fk), "/riwayat?kelompok=keinginan,kebutuhan");
 assert.equal(bacaFilter({ jenis: "semuanya" }, sah).jenis, "semua");
 assert.equal(bacaFilter({ periode: "tahun-ini" }, sah).periode, null);
 

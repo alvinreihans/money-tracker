@@ -52,6 +52,9 @@ const KASUS = [
     harus: [367000, 8000000],
   },
   { tanya: "rekomendasi saham yang bagus dong", harus: [], pola: /(hanya|cuma|tidak bisa)/i, tanpaTautan: true },
+  // Metode budgeting (SPEC-metode-budget): 50/30/20 dari pemasukan 8 jt →
+  // jatah keinginan 2,4 jt; realisasinya Laku6 10,3 jt + Shopee 245 rb.
+  { tanya: "bagaimana budget 50/30/20-ku bulan ini?", harus: [2400000, 10545000], pola: /keinginan/i },
   // Menjelaskan "kenapa" dengan cerita transaksinya, bukan sekadar kategori.
   { tanya: "kenapa bulan ini boros?", harus: [10300000], pola: /\bHP\b/i },
 ];
@@ -87,6 +90,7 @@ try {
     tx(300000, "expense", "shopping", "Toko", `${L}-11`, bca.id),
   ]);
   if (e2) throw e2;
+  await sb.from("metode_budget").insert({ user_id: uid, metode: "50-30-20" });
 
   const ref = new URL(U).hostname.split(".")[0];
   const isi = "base64-" + Buffer.from(JSON.stringify(sesi.session)).toString("base64url");

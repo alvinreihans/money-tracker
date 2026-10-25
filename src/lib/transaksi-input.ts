@@ -1,3 +1,4 @@
+import { KELOMPOK, type Kelompok } from "@/lib/metode";
 import { KATEGORI_BAWAAN, kategoriJenis, type Kategori } from "@/lib/kategori";
 import { ambilEmoji } from "@/lib/kantong";
 import type { TransactionType } from "@/types/transaction";
@@ -23,6 +24,8 @@ export interface TransaksiValid {
   amount: number;
   type: TransactionType;
   category: string;
+  /** Pengeluaran saja: kelompok pilihan transaksi ini; null = ikut kategori. */
+  kelompok: Kelompok | null;
   transaction_date: string;
   /** Jam (WIB) "HH:MM", opsional. */
   waktu: string | null;
@@ -149,6 +152,10 @@ export function validasiTransaksi(
   if (cashback === undefined) return { ok: false, error: "Cashback-nya harus angka.", kolom: "cashback" };
   if (cashback && cashback > amount) return { ok: false, error: "Cashback-nya maksimal sebesar nominal belanjanya.", kolom: "cashback" };
 
+  // Kelompok budgeting (SPEC-metode-budget): kosong = ikut kategori.
+  const kelompok = type === "expense" && input.kelompok ? input.kelompok : null;
+  if (kelompok !== null && !(KELOMPOK as readonly unknown[]).includes(kelompok)) return { ok: false, error: "Kelompoknya nggak dikenal.", kolom: "kelompok" };
+
   const cicilan_id = idOpsional(input.cicilan_id);
   const cicilan_ke = input.cicilan_ke === undefined || input.cicilan_ke === null || input.cicilan_ke === "" ? null : Number(input.cicilan_ke);
   if (cicilan_id === undefined || (cicilan_ke !== null && !(Number.isInteger(cicilan_ke) && cicilan_ke >= 1 && cicilan_ke <= 120))) {
@@ -165,6 +172,7 @@ export function validasiTransaksi(
       amount: Math.round(amount * 100) / 100,
       type: type as TransactionType,
       category,
+      kelompok: kelompok as Kelompok | null,
       transaction_date: input.transaction_date,
       waktu,
       merchant,

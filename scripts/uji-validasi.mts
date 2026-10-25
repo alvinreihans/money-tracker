@@ -23,6 +23,7 @@ assert.deepEqual(hasil.data, {
   amount: 25000,
   type: "expense",
   category: "food",
+  kelompok: null,
   transaction_date: "2026-10-21",
   waktu: null,
   merchant: "Kopi Kenangan",
@@ -66,6 +67,16 @@ const bayarCicilan = validasiTransaksi({ ...sah, cicilan_id: ID_A, cicilan_ke: "
 assert.ok(bayarCicilan.ok && bayarCicilan.data.cicilan_id === ID_A && bayarCicilan.data.cicilan_ke === 3);
 assert.ok(!("cicilan_id" in (validasiTransaksi(sah) as { data: object }).data));
 assert.equal(validasiTransaksi({ ...sah, cicilan_id: ID_A }).ok, false); // tanpa nomor
+
+// Kelompok budgeting (SPEC-metode-budget): kosong = ikut kategori; hanya pengeluaran.
+const kel = (k: unknown, extra: Record<string, unknown> = {}) => {
+  const h = validasiTransaksi({ ...sah, ...extra, kelompok: k });
+  return h.ok ? h.data.kelompok : `galat:${h.kolom}`;
+};
+assert.equal(kel(""), null);
+assert.equal(kel("keinginan"), "keinginan");
+assert.equal(kel("mewah"), "galat:kelompok");
+assert.equal(kel("keinginan", { type: "income", category: "salary" }), null, "pemasukan tidak berkelompok");
 
 // Galat menyebut isian yang salah, supaya pesannya tampil di bawah isian itu.
 const kolom = (input: Record<string, unknown>, opsi?: Parameters<typeof validasiTransaksi>[1]) => {

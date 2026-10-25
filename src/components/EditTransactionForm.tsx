@@ -23,10 +23,13 @@ import type { Transaction } from "@/types/transaction";
 export default function EditTransactionForm({
   tx,
   ikutan,
+  terpecah = false,
 }: {
   tx: Transaction;
   /** Biaya admin / cashback yang menempel ke transaksi ini, kalau ada. */
   ikutan?: { id: string; amount: number } | null;
+  /** Transaksi yang dipecah: nominal, kategori, kelompok, keterangan diatur per bagian. */
+  terpecah?: boolean;
 }) {
   const router = useRouter();
   const draft = tx.status === "needs_review";
@@ -119,7 +122,7 @@ export default function EditTransactionForm({
         >
           <form onSubmit={simpan} className={s.form}>
             <GalatForm value={galat}>
-              <TransactionFields nilai={nilai} onChange={(p) => setNilai((v) => ({ ...v, ...p }))} />
+              <TransactionFields nilai={nilai} terpecah={terpecah} onChange={(p) => setNilai((v) => ({ ...v, ...p }))} />
             </GalatForm>
             {galat && !galat.kolom && <Pesan jenis="bahaya">{galat.pesan}</Pesan>}
             <button type="submit" hidden />

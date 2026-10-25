@@ -8,10 +8,12 @@ import EditTransactionForm from "@/components/EditTransactionForm";
 import { tandaTransaksi } from "@/components/kategori";
 import { LAYAR_LEBAR } from "@/components/navigasi";
 import { AppBar, Pesan } from "@/components/oneui";
+import PecahTransaksi from "@/components/PecahTransaksi";
 import s from "@/components/ui.module.css";
 import { bacaBukti, rapikanNama } from "@/lib/arah";
 import { alasanDraft } from "@/lib/kantong";
 import { namaKategori } from "@/lib/kategori";
+import { NAMA_KELOMPOK, type Kelompok } from "@/lib/metode";
 import { fmtIDR, fmtTanggal, fmtWaktu, JENIS, labelSumber } from "@/lib/format";
 import { fmtJam } from "@/lib/waktu";
 import type { Transaction } from "@/types/transaction";
@@ -19,11 +21,14 @@ import type { Transaction } from "@/types/transaction";
 export default function DetailView({
   t,
   ikutan,
+  bagian = [],
   kembali,
   halaman = false,
 }: {
   t: Transaction;
   ikutan: { id: string; amount: number } | null;
+  /** Bagian lain kalau transaksi ini dipecah (SPEC-metode-budget). */
+  bagian?: Transaction[];
   /** Halaman asal (Beranda / Riwayat dengan filternya), tujuan kembali & setelah hapus. */
   kembali: string;
   /** Dibuka sebagai halaman /transactions/[id], bukan di panel Riwayat. */
@@ -49,18 +54,23 @@ export default function DetailView({
   const { ikon: Ikon, warna } = tandaTransaksi(t, kategori);
   const { kantong } = useCatat();
   const pindah = t.type === "transfer";
+  // Dipecah: tampil sebagai satu transaksi dengan total semua bagiannya.
+  const terpecah = bagian.length > 0;
+  const total = Number(t.amount) + bagian.reduce((n, b) => n + Number(b.amount), 0);
+  const namaKelompok = (x: Transaction) => NAMA_KELOMPOK[(x.kelompok_efektif as Kelompok) ?? "keinginan"];
 
   // Baris kosong dilewati: label tanpa isi cuma bikin rincian terlihat bolong.
   const rincian = [
     ["Jenis", JENIS[t.type]],
-    ["Kategori", pindah ? null : namaKategori(kategori, t.category, t.type)],
+    ["Kategori", pindah || terpecah ? null : namaKategori(kategori, t.category, t.type)],
+    ["Kelompok", t.type === "expense" && !terpecah ? `${namaKelompok(t)}${t.kelompok ? " (diubah)" : ""}` : null],
     // Tanpa kantong tertaut, teksnya cuma metode bayar yang disebut, belum tentu kantong.
     [t.kantong_id ? (pindah ? "Dari kantong" : "Kantong") : "Metode bayar", t.payment_method],
     ["Ke kantong", pindah ? kantong.find((k) => k.id === t.kantong_tujuan_id)?.name : null],
     [pindah ? "Biaya admin" : "Cashback", ikutan ? fmtIDR(ikutan.amount) : null],
     ["Rekening", t.account],
     ["Lawan transaksi", t.counterparty],
-    ["Keterangan", t.description],
+    ["Keterangan", terpecah ? null : t.description],
     ["Masuk lewat", labelSumber(t.source)],
     ["Dicatat", fmtWaktu(t.created_at)],
   ].filter(([, v]) => v);
@@ -69,7 +79,7 @@ export default function DetailView({
     <>
       <AppBar
         kembali={kembali}
-        judul={`${t.type === "income" ? "+" : ""}${fmtIDR(Number(t.amount))}`}
+        judul={`${t.type === "income" ? "+" : ""}${fmtIDR(total)}`}
         judulKecil={nama}
         sub={[nama, fmtTanggal(t.transaction_date), fmtJam(t.waktu)].filter(Boolean).join(" · ")}
         aksi={<DeleteTransactionButton id={t.id} kembali={kembali} draft={draft} />}
@@ -123,7 +133,27 @@ export default function DetailView({
           </>
         )}
 
-        {!draft && <EditTransactionForm tx={t} ikutan={ikutan} />}
+        {terpecah && (
+          <>
+            <h2 className={s.subheader}>Rincian</h2>
+            <div className={s.blok}>
+              {[t, ...bagian].map((b) => (
+                <div key={b.id} className={s.baris}>
+                  <span className={s.barisTeks}>
+                    <span className={s.barisJudul}>{b.description ?? namaKategori(kategori, b.category, b.type)}</span>
+                    <span className={s.redup}>
+                      {namaKelompok(b)} · {namaKategori(kategori, b.category, b.type)}
+                    </span>
+                  </span>
+                  <span className={s.nominal}>{fmtIDR(Number(b.amount))}</span>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {!draft && <EditTransactionForm tx={t} ikutan={ikutan} terpecah={terpecah} />}
+        {!draft && t.type === "expense" && <PecahTransaksi tx={t} bagian={bagian} />}
       </div>
     </>
   );
