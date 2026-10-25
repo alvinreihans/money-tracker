@@ -1,6 +1,6 @@
 # Spec: Metode budgeting (fase 3)
 
-Status: **usulan** (pertanyaan 1–3 disetujui: Berbagi, pemasukan nyata bulan itu, Lainnya → Keinginan; menunggu persetujuan "Pecah transaksi") · 25 Oktober 2026 · branch `feat/metode-budget` · rilis 2.5.0
+Status: **disetujui** (Berbagi, pemasukan nyata bulan itu, Lainnya → Keinginan, pecah transaksi: baris per bagian di database, satu transaksi di tampilan) · 25 Oktober 2026 · branch `feat/metode-budget` · rilis 2.5.0
 
 Peta fase: lihat SPEC-catat-tuntas.md. Fase ini adalah "mesin B" di Rencana CHANGELOG. Fase 4 memakainya untuk Jar/Kakeibo, ditambah Zero-Based dan Snowball/Avalanche.
 
@@ -28,12 +28,24 @@ Empat kelompok, satu untuk tiap pengeluaran:
 2. **Bisa diubah per transaksi**, mis. makan di restoran mewah jadi Keinginan, lewat Edit transaksi → "Kelompok". Bawaannya "Ikut kategori".
 3. **AI menyarankan** saat membaca struk/teks, *hanya* bila jelas beda dari bawaan kategorinya (restoran fine dining, kafe premium, tiket konser → Keinginan; "zakat"/"sedekah" → Berbagi; "beli emas/reksadana" → Tabungan). User tetap bisa mengubahnya.
 
-**Belanja campuran → "Pecah transaksi".** Satu struk bisa berisi kebutuhan dan keinginan sekaligus (minimarket Rp 15 rb: sabun Rp 10 rb + kopi Rp 5 rb).
-- Di detail/Edit transaksi ada **"Pecah"**: isi nominal bagian kedua, kelompoknya (dan kategorinya), plus keterangan opsional ("kopi").
-- Transaksi itu menjadi **dua transaksi sungguhan**: tanggal, jam, kantong, dan merchant sama, sementara nominal, kelompok, dan kategori sendiri-sendiri.
-- **Saldo tidak berubah.** Total, filter Riwayat, Analitik, dan Tanya AI tidak perlu aturan khusus untuk nominal sebagian.
-- Bisa diurungkan lewat snackbar.
-- Lewat Catat juga bisa: "15rb di indomaret, 10rb sabun 5rb kopi" dibaca AI sebagai dua transaksi.
+**Belanja campuran → "Pecah transaksi".** Satu struk bisa berisi kebutuhan dan keinginan sekaligus (minimarket Rp 15 rb: sabun Rp 10 rb + kopi Rp 5 rb). Database menyimpan tiap bagian sebagai baris sendiri, tetapi tampilannya **tetap satu transaksi**. Dengan begitu user tidak mengira terunggah dua kali lalu menghapus salah satu bagiannya.
+
+- **Data.**
+  - Transaksi aslinya menjadi bagian pertama dan `id`-nya tetap.
+  - Bagian lain adalah baris sendiri dengan `pecahan_dari = id transaksi asli`.
+  - Tanggal, jam, `created_at`, kantong, merchant, jenis, dan status sama; nominal, kelompok, kategori, dan keterangan sendiri-sendiri.
+  - Jumlah nominal semua bagian = nominal semula, jadi **saldo tidak berubah**.
+  - Total, filter Riwayat, Analitik, dan Tanya AI menghitung per baris, tanpa aturan khusus untuk nominal sebagian.
+  - Sengaja **bukan** `induk_id`: kolom itu milik cashback/biaya admin dan sudah punya aturan sendiri di banyak tempat.
+- **Tampilan.**
+  - **Riwayat & Beranda:** satu kartu "Alfamart **Rp 15.000** · 2 bagian".
+  - **Detail:** bagian **Rincian** ("Kebutuhan · Sabun Rp 10.000", "Keinginan · Kopi Rp 5.000") dengan tombol **Atur pecahan** (ubah nominal/kelompok/kategori tiap bagian; jumlahnya harus tetap sama dengan total) dan **Gabungkan lagi**.
+  - **Saat disaring** (kelompok Keinginan, kategori Makan, cari "kopi"), hanya bagian yang cocok yang tampil, diberi tanda jelas: "Alfamart Rp 5.000 · bagian dari Rp 15.000". Total filternya tetap benar.
+- **Aman dihapus & diubah.**
+  - Menghapus transaksi menghapus **semua bagiannya** (`on delete cascade`). Urungkan mengembalikan semuanya.
+  - Mengubah tanggal, jam, kantong, merchant, atau jenis di transaksi asli ikut ke semua bagian (trigger, seperti cashback sekarang).
+- **Ekspor CSV:** tetap satu baris per bagian (yang dibutuhkan spreadsheet), ditambah kolom "Bagian dari".
+- **Lewat Catat juga bisa:** "15rb di indomaret, 10rb sabun 5rb kopi" dibaca AI menjadi satu transaksi dengan dua bagian.
 - **Tidak dikerjakan di fase ini:** AI memecah otomatis dari struk berisi daftar barang. Nanti bentuknya *menawarkan* ("Struk ini ada kebutuhan & keinginan. Pecah jadi 2?"), tidak langsung memecah, karena salah baca struk bisa salah pecah.
 
 **Tabungan dihitung dari sisa:** `pemasukan − pengeluaran selain kelompok Tabungan`.
@@ -79,6 +91,8 @@ Empat kelompok, satu untuk tiap pengeluaran:
 - **`private.transaksi_data.kelompok`** (null = ikut kategori), ditambahkan ke view & trigger.
   - View menambah `kelompok_efektif`, yaitu kelompok transaksi atau bawaan kategorinya. Riwayat & Analitik tinggal menyaring kolom ini.
   - Bukan data sensitif, jadi tidak dienkripsi.
+- **`private.transaksi_data.pecahan_dari`** (uuid → transaksi asli, `on delete cascade`), ditambahkan ke view & trigger.
+  - Trigger menyamakan tanggal, jam, `created_at`, kantong, merchant, jenis, dan status bagian dengan transaksi aslinya.
 - **Tabel baru `metode_budget`:** `user_id`, `metode`, `persen` (jsonb, hanya Kustom), `updated_at`; RLS satu baris milik sendiri.
 
 ## Pengujian
@@ -93,7 +107,12 @@ Empat kelompok, satu untuk tiap pengeluaran:
 - **Uji kering migrasi:** rollback, akun sementara. Kategori lama terisi kelompoknya, transaksi lama identik, `kelompok_efektif` benar.
 - **AI:** "dinner di restoran fine dining 1,2jt" → Keinginan; "makan siang warteg 20rb" → ikut kategori (tanpa override); "zakat 250rb" → Berbagi.
 - **E2E:**
-  - pecah transaksi Rp 15 rb jadi 10 rb Kebutuhan + 5 rb Keinginan → dua transaksi, saldo sama, realisasi kelompok bergeser; urungkan → kembali satu;
+  - pecah transaksi Rp 15 rb jadi 10 rb Kebutuhan + 5 rb Keinginan:
+    - Riwayat tetap **satu kartu** Rp 15.000 "2 bagian"; saldo sama; realisasi kelompok bergeser;
+    - filter Keinginan → hanya "Rp 5.000 · bagian dari Rp 15.000";
+    - ubah tanggal transaksi → bagian ikut;
+    - hapus → semua bagian hilang, urungkan → semua kembali;
+    - gabungkan lagi → satu baris Rp 15.000;
   - pilih 50/30/20 → kartu Analitik dengan angka yang benar;
   - ketuk Keinginan → Riwayat tersaring;
   - ubah kelompok satu transaksi → realisasi bergeser;
@@ -105,7 +124,7 @@ Empat kelompok, satu untuk tiap pengeluaran:
 ## Boundaries
 
 - **Disetujui lewat spec ini:**
-  - migrasi kolom `kelompok` (kategori & transaksi), `kelompok_efektif` di view, tabel `metode_budget`;
+  - migrasi kolom `kelompok` (kategori & transaksi), `pecahan_dari`, `kelompok_efektif` di view, tabel `metode_budget`;
   - filter Riwayat `kelompok`.
 - **Tanya dulu:**
   - mengubah kelompok kategori milik user secara massal di luar migrasi awal;
@@ -119,4 +138,4 @@ Empat kelompok, satu untuk tiap pengeluaran:
 1. **Kelompok keempat:** Berbagi (zakat, sedekah, donasi, hadiah) → 10% di 70/20/10.
 2. **Basis:** pemasukan nyata bulan itu; awal bulan tanpa pemasukan memakai bulan lalu.
 3. **"Lainnya" → Keinginan.** User yang ingin hasilnya akurat perlu memberi kategori/cerita yang jelas.
-4. **Belanja campuran:** "Pecah transaksi" manual (lihat Kelompok); AI memecah otomatis menyusul (menawarkan, bukan langsung).
+4. **Belanja campuran:** "Pecah transaksi". Database memakai baris per bagian supaya mudah dicari dan dihitung; tampilannya tetap **satu transaksi** dengan rincian, supaya user tidak mengira terunggah dua kali. AI memecah otomatis menyusul (menawarkan, bukan langsung).
