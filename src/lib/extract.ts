@@ -412,11 +412,19 @@ export interface GroqExtraction {
   model: string;
 }
 
-/** Ekstraksi satu struk dari teks OCR, lewat rantai model Groq. */
-export async function extractWithGroq(text: string, konteks: KonteksAI = KONTEKS_BAWAAN): Promise<GroqExtraction> {
+/**
+ * Ekstraksi satu transaksi lewat rantai model Groq: dari teks OCR struk, atau
+ * dari teks yang `diketik` pengguna di Catat (tanpa peringatan OCR — kalau
+ * dibilang struk, model melewatkan rincian ketikan dan menjumlah ulang nominal).
+ */
+export async function extractWithGroq(
+  text: string,
+  konteks: KonteksAI = KONTEKS_BAWAAN,
+  diketik = false,
+): Promise<GroqExtraction> {
   const { value, model } = await runGroqChain<Partial<ExtractedReceipt>>(
     buildSystemPrompt(toISODate(new Date()), konteks),
-    `${OCR_CONTEXT}\n\n---\n${text}`,
+    diketik ? `Teks berikut diketik langsung oleh pengguna:\n---\n${text}` : `${OCR_CONTEXT}\n\n---\n${text}`,
   );
   return { extracted: normalize(value, konteks.kategori), model };
 }

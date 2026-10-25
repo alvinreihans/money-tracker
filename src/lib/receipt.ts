@@ -211,7 +211,7 @@ export async function processReceiptText(
   const notes: string[] = [];
 
   try {
-    const { extracted, model } = await extractWithGroq(text, konteks);
+    const { extracted, model } = await extractWithGroq(text, konteks, true);
     if (isValidExtraction(extracted, konteks.kategori)) {
       notes.push(`Ekstraksi berhasil via Groq (${model})`);
       return done("confirmed", extracted, null, "groq", notes, text);

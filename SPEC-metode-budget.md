@@ -1,6 +1,6 @@
 # Spec: Metode budgeting (fase 3)
 
-Status: **disetujui** (Berbagi, pemasukan nyata bulan itu, Lainnya → Keinginan, pecah transaksi: baris per bagian di database, satu transaksi di tampilan) · 25 Oktober 2026 · branch `feat/metode-budget` · rilis 2.5.0
+Status: **diterapkan** (Berbagi, pemasukan nyata bulan itu, Lainnya → Keinginan, pecah transaksi: baris per bagian di database, satu transaksi di tampilan) · 25 Oktober 2026 · branch `feat/metode-budget` · rilis 2.5.0
 
 Peta fase: lihat SPEC-catat-tuntas.md. Fase ini adalah "mesin B" di Rencana CHANGELOG. Fase 4 memakainya untuk Jar/Kakeibo, ditambah Zero-Based dan Snowball/Avalanche.
 
@@ -58,8 +58,8 @@ Empat kelompok, satu untuk tiap pengeluaran:
 | Metode | Pembagian |
 |---|---|
 | **Per kategori** (sekarang) | target rupiah per kategori, seperti halaman Budget saat ini |
-| **50/30/20** | Kebutuhan 50 · Keinginan 30 · Tabungan 20 |
-| **80/20** | Kebutuhan + Keinginan 80 · Tabungan 20 |
+| **50/30/20** | Kebutuhan 50 · Keinginan 30 · Tabungan 20 (Berbagi dihitung di Kebutuhan) |
+| **80/20** | Kebutuhan + Keinginan 80 · Tabungan 20 (Berbagi ikut di 80) |
 | **70/20/10** | Kebutuhan + Keinginan 70 · Tabungan 20 · Berbagi 10 |
 | **Kustom** | persen sendiri untuk keempat kelompok (jumlahnya harus 100) |
 
@@ -139,3 +139,14 @@ Empat kelompok, satu untuk tiap pengeluaran:
 2. **Basis:** pemasukan nyata bulan itu; awal bulan tanpa pemasukan memakai bulan lalu.
 3. **"Lainnya" → Keinginan.** User yang ingin hasilnya akurat perlu memberi kategori/cerita yang jelas.
 4. **Belanja campuran:** "Pecah transaksi". Database memakai baris per bagian supaya mudah dicari dan dihitung; tampilannya tetap **satu transaksi** dengan rincian, supaya user tidak mengira terunggah dua kali. AI memecah otomatis menyusul (menawarkan, bukan langsung).
+5. **Berbagi di metode tanpa wadah Berbagi:** dihitung di Kebutuhan pada 50/30/20, dan di wadah 80 pada 80/20.
+6. **Rincian yang diketik langsung dipecah.** "15rb di indomaret, 10rb sabun 5rb kopi" sudah menyebut bagiannya sendiri, jadi langsung tersimpan sebagai satu transaksi dengan dua bagian. Syaratnya, jumlah bagian persis sama dengan totalnya; selain itu tetap satu transaksi utuh. Rincian dari struk/gambar tidak dipecah otomatis (lihat nomor 4).
+
+## Hasil
+
+- **Migrasi:** `20261105000000_metode_budget.sql`, lalu `20261105000001_kategori_kelompok_definer.sql`.
+  - Migrasi kedua memperbaiki "permission denied for schema private" saat user menambah/mengubah kategori: fungsi trigger kelompok kategori kini `security definer`.
+  - Uji kering migrasi pertama tidak menangkapnya karena fungsi dibuat di transaksi yang sama. Pelajaran: uji kering juga dijalankan terhadap database yang sudah ter-commit, dengan peran `authenticated`.
+- **AI kelompok:** fine dining 1,2 jt → Keinginan; warteg 20 rb → ikut kategori; zakat 250 rb → Berbagi.
+- **AI rincian ketikan:** 6/6 terpecah benar (dua kalimat, masing-masing 3×), setelah teks ketikan tidak lagi dibungkus peringatan "teks OCR struk". Dengan peringatan itu model melewatkan rinciannya dan pernah menjumlah ulang nominal (15 rb jadi 30 rb). Bagian "kopi" diberi kelompok kategorinya (Makan → Kebutuhan), bukan Keinginan; user mengubahnya di "Atur pecahan".
+- **Tanya AI:** `eval:tanya` 15/15, termasuk kasus 50/30/20 (jatah Keinginan Rp 2.400.000, realisasi Rp 10.545.000).
