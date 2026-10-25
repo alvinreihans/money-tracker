@@ -44,6 +44,8 @@ SPEC-catat-tuntas.md (fase 1 & 2 selesai di 2.4.0).
 
 ## [Unreleased]
 
+## [2.4.0] — 2026-10-25
+
 ### Ditambahkan
 - **Arah bukti transfer.** Bukti transfer kiriman orang lain kini tercatat sebagai **pemasukan**, bukan pengeluaran.
   - **Cara memutuskan:** aplikasi mengenali kamu dari nama di rekening (pengirim atau penerima) atau dari kantongmu (bank penerima atau pengirim).
