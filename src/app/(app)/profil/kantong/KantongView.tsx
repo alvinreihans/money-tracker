@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import NextLink from "next/link";
 import { useRouter } from "next/navigation";
 import { Banknote, CalendarDays, Plus, Smile, Wallet } from "lucide-react";
 import { AppBar, Field, GalatForm, InputNominal, Konfirmasi, Kosong, Lembar, Pesan, Spinner, useGalat } from "@/components/oneui";
@@ -38,13 +39,22 @@ function keteranganSaldo(tanggal: string, asal?: Kantong): string {
     : "Saldo di awal tanggal ini. Transaksi mulai tanggal ini ikut menggeser saldonya.";
 }
 
-export default function KantongView({ userId, daftar }: { userId: string; daftar: (Kantong & { saldo: number })[] }) {
+export default function KantongView({
+  userId,
+  daftar,
+  disisihkan,
+}: {
+  userId: string;
+  daftar: (Kantong & { saldo: number })[];
+  /** Saldo kantong tujuan tabungan (SPEC-tujuan-tabungan): ikut total aset, dikelola di halamannya sendiri. */
+  disisihkan: { jumlah: number; total: number };
+}) {
   const router = useRouter();
   const [edit, setEdit] = useState<{ id: string | null; bawaan: boolean; isian: Isian } | null>(null);
   const [yakinHapus, setYakinHapus] = useState(false);
   const [loading, setLoading] = useState(false);
   const { galat, gagal, bersihkan } = useGalat(edit?.isian);
-  const total = daftar.reduce((t, k) => t + k.saldo, 0);
+  const total = daftar.reduce((t, k) => t + k.saldo, 0) + disisihkan.total;
 
   function buka(k?: Kantong) {
     bersihkan();
@@ -133,6 +143,20 @@ export default function KantongView({ userId, daftar }: { userId: string; daftar
                 </button>
               ))}
             </div>
+            {disisihkan.jumlah > 0 && (
+              <div className={s.blok}>
+                <NextLink href="/profil/tujuan" className={`${s.baris} ${s.tekan}`} style={{ color: "inherit" }}>
+                  <span className={s.barisEmoji} aria-hidden>
+                    🎯
+                  </span>
+                  <span className={s.barisTeks}>
+                    <span className={s.barisJudul}>Disisihkan ke tujuan</span>
+                    <span className={s.redup}>{disisihkan.jumlah} tujuan tabungan</span>
+                  </span>
+                  <span className={s.nominal}>{fmtIDR(disisihkan.total)}</span>
+                </NextLink>
+              </div>
+            )}
           </>
         ) : (
           <div className={s.blok}>

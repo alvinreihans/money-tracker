@@ -304,3 +304,24 @@ export function validasiKantong(input: Record<string, unknown>): HasilKantong {
     data: { name, emoji, saldo_awal: Math.round(saldo_awal), saldo_per: input.saldo_per },
   };
 }
+
+export type HasilTujuan =
+  | { ok: true; data: Extract<HasilKantong, { ok: true }>["data"] & { target: number; tenggat: string | null } }
+  | { ok: false; error: string; kolom?: string };
+
+/**
+ * Isian tambah/ubah tujuan tabungan (SPEC-tujuan-tabungan): seperti kantong,
+ * ditambah target (wajib) dan tenggat (opsional). Saldo awal = yang sudah
+ * terkumpul sebelum memakai aplikasi, tidak boleh minus.
+ */
+export function validasiTujuan(input: Record<string, unknown>): HasilTujuan {
+  const dasar = validasiKantong(input);
+  if (!dasar.ok) return dasar;
+  if (dasar.data.saldo_awal < 0) return { ok: false, error: "Yang sudah terkumpul tidak boleh minus.", kolom: "saldo_awal" };
+  const target = Number(typeof input.target === "string" ? input.target.trim() || NaN : input.target);
+  if (!(target > 0)) return { ok: false, error: "Targetnya diisi dulu.", kolom: "target" };
+  if (target >= NOMINAL_MAKS) return { ok: false, error: "Targetnya kebesaran.", kolom: "target" };
+  const tenggat = input.tenggat === "" || input.tenggat == null ? null : input.tenggat;
+  if (tenggat !== null && !tanggalSah(tenggat)) return { ok: false, error: "Tanggal tenggatnya nggak valid.", kolom: "tenggat" };
+  return { ok: true, data: { ...dasar.data, target: Math.round(target), tenggat } };
+}

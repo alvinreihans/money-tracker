@@ -9,8 +9,8 @@ export const NAVIGASI = [
   { href: "/", label: "Beranda", ikon: House, aktif: (p: string) => p === "/" },
   { href: "/riwayat", label: "Riwayat", ikon: ReceiptText, aktif: (p: string) => p.startsWith("/riwayat") || p.startsWith("/transactions") },
   { href: "/analitik", label: "Analitik", ikon: ChartPie, aktif: (p: string) => p.startsWith("/analitik") },
-  // Di HP & rail, Lend & Borrow dibuka dari menu Profil; di sidebar jadi item sendiri.
-  { href: "/pinjaman", label: "Lend & Borrow", ikon: HandCoins, aktif: (p: string) => p.startsWith("/pinjaman"), sidebar: true },
+  // Di HP & rail, Utang & Piutang dibuka dari menu Profil; di sidebar jadi item sendiri.
+  { href: "/pinjaman", label: "Utang & Piutang", ikon: HandCoins, aktif: (p: string) => p.startsWith("/pinjaman"), sidebar: true },
   { href: "/profil", label: "Profil", ikon: UserRound, aktif: (p: string) => p.startsWith("/profil") || p.startsWith("/pinjaman") },
 ] as const;
 

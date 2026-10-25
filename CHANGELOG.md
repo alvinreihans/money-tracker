@@ -22,10 +22,15 @@ SPEC-catat-tuntas.md (fase 1 & 2 selesai di 2.4.0, fase 3 menyusul).
     yang harus jadi Rp 0.
   - **Jar/6 Jars, Kakeibo, Pay Yourself First:** preset baru di mesin
     persentase (Kakeibo memakai 4 kelompoknya sendiri).
-  - **Debt Snowball / Avalanche** di Lend & Borrow, boleh berjalan bersamaan
+  - **Debt Snowball / Avalanche** di Utang & Piutang, boleh berjalan bersamaan
     dengan metode lain. Avalanche butuh isian bunga baru di cicilan/pinjaman.
 - **AI menawarkan pecah transaksi** dari struk yang berisi barang campuran
   (menawarkan, bukan langsung memecah).
+- **Sorotan & proyeksi Analitik** memisahkan pembelian dari tujuan tabungan:
+  sekarang HP Rp 10 jt dari tabungan masih membuat "Paling boros" dan
+  proyeksi akhir bulan melonjak, walau jatah metodenya sudah benar.
+- **Opsi "tujuan ini disimpan di BCA"**, kalau saldo BCA yang lebih kecil dari
+  saldo asli di bank (karena sebagian disisihkan ke tujuan) terasa membingungkan.
 
 - **Caching data di server** (lanjutan), kalau setelah diukur di produksi
   halaman masih terasa lambat atau kuota Supabase/Vercel menipis: mis. data
@@ -35,8 +40,9 @@ SPEC-catat-tuntas.md (fase 1 & 2 selesai di 2.4.0, fase 3 menyusul).
 
 ### Ditambahkan
 - **Metode budgeting** di **Profil → Budget**: selain budget per kategori, kini bisa memilih **50/30/20**, **80/20**, **70/20/10**, atau **Kustom** (persen sendiri, totalnya harus 100%).
-  - Pemasukan bulan itu dibagi ke kelompok **Kebutuhan, Keinginan, Tabungan, Berbagi**. Awal bulan yang belum ada pemasukan memakai pemasukan bulan lalu.
-  - **Pratinjau pembagian** di atas daftar metode: bilah per persen dan rupiah tiap kelompok dari pemasukanmu, plus penjelasan singkat metodenya. Ikut berubah saat memilih metode atau mengetik persen Kustom. Untuk Per kategori, pratinjaunya membandingkan total target dengan pemasukan.
+  - **Penghasilan per bulan** dibagi ke kelompok **Kebutuhan, Keinginan, Tabungan, Berbagi**. Angkanya disarankan dari rerata penghasilan 3 bulan terakhir, jadi jatahnya tetap sepanjang bulan walau gajian di akhir bulan; bisa diubah sendiri ("Ubah", lalu "Pakai saran" untuk kembali).
+  - **Penghasilan ≠ uang masuk:** hanya kategori pemasukan yang ditandai **"Dihitung sebagai penghasilan"** (Profil → Kategori) yang ikut. Bawaannya Gaji, Bonus/THR, Usaha/Jualan, dan Freelance; pemberian, cashback/refund, bunga, dan lainnya tidak.
+  - **Pratinjau pembagian** di atas daftar metode: bilah per persen dan rupiah tiap kelompok dari penghasilanmu, plus penjelasan singkat metodenya. Ikut berubah saat memilih metode atau mengetik persen Kustom. Untuk Per kategori, pratinjaunya membandingkan total target dengan penghasilan.
   - **Analitik** menampilkan realisasi tiap kelompok dibanding jatahnya. Mengetuk satu kelompok membuka Riwayat yang tersaring ke kelompok itu. Tabungan dibaca terbalik: makin besar makin baik.
   - **Beranda** memperingatkan kelompok yang hampir habis atau lewat.
   - **Tanya AI** menjelaskan dengan bahasa metode itu ("Keinginan Rp 10,5 jt, jauh di atas jatah Rp 2,4 jt").
@@ -47,6 +53,16 @@ SPEC-catat-tuntas.md (fase 1 & 2 selesai di 2.4.0, fase 3 menyusul).
   - Diatur dari detail transaksi ("Pecah transaksi" / "Atur pecahan"), bisa digabungkan lagi.
   - Mengetik rinciannya langsung di Catat ("15rb di indomaret, 10rb sabun 5rb kopi") otomatis tersimpan terpecah.
 - Ekspor CSV mendapat kolom **Kelompok** dan **Pecahan**.
+- **Tujuan tabungan** (Profil → Tujuan tabungan): mis. "HP baru Rp 10 jt, Maret 2027".
+  - Progres tiap tujuan dan berapa yang perlu disisihkan per bulan agar tercapai tepat waktu.
+  - **Sisihkan** = pindah kantong ke tujuan; bisa juga lewat Catat: "sisihkan 500rb dari BCA ke HP baru". **Pakai** = bayar dari tujuan.
+  - Belanja yang dibayar dari tujuan **tidak menghabiskan jatah bulan itu**; kartu metode menampilkannya terpisah ("Dibayar dari tujuan: HP baru"), begitu juga yang disisihkan bulan ini.
+  - Belanja lama yang ternyata dari tabungan: di detail transaksi pilih **"Dibayar dari tujuan tabungan"**. Saldo kantong asalnya tidak berubah; bisa dibatalkan.
+  - Tanya AI tahu belanja mana yang dari tabungan, jadi "kenapa bulan ini boros?" tidak lagi menyalahkan pembelian itu.
+  - Profil → Kantong menampilkan total yang disisihkan ke tujuan; total aset tetap menghitungnya.
+
+### Diubah
+- **Lend & Borrow** kini bernama **Utang & Piutang** (Lend → Piutang, Borrow → Utang).
 
 ## [2.4.0] — 2026-10-25
 

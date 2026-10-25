@@ -34,13 +34,10 @@ function teksStatus(w: HasilWadah): string {
  */
 export default function KartuMetode({
   hasil,
-  namaBulanBasis,
   href,
   judul,
 }: {
   hasil: HasilMetode;
-  /** Nama bulan lalu, bila basisnya dari sana ("berdasarkan pemasukan September"). */
-  namaBulanBasis?: string;
   /** Alamat Riwayat untuk satu wadah; tanpa ini baris tidak bisa diketuk (tabungan). */
   href?: (w: HasilWadah) => string | null;
   judul?: string;
@@ -53,9 +50,7 @@ export default function KartuMetode({
         <h2 className={s.blokJudul}>{judul ?? `Metode ${LABEL_METODE[hasil.metode].nama}`}</h2>
         {!judul && (
           <p className={s.blokSub}>
-            {hasil.basis > 0
-              ? `Dari pemasukan ${fmtIDRRingkas(hasil.basis)}${hasil.basisBulanLalu && namaBulanBasis ? `, berdasarkan pemasukan ${namaBulanBasis}` : ""}.`
-              : "Belum ada pemasukan untuk dibagi bulan ini."}
+            {hasil.basis > 0 ? `Dari penghasilan ${fmtIDRRingkas(hasil.basis)} per bulan.` : "Atur penghasilan per bulan untuk membagi jatahnya."}
           </p>
         )}
       </div>
@@ -110,6 +105,29 @@ export default function KartuMetode({
           </div>
         );
       })}
+
+      {/* Tujuan tabungan (SPEC-tujuan-tabungan): yang disisihkan, dan yang dibeli dari tabungan lama — di luar jatah. */}
+      {!judul && hasil.keTujuan > 0 && (
+        <div className={s.statBaris}>
+          <span>
+            Disisihkan ke tujuan
+            <br />
+            <span className={s.redup}>Bulan ini</span>
+          </span>
+          <span className={`${s.nominal} ${s.masuk}`}>{fmtIDR(hasil.keTujuan)}</span>
+        </div>
+      )}
+      {!judul &&
+        hasil.dariTujuan.map((t) => (
+          <div key={t.nama} className={s.statBaris}>
+            <span>
+              Dibayar dari tujuan: {t.nama}
+              <br />
+              <span className={s.redup}>Di luar jatah bulan ini</span>
+            </span>
+            <span className={s.nominal}>{fmtIDR(t.jumlah)}</span>
+          </div>
+        ))}
 
       <NextLink href="/profil/budget" className={s.blokKaki}>
         Atur metode

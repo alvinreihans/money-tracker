@@ -32,7 +32,7 @@ export default async function AnalitikPage({ searchParams }: { searchParams: Pro
       for (let dari = 0; ; dari += 1000) {
         const { data } = await supabase
           .from("transactions")
-          .select("amount, type, category, merchant, transaction_date, kelompok_efektif")
+          .select("amount, type, category, merchant, transaction_date, kelompok_efektif, kantong_id")
           .eq("status", "confirmed")
           .in("type", ["income", "expense"])
           .gte("transaction_date", awalTren)
@@ -44,7 +44,7 @@ export default async function AnalitikPage({ searchParams }: { searchParams: Pro
       }
     })(),
     supabase.from("budgets").select("category, amount"),
-    ambilPengaturanMetode(supabase),
+    ambilPengaturanMetode(supabase, bulan),
   ]);
 
   const lalu = geserBulan(bulan, -1);
@@ -61,7 +61,7 @@ export default async function AnalitikPage({ searchParams }: { searchParams: Pro
       budget={progresBudget(budgets ?? [], barisIni)}
       totalBudget={(budgets ?? []).reduce((n, b) => n + Number(b.amount), 0)}
       // Metode budgeting (SPEC-metode-budget): null = budget per kategori.
-      metode={hitungMetode(pengaturan, barisIni, barisLalu)}
+      metode={hitungMetode(pengaturan, barisIni)}
     />
   );
 }

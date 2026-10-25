@@ -201,7 +201,6 @@ export default function AnalitikView({
         {metode ? (
           <KartuMetode
             hasil={metode}
-            namaBulanBasis={bulanLalu}
             // Tabungan dihitung dari sisa, tidak ada daftar transaksinya.
             href={(w) => (w.tabungan ? null : keRiwayat({ jenis: "keluar", kelompok: w.kelompok }))}
           />

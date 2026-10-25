@@ -1,16 +1,17 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { Banknote } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCatat, useKategori } from "@/components/Catat";
 import { IKON } from "@/components/KartuMetode";
 import { tandaKategori } from "@/components/kategori";
-import { AppBar, BarisPilih, Field, GalatForm, InputNominal, Pesan, Spinner, useGalat } from "@/components/oneui";
+import { AppBar, BarisPilih, Field, GalatForm, InputNominal, Lembar, Pesan, Spinner, useGalat } from "@/components/oneui";
 import s from "@/components/ui.module.css";
 import { dbErrorMessage } from "@/lib/errors";
 import { fmtIDR, fmtIDRRingkas, isianNominal } from "@/lib/format";
 import { kategoriJenis } from "@/lib/kategori";
-import { cekPersen, KELOMPOK, LABEL_METODE, METODE, NAMA_KELOMPOK, wadahMetode, type Kelompok, type Metode, type PengaturanMetode } from "@/lib/metode";
+import { cekPersen, KELOMPOK, LABEL_METODE, METODE, NAMA_KELOMPOK, wadahMetode, type Kelompok, type Metode, type PengaturanMetode, type SaranPenghasilan } from "@/lib/metode";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { rapikanBudget } from "@/lib/transaksi-input";
 
@@ -19,7 +20,7 @@ const PERSEN_AWAL: Record<Kelompok, number> = { kebutuhan: 50, keinginan: 30, ta
 /** Penjelasan metode terpilih, di bawah pratinjau. */
 const PENJELASAN: Record<Metode, string> = {
   kategori: "Batas rupiah untuk tiap kategori. Cocok kalau kamu sudah tahu pos mana yang sering bocor.",
-  "50-30-20": "Seimbang: separuh pemasukan untuk kebutuhan, sisanya untuk keinginan dan tabungan. Cocok untuk mulai mengatur keuangan.",
+  "50-30-20": "Seimbang: separuh penghasilan untuk kebutuhan, sisanya untuk keinginan dan tabungan. Cocok untuk mulai mengatur keuangan.",
   "80-20": "Paling sederhana: sisihkan 20% untuk tabungan dulu, 80% sisanya bebas dipakai. Cocok kalau tidak ingin repot mengelompokkan pengeluaran.",
   "70-20-10": "Seperti 80/20, ditambah 10% untuk berbagi: zakat, sedekah, donasi, atau hadiah.",
   kustom: "Atur sendiri persen tiap kelompok, mis. 60/20/10/10 kalau biaya hidupmu tinggi. Jumlahnya harus 100%.",
@@ -27,22 +28,29 @@ const PENJELASAN: Record<Metode, string> = {
 
 const ABU = "var(--titik)";
 
+/** Asal saran penghasilan, untuk keterangan di bawah nominalnya. */
+const ketSaran = (s: SaranPenghasilan) =>
+  s.sumber === "rerata" ? `Rerata ${s.bulan} bulan terakhir` : s.sumber === "bulan-ini" ? "Penghasilan bulan ini" : "Belum ada penghasilan tercatat";
+
 /**
- * Pratinjau pembagian pemasukan untuk metode terpilih, seperti pratinjau di
+ * Pratinjau pembagian penghasilan untuk metode terpilih, seperti pratinjau di
  * halaman pilihan resolusi One UI: satu bilah per persen, lalu satu kolom per
- * wadah (nama, persen, rupiah). Per kategori: total target dibanding pemasukan.
+ * wadah (nama, persen, rupiah). Per kategori: total target dibanding penghasilan.
  */
 function Pratinjau({
   metode,
   persen,
   basis,
-  bulanBasis,
+  ketBasis,
+  onUbah,
   totalKategori,
 }: {
   metode: Metode;
   persen: Record<Kelompok, number>;
+  /** Penghasilan per bulan yang dibagi (SPEC-tujuan-tabungan). */
   basis: number;
-  bulanBasis: string;
+  ketBasis: string;
+  onUbah: () => void;
   totalKategori: number;
 }) {
   type Potong = { warna: string; nama: string; persen: number; utama: string; sub: string | null; bahaya?: boolean };
@@ -50,11 +58,11 @@ function Pratinjau({
   if (metode === "kategori") {
     const pakai = basis > 0 ? Math.round((totalKategori / basis) * 100) : 0;
     potong = [
-      { warna: IKON.kebutuhan.warna, nama: "Ditargetkan", persen: basis > 0 ? Math.min(pakai, 100) : totalKategori > 0 ? 100 : 0, utama: fmtIDRRingkas(totalKategori), sub: basis > 0 ? `${pakai}% pemasukan` : null },
+      { warna: IKON.kebutuhan.warna, nama: "Ditargetkan", persen: basis > 0 ? Math.min(pakai, 100) : totalKategori > 0 ? 100 : 0, utama: fmtIDRRingkas(totalKategori), sub: basis > 0 ? `${pakai}% penghasilan` : null },
     ];
     if (basis > 0 && totalKategori > basis)
-      potong.push({ warna: "var(--bahaya)", nama: "Melebihi pemasukan", persen: 0, utama: fmtIDRRingkas(totalKategori - basis), sub: null, bahaya: true });
-    else if (basis > 0) potong.push({ warna: ABU, nama: "Belum dibagi", persen: 0, utama: fmtIDRRingkas(basis - totalKategori), sub: `${100 - pakai}% pemasukan` });
+      potong.push({ warna: "var(--bahaya)", nama: "Melebihi penghasilan", persen: 0, utama: fmtIDRRingkas(totalKategori - basis), sub: null, bahaya: true });
+    else if (basis > 0) potong.push({ warna: ABU, nama: "Belum dibagi", persen: 0, utama: fmtIDRRingkas(basis - totalKategori), sub: `${100 - pakai}% penghasilan` });
   } else {
     potong = wadahMetode(metode, metode === "kustom" ? persen : null).map((w) => ({
       warna: (IKON[w.id] ?? IKON.kebutuhan).warna,
@@ -70,9 +78,16 @@ function Pratinjau({
 
   return (
     <div className={`${s.blok} ${s.blokIsi} ${s.pratinjau}`}>
-      <p className={s.redup} style={{ margin: 0 }}>
-        {basis > 0 ? `Pemasukan ${bulanBasis} ${fmtIDR(basis)}` : "Belum ada pemasukan bulan ini. Rupiahnya muncul setelah ada pemasukan."}
-      </p>
+      <div className={s.pratinjauAtas}>
+        <span>
+          <span className={s.redup}>Penghasilan per bulan</span>
+          <strong>{basis > 0 ? fmtIDR(basis) : "Belum ada"}</strong>
+          <span className={s.redup}>{ketBasis}</span>
+        </span>
+        <button type="button" className={s.flat} onClick={onUbah}>
+          Ubah
+        </button>
+      </div>
       {/* Bilah hanya gambaran; angkanya ada di kolom di bawahnya. */}
       <div className={s.pratinjauBilah} aria-hidden>
         {potong
@@ -110,17 +125,11 @@ export default function BudgetView({
   awal,
   rerata,
   pengaturan,
-  basis,
-  bulanBasis,
 }: {
   userId: string;
   awal: Record<string, number>;
   rerata: Record<string, number>;
   pengaturan: PengaturanMetode;
-  /** Pemasukan bulan ini (atau lalu): contoh rupiah tiap metode. */
-  basis: number;
-  /** Bulan asal `basis`, mis. "Oktober" (awal bulan tanpa pemasukan: bulan lalu). */
-  bulanBasis: string;
 }) {
   const router = useRouter();
   const { kabari } = useCatat();
@@ -129,6 +138,12 @@ export default function BudgetView({
     () => Object.fromEntries(KELOMPOK.map((k) => [k, String(pengaturan.persen?.[k] ?? PERSEN_AWAL[k])])) as Record<Kelompok, string>,
   );
   const [menyimpanMetode, setMenyimpanMetode] = useState(false);
+  // Metode yang benar-benar tersimpan (Kustom baru tersimpan setelah persennya diisi).
+  const [tersimpan, setTersimpan] = useState<Metode>(pengaturan.metode);
+  // Penghasilan per bulan yang dibagi: diatur sendiri, atau saran aplikasi.
+  const [diatur, setDiatur] = useState(pengaturan.penghasilanDiatur);
+  const [isianPenghasilan, setIsianPenghasilan] = useState<string | null>(null);
+  const basis = diatur ?? pengaturan.saran.nilai;
   const persenGalat = useGalat(persen);
   const angkaPersen = Object.fromEntries(KELOMPOK.map((k) => [k, Number(persen[k] || 0)])) as Record<Kelompok, number>;
   const totalPersen = KELOMPOK.reduce((t, k) => t + angkaPersen[k], 0);
@@ -141,7 +156,22 @@ export default function BudgetView({
     setMenyimpanMetode(false);
     if (error) return kabari(dbErrorMessage(error));
     setMetode(m);
+    setTersimpan(m);
     kabari(m === "kategori" ? "Memakai budget per kategori" : `Memakai metode ${LABEL_METODE[m].nama}`);
+    router.refresh();
+  }
+
+  /** null = kembali ikut saran. */
+  async function simpanPenghasilan(n: number | null) {
+    setMenyimpanMetode(true);
+    const { error } = await createSupabaseBrowserClient()
+      .from("metode_budget")
+      .upsert({ user_id: userId, metode: tersimpan, penghasilan: n, updated_at: new Date().toISOString() });
+    setMenyimpanMetode(false);
+    if (error) return kabari(dbErrorMessage(error));
+    setDiatur(n);
+    setIsianPenghasilan(null);
+    kabari(n ? "Penghasilan per bulan disimpan" : "Memakai saran penghasilan");
     router.refresh();
   }
 
@@ -201,7 +231,14 @@ export default function BudgetView({
       />
 
       <div className={s.isi}>
-        <Pratinjau metode={metode} persen={angkaPersen} basis={basis} bulanBasis={bulanBasis} totalKategori={total} />
+        <Pratinjau
+          metode={metode}
+          persen={angkaPersen}
+          basis={basis}
+          ketBasis={diatur != null ? "Diatur sendiri" : ketSaran(pengaturan.saran)}
+          onUbah={() => setIsianPenghasilan(isianNominal(basis || undefined))}
+          totalKategori={total}
+        />
         <p className={s.redup} style={{ margin: "0 20px" }}>
           {PENJELASAN[metode]}
         </p>
@@ -281,6 +318,52 @@ export default function BudgetView({
             {loading ? <Spinner /> : "Simpan"}
           </button>
         </form>
+      )}
+
+      {isianPenghasilan != null && (
+        <Lembar
+          judul="Penghasilan per bulan"
+          sub="Yang dibagi metode budgeting. Jatahnya tetap sepanjang bulan, kapan pun gajiannya."
+          isian={isianPenghasilan}
+          onClose={() => !menyimpanMetode && setIsianPenghasilan(null)}
+          tombol={
+            <>
+              <button type="button" className={s.flat} disabled={menyimpanMetode} onClick={() => setIsianPenghasilan(null)}>
+                Batal
+              </button>
+              <span className={s.pilPemisah} aria-hidden />
+              <button type="button" className={s.flat} disabled={menyimpanMetode || !(Number(isianPenghasilan) > 0)} onClick={() => void simpanPenghasilan(Number(isianPenghasilan))}>
+                {menyimpanMetode ? <Spinner /> : "Simpan"}
+              </button>
+            </>
+          }
+        >
+          <form
+            className={s.form}
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (Number(isianPenghasilan) > 0) void simpanPenghasilan(Number(isianPenghasilan));
+            }}
+          >
+            <div className={`${s.blok} ${s.blokForm}`}>
+              <Field
+                label="Penghasilan per bulan (Rp)"
+                ikon={Banknote}
+                keterangan={pengaturan.saran.nilai > 0 ? `Saran ${fmtIDR(pengaturan.saran.nilai)}: ${ketSaran(pengaturan.saran).toLowerCase()}.` : undefined}
+              >
+                <InputNominal value={isianPenghasilan} onChange={setIsianPenghasilan} placeholder="Penghasilan per bulan (Rp)" />
+              </Field>
+            </div>
+            {diatur != null && pengaturan.saran.nilai > 0 && (
+              <button type="button" className={`${s.tombol} ${s.tombolSekunder}`} disabled={menyimpanMetode} onClick={() => void simpanPenghasilan(null)}>
+                Pakai saran ({fmtIDRRingkas(pengaturan.saran.nilai)})
+              </button>
+            )}
+            <p className={s.redup} style={{ margin: "0 20px" }}>
+              Saran dihitung dari kategori pemasukan yang ditandai sebagai penghasilan (Profil → Kategori). Uang masuk lain seperti pemberian atau refund tidak ikut.
+            </p>
+          </form>
+        </Lembar>
       )}
     </>
   );

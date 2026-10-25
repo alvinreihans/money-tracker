@@ -5,7 +5,7 @@
  */
 import assert from "node:assert/strict";
 import { alamatDetail, alamatInternal, angkaMentah, angkaRibuan, isianNominal, tujuanKembali } from "../src/lib/format.ts";
-import { barisIkutan, bersihkanCari, rapikanBudget, validasiKantong, validasiTransaksi } from "../src/lib/transaksi-input.ts";
+import { barisIkutan, bersihkanCari, rapikanBudget, validasiKantong, validasiTransaksi, validasiTujuan } from "../src/lib/transaksi-input.ts";
 
 const sah = {
   amount: "25000",
@@ -181,6 +181,25 @@ for (const salah of [
   assert.equal(validasiKantong(salah).ok, false, JSON.stringify(salah));
 }
 
+// Tujuan tabungan (SPEC-tujuan-tabungan): target wajib, tenggat opsional, terkumpul tidak minus.
+const tujuan = { name: "HP baru", emoji: "📱", saldo_awal: "", saldo_per: "2026-10-25", target: "10000000", tenggat: "" };
+assert.deepEqual(validasiTujuan(tujuan), {
+  ok: true,
+  data: { name: "HP baru", emoji: "📱", saldo_awal: 0, saldo_per: "2026-10-25", target: 10000000, tenggat: null },
+});
+assert.equal((validasiTujuan({ ...tujuan, tenggat: "2027-03-31" }) as { data: { tenggat: string } }).data.tenggat, "2027-03-31");
+for (const [salah, kolom] of [
+  [{ ...tujuan, target: "" }, "target"],
+  [{ ...tujuan, target: "0" }, "target"],
+  [{ ...tujuan, target: 1e12 }, "target"],
+  [{ ...tujuan, tenggat: "2027-02-30" }, "tenggat"],
+  [{ ...tujuan, saldo_awal: "-1" }, "saldo_awal"],
+  [{ ...tujuan, name: "" }, "name"],
+] as const) {
+  const h = validasiTujuan(salah);
+  assert.ok(!h.ok && h.kolom === kolom, JSON.stringify(salah));
+}
+
 // Halaman asal dari URL: hanya alamat di dalam aplikasi (cegah open redirect).
 assert.equal(tujuanKembali("/"), "/");
 assert.equal(tujuanKembali("/riwayat?filter=keluar&q=kopi"), "/riwayat?filter=keluar&q=kopi");
@@ -209,4 +228,4 @@ assert.equal(angkaMentah("-", true), "-");
 assert.equal(isianNominal("28000.00"), "28000");
 assert.equal(isianNominal(null), "");
 
-console.log(`✓ validasi transaksi: 1 sah + ${tolak.length} tolak; teks cari aman; budget; kantong; alamat kembali aman; format nominal`);
+console.log(`✓ validasi transaksi: 1 sah + ${tolak.length} tolak; teks cari aman; budget; kantong; tujuan tabungan; alamat kembali aman; format nominal`);

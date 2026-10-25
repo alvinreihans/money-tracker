@@ -9,6 +9,7 @@ import { tandaTransaksi } from "@/components/kategori";
 import { LAYAR_LEBAR } from "@/components/navigasi";
 import { AppBar, Pesan } from "@/components/oneui";
 import PecahTransaksi from "@/components/PecahTransaksi";
+import BayarDariTujuan from "@/components/BayarDariTujuan";
 import s from "@/components/ui.module.css";
 import { bacaBukti, rapikanNama } from "@/lib/arah";
 import { alasanDraft } from "@/lib/kantong";
@@ -154,6 +155,7 @@ export default function DetailView({
 
         {!draft && <EditTransactionForm tx={t} ikutan={ikutan} terpecah={terpecah} />}
         {!draft && t.type === "expense" && <PecahTransaksi tx={t} bagian={bagian} />}
+        {!draft && t.type === "expense" && <BayarDariTujuan tx={t} total={total} />}
       </div>
     </>
   );

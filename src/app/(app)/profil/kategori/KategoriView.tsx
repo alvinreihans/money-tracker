@@ -33,6 +33,8 @@ interface Isian {
   color: string;
   /** Pengeluaran saja: kelompok budgeting bawaan (SPEC-metode-budget). */
   kelompok: string;
+  /** Pemasukan saja: dihitung sebagai penghasilan (SPEC-tujuan-tabungan). */
+  penghasilan: boolean;
 }
 
 /**
@@ -54,8 +56,8 @@ export default function KategoriView() {
     setAkanPindah(null);
     setEdit(
       k
-        ? { id: k.id ?? null, type, slug: k.slug, name: k.name, icon: k.icon, color: k.color, kelompok: k.kelompok ?? (type === "expense" ? "keinginan" : "") }
-        : { id: null, type, slug: "", name: "", icon: KUNCI_IKON[0], color: type === "income" ? "#5ecb7a" : WARNA_KATEGORI[0], kelompok: type === "expense" ? "keinginan" : "" },
+        ? { id: k.id ?? null, type, slug: k.slug, name: k.name, icon: k.icon, color: k.color, kelompok: k.kelompok ?? (type === "expense" ? "keinginan" : ""), penghasilan: k.penghasilan ?? true }
+        : { id: null, type, slug: "", name: "", icon: KUNCI_IKON[0], color: type === "income" ? "#5ecb7a" : WARNA_KATEGORI[0], kelompok: type === "expense" ? "keinginan" : "", penghasilan: true },
     );
   }
 
@@ -136,6 +138,7 @@ export default function KategoriView() {
                     </span>
                     <span className={s.barisTeks}>
                       <span className={s.barisJudul}>{k.name}</span>
+                      {type === "income" && <span className={s.redup}>{k.penghasilan === false ? "Uang masuk lain" : "Penghasilan"}</span>}
                     </span>
                   </button>
                 );
@@ -185,6 +188,24 @@ export default function KategoriView() {
                   pilihan={KELOMPOK.map((k) => ({ id: k, label: NAMA_KELOMPOK[k] }))}
                   onChange={(kelompok) => ubah({ kelompok })}
                 />
+              )}
+              {/* Penghasilan: dibagi metode budgeting (SPEC-tujuan-tabungan). */}
+              {edit.type === "income" && (
+                <label className={s.baris} style={{ cursor: "pointer" }}>
+                  <span className={s.barisTeks}>
+                    <span className={s.barisJudul}>Dihitung sebagai penghasilan</span>
+                    <span className={s.redup} style={{ whiteSpace: "normal" }}>
+                      Dibagi metode budgeting. Matikan untuk uang masuk yang tidak rutin, mis. pemberian atau refund.
+                    </span>
+                  </span>
+                  <input
+                    type="checkbox"
+                    role="switch"
+                    className={s.sakelar}
+                    checked={edit.penghasilan}
+                    onChange={(e) => ubah({ penghasilan: e.target.checked })}
+                  />
+                </label>
               )}
             </div>
 

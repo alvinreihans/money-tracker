@@ -40,7 +40,6 @@ export default async function BerandaPage({ searchParams }: { searchParams: Prom
     { data: cicilan },
     { data: bayarCicilan },
     pengaturan,
-    { data: masuk },
   ] = await Promise.all([
     // Beranda cuma 5 transaksi terakhir (urutan sama dengan Riwayat);
     // selebihnya di Riwayat. Yang belum selesai tidak di sini — ada di lembar Catat.
@@ -55,7 +54,7 @@ export default async function BerandaPage({ searchParams }: { searchParams: Prom
       .limit(BERANDA_TERBARU),
     supabase
       .from("transactions")
-      .select("amount, category, type, kelompok_efektif")
+      .select("amount, category, type, kelompok_efektif, kantong_id")
       .eq("type", "expense")
       .eq("status", "confirmed")
       .gte("transaction_date", awalBulanIni),
@@ -77,10 +76,7 @@ export default async function BerandaPage({ searchParams }: { searchParams: Prom
     supabase.from("transactions").select("cicilan_id, cicilan_ke").not("cicilan_id", "is", null),
     // Metode budgeting (SPEC-metode-budget): peringatan per kelompok.
     ambilPengaturanMetode(supabase),
-    supabase.from("transactions").select("amount, category, type, transaction_date").eq("type", "income").eq("status", "confirmed").gte("transaction_date", awalBulanLalu),
   ]);
-  const masukIni = (masuk ?? []).filter((t) => t.transaction_date >= awalBulanIni);
-  const masukLalu = (masuk ?? []).filter((t) => t.transaction_date < awalBulanIni);
 
   const dibayar: Record<string, number[]> = {};
   for (const b of (bayarCicilan ?? []) as { cicilan_id: string; cicilan_ke: number | null }[]) {
@@ -97,7 +93,7 @@ export default async function BerandaPage({ searchParams }: { searchParams: Prom
       bukaCatat={catat}
       terbaru={(terbaru ?? []) as Transaction[]}
       pecahan={await infoPecahan(supabase, (terbaru ?? []) as Transaction[])}
-      // Total aset hanya kantong uang; orang & kartu kredit ada di Lend & Borrow.
+      // Total aset hanya kantong uang (termasuk tujuan tabungan); orang & kartu kredit ada di Utang & Piutang.
       kantong={kantong.filter(kantongUang).map((k) => ({ id: k.id, name: k.name, kind: k.kind, emoji: k.emoji, saldo: saldo.get(k.id) ?? 0 }))}
       pinjaman={ringkasBeranda(
         kantong.map((k) => ({ ...k, saldo: saldo.get(k.id) ?? 0 })),
@@ -106,7 +102,7 @@ export default async function BerandaPage({ searchParams }: { searchParams: Prom
         hariIni,
       )}
       budget={progresBudget(budgets ?? [], keluarIni ?? [])}
-      metode={hitungMetode(pengaturan, [...(keluarIni ?? []), ...masukIni], masukLalu)}
+      metode={hitungMetode(pengaturan, keluarIni ?? [])}
       streak={hitungStreak((catatan ?? []).map((c) => c.created_at as string), sekarang)}
     />
   );

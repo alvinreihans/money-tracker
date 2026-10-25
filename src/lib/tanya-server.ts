@@ -59,10 +59,10 @@ export async function jalankanFungsi(
     const [awalLalu] = rentangBulan(lalu);
     const [, akhir] = rentangBulan(bulan);
     const [baris, { data: budgets }, pengaturan] = await Promise.all([
-      semuaBaris<BarisAnalitik & { description: string | null; kelompok_efektif: string | null }>((d, s) =>
+      semuaBaris<BarisAnalitik & { description: string | null; kelompok_efektif: string | null; kantong_id: string | null }>((d, s) =>
         supabase
           .from("transactions")
-          .select("amount, type, category, merchant, description, transaction_date, kelompok_efektif")
+          .select("amount, type, category, merchant, description, transaction_date, kelompok_efektif, kantong_id")
           .eq("status", "confirmed")
           .in("type", ["income", "expense"])
           .gte("transaction_date", awalLalu)
@@ -71,7 +71,7 @@ export async function jalankanFungsi(
           .range(d, s),
       ),
       supabase.from("budgets").select("category, amount"),
-      ambilPengaturanMetode(supabase),
+      ambilPengaturanMetode(supabase, bulan),
     ]);
     const ini = baris.filter((r) => r.transaction_date.startsWith(bulan));
     const barisLalu = baris.filter((r) => r.transaction_date.startsWith(lalu));
@@ -114,18 +114,26 @@ export async function jalankanFungsi(
         .filter((t) => t.type === "expense")
         .sort((x, y) => Number(y.amount) - Number(x.amount))
         .slice(0, 5)
-        .map((t) => ({ tanggal: t.transaction_date, merchant: t.merchant, nominal: Number(t.amount), kategori: namaKat(t.category, "expense"), keterangan: t.description })),
+        .map((t) => ({
+          tanggal: t.transaction_date,
+          merchant: t.merchant,
+          nominal: Number(t.amount),
+          kategori: namaKat(t.category, "expense"),
+          keterangan: t.description,
+          ...(pengaturan.tujuan.some((k) => k.id === t.kantong_id) ? { dibayar_dari_tujuan_tabungan: pengaturan.tujuan.find((k) => k.id === t.kantong_id)!.nama } : {}),
+        })),
       kategori_paling_naik: a.kategoriNaik && { nama: namaKat(a.kategoriNaik.kategori, "expense"), naik: a.kategoriNaik.selisih, persen: a.kategoriNaik.persen },
       merchant_teratas: a.merchant,
       budget: progresBudget(budgets ?? [], ini).map((b) => ({ kategori: namaKat(b.kategori, "expense"), target: b.target, terpakai: b.aktual, sisa: b.sisa })),
       // Metode budgeting pilihan pengguna (SPEC-metode-budget); null = per kategori.
       metode: (() => {
-        const h = hitungMetode(pengaturan, ini, barisLalu);
+        const h = hitungMetode(pengaturan, ini);
         return (
           h && {
             nama: LABEL_METODE[h.metode].nama,
-            pemasukan_dibagi: h.basis,
-            basis_dari_bulan_lalu: h.basisBulanLalu,
+            // Penghasilan per bulan (bukan semua uang masuk), diatur user atau rerata 3 bulan.
+            penghasilan_dibagi: h.basis,
+            penghasilan_diatur_sendiri: pengaturan.penghasilanDiatur != null,
             wadah: h.wadah.map((w) => ({
               nama: w.nama,
               persen: w.persen,
@@ -133,8 +141,11 @@ export async function jalankanFungsi(
               realisasi: w.realisasi,
               persen_terpakai: w.terpakai,
               status: w.status,
-              ...(w.tabungan ? { catatan: "tabungan = pemasukan dikurangi pengeluaran selain tabungan; makin besar makin baik" } : {}),
+              ...(w.tabungan ? { catatan: "tabungan = penghasilan dikurangi pengeluaran selain tabungan; makin besar makin baik" } : {}),
             })),
+            // Dibeli dari tujuan tabungan (uang yang disisihkan sebelumnya): di luar jatah bulan ini.
+            dibayar_dari_tujuan_tabungan: h.dariTujuan,
+            disisihkan_ke_tujuan_tabungan: h.keTujuan,
           }
         );
       })(),
@@ -188,10 +199,16 @@ export async function jalankanFungsi(
 
   if (nama === "saldo_kantong") {
     const { kantong, saldo } = await ambilKantong(supabase);
-    const daftar = kantong.map((k) => ({ nama: k.name, jenis: k.kind, saldo: saldo.get(k.id) ?? 0 }));
+    const daftar = kantong.map((k) => ({
+      nama: k.name,
+      jenis: k.kind,
+      saldo: saldo.get(k.id) ?? 0,
+      // Tujuan tabungan: saldo = yang sudah terkumpul.
+      ...(k.kind === "tujuan" ? { target: Number(k.target), tenggat: k.tenggat ?? null } : {}),
+    }));
     return {
       kantong: daftar,
-      // Total aset hanya kantong uang; orang & kartu kredit di Lend & Borrow.
+      // Total aset hanya kantong uang (termasuk tujuan tabungan); orang & kartu kredit di Utang & Piutang.
       total_aset: kantong.filter(kantongUang).reduce((n, k) => n + (saldo.get(k.id) ?? 0), 0),
     };
   }
@@ -278,6 +295,7 @@ Aturan:
 - Tiap giliran makan waktu: panggil SEMUA fungsi yang dibutuhkan sekaligus dalam satu giliran (boleh beberapa fungsi bersamaan), jangan satu per satu.
 - Ringkasan bulan ${bulan} SUDAH dihitung (di bawah). Untuk pertanyaan yang bisa dijawab darinya (total, kategori, perbandingan dengan bulan lalu beserta selisihnya, pengeluaran terbesar), JAWAB LANGSUNG tanpa memanggil fungsi. Panggil fungsi hanya untuk yang tidak ada di sana (bulan lain, merchant/kata tertentu, saldo, utang, kecuali/minimal/maksimal).
 - Kalau ringkasan punya "metode" (metode budgeting pilihan pengguna, mis. 50/30/20), jelaskan pengeluaran dengan bahasa metode itu: realisasi tiap wadah dibanding jatahnya (mis. "Keinginan Rp 10.545.000, jauh di atas jatah Rp 2.400.000"). Tabungan dibaca terbalik: makin besar makin baik.
+- "dibayar_dari_tujuan_tabungan" = pembelian memakai uang yang sudah disisihkan sebelumnya (mis. HP dari tabungan HP), di luar jatah bulan ini. Saat menjelaskan pengeluaran besar atau "kenapa boros", sebut bahwa itu dibayar dari tabungan, bukan pemborosan bulan ini.
 - Pertanyaan KENAPA (boros, naik, banyak keluar): sebut pengeluaran terbesar beserta keterangannya bila ada (mis. "ada kado nikahan Rina Rp 500.000"); keterangan adalah cerita pengguna tentang transaksi itu.
 - SELALU panggil fungsi untuk mendapat angka. Setiap nominal di jawaban harus PERSIS ada di hasil fungsi. JANGAN berhitung di kepala: untuk selisih, jumlah, rata-rata, atau persen yang tidak ada langsung, panggil "hitung" dengan angka dari hasil fungsi.
 - Kalau periode tidak disebut, pakai bulan yang sedang dilihat (${bulan}), dan sebut periodenya di jawaban.

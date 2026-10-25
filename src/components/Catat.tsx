@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { ImagePlus, Plus } from "lucide-react";
 import LembarCatat, { type PerintahCatat } from "@/components/Obrolan";
 import { GalatForm, Lembar, Pesan, Spinner, useGalat } from "@/components/oneui";
-import TransactionFields, { nilaiAwal } from "@/components/TransactionFields";
+import TransactionFields, { nilaiAwal, type NilaiTransaksi } from "@/components/TransactionFields";
 import s from "@/components/ui.module.css";
 import type { Kantong } from "@/lib/kantong";
 import { namaKategori, type Kategori } from "@/lib/kategori";
@@ -40,6 +40,8 @@ const CatatContext = createContext<{
   bukaDraft: (id: string) => void;
   /** Buka daftar catatan yang belum selesai. */
   bukaDaftar: () => void;
+  /** Buka isian manual, opsional dengan isian awal (mis. Sisihkan/Pakai di tujuan tabungan). */
+  bukaManual: (awal?: Partial<NilaiTransaksi>) => void;
   /** Proses gambar dari "Bagikan" di latar, masing-masing jadi satu transaksi. */
   tambahStruk: (berkas: File[]) => void;
   /** Snackbar singkat (mis. "2 struk diproses di latar"), opsional dengan satu aksi. */
@@ -96,7 +98,8 @@ export function CatatProvider({
   const router = useRouter();
   const antrean = useAntreanStruk();
   const [perintah, setPerintah] = useState<PerintahCatat | null>(null);
-  const [manual, setManual] = useState(false);
+  // Isian manual yang terbuka beserta isian awalnya; null = tertutup.
+  const [manual, setManual] = useState<Partial<NilaiTransaksi> | null>(null);
   const [kabar, setKabar] = useState<Kabar | null>(null);
   const urut = useRef(0);
 
@@ -176,7 +179,7 @@ export function CatatProvider({
   }, [seret]);
 
   function tersimpan(tx: Transaction) {
-    setManual(false);
+    setManual(null);
     setKabar({
       teks: `Tercatat: ${tx.merchant ?? namaKategori(kategori, tx.category, tx.type)} ${fmtIDR(Number(tx.amount))}`,
       aksi: { label: "Lihat", jalankan: () => router.push(alamatDetail(tx.id, window.location.pathname + window.location.search)) },
@@ -190,6 +193,7 @@ export function CatatProvider({
         buka: (teks) => bukaLembar({ besar: false, layar: "obrolan", teks: typeof teks === "string" ? teks : "" }),
         bukaDraft: (id) => bukaLembar({ besar: true, layar: "obrolan", draft: id }),
         bukaDaftar: () => bukaLembar({ besar: true, layar: "daftar" }),
+        bukaManual: (awal) => setManual(awal ?? {}),
         tambahStruk: antrean.tambah,
         kabari: (teks, aksi) => setKabar({ teks, aksi }),
         kantong,
@@ -239,12 +243,12 @@ export function CatatProvider({
           onClose={() => setPerintah(null)}
           onManual={() => {
             setPerintah(null);
-            setManual(true);
+            setManual({});
           }}
         />
       )}
 
-      {manual && <ManualDialog onClose={() => setManual(false)} onTersimpan={tersimpan} />}
+      {manual && <ManualDialog awal={manual} onClose={() => setManual(null)} onTersimpan={tersimpan} />}
     </CatatContext.Provider>
   );
 }
@@ -264,9 +268,17 @@ async function kirimJson(url: string, body: unknown) {
   }
 }
 
-function ManualDialog({ onClose, onTersimpan }: { onClose: () => void; onTersimpan: (tx: Transaction) => void }) {
+function ManualDialog({
+  awal,
+  onClose,
+  onTersimpan,
+}: {
+  awal: Partial<NilaiTransaksi>;
+  onClose: () => void;
+  onTersimpan: (tx: Transaction) => void;
+}) {
   const { kantong, kategori } = useCatat();
-  const [nilai, setNilai] = useState(() => nilaiAwal());
+  const [nilai, setNilai] = useState(() => ({ ...nilaiAwal(undefined, awal.type), ...awal }));
   const [loading, setLoading] = useState(false);
   const { galat, gagal, bersihkan } = useGalat(nilai);
 

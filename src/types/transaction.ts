@@ -39,6 +39,8 @@ export interface Transaction {
   kelompok_efektif?: string | null;
   /** Bagian dari transaksi yang dipecah: id transaksi aslinya. */
   pecahan_dari?: string | null;
+  /** Transfer pelengkap "Dibayar dari tujuan tabungan": id pengeluarannya (SPEC-tujuan-tabungan). */
+  pelengkap_tujuan?: string | null;
   transaction_date: string; // ISO date: "YYYY-MM-DD"
   /** Jam transaksi (WIB), "HH:MM:SS"; opsional. Lihat SPEC-saldo-waktu.md. */
   waktu?: string | null;
