@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { geserHari } from "@/lib/format";
 import { bersihkanCari } from "@/lib/transaksi-input";
+import type { Transaction } from "@/types/transaction";
 
 /**
  * Filter & query Riwayat (SPEC-riwayat-filter). Satu objek filter dipakai
@@ -181,4 +182,18 @@ export function ringkasRiwayat(baris: { amount: number | string; type: string; t
     r[arah] += n;
   }
   return r;
+}
+
+/**
+ * Satu transaksi beserta biaya admin / cashback yang menempel padanya: halaman
+ * detail (server) dan panel detail Riwayat di layar lebar (browser). RLS
+ * membatasi ke baris milik user, jadi null = tidak ada atau bukan miliknya.
+ */
+export async function ambilDetail(supabase: SupabaseClient, id: string) {
+  const [{ data }, { data: ikutan }] = await Promise.all([
+    supabase.from("transactions").select("*").eq("id", id).maybeSingle(),
+    supabase.from("transactions").select("id, amount").eq("induk_id", id).limit(1).maybeSingle(),
+  ]);
+  if (!data) return null;
+  return { t: data as Transaction, ikutan: ikutan ? { id: ikutan.id as string, amount: Number(ikutan.amount) } : null };
 }

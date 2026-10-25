@@ -12,7 +12,8 @@ import s from "@/components/ui.module.css";
 /**
  * Kerangka aplikasi One UI: isi halaman, lalu navigasi bawah berupa kapsul
  * melayang ala Samsung Wallet (ikon di atas label): Beranda · Riwayat · + ·
- * Analitik · Profil (SPEC-navigasi).
+ * Analitik · Profil (SPEC-navigasi). Mulai 600px kapsul yang sama jadi rail
+ * di kiri, mulai 1200px sidebar — cukup lewat CSS (SPEC-layar-lebar).
  *
  * Titik oranye di tombol + menandai catatan yang belum selesai (SPEC-catat-chat)
  * — tanpa itu, catatan itu menunggu diam-diam tanpa satu pun penanda.
@@ -45,7 +46,7 @@ export default function AppShell({
     const aktif = t.aktif(pathname);
     const Ikon = t.ikon;
     return (
-      <NextLink key={t.href} href={t.href} aria-current={aktif ? "page" : undefined}>
+      <NextLink key={t.href} href={t.href} aria-current={aktif ? "page" : undefined} data-sidebar={"sidebar" in t || undefined}>
         {t.href === "/profil" && email ? (
           // Profil: huruf awal email dalam lingkaran, seperti akun Samsung.
           <span className={s.avatarNav} data-aktif={aktif} aria-hidden>

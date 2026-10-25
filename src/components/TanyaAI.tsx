@@ -33,7 +33,8 @@ export function IkonAI({ size = 26 }: { size?: number }) {
  * Tanya AI di Analitik (SPEC-analitik-ai), tampilan ala ChatGPT: layar kosong
  * dengan sapaan & kartu saran, pesan user dalam gelembung abu di kanan,
  * jawaban AI teks biasa selebar layar, kolom ketik berbentuk kapsul yang
- * selalu di bawah. Obrolan hanya ada di sini — tidak disimpan.
+ * selalu di bawah. Obrolan hanya ada di sini — tidak disimpan. Di layar
+ * lebar, obrolan jadi panel di kanan supaya grafik tetap terlihat.
  */
 export default function TanyaAI({ bulan, namaBulan, namaBulanLalu, onClose }: { bulan: string; namaBulan: string; namaBulanLalu: string; onClose: () => void }) {
   const [pesan, setPesan] = useState<Pesan[]>([]);
@@ -100,7 +101,7 @@ export default function TanyaAI({ bulan, namaBulan, namaBulanLalu, onClose }: { 
   const kosong = pesan.length === 0 && !sibuk;
 
   return (
-    <Lembar judul="Tanya AI" posisi="penuh" onClose={onClose}>
+    <Lembar judul="Tanya AI" posisi="samping" onClose={onClose}>
       <div className={s.gptRuang}>
         {kosong ? (
           <div className={s.gptKosong}>

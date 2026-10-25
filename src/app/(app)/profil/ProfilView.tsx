@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import NextLink from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { ChevronRight, Download, HandCoins, LogOut, Shapes, Target, UserRound, Wallet } from "lucide-react";
 import { useCatat, useKategori } from "@/components/Catat";
+import { LAYAR_LEBAR } from "@/components/navigasi";
 import { AppBar } from "@/components/oneui";
 import SakelarNotifikasi from "@/components/SakelarNotifikasi";
 import s from "@/components/ui.module.css";
@@ -24,8 +25,10 @@ export function BarisMenu({
   judul: string;
   ket: string;
 }) {
+  // Di layar lebar halamannya terbuka di sebelah: baris itu ditandai terpilih.
+  const aktif = usePathname().startsWith(href);
   return (
-    <NextLink href={href} className={`${s.baris} ${s.tekan}`}>
+    <NextLink href={href} className={`${s.baris} ${s.tekan}`} aria-current={aktif ? "page" : undefined}>
       <span className={s.barisIkon} style={{ background: `color-mix(in srgb, ${warna} 18%, transparent)`, color: warna }} aria-hidden>
         <Ikon size={20} />
       </span>
@@ -40,7 +43,7 @@ export function BarisMenu({
 
 /**
  * Tab Profil (SPEC-navigasi): akun di atas, lalu pengaturan per grup ala
- * Pengaturan Samsung. Sub-halamannya di /profil/*.
+ * Pengaturan Samsung. Sub-halamannya di /profil/* (lihat layout.tsx).
  */
 export default function ProfilView({
   email,
@@ -52,7 +55,14 @@ export default function ProfilView({
   jumlahBudget: number;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { kabari } = useCatat();
+
+  // Layar lebar: panel kanan langsung berisi halaman pertama, seperti
+  // Pengaturan Samsung di tablet, bukan kosong.
+  useEffect(() => {
+    if (pathname === "/profil" && window.matchMedia(LAYAR_LEBAR).matches) router.replace("/profil/kantong");
+  }, [pathname, router]);
   const [mengekspor, setMengekspor] = useState(false);
 
   /**

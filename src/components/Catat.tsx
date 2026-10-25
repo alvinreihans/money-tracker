@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { Plus } from "lucide-react";
+import { ImagePlus, Plus } from "lucide-react";
 import LembarCatat, { type PerintahCatat } from "@/components/Obrolan";
 import { Lembar, Pesan, Spinner } from "@/components/oneui";
 import TransactionFields, { nilaiAwal } from "@/components/TransactionFields";
@@ -70,6 +70,7 @@ export function TombolCatat() {
   return (
     <button type="button" className={s.navCatat} style={{ position: "relative" }} aria-label="Catat transaksi" onClick={() => buka()}>
       <Plus size={28} />
+      <span className={s.navCatatLabel}>Catat transaksi</span>
       {jumlahDraft > 0 && (
         <span className={s.navTitik} style={{ top: 6, right: 6 }} aria-label={`${jumlahDraft} catatan belum selesai`} role="img" />
       )}
@@ -129,6 +130,51 @@ export function CatatProvider({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [antrean.berjalan]);
 
+  // Seret foto struk ke mana saja di aplikasi (desktop, layar terpisah di
+  // tablet/Fold — SPEC-layar-lebar): diproses di latar seperti dari "Bagikan".
+  const [seret, setSeret] = useState(false);
+  const lapisSeret = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    let masukKe = 0; // dragenter/leave juga terpicu tiap pindah elemen anak
+    const berkas = (e: DragEvent) => Boolean(e.dataTransfer?.types.includes("Files"));
+    const masuk = (e: DragEvent) => {
+      if (!berkas(e)) return;
+      masukKe++;
+      setSeret(true);
+    };
+    const lewat = (e: DragEvent) => berkas(e) && e.preventDefault(); // tanpa ini, drop tidak terjadi
+    const keluar = (e: DragEvent) => {
+      if (berkas(e) && --masukKe <= 0) setSeret(false);
+    };
+    const lepas = (e: DragEvent) => {
+      if (!berkas(e)) return;
+      e.preventDefault();
+      masukKe = 0;
+      setSeret(false);
+      const gambar = [...(e.dataTransfer?.files ?? [])].filter((f) => f.type.startsWith("image/"));
+      if (gambar.length) antrean.tambah(gambar);
+      else setKabar({ teks: "Yang bisa dicatat cuma foto struk (gambar)." });
+    };
+    window.addEventListener("dragenter", masuk);
+    window.addEventListener("dragover", lewat);
+    window.addEventListener("dragleave", keluar);
+    window.addEventListener("drop", lepas);
+    return () => {
+      window.removeEventListener("dragenter", masuk);
+      window.removeEventListener("dragover", lewat);
+      window.removeEventListener("dragleave", keluar);
+      window.removeEventListener("drop", lepas);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  // Popover: tampil di atas dialog yang sedang terbuka juga (top layer).
+  useEffect(() => {
+    const el = lapisSeret.current;
+    if (!el) return;
+    if (seret) el.showPopover();
+    else if (el.matches(":popover-open")) el.hidePopover();
+  }, [seret]);
+
   function tersimpan(tx: Transaction) {
     setManual(false);
     setKabar({
@@ -177,6 +223,11 @@ export function CatatProvider({
             )}
           </div>
         )}
+      </div>
+
+      <div ref={lapisSeret} popover="manual" className={s.lapisSeret} aria-hidden>
+        <ImagePlus size={40} />
+        Lepas untuk mencatat struk
       </div>
 
       {perintah && (

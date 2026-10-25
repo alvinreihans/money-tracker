@@ -37,7 +37,9 @@ function kelasNominal(t: Transaction): string {
   return "";
 }
 
-function Kartu({ t, tanggal, kembali }: { t: Transaction; tanggal: string | null; kembali?: string }) {
+type Pilih = { terpilih?: string | null; onPilih?: (e: React.MouseEvent, t: Transaction) => void };
+
+function Kartu({ t, tanggal, kembali, terpilih, onPilih }: { t: Transaction; tanggal: string | null; kembali?: string } & Pilih) {
   const kategori = useKategori();
   const { ikon: Ikon, warna } = tandaTransaksi(t, kategori);
   const { kantong } = useCatat();
@@ -47,7 +49,12 @@ function Kartu({ t, tanggal, kembali }: { t: Transaction; tanggal: string | null
   const rincian = [tanggal, t.type === "transfer" ? null : namaKategori(kategori, t.category, t.type), lewat].filter(Boolean).join(" · ");
 
   return (
-    <NextLink href={alamatDetail(t.id, kembali)} className={`${s.kartuTx} ${s.tekan}`}>
+    <NextLink
+      href={alamatDetail(t.id, kembali)}
+      className={`${s.kartuTx} ${s.tekan}`}
+      aria-current={terpilih === t.id || undefined}
+      onClick={onPilih && ((e) => onPilih(e, t))}
+    >
       <span className={s.baris}>
         <span
           className={s.barisIkon}
@@ -78,7 +85,9 @@ export default function TransactionList({
   kembali,
   perBulan,
   perHari,
-}: {
+  terpilih,
+  onPilih,
+}: Pilih & {
   items: Transaction[];
   /** Aksi penutup di bawah daftar, mis. "Lihat semua riwayat". */
   kaki?: React.ReactNode;
@@ -166,12 +175,12 @@ export default function TransactionList({
                         )}
                       </h3>
                       {h.isi.map((t) => (
-                        <Kartu key={t.id} t={t} tanggal={tanggal(t, k.kunci)} kembali={kembali} />
+                        <Kartu key={t.id} t={t} tanggal={tanggal(t, k.kunci)} kembali={kembali} terpilih={terpilih} onPilih={onPilih} />
                       ))}
                     </div>
                   );
                 })
-              : k.isi.map((t) => <Kartu key={t.id} t={t} tanggal={tanggal(t, k.kunci)} kembali={kembali} />)}
+              : k.isi.map((t) => <Kartu key={t.id} t={t} tanggal={tanggal(t, k.kunci)} kembali={kembali} terpilih={terpilih} onPilih={onPilih} />)}
           </section>
         );
       })}

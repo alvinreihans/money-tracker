@@ -20,7 +20,7 @@ Urutannya mengikuti keperluan: fase berikutnya membangun di atas fase sebelumnya
 | 2. `riwayat-filter` | Filter ala ShopeePay versi One UI. Satu baris chip berisi **Tanggal ▾**, **Kantong ▾**, **Kategori ▾**, dan jenis transaksi. Di header tiap bulan tampil total bulan itu. | 1 |
 | 3. `analitik-insight` | Pilih bulan, rincian kategori, perbandingan dengan bulan sebelumnya, dan budget | 1 |
 | 4. `analitik-ai` | Chatbot di Analitik. Angka dihitung database, AI hanya menjelaskan (pertimbangkan batas kuota Groq) | 3 |
-| 5. `desktop` | Mode desktop/tablet: navigasi pindah ke rail atau sidebar kiri, isi dibatasi lebarnya, Riwayat dua panel (daftar + detail) | 1, 2 |
+| 5. `desktop` | Mode desktop/tablet: navigasi pindah ke rail atau sidebar kiri, isi dibatasi lebarnya, Riwayat dua panel (daftar + detail). **Diterapkan**, lihat SPEC-layar-lebar | 1, 2 |
 
 ## Prinsip alamat (web & PWA, berlaku untuk semua fase)
 

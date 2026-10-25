@@ -20,6 +20,16 @@ Belum dikerjakan; dicatat supaya tidak lupa.
 
 ## [Unreleased]
 
+### Ditambahkan
+- **Tampilan layar lebar** untuk tablet, Galaxy Z Fold, dan desktop, mengikuti panduan layar lebar & foldable Samsung. Di HP tidak ada yang berubah.
+  - Mulai 600px, navigasi bawah pindah ke **rail di kiri** dengan tombol + di atas. Mulai 1200px rail menjadi **sidebar berlabel**, dan Lend & Borrow mendapat item sendiri.
+  - Mulai 840px, **Riwayat** berisi daftar dan detail berdampingan: klik transaksi, detailnya terbuka di kanan tanpa kehilangan daftar dan filter. **Profil** berisi menu di kiri dan halamannya di kanan. **Beranda** dan **Analitik** menampilkan kartu dalam dua kolom.
+  - Lembar seperti Catat dan form lain tampil sebagai **pop-up di tengah**, bukan layar penuh.
+  - **Tanya AI** menempel sebagai panel di kanan, sehingga grafik Analitik tetap terlihat sambil bertanya.
+  - Fold dibuka atau dilipat tidak menghapus ketikan, obrolan, atau detail yang sedang dibuka.
+- **Seret foto struk** ke aplikasi (desktop, layar terpisah di tablet/Fold): fotonya langsung diproses seperti foto dari "Bagikan".
+- Efek hover untuk mouse di desktop.
+
 ## [2.1.0] — 2026-10-25
 
 ### Ditambahkan
