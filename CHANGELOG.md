@@ -14,6 +14,43 @@ bagiannya di sini.
 
 Belum dikerjakan; dicatat supaya tidak lupa.
 
+- **Arah bukti transfer** (laporan user, 25 Okt). Bukti transfer kiriman
+  orang lain (Septiyana Pangsor → Alvin, OCBC → SeaBank) tercatat sebagai
+  pengeluaran. Penyebabnya, aturan prompt di `src/lib/extract.ts`: "nama
+  penerima ≠ nama pengirim → expense" menganggap pengunggah selalu
+  pengirimnya, padahal AI tidak tahu siapa user-nya (yang tersimpan cuma email).
+  - **Usul:** AI hanya membaca nama & bank pengirim/penerima. Aplikasi yang
+    memutuskan:
+    1. nama user yang sudah dikenal (penerima = user → masuk, pengirim →
+       keluar, keduanya → pindah kantong);
+    2. bank penerima cocok dengan kantong user dan bank pengirim tidak → masuk;
+    3. masih ragu → tanya di Catat, "Ini kamu yang kirim ke X, atau terima
+       dari Y?".
+  - Jawaban pertama menyimpan nama user (user_metadata, bisa diubah di
+    Profil), jadi berikutnya otomatis. Perlu spec (`SPEC-arah-transfer.md`).
+- **Transaksi baru tidak langsung muncul.** Yang berhasil dicatat maupun yang
+  gagal dipahami baru tampil setelah aplikasi di-refresh. Perlu ditelusuri:
+  jalur mana yang tidak memanggil `router.refresh()` (foto, Bagikan, chat,
+  push), dan apakah data halaman tertahan cache.
+- **Cerita di balik transaksi.**
+  - **Masalahnya:** tiap transaksi bisa diberi konteks ("kopi sama klien",
+    "kado nikahan teman"), supaya Tanya AI bisa menjawab "kenapa bulan ini
+    boros". Sekarang Tanya AI hanya memakai keterangan untuk *mencari*, belum
+    untuk *menjelaskan*.
+  - **Usul tampilan:** setelah catat/unggah selesai dan user masih di
+    aplikasi, tawarkan "Tambah cerita?" (opsional, sekali ketuk untuk
+    lewati). Isi otomatis dari catatan yang sudah ada di struk/bukti transfer
+    ("Keperluan Transfer", berita transfer).
+  - Pertanyaan `cerita` yang sudah ada di Catat beda fungsi: itu hanya untuk
+    transaksi yang gagal dibaca.
+- **Kelompok kebutuhan: needs, wants, saving, invest** (ala 50/30/20).
+  - **Usul:** tiap kategori punya kelompok bawaan (Makan → needs, Jajan →
+    wants, …). Tiap transaksi boleh mengubahnya, mis. makan di restoran mewah
+    jadi wants. AI menyarankan kelompok dari merchant/harganya, user yang
+    memutuskan.
+  - Analitik dan Tanya AI lalu bisa menjawab "berapa persen untuk wants bulan ini".
+  - Butuh kolom baru → migrasi.
+
 - **Caching data di server** (lanjutan), kalau setelah diukur di produksi
   halaman masih terasa lambat atau kuota Supabase/Vercel menipis: mis. data
   yang jarang berubah (kategori, kantong) disimpan sementara di server.
