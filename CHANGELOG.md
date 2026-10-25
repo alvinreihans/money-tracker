@@ -20,6 +20,8 @@ Belum dikerjakan; dicatat supaya tidak lupa.
 
 ## [Unreleased]
 
+## [2.3.0] — 2026-10-25
+
 ### Ditambahkan
 - **Tempel gambar** (Ctrl+V) di kolom Catat: tangkapan layar atau gambar yang disalin langsung dilampirkan seperti foto dari galeri. Teks biasa tetap ditempel seperti biasa.
 - **Halaman offline**: membuka aplikasi tanpa internet kini menampilkan "Kamu sedang offline" (bukan halaman dinosaurus browser), dan halaman tadi terbuka sendiri begitu sinyal kembali.
