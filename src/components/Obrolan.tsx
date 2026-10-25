@@ -781,7 +781,7 @@ export default function LembarCatat({
     <>
       <dialog
         ref={dialogRef}
-        className={`${s.dialog} ${besar ? s.dialogBesar : ""}`}
+        className={`${s.dialog} ${s.dialogCatat} ${besar ? s.dialogBesar : ""}`}
         aria-label={judul}
         onClick={(e) => e.target === e.currentTarget && !sibuk && onClose()}
       >
@@ -945,6 +945,14 @@ export default function LembarCatat({
                     e.preventDefault();
                     kirim();
                   }
+                }}
+                // Ctrl+V gambar (tangkapan layar, gambar yang disalin) =
+                // dilampirkan seperti foto dari galeri; teks biasa tetap ditempel.
+                onPaste={(e) => {
+                  const gambar = [...e.clipboardData.files].find((f) => f.type.startsWith("image/"));
+                  if (!gambar) return;
+                  e.preventDefault();
+                  lampirkan(gambar);
                 }}
                 inputMode={modeNominal ? "numeric" : "text"}
                 placeholder={

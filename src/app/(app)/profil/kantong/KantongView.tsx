@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Banknote, CalendarDays, Plus, Smile, Wallet } from "lucide-react";
-import { AppBar, Field, InputNominal, Konfirmasi, Kosong, Lembar, Pesan, Spinner } from "@/components/oneui";
+import { AppBar, Field, GalatForm, InputNominal, Konfirmasi, Kosong, Lembar, Pesan, Spinner, useGalat } from "@/components/oneui";
 import s from "@/components/ui.module.css";
 import { dbErrorMessage } from "@/lib/errors";
 import { fmtIDR, isianNominal, isoLokal } from "@/lib/format";
@@ -43,11 +43,11 @@ export default function KantongView({ userId, daftar }: { userId: string; daftar
   const [edit, setEdit] = useState<{ id: string | null; bawaan: boolean; isian: Isian } | null>(null);
   const [yakinHapus, setYakinHapus] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { galat, gagal, bersihkan } = useGalat(edit?.isian);
   const total = daftar.reduce((t, k) => t + k.saldo, 0);
 
   function buka(k?: Kantong) {
-    setError(null);
+    bersihkan();
     setYakinHapus(false);
     setEdit({
       id: k?.id ?? null,
@@ -67,9 +67,9 @@ export default function KantongView({ userId, daftar }: { userId: string; daftar
   async function simpan(e?: FormEvent) {
     e?.preventDefault();
     if (!edit) return;
-    setError(null);
+    bersihkan();
     const cek = validasiKantong({ ...edit.isian });
-    if (!cek.ok) return setError(cek.error);
+    if (!cek.ok) return gagal(cek.error, cek.kolom);
 
     // Saldo berlaku sejak (SPEC-saldo-waktu): diisi hari ini → jam sekarang;
     // tanggal lain → awal hari itu. Tidak diubah kalau tanggal & nominalnya tetap.
@@ -88,7 +88,7 @@ export default function KantongView({ userId, daftar }: { userId: string; daftar
       : await tabel.insert({ ...data, user_id: userId });
     setLoading(false);
 
-    if (err) return setError(dbErrorMessage(err, `Kantong "${cek.data.name}"`));
+    if (err) return gagal(dbErrorMessage(err, `Kantong "${cek.data.name}"`));
     setEdit(null);
     router.refresh();
   }
@@ -99,7 +99,7 @@ export default function KantongView({ userId, daftar }: { userId: string; daftar
     const { error: err } = await createSupabaseBrowserClient().from("user_accounts").delete().eq("id", edit.id);
     setLoading(false);
 
-    if (err) return setError(dbErrorMessage(err));
+    if (err) return gagal(dbErrorMessage(err));
     setEdit(null);
     router.refresh();
   }
@@ -151,9 +151,10 @@ export default function KantongView({ userId, daftar }: { userId: string; daftar
         <Lembar
           judul={edit.id ? "Ubah kantong" : "Tambah kantong"}
           posisi="penuh"
+          isian={edit.isian}
           onClose={tutup}
           pil={[
-            { label: "Batal", onClick: tutup, disabled: loading },
+            { label: "Batal", batal: true, disabled: loading },
             { label: loading ? <Spinner /> : "Simpan", onClick: () => void simpan(), disabled: loading },
           ]}
         >
@@ -163,60 +164,63 @@ export default function KantongView({ userId, daftar }: { userId: string; daftar
               <strong>{edit.isian.name.trim() || "Nama kantong"}</strong>
             </div>
 
-            <div className={`${s.blok} ${s.blokForm}`}>
-              <Field label="Nama" ikon={Wallet}>
-                <input
-                  required
-                  maxLength={40}
-                  value={edit.isian.name}
-                  onChange={(e) => ubah({ name: e.target.value })}
-                  placeholder="Nama"
-                />
-              </Field>
-              <Field label="Emoji" ikon={Smile} keterangan="Pilih di bawah, atau ketik emoji lain dari keyboard.">
-                <input
-                  value={edit.isian.emoji}
-                  // Yang tersimpan cukup satu emoji: ambil yang terakhir diketik.
-                  onChange={(e) => {
-                    const emoji = ambilEmoji(e.target.value);
-                    if (emoji) ubah({ emoji });
-                  }}
-                  placeholder="Emoji"
-                  aria-label="Emoji kantong"
-                />
-              </Field>
-              <div className={s.gridEmoji} role="radiogroup" aria-label="Pilihan emoji">
-                {SARAN_EMOJI_KANTONG.map((emoji) => (
-                  <button
-                    key={emoji}
-                    type="button"
-                    role="radio"
-                    aria-checked={edit.isian.emoji === emoji}
-                    aria-label={emoji}
-                    onClick={() => ubah({ emoji })}
-                  >
-                    {emoji}
-                  </button>
-                ))}
+            <GalatForm value={galat}>
+              <div className={`${s.blok} ${s.blokForm}`}>
+                <Field label="Nama" ikon={Wallet} kolom="name">
+                  <input
+                    required
+                    maxLength={40}
+                    value={edit.isian.name}
+                    onChange={(e) => ubah({ name: e.target.value })}
+                    placeholder="Nama"
+                  />
+                </Field>
+                <Field label="Emoji" ikon={Smile} keterangan="Pilih di bawah, atau ketik emoji lain dari keyboard." kolom="emoji">
+                  <input
+                    value={edit.isian.emoji}
+                    // Yang tersimpan cukup satu emoji: ambil yang terakhir diketik.
+                    onChange={(e) => {
+                      const emoji = ambilEmoji(e.target.value);
+                      if (emoji) ubah({ emoji });
+                    }}
+                    placeholder="Emoji"
+                    aria-label="Emoji kantong"
+                  />
+                </Field>
+                <div className={s.gridEmoji} role="radiogroup" aria-label="Pilihan emoji">
+                  {SARAN_EMOJI_KANTONG.map((emoji) => (
+                    <button
+                      key={emoji}
+                      type="button"
+                      role="radio"
+                      aria-checked={edit.isian.emoji === emoji}
+                      aria-label={emoji}
+                      onClick={() => ubah({ emoji })}
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+                <Field label="Saldo awal (Rp)" ikon={Banknote} kolom="saldo_awal">
+                  <InputNominal
+                    bolehMinus
+                    value={edit.isian.saldo_awal}
+                    onChange={(saldo_awal) => ubah({ saldo_awal })}
+                    placeholder="Saldo awal (Rp)"
+                  />
+                </Field>
+                <Field
+                  label="Saldo per tanggal"
+                  ikon={CalendarDays}
+                  kolom="saldo_per"
+                  keterangan={keteranganSaldo(edit.isian.saldo_per, edit.id ? daftar.find((k) => k.id === edit.id) : undefined)}
+                >
+                  <input type="date" required value={edit.isian.saldo_per} onChange={(e) => ubah({ saldo_per: e.target.value })} />
+                </Field>
               </div>
-              <Field label="Saldo awal (Rp)" ikon={Banknote}>
-                <InputNominal
-                  bolehMinus
-                  value={edit.isian.saldo_awal}
-                  onChange={(saldo_awal) => ubah({ saldo_awal })}
-                  placeholder="Saldo awal (Rp)"
-                />
-              </Field>
-              <Field
-                label="Saldo per tanggal"
-                ikon={CalendarDays}
-                keterangan={keteranganSaldo(edit.isian.saldo_per, edit.id ? daftar.find((k) => k.id === edit.id) : undefined)}
-              >
-                <input type="date" required value={edit.isian.saldo_per} onChange={(e) => ubah({ saldo_per: e.target.value })} />
-              </Field>
-            </div>
+            </GalatForm>
 
-            {error && <Pesan jenis="bahaya">{error}</Pesan>}
+            {galat && !galat.kolom && <Pesan jenis="bahaya">{galat.pesan}</Pesan>}
 
             {edit.bawaan ? (
               <p className={s.redup} style={{ margin: "0 20px" }}>
@@ -239,7 +243,7 @@ export default function KantongView({ userId, daftar }: { userId: string; daftar
               tanya={`Hapus kantong “${edit.isian.name}”?`}
               ya="Hapus"
               loading={loading}
-              error={error}
+              error={galat?.pesan}
               onBatal={() => setYakinHapus(false)}
               onYa={() => void hapus()}
             >

@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowDownLeft, ArrowUpRight, Banknote, CalendarClock, CalendarDays, CreditCard, HandCoins, History, Wallet } from "lucide-react";
-import { AppBar, Field, InputNominal, Kosong, Lembar, Pesan, Spinner } from "@/components/oneui";
+import { AppBar, Field, InputNominal, Kosong, Lembar, Pesan, Spinner, useGalat } from "@/components/oneui";
 import s from "@/components/ui.module.css";
 import { dbErrorMessage } from "@/lib/errors";
 import { fmtIDR, fmtTanggalPendek, isoLokal } from "@/lib/format";
@@ -214,18 +214,18 @@ function FormKartu({ userId, onClose }: { userId: string; onClose: () => void })
   const [tagihan, setTagihan] = useState("");
   const [per, setPer] = useState(isoLokal(new Date()));
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { galat, gagal, bersihkan } = useGalat({ nama });
 
   async function simpan(e?: FormEvent) {
     e?.preventDefault();
     const n = nama.trim().replace(/\s+/g, " ");
-    if (!n) return setError("Namanya diisi dulu.");
+    if (!n) return gagal("Namanya diisi dulu.", "nama");
     setLoading(true);
     const { error: err } = await createSupabaseBrowserClient()
       .from("user_accounts")
       .insert({ user_id: userId, name: n, kind: "kredit", emoji: EMOJI_KREDIT, saldo_awal: -Number(tagihan || 0), saldo_per: per });
     setLoading(false);
-    if (err) return setError(dbErrorMessage(err, `Kantong "${n}"`));
+    if (err) return gagal(dbErrorMessage(err, `Kantong "${n}"`));
     onClose();
     router.refresh();
   }
@@ -234,15 +234,16 @@ function FormKartu({ userId, onClose }: { userId: string; onClose: () => void })
     <Lembar
       judul="Tambah kartu kredit"
       posisi="penuh"
+      isian={[nama, tagihan, per]}
       onClose={() => !loading && onClose()}
       pil={[
-        { label: "Batal", onClick: onClose, disabled: loading },
+        { label: "Batal", batal: true, disabled: loading },
         { label: loading ? <Spinner /> : "Simpan", onClick: () => void simpan(), disabled: loading },
       ]}
     >
       <form onSubmit={simpan} className={s.form}>
         <div className={`${s.blok} ${s.blokForm}`}>
-          <Field label="Nama" ikon={Wallet}>
+          <Field label="Nama" ikon={Wallet} galat={galat?.kolom === "nama" ? galat.pesan : null} kolom="nama">
             <input required maxLength={40} value={nama} onChange={(e) => setNama(e.target.value)} placeholder="Nama" />
           </Field>
           <Field label="Tagihan sekarang (Rp)" ikon={Banknote} keterangan="Kosongkan kalau belum ada tagihan.">
@@ -255,7 +256,7 @@ function FormKartu({ userId, onClose }: { userId: string; onClose: () => void })
         <p className={s.redup} style={{ margin: "0 20px" }}>
           Belanja pakai kartu dicatat seperti biasa dengan kantong kartu ini; bayar tagihan lewat Lend & Borrow.
         </p>
-        {error && <Pesan jenis="bahaya">{error}</Pesan>}
+        {galat && !galat.kolom && <Pesan jenis="bahaya">{galat.pesan}</Pesan>}
         <button type="submit" hidden />
       </form>
     </Lembar>

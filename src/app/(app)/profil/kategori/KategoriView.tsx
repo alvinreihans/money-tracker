@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Check, Plus, Tag } from "lucide-react";
 import { useKategori } from "@/components/Catat";
 import { IKON_KATEGORI, NAMA_IKON, tandaKategori } from "@/components/kategori";
-import { AppBar, Field, Konfirmasi, Lembar, Pesan, Spinner } from "@/components/oneui";
+import { AppBar, Field, Konfirmasi, Lembar, Pesan, Spinner, useGalat } from "@/components/oneui";
 import s from "@/components/ui.module.css";
 import { dbErrorMessage } from "@/lib/errors";
 import {
@@ -44,10 +44,10 @@ export default function KategoriView() {
   // Jumlah transaksi yang akan pindah; null = belum minta konfirmasi hapus.
   const [akanPindah, setAkanPindah] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { galat, gagal, bersihkan } = useGalat(edit);
 
   function buka(type: JenisKategori, k?: Kategori) {
-    setError(null);
+    bersihkan();
     setAkanPindah(null);
     setEdit(
       k
@@ -65,10 +65,10 @@ export default function KategoriView() {
   async function simpan(e?: FormEvent) {
     e?.preventDefault();
     if (!edit) return;
-    setError(null);
+    bersihkan();
     const lain = kategoriJenis(kategori, edit.type).filter((k) => k.slug !== edit.slug);
     const cek = validasiKategori({ ...edit }, lain);
-    if (!cek.ok) return setError(cek.error);
+    if (!cek.ok) return gagal(cek.error, cek.kolom);
 
     setLoading(true);
     const tabel = createSupabaseBrowserClient().from("categories");
@@ -78,7 +78,7 @@ export default function KategoriView() {
       : await tabel.insert({ ...cek.data, type: edit.type, slug: slugBaru(), sort: urutan });
     setLoading(false);
 
-    if (err) return setError(dbErrorMessage(err, `Kategori "${cek.data.name}"`));
+    if (err) return gagal(dbErrorMessage(err, `Kategori "${cek.data.name}"`));
     setEdit(null);
     router.refresh();
   }
@@ -86,7 +86,7 @@ export default function KategoriView() {
   // Langkah 1: hitung dulu berapa transaksi yang akan pindah ke Lainnya.
   async function mintaHapus() {
     if (!edit) return;
-    setError(null);
+    bersihkan();
     setLoading(true);
     const { count, error: err } = await createSupabaseBrowserClient()
       .from("transactions")
@@ -94,7 +94,7 @@ export default function KategoriView() {
       .eq("type", edit.type)
       .eq("category", edit.slug);
     setLoading(false);
-    if (err) return setError("Gagal cek transaksi di kategori ini. Coba lagi.");
+    if (err) return gagal("Gagal cek transaksi di kategori ini. Coba lagi.");
     setAkanPindah(count ?? 0);
   }
 
@@ -104,7 +104,7 @@ export default function KategoriView() {
     setLoading(true);
     const { error: err } = await createSupabaseBrowserClient().rpc("hapus_kategori", { p_id: edit.id });
     setLoading(false);
-    if (err) return setError(dbErrorMessage(err));
+    if (err) return gagal(dbErrorMessage(err));
     setEdit(null);
     router.refresh();
   }
@@ -153,9 +153,10 @@ export default function KategoriView() {
         <Lembar
           judul={edit.id ? "Ubah kategori" : `Kategori ${JUDUL[edit.type].toLowerCase()} baru`}
           posisi="penuh"
+          isian={edit}
           onClose={tutup}
           pil={[
-            { label: "Batal", onClick: tutup, disabled: loading },
+            { label: "Batal", batal: true, disabled: loading },
             { label: loading ? <Spinner /> : "Simpan", onClick: () => void simpan(), disabled: loading },
           ]}
         >
@@ -168,7 +169,7 @@ export default function KategoriView() {
             </div>
 
             <div className={`${s.blok} ${s.blokForm}`}>
-              <Field label="Nama" ikon={Tag}>
+              <Field label="Nama" ikon={Tag} galat={galat?.kolom === "name" ? galat.pesan : null} kolom="name">
                 <input required maxLength={30} value={edit.name} onChange={(e) => ubah({ name: e.target.value })} placeholder="Nama" />
               </Field>
             </div>
@@ -215,7 +216,7 @@ export default function KategoriView() {
               </div>
             </div>
 
-            {error && <Pesan jenis="bahaya">{error}</Pesan>}
+            {galat && galat.kolom !== "name" && <Pesan jenis="bahaya">{galat.pesan}</Pesan>}
 
             {edit.id &&
               (edit.slug === LAINNYA ? (
@@ -236,7 +237,7 @@ export default function KategoriView() {
               tanya={`Hapus kategori “${edit.name}”?`}
               ya="Hapus"
               loading={loading}
-              error={error}
+              error={galat?.pesan}
               onBatal={() => setAkanPindah(null)}
               onYa={() => void hapus()}
             >

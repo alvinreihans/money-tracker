@@ -139,7 +139,7 @@ export default function LoginPage() {
                 onChange={setPassword}
                 autoComplete="current-password"
                 caption={
-                  <button type="button" style={{ ...tautan, alignSelf: "flex-end", padding: "4px" }} onClick={() => pindahMode("lupa")}>
+                  <button type="button" className={s.areaSentuh} style={{ ...tautan, alignSelf: "flex-end", padding: "4px" }} onClick={() => pindahMode("lupa")}>
                     Lupa password?
                   </button>
                 }

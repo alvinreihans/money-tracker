@@ -6,7 +6,7 @@ import { alamatInternal } from "@/lib/format";
  * Bisa dibuka tanpa masuk. API menjawab 401 sendiri (bukan dialihkan ke
  * halaman masuk), /auth/callback dan /reset-password dipakai tautan email.
  */
-const PUBLIK = ["/login", "/reset-password", "/manifest.webmanifest", "/sw.js"];
+const PUBLIK = ["/login", "/reset-password", "/manifest.webmanifest", "/sw.js", "/offline.html"];
 const PUBLIK_AWALAN = ["/auth/", "/api/"];
 
 /**

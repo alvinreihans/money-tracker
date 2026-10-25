@@ -4,7 +4,7 @@ import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useKategori } from "@/components/Catat";
 import { tandaKategori } from "@/components/kategori";
-import { AppBar, Field, InputNominal, Pesan, Spinner } from "@/components/oneui";
+import { AppBar, Field, GalatForm, InputNominal, Pesan, Spinner, useGalat } from "@/components/oneui";
 import s from "@/components/ui.module.css";
 import { dbErrorMessage } from "@/lib/errors";
 import { fmtIDR, isianNominal } from "@/lib/format";
@@ -34,13 +34,15 @@ export default function BudgetView({
   );
   const [loading, setLoading] = useState(false);
   const [pesan, setPesan] = useState<{ jenis: "sukses" | "bahaya"; teks: string } | null>(null);
+  const { galat, gagal, bersihkan } = useGalat(isian);
   const total = Object.values(isian).reduce((t, v) => t + (Number(v) > 0 ? Number(v) : 0), 0);
 
   async function simpan(e: FormEvent) {
     e.preventDefault();
     setPesan(null);
+    bersihkan();
     const cek = rapikanBudget(isian, kategori);
-    if (!cek.ok) return setPesan({ jenis: "bahaya", teks: cek.error });
+    if (!cek.ok) return gagal(cek.error, cek.kolom);
 
     setLoading(true);
     const db = createSupabaseBrowserClient();
@@ -67,19 +69,23 @@ export default function BudgetView({
           Berlaku sama tiap bulan. Kosongkan kalau kategori itu nggak perlu dibatasi.
         </p>
 
-        <div className={`${s.blok} ${s.blokForm}`}>
-          {keluar.map(({ slug: k, name: label, ...gaya }) => (
-            <Field
-              key={k}
-              label={label}
-              ikon={tandaKategori(gaya).ikon}
-              keterangan={rerata[k] ? `Rerata ${fmtIDR(rerata[k])}/bulan, 3 bulan terakhir` : undefined}
-            >
-              <InputNominal value={isian[k] ?? ""} onChange={(n) => setIsian((v) => ({ ...v, [k]: n }))} placeholder={label} />
-            </Field>
-          ))}
-        </div>
+        <GalatForm value={galat}>
+          <div className={`${s.blok} ${s.blokForm}`}>
+            {keluar.map(({ slug: k, name: label, ...gaya }) => (
+              <Field
+                key={k}
+                kolom={k}
+                label={label}
+                ikon={tandaKategori(gaya).ikon}
+                keterangan={rerata[k] ? `Rerata ${fmtIDR(rerata[k])}/bulan, 3 bulan terakhir` : undefined}
+              >
+                <InputNominal value={isian[k] ?? ""} onChange={(n) => setIsian((v) => ({ ...v, [k]: n }))} placeholder={label} />
+              </Field>
+            ))}
+          </div>
+        </GalatForm>
 
+        {galat && !galat.kolom && <Pesan jenis="bahaya">{galat.pesan}</Pesan>}
         {pesan && <Pesan jenis={pesan.jenis}>{pesan.teks}</Pesan>}
 
         <button type="submit" className={s.tombol} disabled={loading}>

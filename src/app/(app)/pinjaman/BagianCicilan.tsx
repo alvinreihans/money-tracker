@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Banknote, CalendarClock, CalendarDays, Check, ListChecks, NotebookPen, Package, Shapes, Store, Trash2, Wallet } from "lucide-react";
 import { useKategori } from "@/components/Catat";
 import { tandaKategori } from "@/components/kategori";
-import { Field, InputNominal, Konfirmasi, Lembar, Pesan, Pilih, Segmen, Spinner } from "@/components/oneui";
+import { Field, GalatForm, InputNominal, Konfirmasi, Lembar, Pesan, Pilih, Segmen, Spinner, useGalat } from "@/components/oneui";
 import s from "@/components/ui.module.css";
 import { dbErrorMessage } from "@/lib/errors";
 import { fmtIDR, fmtTanggal, fmtTanggalPendek, isianNominal, isoLokal } from "@/lib/format";
@@ -215,13 +215,13 @@ function FormBayar({
   const [kantongId, setKantongId] = useState(rencana.kantong_id ?? pembayar.find((k) => k.bawaan)?.id ?? "");
   const [tanggal, setTanggal] = useState(isoLokal(new Date()));
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { galat, gagal, bersihkan } = useGalat({ kantong: kantongId });
 
   async function simpan(e?: FormEvent) {
     e?.preventDefault();
-    if (!kantongId) return setError("Pilih kantongnya dulu.");
+    if (!kantongId) return gagal("Pilih kantongnya dulu.", "kantong");
     setLoading(true);
-    setError(null);
+    bersihkan();
     // Kategori rencana bisa sudah dihapus: jatuh ke Lainnya.
     const category = kategoriJenis(kategori, "expense").some((k) => k.slug === rencana.category) ? rencana.category : LAINNYA;
     const bagian = bagiRata(Number(nominal), dipilih.length);
@@ -247,7 +247,7 @@ function FormBayar({
       if (!res?.ok) {
         setLoading(false);
         if (i > 0) router.refresh();
-        return setError(`${i > 0 ? `Cicilan ke-${a.ke} gagal disimpan (yang sebelumnya sudah). ` : ""}${hasil?.error ?? "Gagal nyimpen."}`);
+        return gagal(`${i > 0 ? `Cicilan ke-${a.ke} gagal disimpan (yang sebelumnya sudah). ` : ""}${hasil?.error ?? "Gagal nyimpen."}`);
       }
     }
     onClose();
@@ -259,9 +259,10 @@ function FormBayar({
       judul={jumlah > 1 ? `Bayar cicilan ke-${ke.ke}–${dipilih[jumlah - 1].ke}` : `Bayar cicilan ke-${ke.ke}`}
       sub={jumlah > 1 ? `${rencana.nama} · ${jumlah} cicilan sekaligus` : `${rencana.nama} · jatuh tempo ${fmtTanggal(ke.jatuhTempo)}`}
       posisi="penuh"
+      isian={[jumlah, nominal, kantongId, tanggal]}
       onClose={() => !loading && onClose()}
       pil={[
-        { label: "Batal", onClick: onClose, disabled: loading },
+        { label: "Batal", batal: true, disabled: loading },
         { label: loading ? <Spinner /> : "Bayar", onClick: () => void simpan(), disabled: loading },
       ]}
     >
@@ -277,28 +278,31 @@ function FormBayar({
             }}
           />
         )}
-        <div className={`${s.blok} ${s.blokForm}`}>
-          <Field label="Nominal (Rp)" ikon={Banknote} keterangan={jumlah > 1 ? "Ubah kalau pelunasannya lebih murah atau lebih mahal." : undefined}>
-            <InputNominal required value={nominal} onChange={setNominal} placeholder="Nominal (Rp)" />
-          </Field>
-          <Pilih
-            label="Bayar pakai"
-            ikon={Wallet}
-            nilai={kantongId}
-            kosong="Pilih kantong"
-            pilihan={pembayar.map((k) => ({ id: k.id, label: k.name, emoji: emojiKantong(k) }))}
-            onChange={setKantongId}
-          />
-          <Field label="Tanggal bayar" ikon={CalendarDays}>
-            <input type="date" required value={tanggal} onChange={(e) => setTanggal(e.target.value)} />
-          </Field>
-        </div>
+        <GalatForm value={galat}>
+          <div className={`${s.blok} ${s.blokForm}`}>
+            <Field label="Nominal (Rp)" ikon={Banknote} keterangan={jumlah > 1 ? "Ubah kalau pelunasannya lebih murah atau lebih mahal." : undefined}>
+              <InputNominal required value={nominal} onChange={setNominal} placeholder="Nominal (Rp)" />
+            </Field>
+            <Pilih
+              label="Bayar pakai"
+              ikon={Wallet}
+              kolom="kantong"
+              nilai={kantongId}
+              kosong="Pilih kantong"
+              pilihan={pembayar.map((k) => ({ id: k.id, label: k.name, emoji: emojiKantong(k) }))}
+              onChange={setKantongId}
+            />
+            <Field label="Tanggal bayar" ikon={CalendarDays}>
+              <input type="date" required value={tanggal} onChange={(e) => setTanggal(e.target.value)} />
+            </Field>
+          </div>
+        </GalatForm>
         <p className={s.redup} style={{ margin: "0 20px" }}>
           {jumlah > 1
             ? `Dicatat sebagai ${jumlah} pengeluaran ${rencana.nama}, satu per cicilan.`
             : `Dicatat sebagai pengeluaran ${rencana.nama} bulan ini.`}
         </p>
-        {error && <Pesan jenis="bahaya">{error}</Pesan>}
+        {galat && !galat.kolom && <Pesan jenis="bahaya">{galat.pesan}</Pesan>}
         <button type="submit" hidden />
       </form>
     </Lembar>
@@ -321,18 +325,18 @@ function FormRencana({ userId, pembayar, onClose }: { userId: string; pembayar: 
     catatan: "",
   });
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { galat, gagal, bersihkan } = useGalat(isian);
   const ubah = (p: Partial<typeof isian>) => setIsian((v) => ({ ...v, ...p }));
   const tenor = Number(isian.tenor);
   const kartu = pembayar.filter((k) => k.kind === "kredit").map((k) => k.name);
 
   async function simpan(e?: FormEvent) {
     e?.preventDefault();
-    setError(null);
+    bersihkan();
     const nama = isian.nama.trim();
-    if (!nama) return setError("Nama barangnya diisi dulu.");
-    if (!(Number(isian.nominal) > 0)) return setError("Nominal per bulannya harus lebih dari nol.");
-    if (!(Number.isInteger(tenor) && tenor >= 1 && tenor <= 120)) return setError("Tenornya 1–120 bulan.");
+    if (!nama) return gagal("Nama barangnya diisi dulu.", "nama");
+    if (!(Number(isian.nominal) > 0)) return gagal("Nominal per bulannya harus lebih dari nol.", "nominal");
+    if (!(Number.isInteger(tenor) && tenor >= 1 && tenor <= 120)) return gagal("Tenornya 1–120 bulan.", "tenor");
     setLoading(true);
     const { error: err } = await createSupabaseBrowserClient()
       .from("cicilan")
@@ -348,7 +352,7 @@ function FormRencana({ userId, pembayar, onClose }: { userId: string; pembayar: 
         catatan: isian.catatan.trim() || null,
       });
     setLoading(false);
-    if (err) return setError(dbErrorMessage(err));
+    if (err) return gagal(dbErrorMessage(err));
     onClose();
     router.refresh();
   }
@@ -357,68 +361,71 @@ function FormRencana({ userId, pembayar, onClose }: { userId: string; pembayar: 
     <Lembar
       judul="Cicilan baru"
       posisi="penuh"
+      isian={isian}
       onClose={() => !loading && onClose()}
       pil={[
-        { label: "Batal", onClick: onClose, disabled: loading },
+        { label: "Batal", batal: true, disabled: loading },
         { label: loading ? <Spinner /> : "Simpan", onClick: () => void simpan(), disabled: loading },
       ]}
     >
       <form onSubmit={simpan} className={s.form}>
-        <div className={`${s.blok} ${s.blokForm}`}>
-          <Field label="Nama barang" ikon={Package}>
-            <input required maxLength={60} value={isian.nama} onChange={(e) => ubah({ nama: e.target.value })} placeholder="Nama barang" />
-          </Field>
-          <Field label="Penyedia" ikon={Store}>
-            <input maxLength={60} value={isian.penyedia} onChange={(e) => ubah({ penyedia: e.target.value })} placeholder="Penyedia" />
-          </Field>
-          <div className={s.chipsBungkus} style={{ padding: "0 20px 8px 60px" }}>
-            {[...SARAN_PENYEDIA, ...kartu].map((p) => (
-              <button key={p} type="button" className={`${s.chip} ${s.tekan}`} aria-pressed={isian.penyedia === p} onClick={() => ubah({ penyedia: p })}>
-                {p}
-              </button>
-            ))}
-          </div>
-          <Pilih
-            label="Kategori"
-            ikon={Shapes}
-            nilai={isian.category}
-            pilihan={keluar.map((k) => ({ id: k.slug, label: k.name, ...tandaKategori(k) }))}
-            onChange={(category) => ubah({ category })}
-          />
-        </div>
-
-        <div className={`${s.blok} ${s.blokForm}`}>
-          <Field label="Cicilan per bulan (Rp)" ikon={Banknote} keterangan="Yang ditagihkan tiap bulan, sudah termasuk bunga/biaya.">
-            <InputNominal required value={isian.nominal} onChange={(nominal) => ubah({ nominal })} placeholder="Cicilan per bulan (Rp)" />
-          </Field>
-          <Field label="Tenor (bulan)" ikon={ListChecks} keterangan={tenor > 0 && Number(isian.nominal) > 0 ? `Total ${fmtIDR(tenor * Number(isian.nominal))}` : undefined}>
-            <input
-              inputMode="numeric"
-              value={isian.tenor}
-              onChange={(e) => ubah({ tenor: e.target.value.replace(/\D/g, "").slice(0, 3) })}
-              placeholder="Tenor (bulan)"
+        <GalatForm value={galat}>
+          <div className={`${s.blok} ${s.blokForm}`}>
+            <Field label="Nama barang" ikon={Package} kolom="nama">
+              <input required maxLength={60} value={isian.nama} onChange={(e) => ubah({ nama: e.target.value })} placeholder="Nama barang" />
+            </Field>
+            <Field label="Penyedia" ikon={Store}>
+              <input maxLength={60} value={isian.penyedia} onChange={(e) => ubah({ penyedia: e.target.value })} placeholder="Penyedia" />
+            </Field>
+            <div className={s.chipsBungkus} style={{ padding: "0 20px 8px 60px" }}>
+              {[...SARAN_PENYEDIA, ...kartu].map((p) => (
+                <button key={p} type="button" className={`${s.chip} ${s.tekan}`} aria-pressed={isian.penyedia === p} onClick={() => ubah({ penyedia: p })}>
+                  {p}
+                </button>
+              ))}
+            </div>
+            <Pilih
+              label="Kategori"
+              ikon={Shapes}
+              nilai={isian.category}
+              pilihan={keluar.map((k) => ({ id: k.slug, label: k.name, ...tandaKategori(k) }))}
+              onChange={(category) => ubah({ category })}
             />
-          </Field>
-          <Field label="Jatuh tempo pertama" ikon={CalendarClock} keterangan="Bulan berikutnya di tanggal yang sama.">
-            <input type="date" required value={isian.jatuh_tempo_awal} onChange={(e) => ubah({ jatuh_tempo_awal: e.target.value })} />
-          </Field>
-          <Pilih
-            label="Biasanya dibayar pakai"
-            ikon={Wallet}
-            nilai={isian.kantong_id}
-            kosong="Pilih kantong"
-            pilihan={pembayar.map((k) => ({ id: k.id, label: k.name, emoji: emojiKantong(k) }))}
-            onChange={(kantong_id) => ubah({ kantong_id })}
-          />
-          <Field label="Catatan" ikon={NotebookPen}>
-            <textarea rows={1} value={isian.catatan} onChange={(e) => ubah({ catatan: e.target.value })} placeholder="Catatan" />
-          </Field>
-        </div>
+          </div>
+
+          <div className={`${s.blok} ${s.blokForm}`}>
+            <Field label="Cicilan per bulan (Rp)" ikon={Banknote} kolom="nominal" keterangan="Yang ditagihkan tiap bulan, sudah termasuk bunga/biaya.">
+              <InputNominal required value={isian.nominal} onChange={(nominal) => ubah({ nominal })} placeholder="Cicilan per bulan (Rp)" />
+            </Field>
+            <Field label="Tenor (bulan)" ikon={ListChecks} kolom="tenor" keterangan={tenor > 0 && Number(isian.nominal) > 0 ? `Total ${fmtIDR(tenor * Number(isian.nominal))}` : undefined}>
+              <input
+                inputMode="numeric"
+                value={isian.tenor}
+                onChange={(e) => ubah({ tenor: e.target.value.replace(/\D/g, "").slice(0, 3) })}
+                placeholder="Tenor (bulan)"
+              />
+            </Field>
+            <Field label="Jatuh tempo pertama" ikon={CalendarClock} keterangan="Bulan berikutnya di tanggal yang sama.">
+              <input type="date" required value={isian.jatuh_tempo_awal} onChange={(e) => ubah({ jatuh_tempo_awal: e.target.value })} />
+            </Field>
+            <Pilih
+              label="Biasanya dibayar pakai"
+              ikon={Wallet}
+              nilai={isian.kantong_id}
+              kosong="Pilih kantong"
+              pilihan={pembayar.map((k) => ({ id: k.id, label: k.name, emoji: emojiKantong(k) }))}
+              onChange={(kantong_id) => ubah({ kantong_id })}
+            />
+            <Field label="Catatan" ikon={NotebookPen}>
+              <textarea rows={1} value={isian.catatan} onChange={(e) => ubah({ catatan: e.target.value })} placeholder="Catatan" />
+            </Field>
+          </div>
+        </GalatForm>
 
         <p className={s.redup} style={{ margin: "0 20px" }}>
           Belanjanya tidak dicatat sekarang. Tiap cicilan yang dibayar masuk sebagai pengeluaran di bulan itu.
         </p>
-        {error && <Pesan jenis="bahaya">{error}</Pesan>}
+        {galat && !galat.kolom && <Pesan jenis="bahaya">{galat.pesan}</Pesan>}
         <button type="submit" hidden />
       </form>
     </Lembar>

@@ -1,4 +1,5 @@
 import { ambilUser, createSupabaseServerClient } from "@/lib/supabase/server";
+import { PanelDetail } from "@/components/oneui";
 import s from "@/components/ui.module.css";
 import ProfilView from "./ProfilView";
 
@@ -23,9 +24,7 @@ export default async function ProfilLayout({ children }: { children: React.React
       <div className={s.panelDaftar}>
         <ProfilView email={user?.email ?? null} jumlahKantong={jumlahKantong ?? 0} jumlahBudget={jumlahBudget ?? 0} />
       </div>
-      <div className={s.panelDetail} data-kosong="Pilih pengaturan di sebelah kiri.">
-        {children}
-      </div>
+      <PanelDetail kosong="Pilih pengaturan di sebelah kiri.">{children}</PanelDetail>
     </div>
   );
 }

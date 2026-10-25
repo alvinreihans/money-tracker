@@ -20,6 +20,30 @@ Belum dikerjakan; dicatat supaya tidak lupa.
 
 ## [Unreleased]
 
+## [2.3.1] — 2026-10-25
+
+### Diubah
+- **Pesan salah di form tampil di bawah isian yang salah**, bukan satu pesan di bawah form. Isian itu langsung difokus (dan digulir ke sana), garisnya merah, dan pesannya hilang begitu isiannya dibetulkan. Berlaku di Catat manual, Edit transaksi, Kantong, Kategori, Budget, pinjaman, kartu kredit, cicilan, dan password baru. Galat jaringan/server tetap di bawah form.
+- Keterangan di bawah isian (mis. daftar syarat password) tetap tampil saat ada pesan salah, karena sering justru menjelaskan cara membetulkannya.
+- Pembaca layar: pesan salah & keterangan kini dibacakan sebagai keterangan isian (`aria-describedby`, `aria-invalid`), bukan ikut menjadi nama isian.
+
+## [2.3.0] — 2026-10-25
+
+### Ditambahkan
+- **Tempel gambar** (Ctrl+V) di kolom Catat: tangkapan layar atau gambar yang disalin langsung dilampirkan seperti foto dari galeri. Teks biasa tetap ditempel seperti biasa.
+- **Halaman offline**: membuka aplikasi tanpa internet kini menampilkan "Kamu sedang offline" (bukan halaman dinosaurus browser), dan halaman tadi terbuka sendiri begitu sinyal kembali.
+- **"Buang perubahan?"**: menutup form yang sudah diisi (lewat Batal, kembali, Esc, atau ketuk di luar) bertanya dulu. Berlaku di form Catat manual, Edit transaksi, Kantong, Kategori, pinjaman, kartu kredit, dan cicilan. Form yang belum diubah tetap langsung tertutup.
+
+### Diubah
+- Di layar lebar, lembar **Catat** lebih lebar (640px, sama dengan pop-up besar lain).
+- Margin samping isi 24px mulai layar 600px (panduan One UI: minimal 24dp). Di HP tetap 16px.
+
+### Diperbaiki
+- **Aksesibilitas** (dari review UI/UX Pro Max):
+  - Di dua panel, judul panel detail kini h2, jadi tiap halaman punya satu judul utama untuk pembaca layar.
+  - Elemen yang difokus dengan Tab tidak lagi tertutup baris aksi yang menempel atau navigasi bawah.
+  - Chip filter, chip saran, dan pegangan lembar Catat punya area sentuh 48dp tanpa mengubah tampilannya. Begitu juga tombol kirim Tanya AI, pilihan emoji & warna, dan "Lupa password?".
+
 ## [2.2.0] — 2026-10-25
 
 ### Ditambahkan

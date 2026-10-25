@@ -42,7 +42,7 @@ export interface TransaksiValid {
 
 export type HasilValidasi =
   | { ok: true; data: TransaksiValid }
-  | { ok: false; error: string };
+  | { ok: false; error: string; kolom?: string };
 
 function teksOpsional(v: unknown, maks: number): string | null | undefined {
   if (v === undefined || v === null) return null;
@@ -90,10 +90,10 @@ export function validasiTransaksi(
     ? NaN
     : Number(input.amount);
   if (!Number.isFinite(amount) || amount <= 0) {
-    return { ok: false, error: "Nominalnya harus lebih dari nol." };
+    return { ok: false, error: "Nominalnya harus lebih dari nol.", kolom: "amount" };
   }
   if (amount >= NOMINAL_MAKS) {
-    return { ok: false, error: "Nominalnya kebesaran." };
+    return { ok: false, error: "Nominalnya kebesaran.", kolom: "amount" };
   }
 
   const type = input.type;
@@ -108,46 +108,46 @@ export function validasiTransaksi(
     typeof category !== "string" ||
     (type !== "transfer" && !kategoriJenis(kategori, type as TransactionType).some((k) => k.slug === category))
   ) {
-    return { ok: false, error: "Kategorinya nggak cocok dengan jenis transaksinya." };
+    return { ok: false, error: "Kategorinya nggak cocok dengan jenis transaksinya.", kolom: "category" };
   }
 
   if (!tanggalSah(input.transaction_date)) {
-    return { ok: false, error: "Tanggalnya nggak valid." };
+    return { ok: false, error: "Tanggalnya nggak valid.", kolom: "transaction_date" };
   }
   // Jam opsional; kosong = tidak diisi (ditentukan server, lihat catat-manual).
   const waktu = input.waktu === undefined || input.waktu === null || input.waktu === "" ? null : String(input.waktu).slice(0, 5);
   if (waktu !== null && !/^([01]\d|2[0-3]):[0-5]\d$/.test(waktu)) {
-    return { ok: false, error: "Jamnya nggak valid." };
+    return { ok: false, error: "Jamnya nggak valid.", kolom: "waktu" };
   }
 
   const merchant = teksOpsional(input.merchant, 120);
   const payment_method = teksOpsional(input.payment_method, 60);
   const description = teksOpsional(input.description, 500);
-  if (merchant === undefined || payment_method === undefined || description === undefined) {
-    return { ok: false, error: "Ada isian yang kepanjangan." };
-  }
+  if (merchant === undefined) return { ok: false, error: "Kepanjangan, maksimal 120 huruf.", kolom: "merchant" };
+  if (payment_method === undefined) return { ok: false, error: "Kepanjangan, maksimal 60 huruf.", kolom: "payment_method" };
+  if (description === undefined) return { ok: false, error: "Kepanjangan, maksimal 500 huruf.", kolom: "description" };
 
   const kantong_id = idOpsional(input.kantong_id);
   // Kantong tujuan hanya bermakna untuk pindah kantong.
   const kantong_tujuan_id = type === "transfer" ? idOpsional(input.kantong_tujuan_id) : null;
   if (kantong_id === undefined || kantong_tujuan_id === undefined) {
-    return { ok: false, error: "Kantongnya nggak dikenal." };
+    return { ok: false, error: "Kantongnya nggak dikenal.", kolom: "kantong_id" };
   }
   if (wajibKantong && !kantong_id) {
-    return { ok: false, error: type === "transfer" ? "Pilih kantong asalnya dulu." : "Pilih kantongnya dulu." };
+    return { ok: false, error: type === "transfer" ? "Pilih kantong asalnya dulu." : "Pilih kantongnya dulu.", kolom: "kantong_id" };
   }
   if (wajibKantong && type === "transfer" && !kantong_tujuan_id) {
-    return { ok: false, error: "Pilih kantong tujuannya dulu." };
+    return { ok: false, error: "Pilih kantong tujuannya dulu.", kolom: "kantong_tujuan_id" };
   }
   if (kantong_id && kantong_id === kantong_tujuan_id) {
-    return { ok: false, error: "Pilih kantong tujuan yang lain." };
+    return { ok: false, error: "Pilih kantong tujuan yang lain.", kolom: "kantong_tujuan_id" };
   }
 
   const biaya_admin = type === "transfer" ? nominalOpsional(input.biaya_admin) : null;
   const cashback = type === "expense" ? nominalOpsional(input.cashback) : null;
-  if (biaya_admin === undefined) return { ok: false, error: "Biaya adminnya harus angka." };
-  if (cashback === undefined) return { ok: false, error: "Cashback-nya harus angka." };
-  if (cashback && cashback > amount) return { ok: false, error: "Cashback-nya maksimal sebesar nominal belanjanya." };
+  if (biaya_admin === undefined) return { ok: false, error: "Biaya adminnya harus angka.", kolom: "biaya_admin" };
+  if (cashback === undefined) return { ok: false, error: "Cashback-nya harus angka.", kolom: "cashback" };
+  if (cashback && cashback > amount) return { ok: false, error: "Cashback-nya maksimal sebesar nominal belanjanya.", kolom: "cashback" };
 
   const cicilan_id = idOpsional(input.cicilan_id);
   const cicilan_ke = input.cicilan_ke === undefined || input.cicilan_ke === null || input.cicilan_ke === "" ? null : Number(input.cicilan_ke);
@@ -250,7 +250,7 @@ export function bersihkanCari(teks: string | undefined): string {
 
 export type HasilBudget =
   | { ok: true; simpan: { category: string; amount: number }[]; hapus: string[] }
-  | { ok: false; error: string };
+  | { ok: false; error: string; kolom?: string };
 
 /** Isian Pengaturan → Budget: yang berisi disimpan, yang dikosongkan dihapus targetnya. */
 export function rapikanBudget(isian: Record<string, string>, kategori: Kategori[] = KATEGORI_BAWAAN): HasilBudget {
@@ -264,8 +264,8 @@ export function rapikanBudget(isian: Record<string, string>, kategori: Kategori[
       continue;
     }
     const n = Number(teks);
-    if (!Number.isFinite(n) || n < 1) return { ok: false, error: `Budget ${label} harus lebih dari nol.` };
-    if (n >= NOMINAL_MAKS) return { ok: false, error: `Budget ${label} kebesaran.` };
+    if (!Number.isFinite(n) || n < 1) return { ok: false, error: `Budget ${label} harus lebih dari nol.`, kolom: category };
+    if (n >= NOMINAL_MAKS) return { ok: false, error: `Budget ${label} kebesaran.`, kolom: category };
     simpan.push({ category, amount: Math.round(n) });
   }
   return { ok: true, simpan, hapus };
@@ -273,23 +273,23 @@ export function rapikanBudget(isian: Record<string, string>, kategori: Kategori[
 
 export type HasilKantong =
   | { ok: true; data: { name: string; emoji: string; saldo_awal: number; saldo_per: string } }
-  | { ok: false; error: string };
+  | { ok: false; error: string; kolom?: string };
 
 /** Isian tambah/ubah kantong. Saldo awal boleh minus (paylater, kartu kredit). */
 export function validasiKantong(input: Record<string, unknown>): HasilKantong {
   const name = typeof input.name === "string" ? input.name.trim() : "";
-  if (!name) return { ok: false, error: "Namanya diisi dulu." };
-  if (name.length > 40) return { ok: false, error: "Namanya kepanjangan, maksimal 40 huruf." };
+  if (!name) return { ok: false, error: "Namanya diisi dulu.", kolom: "name" };
+  if (name.length > 40) return { ok: false, error: "Namanya kepanjangan, maksimal 40 huruf.", kolom: "name" };
 
   const emoji = ambilEmoji(input.emoji);
-  if (!emoji) return { ok: false, error: "Pilih emojinya dulu." };
+  if (!emoji) return { ok: false, error: "Pilih emojinya dulu.", kolom: "emoji" };
 
   const mentah = typeof input.saldo_awal === "string" ? input.saldo_awal.trim() : input.saldo_awal;
   const saldo_awal = mentah === "" || mentah === undefined || mentah === null ? 0 : Number(mentah);
-  if (!Number.isFinite(saldo_awal)) return { ok: false, error: "Saldo awalnya harus angka." };
-  if (Math.abs(saldo_awal) >= NOMINAL_MAKS) return { ok: false, error: "Saldo awalnya kebesaran." };
+  if (!Number.isFinite(saldo_awal)) return { ok: false, error: "Saldo awalnya harus angka.", kolom: "saldo_awal" };
+  if (Math.abs(saldo_awal) >= NOMINAL_MAKS) return { ok: false, error: "Saldo awalnya kebesaran.", kolom: "saldo_awal" };
 
-  if (!tanggalSah(input.saldo_per)) return { ok: false, error: "Tanggal saldonya nggak valid." };
+  if (!tanggalSah(input.saldo_per)) return { ok: false, error: "Tanggal saldonya nggak valid.", kolom: "saldo_per" };
 
   return {
     ok: true,

@@ -38,12 +38,22 @@
      panel Tanya AI di kanan; isi halaman mengisi ruang di antaranya. */
   --rail: 0px;
   --panel: 0px;
+  /* Margin samping isi. Mulai 600px 24dp, seperti panduan One UI. */
+  --tepi: 16px;
+}
+
+/* Elemen yang difokus (Tab) tidak boleh tertutup baris aksi yang menempel di
+   atas atau navigasi bawah (WCAG 2.2 "Focus Not Obscured"). */
+html {
+  scroll-padding-top: calc(72px + env(safe-area-inset-top));
+  scroll-padding-bottom: calc(var(--tinggi-nav) + 32px + env(safe-area-inset-bottom));
 }
 
 /* Ukuran jendela ala panduan layar lebar Samsung: ringkas < 600, sedang
    600–839 (navigation rail), lebar ≥ 840 (dua panel); sidebar mulai 1200. */
 @media (min-width: 600px) {
-  :root { --rail: 80px; }
+  :root { --rail: 80px; --tepi: 24px; }
+  html { scroll-padding-bottom: 16px; }
 }
 
 @media (min-width: 1200px) {

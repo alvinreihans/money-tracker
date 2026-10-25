@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { createContext, Fragment, useContext, useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import NextLink from "next/link";
 import { Check, ChevronDown, ChevronLeft, ChevronUp, CircleCheck, CircleX, EllipsisVertical, Info, TriangleAlert, X } from "lucide-react";
 import { LAYAR_LEBAR } from "@/components/navigasi";
@@ -12,6 +12,34 @@ import { angkaMentah, angkaRibuan } from "@/lib/format";
  * jadi ini dibangun sendiri mengikuti panduannya
  * (https://developer.samsung.com/one-ui).
  */
+
+/** Apakah layar sedang lebar (dua panel). Di server selalu false. */
+export function useLayarLebar() {
+  return useSyncExternalStore(
+    (ubah) => {
+      const m = window.matchMedia(LAYAR_LEBAR);
+      m.addEventListener("change", ubah);
+      return () => m.removeEventListener("change", ubah);
+    },
+    () => window.matchMedia(LAYAR_LEBAR).matches,
+    () => false,
+  );
+}
+
+const DiPanelDetail = createContext(false);
+
+/**
+ * Panel kanan dua panel (Riwayat, Profil). Selama ia berisi, panel daftar di
+ * layar sempit disembunyikan (CSS `:empty`); `kosong` tampil sebagai petunjuk
+ * di layar lebar. App bar di dalamnya tahu ia bukan judul utama halaman.
+ */
+export function PanelDetail({ kosong, children }: { kosong: string; children: React.ReactNode }) {
+  return (
+    <div className={s.panelDetail} data-kosong={kosong}>
+      <DiPanelDetail.Provider value>{children}</DiPanelDetail.Provider>
+    </div>
+  );
+}
 
 /**
  * App bar extended ala One UI 8 (Voice Recorder, Telepon): judul besar di area
@@ -43,6 +71,11 @@ export function AppBar({
 }) {
   const ref = useRef<HTMLElement>(null);
   const [ciut, setCiut] = useState(false);
+  // Satu h1 per halaman: di dua panel, judul panel detail jadi h2 (judul
+  // daftarnya yang h1). Di layar sempit hanya satu panel yang tampil → h1.
+  const diPanel = useContext(DiPanelDetail);
+  const lebar = useLayarLebar();
+  const Judul = diPanel && lebar ? "h2" : "h1";
 
   useEffect(() => {
     const el = ref.current;
@@ -59,7 +92,7 @@ export function AppBar({
     <>
       <header ref={ref} className={s.viewing}>
         {ikon}
-        <h1 className={s.judulBesar}>{judul}</h1>
+        <Judul className={s.judulBesar}>{judul}</Judul>
         {sub && <p className={s.judulSub}>{sub}</p>}
       </header>
       <div className={s.barAksi} data-ciut={ciut}>
@@ -133,6 +166,10 @@ export function KembaliKeAtas() {
  * tugas singkat di pop-up, bukan layar penuh). `samping`: di layar lebar
  * menempel di kanan sebagai panel non-modal — halaman di sebelahnya tetap
  * bisa dilihat dan digulir (Tanya AI di samping grafik Analitik).
+ *
+ * `isian`: nilai form di dalamnya. Kalau sudah diubah sejak lembar dibuka,
+ * menutup lewat jalan mana pun (kembali/×, Esc, ketuk di luar, Batal)
+ * bertanya dulu "Buang perubahan?" — ketikan tidak hilang tanpa sengaja.
  */
 export function Lembar({
   judul,
@@ -142,6 +179,7 @@ export function Lembar({
   tombol,
   pil,
   label,
+  isian,
   onClose,
   children,
 }: {
@@ -157,14 +195,20 @@ export function Lembar({
    * Tombol sebagai kapsul melayang di tengah bawah ("Batal | Simpan"), pola
    * form Kontak Samsung. Untuk form halaman penuh, sebagai ganti `tombol`.
    */
-  pil?: { label: React.ReactNode; onClick: () => void; disabled?: boolean }[];
+  pil?: ({ label: React.ReactNode; disabled?: boolean } & ({ onClick: () => void } | { batal: true }))[];
+  /** Nilai form; dibandingkan dengan nilainya saat lembar dibuka. */
+  isian?: unknown;
   onClose: () => void;
   children: React.ReactNode;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
-  const tutup = useRef(onClose);
+  const isianAwal = useRef(JSON.stringify(isian));
+  const berubah = isian !== undefined && JSON.stringify(isian) !== isianAwal.current;
+  const [tanyaBuang, setTanyaBuang] = useState(false);
+  const cobaTutup = () => (berubah ? setTanyaBuang(true) : onClose());
+  const tutup = useRef(cobaTutup);
   useEffect(() => {
-    tutup.current = onClose;
+    tutup.current = cobaTutup;
   });
 
   // useLayoutEffect, bukan useEffect: berjalan masih di dalam ketukan yang
@@ -219,14 +263,14 @@ export function Lembar({
       className={kelas}
       aria-label={label ?? (typeof judul === "string" ? judul : undefined)}
       // Ketuk di luar kotak (area backdrop) menutup dialog.
-      onClick={(e) => e.target === e.currentTarget && e.currentTarget.matches(":modal") && onClose()}
+      onClick={(e) => e.target === e.currentTarget && e.currentTarget.matches(":modal") && cobaTutup()}
     >
       {posisi === "penuh" || posisi === "samping" ? (
         // Halaman penuh: tombol kembali lalu judul dalam satu baris, seperti
         // "‹ Add boarding passes" di Samsung Wallet. Begitu jadi pop-up atau
         // panel samping (layar lebar), ia tidak lagi "halaman": tombolnya ×.
         <div className={s.dialogKepala}>
-          <button type="button" className={s.ikonTombol} aria-label={posisi === "samping" ? "Tutup" : "Kembali"} onClick={onClose}>
+          <button type="button" className={s.ikonTombol} aria-label={posisi === "samping" ? "Tutup" : "Kembali"} onClick={cobaTutup}>
             <ChevronLeft size={26} className={s.hanyaSempit} />
             <X size={24} className={s.hanyaLebar} />
           </button>
@@ -243,12 +287,17 @@ export function Lembar({
           {pil.map((p, i) => (
             <Fragment key={i}>
               {i > 0 && <span className={s.pilPemisah} aria-hidden />}
-              <button type="button" onClick={p.onClick} disabled={p.disabled}>
+              <button type="button" onClick={"batal" in p ? cobaTutup : p.onClick} disabled={p.disabled}>
                 {p.label}
               </button>
             </Fragment>
           ))}
         </div>
+      )}
+      {tanyaBuang && (
+        <Konfirmasi tanya="Buang perubahan?" ya="Buang" onBatal={() => setTanyaBuang(false)} onYa={onClose}>
+          Yang sudah diisi di sini belum disimpan.
+        </Konfirmasi>
       )}
     </dialog>
   );
@@ -339,6 +388,53 @@ export function MenuLainnya({ children }: { children: React.ReactNode }) {
 }
 
 /**
+ * Galat validasi form. `kolom`: isian yang salah — pesannya tampil di bawah
+ * isian itu (Field dengan `kolom` yang sama). Tanpa `kolom`: galat umum
+ * (jaringan, server), tampil di bawah form.
+ */
+export type Galat = { pesan: string; kolom?: string } | null;
+const GalatContext = createContext<Galat>(null);
+/** Bungkus isian form: tiap Field ber-`kolom` mengambil galatnya dari sini. */
+export const GalatForm = GalatContext.Provider;
+
+/** Setelah simpan gagal: fokus (dan gulir) ke isian yang salah, di dialog teratas. */
+export function fokusGalat(g: Galat) {
+  if (!g?.kolom) return;
+  requestAnimationFrame(() => {
+    const akar = [...document.querySelectorAll("dialog[open]")].at(-1) ?? document;
+    const el = akar.querySelector<HTMLElement>(`[data-kolom="${g.kolom}"] :is(input, textarea, select, button)`);
+    el?.focus({ preventScroll: true });
+    el?.scrollIntoView({ block: "center" });
+  });
+}
+
+/**
+ * Status galat satu form: `gagal(pesan, kolom?)` menampilkan pesannya (di
+ * bawah isian `kolom`, atau di bawah form) dan memfokus isian itu. `nilai`:
+ * isian form dengan kunci = nama kolom; begitu nilai kolom yang salah
+ * berubah, galatnya hilang.
+ */
+export function useGalat(nilai?: object | null) {
+  const [galat, setGalat] = useState<Galat>(null);
+  const sebelum = useRef(nilai);
+  useEffect(() => {
+    const lama = sebelum.current;
+    sebelum.current = nilai;
+    const k = galat?.kolom;
+    if (k && lama && nilai && !Object.is((lama as Record<string, unknown>)[k], (nilai as Record<string, unknown>)[k])) setGalat(null);
+  });
+  return {
+    galat,
+    gagal: (pesan: string, kolom?: string) => {
+      const g = { pesan, kolom };
+      setGalat(g);
+      fokusGalat(g);
+    },
+    bersihkan: () => setGalat(null),
+  };
+}
+
+/**
  * Satu baris isian ala Kontak Samsung: ikon di kiri, isian bergaris bawah,
  * label kecil di atasnya yang muncul begitu ada isi. Isian kosong menampilkan
  * nama field sebagai placeholder, jadi `placeholder` sebaiknya diisi sama
@@ -350,6 +446,7 @@ export function Field({
   kanan,
   keterangan,
   galat,
+  kolom,
   children,
 }: {
   label: string;
@@ -358,34 +455,57 @@ export function Field({
   kanan?: React.ReactNode;
   keterangan?: React.ReactNode;
   galat?: string | null;
+  /** Nama isian untuk galat dari GalatForm (mis. "amount"). */
+  kolom?: string;
   children: React.ReactNode;
 }) {
+  const dariForm = useContext(GalatContext);
+  const pesan = galat ?? (kolom && dariForm?.kolom === kolom ? dariForm.pesan : null);
+  const idBawah = useId();
+  const ref = useRef<HTMLDivElement>(null);
+  // Isiannya bisa <input>, InputNominal, atau tombol Pilih: penanda galat
+  // dipasang langsung ke elemennya. Keterangan & galat ada di luar <label>,
+  // jadi dibacakan sebagai keterangan isian, bukan bagian namanya.
+  useEffect(() => {
+    const isian = ref.current?.querySelector(":is(input, textarea, select, button)");
+    if (!isian) return;
+    if (pesan || keterangan) isian.setAttribute("aria-describedby", idBawah);
+    else isian.removeAttribute("aria-describedby");
+    if (pesan) isian.setAttribute("aria-invalid", "true");
+    else isian.removeAttribute("aria-invalid");
+  });
+
   return (
-    <label className={`${s.fieldBaris} ${galat ? s.fieldGalat : ""}`}>
+    <div ref={ref} className={`${s.fieldBaris} ${pesan ? s.fieldGalat : ""}`} data-kolom={kolom}>
       {Ikon && (
         <span className={s.fieldIkon} aria-hidden>
           <Ikon size={22} />
         </span>
       )}
       <span style={{ flex: 1, minWidth: 0 }}>
-        <span className={s.fieldKolom}>
+        <label className={s.fieldKolom}>
           <span className={s.fieldLabel}>{label}</span>
           {children}
           {kanan && <span className={s.fieldKanan}>{kanan}</span>}
-        </span>
-        {(galat || keterangan) && (
-          <span className={s.fieldBawah} style={{ display: "block" }}>
-            {galat ? (
-              <span className={s.galat} role="alert">
-                {galat}
+        </label>
+        {(pesan || keterangan) && (
+          <span id={idBawah} className={s.fieldBawah} style={{ display: "block" }}>
+            {/* Galat di atas keterangannya; keterangan tetap tampil karena
+                sering justru menjelaskan cara membetulkannya (syarat password). */}
+            {pesan && (
+              <span className={s.galat} role="alert" style={{ display: "block" }}>
+                {pesan}
               </span>
-            ) : (
-              <span className={s.keterangan}>{keterangan}</span>
+            )}
+            {keterangan && (
+              <span className={s.keterangan} style={{ display: "block" }}>
+                {keterangan}
+              </span>
             )}
           </span>
         )}
       </span>
-    </label>
+    </div>
   );
 }
 
@@ -401,10 +521,13 @@ export function Pilih<T extends string>({
   nilai,
   pilihan,
   kosong,
+  kolom,
   onChange,
 }: {
   label: string;
   ikon?: React.ElementType;
+  /** Lihat Field. */
+  kolom?: string;
   nilai: T;
   /** Teks saat belum ada yang dipilih; bawaannya "Pilih <label>". */
   kosong?: string;
@@ -415,7 +538,7 @@ export function Pilih<T extends string>({
 
   return (
     <>
-      <Field label={label} ikon={ikon} kanan={<ChevronDown size={22} />}>
+      <Field label={label} ikon={ikon} kolom={kolom} kanan={<ChevronDown size={22} />}>
         <button type="button" aria-haspopup="dialog" onClick={() => setBuka(true)}>
           {pilihan.find((p) => p.id === nilai)?.label ?? <span style={{ color: "var(--teks-2)" }}>{kosong ?? `Pilih ${label.toLowerCase()}`}</span>}
         </button>
