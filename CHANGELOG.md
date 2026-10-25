@@ -13,7 +13,7 @@ bagiannya di sini.
 ## Rencana
 
 Belum dikerjakan; dicatat supaya tidak lupa. Urutan fase ada di
-SPEC-catat-tuntas.md (fase 1 & 2 selesai di 2.4.0, fase 3 menyusul).
+SPEC-catat-tuntas.md (fase 1 & 2 selesai di 2.4.0, fase 3 di 2.5.0).
 
 - **Metode budgeting lanjutan (fase 4)** (acuan: artikel Prudential "Metode
   Budgeting"). Persentase per kelompok (50/30/20, 80/20, 70/20/10, kustom)
@@ -37,6 +37,8 @@ SPEC-catat-tuntas.md (fase 1 & 2 selesai di 2.4.0, fase 3 menyusul).
   yang jarang berubah (kategori, kantong) disimpan sementara di server.
 
 ## [Unreleased]
+
+## [2.5.0] — 2026-10-26
 
 ### Ditambahkan
 - **Metode budgeting** di **Profil → Budget**: selain budget per kategori, kini bisa memilih **50/30/20**, **80/20**, **70/20/10**, atau **Kustom** (persen sendiri, totalnya harus 100%).
