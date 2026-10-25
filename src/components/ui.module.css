@@ -1511,6 +1511,24 @@ button.blok { background: var(--blok); }
     border-radius: var(--radius-blok);
     outline: 1px solid var(--garis);
   }
+
+  .dialogPenuh .hanyaSempit { display: none; }
+  .dialogPenuh .hanyaLebar { display: block; }
+}
+
+/* Layar pendek (HP mendatar, jendela rendah): One UI tidak memakai app bar
+   besar di bawah tinggi 580dp. Judulnya tetap tampil (di detail, judul =
+   nominal), tetapi tanpa ruang lega setinggi sepertiga layar. */
+@media (max-height: 579px) {
+  .viewing { min-height: 0; padding: 16px 24px 8px; }
+  .judulBesar { font-size: 26px; }
+}
+
+/* Rail di layar pendek: semua tab tetap muat tanpa digulir. */
+@media (min-width: 600px) and (max-height: 579px) {
+  .nav { padding-top: 8px; gap: 4px; }
+  .nav a { height: 52px; }
+  .navCatat { margin-bottom: 8px; }
 }
 
 @media (min-width: 840px) {
@@ -1570,8 +1588,6 @@ button.blok { background: var(--blok); }
     border-left: 1px solid var(--garis);
   }
 
-  .dialogSamping:not(:modal) .hanyaSempit { display: none; }
-  .dialogSamping:not(:modal) .hanyaLebar { display: block; }
 }
 
 @media (min-width: 960px) {

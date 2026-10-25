@@ -221,21 +221,14 @@ export function Lembar({
       // Ketuk di luar kotak (area backdrop) menutup dialog.
       onClick={(e) => e.target === e.currentTarget && e.currentTarget.matches(":modal") && onClose()}
     >
-      {posisi === "samping" ? (
-        // Sebagai panel di samping, tombolnya "tutup" (×), bukan "kembali".
+      {posisi === "penuh" || posisi === "samping" ? (
+        // Halaman penuh: tombol kembali lalu judul dalam satu baris, seperti
+        // "‹ Add boarding passes" di Samsung Wallet. Begitu jadi pop-up atau
+        // panel samping (layar lebar), ia tidak lagi "halaman": tombolnya ×.
         <div className={s.dialogKepala}>
-          <button type="button" className={s.ikonTombol} aria-label="Tutup" onClick={onClose}>
+          <button type="button" className={s.ikonTombol} aria-label={posisi === "samping" ? "Tutup" : "Kembali"} onClick={onClose}>
             <ChevronLeft size={26} className={s.hanyaSempit} />
             <X size={24} className={s.hanyaLebar} />
-          </button>
-          {judul && <h2 className={s.dialogJudul}>{judul}</h2>}
-        </div>
-      ) : posisi === "penuh" ? (
-        // Halaman penuh: tombol kembali lalu judul dalam satu baris, seperti
-        // "‹ Add boarding passes" di Samsung Wallet.
-        <div className={s.dialogKepala}>
-          <button type="button" className={s.ikonTombol} aria-label="Kembali" onClick={onClose}>
-            <ChevronLeft size={26} />
           </button>
           {judul && <h2 className={s.dialogJudul}>{judul}</h2>}
         </div>

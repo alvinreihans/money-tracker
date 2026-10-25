@@ -111,6 +111,14 @@ Mengikuti panduan "pop-up kecil untuk tugas singkat":
 
 Foto struk bisa diseret dari File Explorer, Galeri (layar terpisah di tablet/Fold), atau aplikasi lain ke **mana saja** di aplikasi. Selama diseret, tampil lapisan "Lepas untuk mencatat struk". Fotonya diproses di latar persis seperti foto dari "Bagikan", lalu hasilnya dikabari lewat snackbar. Berkas yang bukan gambar ditolak dengan pesan singkat.
 
+### Tombol & app bar (dicek ulang ke One UI Design Guidelines, 25 Okt)
+
+- **App bar** (hlm. 16): tombol kembali paling kiri, judul di sebelahnya, tombol aksi di kanan (maks 3 termasuk judul), ⋮ paling kanan. Susunan ini sudah dipakai di semua lebar.
+- **App bar besar** (hlm. 19): tidak dipakai di HP mendatar; di layar lain hanya kalau tingginya ≥ 580dp. Di bawah tinggi itu, area judul jadi ringkas: tetap tampil karena di detail transaksi judulnya adalah nominal, tetapi tanpa ruang setinggi sepertiga layar. Rail juga dirapatkan supaya semua tab muat.
+- **Dua panel:** panel detail (Riwayat & Profil) tanpa tombol kembali, karena daftarnya terlihat di sebelah. Di layar sempit tombol kembali tetap ada.
+- **Pop-up & panel samping:** tombol di kepala jadi × (tutup). Layar penuh di HP tetap ‹.
+- **Detail dari luar Riwayat** (Beranda, snackbar "Lihat", notifikasi, Fold dibuka) di layar lebar langsung membuka dua panel Riwayat (`/riwayat?id=`). `/transactions/[id]` tetap dipakai di HP.
+
 ### Mouse & keyboard (desktop)
 
 - Setiap elemen yang bisa diklik punya efek *hover* dan cincin fokus saat dinavigasi dengan Tab (`:focus-visible`). Efek hover hanya aktif di perangkat dengan mouse (`@media (hover: hover)`), jadi HP tidak terpengaruh.

@@ -1,9 +1,12 @@
 "use client";
 
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useCatat, useKategori } from "@/components/Catat";
 import DeleteTransactionButton from "@/components/DeleteTransactionButton";
 import EditTransactionForm from "@/components/EditTransactionForm";
 import { tandaTransaksi } from "@/components/kategori";
+import { LAYAR_LEBAR } from "@/components/navigasi";
 import { AppBar, Pesan } from "@/components/oneui";
 import s from "@/components/ui.module.css";
 import { alasanDraft } from "@/lib/kantong";
@@ -16,12 +19,26 @@ export default function DetailView({
   t,
   ikutan,
   kembali,
+  halaman = false,
 }: {
   t: Transaction;
   ikutan: { id: string; amount: number } | null;
   /** Halaman asal (Beranda / Riwayat dengan filternya), tujuan kembali & setelah hapus. */
   kembali: string;
+  /** Dibuka sebagai halaman /transactions/[id], bukan di panel Riwayat. */
+  halaman?: boolean;
 }) {
+  const router = useRouter();
+  // Halaman detail di layar lebar (tautan notifikasi, snackbar "Lihat", Fold
+  // dibuka): pindah ke dua panel Riwayat, seperti membuka dari daftarnya.
+  useEffect(() => {
+    if (!halaman) return;
+    const lebar = window.matchMedia(LAYAR_LEBAR);
+    const pindah = () => lebar.matches && router.replace(`/riwayat?id=${t.id}`);
+    pindah();
+    lebar.addEventListener("change", pindah);
+    return () => lebar.removeEventListener("change", pindah);
+  }, [halaman, router, t.id]);
   const draft = t.status === "needs_review";
   const alasan = alasanDraft(t);
   const nama = t.merchant ?? "Tanpa nama";

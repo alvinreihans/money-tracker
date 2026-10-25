@@ -18,5 +18,5 @@ export default async function TransactionDetailPage({
   const detail = await ambilDetail(await createSupabaseServerClient(), id);
   if (!detail) notFound();
 
-  return <DetailView t={detail.t} ikutan={detail.ikutan} kembali={tujuanKembali(kembali)} />;
+  return <DetailView t={detail.t} ikutan={detail.ikutan} kembali={tujuanKembali(kembali)} halaman />;
 }

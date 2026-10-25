@@ -209,7 +209,7 @@ export default function RiwayatView({
     <>
       {/* Layar lebar: daftar + detail berdampingan (SPEC-layar-lebar). Di layar
           sempit hanya satu yang tampil — detail kalau alamatnya membawa ?id=. */}
-      <div className={`${s.duaPanel} ${s.lebar}`}>
+      <div className={`${s.duaPanel} ${s.lebar}`} data-tanpa-kembali>
         <div className={s.panelDaftar}>
           <AppBar
             judul="Riwayat"
