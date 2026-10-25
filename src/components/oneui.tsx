@@ -388,6 +388,53 @@ export function MenuLainnya({ children }: { children: React.ReactNode }) {
 }
 
 /**
+ * Galat validasi form. `kolom`: isian yang salah — pesannya tampil di bawah
+ * isian itu (Field dengan `kolom` yang sama). Tanpa `kolom`: galat umum
+ * (jaringan, server), tampil di bawah form.
+ */
+export type Galat = { pesan: string; kolom?: string } | null;
+const GalatContext = createContext<Galat>(null);
+/** Bungkus isian form: tiap Field ber-`kolom` mengambil galatnya dari sini. */
+export const GalatForm = GalatContext.Provider;
+
+/** Setelah simpan gagal: fokus (dan gulir) ke isian yang salah, di dialog teratas. */
+export function fokusGalat(g: Galat) {
+  if (!g?.kolom) return;
+  requestAnimationFrame(() => {
+    const akar = [...document.querySelectorAll("dialog[open]")].at(-1) ?? document;
+    const el = akar.querySelector<HTMLElement>(`[data-kolom="${g.kolom}"] :is(input, textarea, select, button)`);
+    el?.focus({ preventScroll: true });
+    el?.scrollIntoView({ block: "center" });
+  });
+}
+
+/**
+ * Status galat satu form: `gagal(pesan, kolom?)` menampilkan pesannya (di
+ * bawah isian `kolom`, atau di bawah form) dan memfokus isian itu. `nilai`:
+ * isian form dengan kunci = nama kolom; begitu nilai kolom yang salah
+ * berubah, galatnya hilang.
+ */
+export function useGalat(nilai?: object | null) {
+  const [galat, setGalat] = useState<Galat>(null);
+  const sebelum = useRef(nilai);
+  useEffect(() => {
+    const lama = sebelum.current;
+    sebelum.current = nilai;
+    const k = galat?.kolom;
+    if (k && lama && nilai && !Object.is((lama as Record<string, unknown>)[k], (nilai as Record<string, unknown>)[k])) setGalat(null);
+  });
+  return {
+    galat,
+    gagal: (pesan: string, kolom?: string) => {
+      const g = { pesan, kolom };
+      setGalat(g);
+      fokusGalat(g);
+    },
+    bersihkan: () => setGalat(null),
+  };
+}
+
+/**
  * Satu baris isian ala Kontak Samsung: ikon di kiri, isian bergaris bawah,
  * label kecil di atasnya yang muncul begitu ada isi. Isian kosong menampilkan
  * nama field sebagai placeholder, jadi `placeholder` sebaiknya diisi sama
@@ -399,6 +446,7 @@ export function Field({
   kanan,
   keterangan,
   galat,
+  kolom,
   children,
 }: {
   label: string;
@@ -407,34 +455,57 @@ export function Field({
   kanan?: React.ReactNode;
   keterangan?: React.ReactNode;
   galat?: string | null;
+  /** Nama isian untuk galat dari GalatForm (mis. "amount"). */
+  kolom?: string;
   children: React.ReactNode;
 }) {
+  const dariForm = useContext(GalatContext);
+  const pesan = galat ?? (kolom && dariForm?.kolom === kolom ? dariForm.pesan : null);
+  const idBawah = useId();
+  const ref = useRef<HTMLDivElement>(null);
+  // Isiannya bisa <input>, InputNominal, atau tombol Pilih: penanda galat
+  // dipasang langsung ke elemennya. Keterangan & galat ada di luar <label>,
+  // jadi dibacakan sebagai keterangan isian, bukan bagian namanya.
+  useEffect(() => {
+    const isian = ref.current?.querySelector(":is(input, textarea, select, button)");
+    if (!isian) return;
+    if (pesan || keterangan) isian.setAttribute("aria-describedby", idBawah);
+    else isian.removeAttribute("aria-describedby");
+    if (pesan) isian.setAttribute("aria-invalid", "true");
+    else isian.removeAttribute("aria-invalid");
+  });
+
   return (
-    <label className={`${s.fieldBaris} ${galat ? s.fieldGalat : ""}`}>
+    <div ref={ref} className={`${s.fieldBaris} ${pesan ? s.fieldGalat : ""}`} data-kolom={kolom}>
       {Ikon && (
         <span className={s.fieldIkon} aria-hidden>
           <Ikon size={22} />
         </span>
       )}
       <span style={{ flex: 1, minWidth: 0 }}>
-        <span className={s.fieldKolom}>
+        <label className={s.fieldKolom}>
           <span className={s.fieldLabel}>{label}</span>
           {children}
           {kanan && <span className={s.fieldKanan}>{kanan}</span>}
-        </span>
-        {(galat || keterangan) && (
-          <span className={s.fieldBawah} style={{ display: "block" }}>
-            {galat ? (
-              <span className={s.galat} role="alert">
-                {galat}
+        </label>
+        {(pesan || keterangan) && (
+          <span id={idBawah} className={s.fieldBawah} style={{ display: "block" }}>
+            {/* Galat di atas keterangannya; keterangan tetap tampil karena
+                sering justru menjelaskan cara membetulkannya (syarat password). */}
+            {pesan && (
+              <span className={s.galat} role="alert" style={{ display: "block" }}>
+                {pesan}
               </span>
-            ) : (
-              <span className={s.keterangan}>{keterangan}</span>
+            )}
+            {keterangan && (
+              <span className={s.keterangan} style={{ display: "block" }}>
+                {keterangan}
+              </span>
             )}
           </span>
         )}
       </span>
-    </label>
+    </div>
   );
 }
 
@@ -450,10 +521,13 @@ export function Pilih<T extends string>({
   nilai,
   pilihan,
   kosong,
+  kolom,
   onChange,
 }: {
   label: string;
   ikon?: React.ElementType;
+  /** Lihat Field. */
+  kolom?: string;
   nilai: T;
   /** Teks saat belum ada yang dipilih; bawaannya "Pilih <label>". */
   kosong?: string;
@@ -464,7 +538,7 @@ export function Pilih<T extends string>({
 
   return (
     <>
-      <Field label={label} ikon={ikon} kanan={<ChevronDown size={22} />}>
+      <Field label={label} ikon={ikon} kolom={kolom} kanan={<ChevronDown size={22} />}>
         <button type="button" aria-haspopup="dialog" onClick={() => setBuka(true)}>
           {pilihan.find((p) => p.id === nilai)?.label ?? <span style={{ color: "var(--teks-2)" }}>{kosong ?? `Pilih ${label.toLowerCase()}`}</span>}
         </button>

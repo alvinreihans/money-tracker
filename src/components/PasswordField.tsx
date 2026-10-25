@@ -23,15 +23,18 @@ interface Props {
   caption?: React.ReactNode;
   /** Tampilkan daftar syarat yang hidup saat mengetik. Untuk password BARU saja. */
   syarat?: boolean;
+  /** Lihat Field. */
+  kolom?: string;
 }
 
-export default function PasswordField({ label, value, onChange, autoComplete, caption, syarat = false }: Props) {
+export default function PasswordField({ label, value, onChange, autoComplete, caption, syarat = false, kolom }: Props) {
   const [terlihat, setTerlihat] = useState(false);
 
   return (
     <Field
       label={label}
       ikon={LockKeyhole}
+      kolom={kolom}
       kanan={
         <button
           type="button"

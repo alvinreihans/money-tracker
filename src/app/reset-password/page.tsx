@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { Pesan, Spinner } from "@/components/oneui";
+import { GalatForm, Pesan, Spinner, useGalat } from "@/components/oneui";
 import PasswordField from "@/components/PasswordField";
 import BrandMark from "@/components/BrandMark";
 import s from "@/components/ui.module.css";
@@ -20,11 +20,11 @@ export default function ResetPasswordPage() {
   // bawaan browser: halaman reload dan isian hilang. Penanda ini menutup celahnya.
   const [siap, setSiap] = useState(false);
   useEffect(() => setSiap(true), []);
-  const [error, setError] = useState<string | null>(null);
   // Tautan reset (flow implicit, lihat halaman login) membawa token di hash URL.
   // Client @supabase/ssr hanya menerima PKCE, jadi tokennya dipasang manual.
   // Tanpa token dan tanpa session: tautannya kedaluwarsa (Supabase menaruh
   // #error=... di hash) atau halaman ini dibuka langsung tanpa lewat email.
+  const { galat, gagal, bersihkan } = useGalat({ password, ulangi });
   const [punyaSesi, setPunyaSesi] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -47,20 +47,20 @@ export default function ResetPasswordPage() {
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setError(null);
+    bersihkan();
 
     if (!passwordValid(password)) {
-      return setError("Passwordnya belum memenuhi semua syarat di bawah kolom.");
+      return gagal("Passwordnya belum memenuhi semua syarat di bawah.", "password");
     }
     if (password !== ulangi) {
-      return setError("Password dan ulangannya belum sama.");
+      return gagal("Password dan ulangannya belum sama.", "ulangi");
     }
 
     setLoading(true);
     const { error: err } = await createSupabaseBrowserClient().auth.updateUser({ password });
 
     if (err) {
-      setError(authErrorMessage(err));
+      gagal(authErrorMessage(err));
       setLoading(false);
     } else {
       router.push("/");
@@ -87,12 +87,14 @@ export default function ResetPasswordPage() {
           </Pesan>
         ) : (
           <>
-            {error && <Pesan jenis="bahaya">{error}</Pesan>}
+            {galat && !galat.kolom && <Pesan jenis="bahaya">{galat.pesan}</Pesan>}
             <form onSubmit={handleSubmit} className={s.form}>
-              <div className={`${s.blok} ${s.blokForm}`}>
-                <PasswordField label="Password baru" value={password} onChange={setPassword} autoComplete="new-password" syarat />
-                <PasswordField label="Ulangi password baru" value={ulangi} onChange={setUlangi} autoComplete="new-password" />
-              </div>
+              <GalatForm value={galat}>
+                <div className={`${s.blok} ${s.blokForm}`}>
+                  <PasswordField label="Password baru" value={password} onChange={setPassword} autoComplete="new-password" syarat kolom="password" />
+                  <PasswordField label="Ulangi password baru" value={ulangi} onChange={setUlangi} autoComplete="new-password" kolom="ulangi" />
+                </div>
+              </GalatForm>
               <button
                 type="submit"
                 className={`${s.tombol} ${s.tombolPenuh}`}

@@ -83,6 +83,7 @@ export default function TransactionFields({
     <Pilih
       label={label}
       ikon={ikon}
+      kolom={kolom}
       nilai={nilai[kolom]}
       pilihan={pilihanKantong}
       kosong="Pilih kantong"
@@ -98,7 +99,7 @@ export default function TransactionFields({
 
   // Isian nominal pelengkap (cashback, biaya admin) — opsional.
   const nominalPelengkap = (kolom: "cashback" | "biaya_admin", label: string, ikon: React.ElementType, ket: string) => (
-    <Field label={label} ikon={ikon} keterangan={ket}>
+    <Field label={label} ikon={ikon} keterangan={ket} kolom={kolom}>
       <InputNominal value={nilai[kolom]} onChange={(v) => onChange({ [kolom]: v })} placeholder={label} />
     </Field>
   );
@@ -124,11 +125,11 @@ export default function TransactionFields({
       {type === "transfer" && <span className={s.keterangan}>Pindah kantong tidak dihitung sebagai pengeluaran.</span>}
 
       <div className={`${s.blok} ${s.blokForm}`}>
-        <Field label="Nominal (Rp)" ikon={Banknote}>
+        <Field label="Nominal (Rp)" ikon={Banknote} kolom="amount">
           <InputNominal required value={nilai.amount} onChange={(amount) => onChange({ amount })} placeholder="Nominal (Rp)" />
         </Field>
 
-        <Field label="Tanggal" ikon={CalendarDays}>
+        <Field label="Tanggal" ikon={CalendarDays} kolom="transaction_date">
           {/* Input tanggal bawaan: di HP muncul kalender sistem. */}
           <input
             type="date"
@@ -140,7 +141,7 @@ export default function TransactionFields({
 
         {/* Jam terjadinya: di hari saldo kantong diisi, transaksi sebelum jam
             itu tidak memotong saldo (SPEC-saldo-waktu). */}
-        <Field label="Jam" ikon={Clock} keterangan="Opsional. Ubah kalau terjadinya lebih awal.">
+        <Field label="Jam" ikon={Clock} keterangan="Opsional. Ubah kalau terjadinya lebih awal." kolom="waktu">
           <input type="time" value={nilai.waktu} onChange={(e) => onChange({ waktu: e.target.value })} />
         </Field>
 
@@ -149,6 +150,7 @@ export default function TransactionFields({
           <Pilih
             label="Kategori"
             ikon={Shapes}
+            kolom="category"
             nilai={nilai.category}
             pilihan={kategoriJenis(kategori, type).map((k) => ({ id: k.slug, label: k.name, ...tandaKategori(k) }))}
             onChange={(category) => onChange({ category })}
@@ -169,6 +171,7 @@ export default function TransactionFields({
           <Field
             label="Metode bayar"
             ikon={CreditCard}
+            kolom="payment_method"
             keterangan={
               <>
                 <NextLink href="/profil/kantong" className={s.tautan}>
@@ -189,12 +192,12 @@ export default function TransactionFields({
 
       <div className={`${s.blok} ${s.blokForm}`}>
         {type === "expense" && (
-          <Field label="Merchant / toko" ikon={Store}>
+          <Field label="Merchant / toko" ikon={Store} kolom="merchant">
             <input value={nilai.merchant} onChange={(e) => onChange({ merchant: e.target.value })} placeholder="Merchant / toko" />
           </Field>
         )}
         {type === "income" && (
-          <Field label="Dari siapa" ikon={UserRound}>
+          <Field label="Dari siapa" ikon={UserRound} kolom="merchant">
             <input value={nilai.merchant} onChange={(e) => onChange({ merchant: e.target.value })} placeholder="Dari siapa" />
           </Field>
         )}
@@ -204,7 +207,7 @@ export default function TransactionFields({
         {type === "transfer" &&
           nominalPelengkap("biaya_admin", "Biaya admin (Rp)", Coins, "Opsional. Dicatat sebagai pengeluaran dari kantong asal.")}
 
-        <Field label="Keterangan" ikon={NotebookPen}>
+        <Field label="Keterangan" ikon={NotebookPen} kolom="description">
           <textarea
             rows={1}
             value={nilai.description}

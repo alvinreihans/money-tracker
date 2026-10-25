@@ -4,7 +4,7 @@ import { createContext, useContext, useEffect, useRef, useState, type FormEvent 
 import { useRouter } from "next/navigation";
 import { ImagePlus, Plus } from "lucide-react";
 import LembarCatat, { type PerintahCatat } from "@/components/Obrolan";
-import { Lembar, Pesan, Spinner } from "@/components/oneui";
+import { GalatForm, Lembar, Pesan, Spinner, useGalat } from "@/components/oneui";
 import TransactionFields, { nilaiAwal } from "@/components/TransactionFields";
 import s from "@/components/ui.module.css";
 import type { Kantong } from "@/lib/kantong";
@@ -268,21 +268,21 @@ function ManualDialog({ onClose, onTersimpan }: { onClose: () => void; onTersimp
   const { kantong, kategori } = useCatat();
   const [nilai, setNilai] = useState(() => nilaiAwal());
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { galat, gagal, bersihkan } = useGalat(nilai);
 
   async function simpan(e?: FormEvent) {
     e?.preventDefault();
-    // Dicek di sini dulu supaya pesan salahnya langsung muncul; server tetap
-    // memeriksa ulang dengan fungsi yang sama.
+    // Dicek di sini dulu supaya pesan salahnya langsung muncul di bawah isian
+    // yang salah; server tetap memeriksa ulang dengan fungsi yang sama.
     const cek = validasiTransaksi({ ...nilai }, { wajibKantong: kantong.length > 0, kategori });
-    if (!cek.ok) return setError(cek.error);
+    if (!cek.ok) return gagal(cek.error, cek.kolom);
 
     setLoading(true);
-    setError(null);
+    bersihkan();
     const r = await kirimJson("/api/catat-manual", cek.data);
     setLoading(false);
 
-    if (!r.ok) return setError(r.error);
+    if (!r.ok) return gagal(r.error);
     onTersimpan(r.tx);
   }
 
@@ -304,8 +304,10 @@ function ManualDialog({ onClose, onTersimpan }: { onClose: () => void; onTersimp
       ]}
     >
       <form onSubmit={simpan} className={s.form}>
-        <TransactionFields nilai={nilai} onChange={(p) => setNilai((v) => ({ ...v, ...p }))} />
-        {error && <Pesan jenis="bahaya">{error}</Pesan>}
+        <GalatForm value={galat}>
+          <TransactionFields nilai={nilai} onChange={(p) => setNilai((v) => ({ ...v, ...p }))} />
+        </GalatForm>
+        {galat && !galat.kolom && <Pesan jenis="bahaya">{galat.pesan}</Pesan>}
         {/* Enter di kolom mana pun tetap menyimpan. */}
         <button type="submit" hidden />
       </form>

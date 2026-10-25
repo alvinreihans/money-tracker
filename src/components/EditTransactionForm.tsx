@@ -4,7 +4,7 @@ import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronRight, PencilLine } from "lucide-react";
 import { useCatat, useKategori } from "@/components/Catat";
-import { Lembar, Pesan, Spinner } from "@/components/oneui";
+import { GalatForm, Lembar, Pesan, Spinner, useGalat } from "@/components/oneui";
 import TransactionFields, { nilaiAwal } from "@/components/TransactionFields";
 import s from "@/components/ui.module.css";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -34,21 +34,21 @@ export default function EditTransactionForm({
   const kategori = useKategori();
   const [buka, setBuka] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [nilai, setNilai] = useState(() => nilaiAwal(tx, undefined, ikutan?.amount));
+  const { galat, gagal, bersihkan } = useGalat(nilai);
 
   function bukaForm() {
     setNilai(nilaiAwal(tx, undefined, ikutan?.amount));
-    setError(null);
+    bersihkan();
     setBuka(true);
   }
 
   async function simpan(e?: FormEvent) {
     e?.preventDefault();
-    setError(null);
+    bersihkan();
 
     const cek = validasiTransaksi({ ...nilai }, { wajibKantong: kantong.length > 0, kategori });
-    if (!cek.ok) return setError(cek.error);
+    if (!cek.ok) return gagal(cek.error, cek.kolom);
 
     setLoading(true);
     const db = createSupabaseBrowserClient();
@@ -63,7 +63,7 @@ export default function EditTransactionForm({
     const { error: err } = await db.from("transactions").update(baru).eq("id", tx.id);
     if (err) {
       setLoading(false);
-      return setError(dbErrorMessage(err));
+      return gagal(dbErrorMessage(err));
     }
 
     // Samakan transaksi ikutan dengan isian: ubah, tambah, atau hapus.
@@ -78,7 +78,7 @@ export default function EditTransactionForm({
         : { error: null };
     setLoading(false);
 
-    if (errIkutan) return setError(dbErrorMessage(errIkutan));
+    if (errIkutan) return gagal(dbErrorMessage(errIkutan));
 
     setBuka(false);
     router.refresh();
@@ -116,8 +116,10 @@ export default function EditTransactionForm({
           ]}
         >
           <form onSubmit={simpan} className={s.form}>
-            <TransactionFields nilai={nilai} onChange={(p) => setNilai((v) => ({ ...v, ...p }))} />
-            {error && <Pesan jenis="bahaya">{error}</Pesan>}
+            <GalatForm value={galat}>
+              <TransactionFields nilai={nilai} onChange={(p) => setNilai((v) => ({ ...v, ...p }))} />
+            </GalatForm>
+            {galat && !galat.kolom && <Pesan jenis="bahaya">{galat.pesan}</Pesan>}
             <button type="submit" hidden />
           </form>
         </Lembar>

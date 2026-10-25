@@ -66,6 +66,22 @@ const bayarCicilan = validasiTransaksi({ ...sah, cicilan_id: ID_A, cicilan_ke: "
 assert.ok(bayarCicilan.ok && bayarCicilan.data.cicilan_id === ID_A && bayarCicilan.data.cicilan_ke === 3);
 assert.ok(!("cicilan_id" in (validasiTransaksi(sah) as { data: object }).data));
 assert.equal(validasiTransaksi({ ...sah, cicilan_id: ID_A }).ok, false); // tanpa nomor
+
+// Galat menyebut isian yang salah, supaya pesannya tampil di bawah isian itu.
+const kolom = (input: Record<string, unknown>, opsi?: Parameters<typeof validasiTransaksi>[1]) => {
+  const h = validasiTransaksi(input, opsi);
+  return h.ok ? "lolos" : h.kolom;
+};
+assert.equal(kolom({ ...sah, amount: "" }), "amount");
+assert.equal(kolom({ ...sah, transaction_date: "2026-13-40" }), "transaction_date");
+assert.equal(kolom({ ...sah, waktu: "25:00" }), "waktu");
+assert.equal(kolom({ ...sah, merchant: "x".repeat(121) }), "merchant");
+assert.equal(kolom({ ...sah, description: "x".repeat(501) }), "description");
+assert.equal(kolom({ ...sah, kantong_id: "" }, { wajibKantong: true }), "kantong_id");
+assert.equal(kolom({ ...sah, cashback: "999999999" }), "cashback");
+assert.equal(validasiTransaksi({ ...sah, type: "pinjam" }).ok === false && (validasiTransaksi({ ...sah, type: "pinjam" }) as { kolom?: string }).kolom, undefined);
+const kantongSalah = validasiKantong({ name: "", emoji: "💳", saldo_awal: "0", saldo_per: "2026-10-01" });
+assert.equal(!kantongSalah.ok && kantongSalah.kolom, "name");
 assert.equal(validasiTransaksi({ ...sah, type: "income", category: "salary", cicilan_id: ID_A, cicilan_ke: 1 }).ok, false);
 assert.equal(validasiTransaksi({ ...sah, cicilan_id: ID_A, cicilan_ke: 0 }).ok, false);
 

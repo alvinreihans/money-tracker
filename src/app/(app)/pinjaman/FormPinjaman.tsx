@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Banknote, CalendarClock, CalendarDays, NotebookPen, UserRound, Wallet } from "lucide-react";
-import { Field, InputNominal, Lembar, Pesan, Pilih, Spinner } from "@/components/oneui";
+import { Field, GalatForm, InputNominal, Lembar, Pesan, Pilih, Spinner, useGalat } from "@/components/oneui";
 import s from "@/components/ui.module.css";
 import { dbErrorMessage } from "@/lib/errors";
 import { fmtIDR, isoLokal } from "@/lib/format";
@@ -59,17 +59,17 @@ export default function FormPinjaman({
   const [jatuhTempo, setJatuhTempo] = useState(pihak?.jatuh_tempo ?? "");
   const [keterangan, setKeterangan] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { galat, gagal, bersihkan } = useGalat({ nama, nominal, kantong: kantongId });
   const pakaiJatuhTempo = (arah === "beri" || arah === "pinjam") && pihak?.kind !== "kredit";
 
   async function simpan(e?: FormEvent) {
     e?.preventDefault();
-    setError(null);
+    bersihkan();
     const namaBersih = nama.trim().replace(/\s+/g, " ");
-    if (!pihak && !namaBersih) return setError("Namanya diisi dulu.");
-    if (namaBersih.length > 40) return setError("Namanya kepanjangan, maksimal 40 huruf.");
-    if (!(Number(nominal) > 0)) return setError("Nominalnya harus lebih dari nol.");
-    if (!kantongId) return setError("Pilih kantongnya dulu.");
+    if (!pihak && !namaBersih) return gagal("Namanya diisi dulu.", "nama");
+    if (namaBersih.length > 40) return gagal("Namanya kepanjangan, maksimal 40 huruf.", "nama");
+    if (!(Number(nominal) > 0)) return gagal("Nominalnya harus lebih dari nol.", "nominal");
+    if (!kantongId) return gagal("Pilih kantongnya dulu.", "kantong");
 
     setLoading(true);
     try {
@@ -113,7 +113,7 @@ export default function FormPinjaman({
       onClose();
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error && !("code" in err) ? err.message : dbErrorMessage(err));
+      gagal(err instanceof Error && !("code" in err) ? err.message : dbErrorMessage(err));
       setLoading(false);
     }
   }
@@ -147,52 +147,55 @@ export default function FormPinjaman({
           </p>
         )}
 
-        <div className={`${s.blok} ${s.blokForm}`}>
-          {!pihak && (
-            <Field label={arah === "beri" ? "Dipinjamkan ke" : "Dipinjam dari"} ikon={UserRound}>
-              <input
-                required
-                maxLength={40}
-                value={nama}
-                onChange={(e) => setNama(e.target.value)}
-                placeholder={arah === "beri" ? "Dipinjamkan ke" : "Dipinjam dari"}
-              />
+        <GalatForm value={galat}>
+          <div className={`${s.blok} ${s.blokForm}`}>
+            {!pihak && (
+              <Field label={arah === "beri" ? "Dipinjamkan ke" : "Dipinjam dari"} ikon={UserRound} kolom="nama">
+                <input
+                  required
+                  maxLength={40}
+                  value={nama}
+                  onChange={(e) => setNama(e.target.value)}
+                  placeholder={arah === "beri" ? "Dipinjamkan ke" : "Dipinjam dari"}
+                />
+              </Field>
+            )}
+            {!pihak && orang.length > 0 && (
+              <div className={s.chipsBungkus} style={{ padding: "0 20px 8px 60px" }}>
+                {orang.slice(0, 8).map((o) => (
+                  <button key={o.id} type="button" className={`${s.chip} ${s.tekan}`} aria-pressed={nama === o.name} onClick={() => setNama(o.name)}>
+                    {o.name}
+                  </button>
+                ))}
+              </div>
+            )}
+            <Field label="Nominal (Rp)" ikon={Banknote} kolom="nominal">
+              <InputNominal required value={nominal} onChange={setNominal} placeholder="Nominal (Rp)" />
             </Field>
-          )}
-          {!pihak && orang.length > 0 && (
-            <div className={s.chipsBungkus} style={{ padding: "0 20px 8px 60px" }}>
-              {orang.slice(0, 8).map((o) => (
-                <button key={o.id} type="button" className={`${s.chip} ${s.tekan}`} aria-pressed={nama === o.name} onClick={() => setNama(o.name)}>
-                  {o.name}
-                </button>
-              ))}
-            </div>
-          )}
-          <Field label="Nominal (Rp)" ikon={Banknote}>
-            <InputNominal required value={nominal} onChange={setNominal} placeholder="Nominal (Rp)" />
-          </Field>
-          <Pilih
-            label={LABEL_KANTONG[arah]}
-            ikon={Wallet}
-            nilai={kantongId}
-            kosong="Pilih kantong"
-            pilihan={kantongUang.map((k) => ({ id: k.id, label: k.name, emoji: emojiKantong(k) }))}
-            onChange={setKantongId}
-          />
-          <Field label="Tanggal" ikon={CalendarDays}>
-            <input type="date" required value={tanggal} onChange={(e) => setTanggal(e.target.value)} />
-          </Field>
-          {pakaiJatuhTempo && (
-            <Field label="Jatuh tempo" ikon={CalendarClock} keterangan="Opsional. Untuk mengingatkan kapan dibayar.">
-              <input type="date" value={jatuhTempo} onChange={(e) => setJatuhTempo(e.target.value)} />
+            <Pilih
+              label={LABEL_KANTONG[arah]}
+              ikon={Wallet}
+              kolom="kantong"
+              nilai={kantongId}
+              kosong="Pilih kantong"
+              pilihan={kantongUang.map((k) => ({ id: k.id, label: k.name, emoji: emojiKantong(k) }))}
+              onChange={setKantongId}
+            />
+            <Field label="Tanggal" ikon={CalendarDays}>
+              <input type="date" required value={tanggal} onChange={(e) => setTanggal(e.target.value)} />
             </Field>
-          )}
-          <Field label="Keterangan" ikon={NotebookPen}>
-            <textarea rows={1} value={keterangan} onChange={(e) => setKeterangan(e.target.value)} placeholder="Keterangan" />
-          </Field>
-        </div>
+            {pakaiJatuhTempo && (
+              <Field label="Jatuh tempo" ikon={CalendarClock} keterangan="Opsional. Untuk mengingatkan kapan dibayar.">
+                <input type="date" value={jatuhTempo} onChange={(e) => setJatuhTempo(e.target.value)} />
+              </Field>
+            )}
+            <Field label="Keterangan" ikon={NotebookPen}>
+              <textarea rows={1} value={keterangan} onChange={(e) => setKeterangan(e.target.value)} placeholder="Keterangan" />
+            </Field>
+          </div>
+        </GalatForm>
 
-        {error && <Pesan jenis="bahaya">{error}</Pesan>}
+        {galat && !galat.kolom && <Pesan jenis="bahaya">{galat.pesan}</Pesan>}
         <button type="submit" hidden />
       </form>
     </Lembar>

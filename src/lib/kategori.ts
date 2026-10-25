@@ -93,23 +93,23 @@ export function slugBaru(acak: () => string = () => crypto.randomUUID()): string
 
 export type HasilKategori =
   | { ok: true; data: { name: string; icon: string; color: string } }
-  | { ok: false; error: string };
+  | { ok: false; error: string; kolom?: string };
 
 /** Isian tambah/ubah kategori. `lain`: kategori lain dengan jenis sama, untuk cek nama kembar. */
 export function validasiKategori(input: Record<string, unknown>, lain: Kategori[] = []): HasilKategori {
   const name = typeof input.name === "string" ? input.name.trim().replace(/\s+/g, " ") : "";
-  if (!name) return { ok: false, error: "Namanya diisi dulu." };
-  if (name.length > 30) return { ok: false, error: "Namanya kepanjangan, maksimal 30 huruf." };
+  if (!name) return { ok: false, error: "Namanya diisi dulu.", kolom: "name" };
+  if (name.length > 30) return { ok: false, error: "Namanya kepanjangan, maksimal 30 huruf.", kolom: "name" };
   if (lain.some((k) => k.name.toLowerCase() === name.toLowerCase())) {
-    return { ok: false, error: `Kategori "${name}" udah ada.` };
+    return { ok: false, error: `Kategori "${name}" udah ada.`, kolom: "name" };
   }
   const icon = input.icon;
   if (typeof icon !== "string" || !(KUNCI_IKON as readonly string[]).includes(icon)) {
-    return { ok: false, error: "Pilih ikonnya dulu." };
+    return { ok: false, error: "Pilih ikonnya dulu.", kolom: "icon" };
   }
   const color = input.color;
   if (typeof color !== "string" || !(WARNA_KATEGORI.includes(color) || color === "#9b9b9b")) {
-    return { ok: false, error: "Pilih warnanya dulu." };
+    return { ok: false, error: "Pilih warnanya dulu.", kolom: "color" };
   }
   return { ok: true, data: { name, icon, color } };
 }
