@@ -12,13 +12,56 @@ bagiannya di sini.
 
 ## Rencana
 
-Belum dikerjakan; dicatat supaya tidak lupa.
+Belum dikerjakan; dicatat supaya tidak lupa. Urutan fase ada di
+SPEC-catat-tuntas.md (fase 1 & 2 selesai di 2.4.0).
+
+- **Metode budgeting pilihan user** (acuan: artikel Prudential "Metode
+  Budgeting"). Semua metode ditampung oleh tiga mesin:
+  - **A. Budget per kategori.**
+    - **Tradisional** sudah ada (Profil → Budget).
+    - **Zero-Based** menambah penanda "sisa belum dialokasikan" yang harus jadi Rp 0.
+  - **B. Persentase per kelompok.** Satu mesin dengan banyak preset:
+    - preset: 50/30/20, 80/20, 70/20/10, Jar/6 Jars, Kakeibo (4 kelompoknya
+      sendiri), Pay Yourself First, dan kustom;
+    - tiap kategori punya kelompok bawaan (Makan → needs, Jajan → wants);
+    - tiap transaksi boleh mengubahnya, mis. makan di restoran mewah jadi
+      wants. AI menyarankan dari merchant/harganya, user yang memutuskan;
+    - Analitik menampilkan realisasi vs target per kelompok;
+    - butuh kolom baru → migrasi.
+  - **C. Pelunasan utang.** Debt Snowball (sisa terkecil dulu) dan Debt
+    Avalanche (bunga tertinggi dulu) di Lend & Borrow. Avalanche butuh isian
+    bunga baru di cicilan/pinjaman.
+  - **Aturan pilihan:** A atau B satu yang aktif; C boleh berjalan
+    bersamaan. Tanya AI menjelaskan dengan bahasa metode yang dipilih.
+  - **Pertanyaan terbuka:** persentase dihitung dari pemasukan nyata bulan
+    itu atau dari pemasukan bulanan yang diisi user?
+  - **Urutan usul:** B (50/30/20, 80/20, 70/20/10, kustom) → Zero-Based →
+    Jar/Kakeibo → Snowball/Avalanche.
 
 - **Caching data di server** (lanjutan), kalau setelah diukur di produksi
   halaman masih terasa lambat atau kuota Supabase/Vercel menipis: mis. data
   yang jarang berubah (kategori, kantong) disimpan sementara di server.
 
 ## [Unreleased]
+
+## [2.4.0] — 2026-10-25
+
+### Ditambahkan
+- **Arah bukti transfer.** Bukti transfer kiriman orang lain kini tercatat sebagai **pemasukan**, bukan pengeluaran.
+  - **Cara memutuskan:** aplikasi mengenali kamu dari nama di rekening (pengirim atau penerima) atau dari kantongmu (bank penerima atau pengirim).
+  - **Kalau belum jelas,** Catat bertanya *"Ini kamu yang kirim ke …, atau terima dari …?"*. Jawaban pertama menyimpan namamu, jadi berikutnya tidak ditanya lagi.
+  - Nama yang dikenali bisa dilihat, ditambah, dan dihapus di **Profil → Nama di rekening**.
+- **Cerita di balik transaksi:** setelah mencatat, kartu "Tersimpan" menawarkan **"+ Tambah cerita"** ("traktir teman", "kado nikahan"). Ceritanya tersimpan di Keterangan. Catatan yang ditulis orang di struk/bukti transfer ("Bayar arisan Oktober") juga terisi sendiri.
+- **Tanya AI menjelaskan "kenapa"** memakai cerita itu: "kenapa bulan ini boros?" dijawab dengan transaksi besarnya beserta alasannya.
+- Tombol **Tanya AI juga di Beranda**. Di layar lebar panelnya tetap terbuka saat membuka tautan "Lihat di Riwayat"; di HP obrolannya tetap ada saat dibuka lagi.
+- **Urungkan hapus:** setelah menghapus transaksi, snackbar menampilkan "Urungkan". Transaksi beserta cashback/biaya adminnya kembali persis seperti semula.
+
+### Diubah
+- **Tanya AI jauh lebih cepat** untuk pertanyaan perbandingan ("bandingin sama bulan lalu", "selisihnya berapa"): dari ±20 detik jadi ±3 detik. Ringkasan bulan yang sedang dilihat kini dihitung di depan.
+
+### Diperbaiki
+- **Hasil "Bagikan" langsung tampil.** Struk dari e-wallet yang diproses di latar langsung muncul di Riwayat, atau sebagai titik di tombol + kalau perlu dicek, tanpa refresh. Kembali ke aplikasi juga menyegarkan data.
+- **Ketikan di Catat tidak hilang** saat lembarnya ditutup (seperti draf), juga setelah aplikasi ditutup. Draf terhapus begitu dikirim.
 
 ## [2.3.1] — 2026-10-25
 

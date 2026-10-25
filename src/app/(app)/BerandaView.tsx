@@ -10,6 +10,7 @@ import KartuBudget from "@/components/KartuBudget";
 import KartuKantong from "@/components/KartuKantong";
 import KartuPinjaman from "@/components/KartuPinjaman";
 import { AppBar, Kosong } from "@/components/oneui";
+import { TombolTanya } from "@/components/TanyaAI";
 import TransactionList from "@/components/TransactionList";
 import s from "@/components/ui.module.css";
 import { fmtIDR, namaBulan } from "@/lib/format";
@@ -135,6 +136,8 @@ export default function BerandaView({
         {budgetWaspada.length > 0 && <KartuBudget data={budgetWaspada} bulan={namaBulan(awalBulanIni)} judul="Budget hampir habis" />}
         <BarisStreak streak={streak} />
       </div>
+      {/* Pintasan Tanya AI (SPEC-cerita-tanya), sama dengan di Analitik. */}
+      <TombolTanya />
     </>
   );
 }

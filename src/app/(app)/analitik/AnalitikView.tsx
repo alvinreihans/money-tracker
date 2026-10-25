@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import NextLink from "next/link";
 import { ArrowUpRight, CalendarDays, ChevronLeft, ChevronRight, Store, TrendingUp } from "lucide-react";
 import { useKategori } from "@/components/Catat";
@@ -8,7 +7,7 @@ import KartuBudget from "@/components/KartuBudget";
 import KomposisiKategori from "@/components/KomposisiKategori";
 import { AppBar } from "@/components/oneui";
 import RingkasanBulan from "@/components/RingkasanBulan";
-import TanyaAI, { IkonAI } from "@/components/TanyaAI";
+import { TombolTanya, useTanyaBulan } from "@/components/TanyaAI";
 import TrenBulanan from "@/components/TrenBulanan";
 import s from "@/components/ui.module.css";
 import { fmtIDR, fmtIDRRingkas, geserHari, namaBulan } from "@/lib/format";
@@ -69,7 +68,7 @@ export default function AnalitikView({
   totalBudget: number;
 }) {
   const kategori = useKategori();
-  const [tanya, setTanya] = useState(false);
+  useTanyaBulan(bulan);
   const awal = `${bulan}-01`;
   const akhir = geserHari(`${geserBulan(bulan, 1)}-01`, -1);
   const label = `${Besar(namaBulan(awal))} ${bulan.slice(0, 4)}`;
@@ -197,14 +196,8 @@ export default function AnalitikView({
         <TrenBulanan data={tren} />
         <KartuBudget data={budget} bulan={namaBulan(awal)} />
       </div>
-      {/* Tanya AI (SPEC-analitik-ai): tombol melayang kanan bawah, seperti tombol AI di WhatsApp. */}
-      {tanya ? (
-        <TanyaAI bulan={bulan} namaBulan={Besar(namaBulan(awal))} namaBulanLalu={bulanLalu} onClose={() => setTanya(false)} />
-      ) : (
-        <button type="button" className={s.tombolAI} aria-label="Tanya AI soal keuanganmu" onClick={() => setTanya(true)}>
-          <IkonAI />
-        </button>
-      )}
+      {/* Tanya AI (SPEC-cerita-tanya): obrolannya di kerangka aplikasi, memakai bulan yang dipilih di sini. */}
+      <TombolTanya />
     </>
   );
 }

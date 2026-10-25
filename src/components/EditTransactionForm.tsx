@@ -59,6 +59,8 @@ export default function EditTransactionForm({
       // ikut dihitung di laporan dan penanda merahnya dilepas.
       status: "confirmed",
       raw_ocr_text: null,
+      // Bukti transfer yang belum dijawab: arahnya kini dipilih di form.
+      bukti_transfer: null,
     };
     const { error: err } = await db.from("transactions").update(baru).eq("id", tx.id);
     if (err) {

@@ -2,10 +2,11 @@
 
 import { useEffect } from "react";
 import NextLink from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { CatatProvider, TombolCatat, type PilihanKantong } from "@/components/Catat";
 import { NAVIGASI } from "@/components/navigasi";
 import { KembaliKeAtas } from "@/components/oneui";
+import { TanyaProvider } from "@/components/TanyaAI";
 import type { Kategori } from "@/lib/kategori";
 import s from "@/components/ui.module.css";
 
@@ -35,12 +36,33 @@ export default function AppShell({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
 
   // Service worker untuk menerima "Bagikan" (public/sw.js). Sekali daftar
   // cukup; browser yang tidak mendukung dilewati.
   useEffect(() => {
     navigator.serviceWorker?.register("/sw.js").catch(() => {});
   }, []);
+
+  // Data tetap segar tanpa muat ulang (SPEC-catat-tuntas): struk dari
+  // "Bagikan" selesai diproses di latar → service worker mengabari; kembali
+  // ke aplikasi (mis. dari e-wallet) → segarkan sekali, paling sering 10 detik.
+  useEffect(() => {
+    const sw = navigator.serviceWorker;
+    const pesan = (e: MessageEvent) => e.data?.jenis === "transaksi-berubah" && router.refresh();
+    let terakhir = Date.now();
+    const tampil = () => {
+      if (document.visibilityState !== "visible" || Date.now() - terakhir < 10_000) return;
+      terakhir = Date.now();
+      router.refresh();
+    };
+    sw?.addEventListener("message", pesan);
+    document.addEventListener("visibilitychange", tampil);
+    return () => {
+      sw?.removeEventListener("message", pesan);
+      document.removeEventListener("visibilitychange", tampil);
+    };
+  }, [router]);
 
   const tab = (t: (typeof NAVIGASI)[number]) => {
     const aktif = t.aktif(pathname);
@@ -63,7 +85,9 @@ export default function AppShell({
 
   return (
     <CatatProvider saran={saran} kantong={kantong} kategori={kategori} email={email} jumlahDraft={draftCount}>
-      <div className={s.app}>{children}</div>
+      <TanyaProvider>
+        <div className={s.app}>{children}</div>
+      </TanyaProvider>
       <KembaliKeAtas />
 
       <nav className={s.nav} aria-label="Navigasi utama">

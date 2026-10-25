@@ -1,3 +1,4 @@
+import type { BuktiTransfer } from "@/lib/arah";
 import type { InfoPaylater } from "@/lib/pinjaman";
 // Tipe domain bersama (single source of truth) untuk seluruh app.
 
@@ -30,6 +31,8 @@ export interface Transaction {
   paylater?: string | null;
   /** Draft yang sama persis dengan transaksi tercatat ini (SPEC-catat-andal). */
   duplikat_dari?: string | null;
+  /** Bukti transfer yang arahnya belum dipastikan: JSON BuktiTransfer (SPEC-catat-tuntas). */
+  bukti_transfer?: string | null;
   transaction_date: string; // ISO date: "YYYY-MM-DD"
   /** Jam transaksi (WIB), "HH:MM:SS"; opsional. Lihat SPEC-saldo-waktu.md. */
   waktu?: string | null;
@@ -73,6 +76,8 @@ export interface ExtractedReceipt {
   paylater: InfoPaylater | null;
   /** Membedakan screenshot bukti bayar dari struk kertas kasir. */
   document_type: "receipt" | "payment_proof";
+  /** Bukti transfer antar dua pihak: nama & bank keduanya; arahnya diputuskan aplikasi (lib/arah). */
+  bukti_transfer: BuktiTransfer | null;
 }
 
 /** Bentuk baris yang dikembalikan RPC get_avg_monthly_expense_by_category(). */

@@ -1,10 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type FormEvent } from "react";
 import NextLink from "next/link";
 import { ArrowUp, Sparkles } from "lucide-react";
+import { LAYAR_LEBAR } from "@/components/navigasi";
 import { Lembar } from "@/components/oneui";
 import s from "@/components/ui.module.css";
+import { isoLokal, namaBulan } from "@/lib/format";
+import { geserBulan } from "@/lib/kalender";
 
 type Pesan =
   | { peran: "saya"; teks: string }
@@ -29,17 +32,117 @@ export function IkonAI({ size = 26 }: { size?: number }) {
   );
 }
 
+const Besar = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
+
+const TanyaContext = createContext<{
+  terbuka: boolean;
+  buka: () => void;
+  /** Bulan acuan halaman ini (Analitik); null = bulan berjalan. */
+  aturBulan: (bulan: string | null) => void;
+} | null>(null);
+
 /**
- * Tanya AI di Analitik (SPEC-analitik-ai), tampilan ala ChatGPT: layar kosong
- * dengan sapaan & kartu saran, pesan user dalam gelembung abu di kanan,
- * jawaban AI teks biasa selebar layar, kolom ketik berbentuk kapsul yang
- * selalu di bawah. Obrolan hanya ada di sini — tidak disimpan. Di layar
- * lebar, obrolan jadi panel di kanan supaya grafik tetap terlihat.
+ * Tanya AI di kerangka aplikasi (SPEC-cerita-tanya): obrolannya hidup di sini,
+ * bukan di halaman, jadi tetap ada saat pindah halaman — di layar lebar
+ * panelnya tetap terbuka saat tautan "Lihat di Riwayat" diikuti; di HP,
+ * membukanya lagi menampilkan obrolan yang sama. Tidak disimpan setelah
+ * aplikasi ditutup.
  */
-export default function TanyaAI({ bulan, namaBulan, namaBulanLalu, onClose }: { bulan: string; namaBulan: string; namaBulanLalu: string; onClose: () => void }) {
+export function TanyaProvider({ children }: { children: React.ReactNode }) {
+  const [terbuka, setTerbuka] = useState(false);
+  const [bulanHalaman, setBulanHalaman] = useState<string | null>(null);
   const [pesan, setPesan] = useState<Pesan[]>([]);
   const [teks, setTeks] = useState("");
   const [sibuk, setSibuk] = useState(false);
+  const bulan = bulanHalaman ?? isoLokal(new Date()).slice(0, 7);
+
+  async function tanya(pertanyaan: string) {
+    const q = pertanyaan.trim();
+    if (!q || sibuk) return;
+    // Konteks percakapan: 6 pesan terakhir, tanpa pesan galat.
+    const riwayat = pesan.flatMap((p) => (p.peran === "galat" ? [] : [{ peran: p.peran, teks: p.teks }])).slice(-6);
+    setPesan((p) => [...p, { peran: "saya", teks: q }]);
+    setTeks("");
+    setSibuk(true);
+    const res = await fetch("/api/tanya", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pertanyaan: q, riwayat, bulan }),
+    }).catch(() => null);
+    const d = ((await res?.json().catch(() => null)) ?? {}) as { jawaban?: string; tautan?: { label: string; href: string }[]; ragu?: boolean; error?: string };
+    setSibuk(false);
+    setPesan((p) => [
+      ...p,
+      res?.ok && d.jawaban
+        ? { peran: "ai", teks: d.jawaban, tautan: d.tautan ?? [], ragu: Boolean(d.ragu) }
+        : { peran: "galat", teks: d.error ?? "Lagi sibuk, coba lagi sebentar ya." },
+    ]);
+  }
+
+  return (
+    <TanyaContext.Provider value={{ terbuka, buka: () => setTerbuka(true), aturBulan: setBulanHalaman }}>
+      {children}
+      {terbuka && (
+        <TanyaAI
+          namaBulan={Besar(namaBulan(`${bulan}-01`))}
+          namaBulanLalu={Besar(namaBulan(`${geserBulan(bulan, -1)}-01`))}
+          pesan={pesan}
+          sibuk={sibuk}
+          teks={teks}
+          setTeks={setTeks}
+          tanya={tanya}
+          onClose={() => setTerbuka(false)}
+        />
+      )}
+    </TanyaContext.Provider>
+  );
+}
+
+/** Halaman yang punya bulan pilihan (Analitik): Tanya AI memakai bulan itu selama halamannya tampil. */
+export function useTanyaBulan(bulan: string) {
+  const aturBulan = useContext(TanyaContext)?.aturBulan;
+  useEffect(() => {
+    aturBulan?.(bulan);
+    return () => aturBulan?.(null);
+  }, [aturBulan, bulan]);
+}
+
+/** Tombol melayang kanan bawah, seperti tombol AI di WhatsApp (Beranda, Analitik). */
+export function TombolTanya() {
+  const t = useContext(TanyaContext);
+  if (!t || t.terbuka) return null;
+  return (
+    <button type="button" className={s.tombolAI} aria-label="Tanya AI soal keuanganmu" onClick={t.buka}>
+      <IkonAI />
+    </button>
+  );
+}
+
+/**
+ * Lembar obrolan ala ChatGPT (SPEC-analitik-ai): layar kosong dengan sapaan &
+ * kartu saran, pesan user dalam gelembung abu di kanan, jawaban AI teks biasa
+ * selebar layar, kolom ketik berbentuk kapsul yang selalu di bawah. Di layar
+ * lebar jadi panel di kanan supaya grafik tetap terlihat.
+ */
+function TanyaAI({
+  namaBulan,
+  namaBulanLalu,
+  pesan,
+  sibuk,
+  teks,
+  setTeks,
+  tanya,
+  onClose,
+}: {
+  namaBulan: string;
+  namaBulanLalu: string;
+  pesan: Pesan[];
+  sibuk: boolean;
+  teks: string;
+  setTeks: (t: string) => void;
+  tanya: (q: string) => Promise<void>;
+  onClose: () => void;
+}) {
   // Pertanyaan bertahap bisa lama: setelah 8 detik, beri tahu masih dikerjakan.
   const [lama, setLama] = useState(false);
   useEffect(() => {
@@ -70,33 +173,16 @@ export default function TanyaAI({ bulan, namaBulan, namaBulanLalu, onClose }: { 
     el.style.height = `${el.scrollHeight}px`;
   }, [teks]);
 
-  async function tanya(pertanyaan: string) {
-    const q = pertanyaan.trim();
-    if (!q || sibuk) return;
-    // Konteks percakapan: 6 pesan terakhir, tanpa pesan galat.
-    const riwayat = pesan.flatMap((p) => (p.peran === "galat" ? [] : [{ peran: p.peran, teks: p.teks }])).slice(-6);
-    setPesan((p) => [...p, { peran: "saya", teks: q }]);
-    setTeks("");
-    setSibuk(true);
-    const res = await fetch("/api/tanya", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pertanyaan: q, riwayat, bulan }),
-    }).catch(() => null);
-    const d = ((await res?.json().catch(() => null)) ?? {}) as { jawaban?: string; tautan?: { label: string; href: string }[]; ragu?: boolean; error?: string };
-    setSibuk(false);
-    setPesan((p) => [
-      ...p,
-      res?.ok && d.jawaban
-        ? { peran: "ai", teks: d.jawaban, tautan: d.tautan ?? [], ragu: Boolean(d.ragu) }
-        : { peran: "galat", teks: d.error ?? "Lagi sibuk, coba lagi sebentar ya." },
-    ]);
-  }
-
   function kirim(e?: FormEvent) {
     e?.preventDefault();
     void tanya(teks);
   }
+
+  // Di HP, tautan membuka halaman di balik lembar layar penuh: tutup dulu
+  // (obrolannya tetap ada). Di layar lebar panelnya tetap di samping.
+  const ikutiTautan = () => {
+    if (!window.matchMedia(LAYAR_LEBAR).matches) onClose();
+  };
 
   const kosong = pesan.length === 0 && !sibuk;
 
@@ -123,7 +209,7 @@ export default function TanyaAI({ bulan, namaBulan, namaBulanLalu, onClose }: { 
                   {p.peran === "ai" && p.tautan.length > 0 && (
                     <div className={s.gptTautan}>
                       {p.tautan.map((t) => (
-                        <NextLink key={t.href} href={t.href}>
+                        <NextLink key={t.href} href={t.href} onClick={ikutiTautan}>
                           {t.label}
                         </NextLink>
                       ))}

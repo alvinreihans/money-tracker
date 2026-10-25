@@ -26,3 +26,10 @@ export function getGeminiClient(): GoogleGenerativeAI {
  * Vercel tanpa deploy ulang.
  */
 export const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3.5-flash-lite";
+
+/**
+ * Model Tanya AI (SPEC-cerita-tanya): bawaannya sama dengan pembaca struk.
+ * Bisa dicoba model lain lewat env GEMINI_MODEL_CHAT tanpa deploy ulang —
+ * pilih berdasarkan `npm run eval:tanya` (skor & waktu) dan kuota free tier.
+ */
+export const GEMINI_MODEL_CHAT = process.env.GEMINI_MODEL_CHAT || GEMINI_MODEL;

@@ -3,7 +3,8 @@ import { ambilUser, createSupabaseServerClient } from "@/lib/supabase/server";
 import { ambilKonteksAI } from "@/lib/kategori-server";
 import { bacaNominal, bacaTenor, kantongDariJawaban, pertanyaanDraft, type JenisTanya } from "@/lib/draft";
 import type { InfoPaylater } from "@/lib/pinjaman";
-import { jadikanCicilan } from "@/lib/simpan-transaksi";
+import { bacaArah, bacaBukti, gabungNama, isianArah, kantongBank, namaDariJawaban } from "@/lib/arah";
+import { jadikanCicilan, namaRekening } from "@/lib/simpan-transaksi";
 import { processReceiptText } from "@/lib/receipt";
 import { TEKS_MAKS } from "@/lib/transaksi-input";
 import type { Kantong } from "@/lib/kantong";
@@ -15,7 +16,7 @@ export const dynamic = "force-dynamic";
 // "cerita" membaca ulang lewat rantai Groq.
 export const maxDuration = 30;
 
-const JENIS: JenisTanya[] = ["cerita", "nominal", "kantong", "kantong_tujuan", "waktu", "tenor", "duplikat", "konfirmasi"];
+const JENIS: JenisTanya[] = ["cerita", "nominal", "arah", "kantong", "kantong_tujuan", "waktu", "tenor", "duplikat", "konfirmasi"];
 
 /**
  * Jawaban user untuk pertanyaan di percakapan sebuah draft (SPEC-catat-chat).
@@ -65,6 +66,25 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const n = bacaNominal(nilai);
     if (n) patch.amount = n;
     else gagal = "Angkanya belum kebaca. Coba ketik lagi, mis. 150.000";
+  } else if (jenis === "arah") {
+    // Bukti transfer antar dua pihak (SPEC-catat-tuntas): arah dari jawaban,
+    // kantong dari bank di sisi user, lalu nama user dipelajari supaya bukti
+    // berikutnya tidak perlu ditanyakan lagi.
+    const bukti = bacaBukti(tx.bukti_transfer);
+    const arah = bacaArah(nilai);
+    if (bukti && !arah) return tolak("Pilih “Aku kirim” atau “Aku terima” ya.");
+    patch.bukti_transfer = null;
+    if (bukti && arah) {
+      const uang = semua.filter((k) => k.kind !== "orang");
+      const isi = isianArah(bukti, arah);
+      Object.assign(patch, { type: isi.type, merchant: isi.merchant, ...("category" in isi ? { category: isi.category } : {}) });
+      const dari = kantongBank(isi.payment_method, uang);
+      const ke = isi.payment_target ? kantongBank(isi.payment_target, uang) : null;
+      Object.assign(patch, dari ? { kantong_id: dari.id, payment_method: dari.name } : { kantong_id: null, payment_method: isi.payment_method });
+      patch.kantong_tujuan_id = ke && ke.id !== dari?.id ? ke.id : null;
+      const nama = gabungNama(await namaRekening(supabase), namaDariJawaban(bukti, arah));
+      await supabase.auth.updateUser({ data: { nama_rekening: nama } });
+    }
   } else if (jenis === "kantong") {
     const k = kantongDariJawaban(nilai, pilihan(tx.type));
     if (k) Object.assign(patch, { kantong_id: k.id, payment_method: k.name });

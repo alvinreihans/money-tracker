@@ -2,6 +2,7 @@ import { SchemaType, type GenerationConfig } from "@google/generative-ai";
 import { getGeminiClient, GEMINI_MODEL } from "@/lib/gemini";
 import { runGroqChain, parseJsonLoose } from "@/lib/groq";
 import { isoLokal } from "@/lib/format";
+import type { BuktiTransfer } from "@/lib/arah";
 import type { InfoPaylater } from "@/lib/pinjaman";
 import type { PetunjukJam } from "@/lib/waktu";
 import { KATEGORI_BAWAAN, kategoriJenis, LAINNYA, type Kategori } from "@/lib/kategori";
@@ -81,7 +82,8 @@ Skema:
   "pinjaman": { "arah": "beri" | "terima_bayar" | "pinjam" | "bayar", "pihak": string } | null,
   "cicilan": string | null,
   "paylater": { "penyedia": string, "tenor": number | null, "per_cicilan": number | null, "jatuh_tempo": "YYYY-MM-DD" | null } | null,
-  "document_type": "receipt" | "payment_proof"
+  "document_type": "receipt" | "payment_proof",
+  "bukti_transfer": { "pengirim": { "nama": string | null, "bank": string | null }, "penerima": { "nama": string | null, "bank": string | null } } | null
 }
 
 Aturan:
@@ -120,13 +122,21 @@ Aturan:
   topup e-wallet ("topup gopay 100rb dari bca"), tarik tunai, atau "pindahin
   500rb dari bca ke seabank". Transfer ke orang lain atau bayar tagihan tetap
   "expense".
-  Bukti transfer dari aplikasi ("Dikirim Dari"/"Pengirim", "Kirim Ke"/"Penerima",
-  "Sumber Dana"): kalau nama PENERIMA berbeda dengan nama PENGIRIM, itu kirim uang
-  ke orang lain -> "expense", merchant = nama penerima (huruf dirapikan, mis.
-  "Budi Kusnandar"), payment_method = sumber dananya ("Saldo ShopeePay" -> ShopeePay,
-  "SeaBank *3026" -> SeaBank), payment_target null. Bank/nomor rekening PENERIMA
-  ("BCA: 6090069720") BUKAN rekening milik user — jangan jadikan payment_target.
-  Hanya "transfer" bila penerimanya si pengirim sendiri atau berupa topup.
+  Bukti transfer antar dua pihak dari aplikasi bank/e-wallet (ada pengirim —
+  "Dari"/"Pengirim"/"Sumber Dana" — DAN penerima berupa nama orang — "Ke"/
+  "Penerima"/"Tujuan"): Anda TIDAK tahu siapa pemilik catatan, jadi JANGAN
+  menebak arahnya — bukti itu bisa kiriman orang lain kepada pemilik. Isi
+  bukti_transfer (lihat di bawah), lalu type "expense", merchant = nama
+  penerima, payment_method = bank pengirim, payment_target null; aplikasi
+  yang memutuskan arah akhirnya.
+  Topup ke e-wallet/akun layanan (tujuannya nama layanan, bukan nama orang)
+  tetap "transfer" seperti biasa, dengan bukti_transfer null.
+- bukti_transfer: HANYA untuk bukti transfer antar dua pihak (lihat type), selain itu null.
+  nama = nama pengirim/penerima persis seperti tertulis (boleh tersamar, mis.
+  "ALV*** R***"); bank = nama bank/dompet SINGKAT seperti payment_method
+  ("BANK SEABANK INDONESIA" -> "SeaBank", "Saldo ShopeePay" -> "ShopeePay").
+  Bank pengirim yang tidak tertulis boleh diambil dari logo/nama aplikasi
+  bukti itu (bukti dari aplikasi OCBC -> "OCBC"). Nomor rekening bukan nama bank.
 - category: isi dengan SLUG (kiri) dari daftar milik user di bawah, sesuai type.
   Pilih berdasarkan arti NAMA kategorinya (kanan); kalau ada yang lebih spesifik
   dan cocok, pilih yang itu. Kalau tidak ada yang cocok: "other".
@@ -146,7 +156,13 @@ ${daftarPrompt(kategori, "income")}
   "malam" ("tadi pagi beli roti" -> "pagi"). "lampau" bila teks menyatakan sudah terjadi
   tanpa bagian hari ("tadi beli roti", "tadi bayar parkir"). Tanpa petunjuk waktu sama
   sekali ("kopi 25rb gopay", "kemarin makan") -> null.
-- description: ringkasan singkat isi transaksi, boleh null.
+- description: cerita/konteks transaksi yang DITULIS ORANG, boleh null.
+  Utamakan catatan dari pengguna atau pengirim: berita transfer, "Keperluan
+  Transfer", "Catatan", catatan pesanan ("Kado nikahan Rina", "Bayar arisan
+  Oktober", "Patungan makan tim"). Teks bawaan aplikasi yang tidak bercerita
+  ("Transfer Dana", "Pembayaran", "Top Up", "Transfer", "Pembelian") BUKAN
+  description -> null. Untuk struk belanja tanpa catatan: ringkasan singkat
+  barangnya boleh ("Beras 5 kg, minyak goreng"), atau null.
 - payment_method: metode bayar bila disebut, normalkan istilah gaul/singkatan:
   "sopipay"/"spay"/"shopee pay"=ShopeePay; "gopay"=GoPay; "ovo"=OVO; "dana"=DANA;
   "qris"=QRIS; "cash"/"tunai"/"cod"=Tunai; "transfer"/"tf"/"m-banking"=Transfer;
@@ -223,6 +239,16 @@ benar-benar tidak dapat ditentukan, kembalikan amount 0.`;
 // Normalisasi & validasi
 // ---------------------------------------------------------------------------
 
+/** Bukti transfer dari model: kedua pihak ada dan minimal satu bernama; selain itu null. */
+function buktiAtauNull(b: unknown): BuktiTransfer | null {
+  const o = b as { pengirim?: Record<string, unknown>; penerima?: Record<string, unknown> } | null | undefined;
+  const teks = (x: unknown) => (typeof x === "string" && x.trim() ? x.trim().slice(0, 80) : null);
+  const pihak = (p?: Record<string, unknown>) => ({ nama: teks(p?.nama), bank: teks(p?.bank) });
+  if (!o?.pengirim || !o?.penerima) return null;
+  const hasil = { pengirim: pihak(o.pengirim), penerima: pihak(o.penerima) };
+  return hasil.pengirim.nama || hasil.penerima.nama ? hasil : null;
+}
+
 /** Rapikan hasil mentah model menjadi ExtractedReceipt yang konsisten. */
 export function normalize(parsed: Partial<ExtractedReceipt>, kategori: Kategori[] = KATEGORI_BAWAAN): ExtractedReceipt {
   const p = parsed.pinjaman as { arah?: unknown; pihak?: unknown } | null | undefined;
@@ -256,6 +282,7 @@ export function normalize(parsed: Partial<ExtractedReceipt>, kategori: Kategori[
     // Membayar cicilan paylater (field cicilan) bukan belanja paylater baru.
     paylater: type === "expense" && !(typeof parsed.cicilan === "string" && parsed.cicilan.trim()) ? paylaterAtauNull(parsed.paylater) : null,
     document_type: parsed.document_type === "payment_proof" ? "payment_proof" : "receipt",
+    bukti_transfer: pinjaman ? null : buktiAtauNull(parsed.bukti_transfer),
     transaction_date:
       typeof parsed.transaction_date === "string" && parsed.transaction_date
         ? parsed.transaction_date
@@ -392,8 +419,19 @@ const geminiSchema: GenerationConfig["responseSchema"] = {
       },
     },
     document_type: { type: SchemaType.STRING, format: "enum", enum: ["receipt", "payment_proof"] },
+    bukti_transfer: {
+      type: SchemaType.OBJECT,
+      nullable: true,
+      properties: {
+        pengirim: { type: SchemaType.OBJECT, properties: { nama: { type: SchemaType.STRING, nullable: true }, bank: { type: SchemaType.STRING, nullable: true } }, required: ["nama", "bank"] },
+        penerima: { type: SchemaType.OBJECT, properties: { nama: { type: SchemaType.STRING, nullable: true }, bank: { type: SchemaType.STRING, nullable: true } }, required: ["nama", "bank"] },
+      },
+      required: ["pengirim", "penerima"],
+    },
   },
-  required: ["amount", "type", "category", "transaction_date"],
+  // bukti_transfer wajib ada (boleh null): kalau opsional, model sering
+  // melewatkannya dan bukti kiriman orang lain jadi tercatat pengeluaran.
+  required: ["amount", "type", "category", "transaction_date", "bukti_transfer"],
 };
 
 /**

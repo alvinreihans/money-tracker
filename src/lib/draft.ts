@@ -7,7 +7,7 @@ import { perluTanyaJam, type SaldoSejak } from "@/lib/waktu";
  * scripts/uji-draft.mts.
  */
 
-export type JenisTanya = "cerita" | "nominal" | "kantong" | "kantong_tujuan" | "waktu" | "tenor" | "duplikat" | "konfirmasi";
+export type JenisTanya = "cerita" | "nominal" | "arah" | "kantong" | "kantong_tujuan" | "waktu" | "tenor" | "duplikat" | "konfirmasi";
 
 interface BarisDraft {
   status: string;
@@ -23,6 +23,8 @@ interface BarisDraft {
   paylater?: string | null;
   /** Transaksi tercatat yang sama persis (SPEC-catat-andal): ditanya "Catat lagi?". */
   duplikat_dari?: string | null;
+  /** Bukti transfer yang arahnya belum dipastikan (SPEC-catat-tuntas). */
+  bukti_transfer?: string | null;
 }
 
 /**
@@ -39,6 +41,8 @@ interface BarisDraft {
 export function pertanyaanDraft(t: BarisDraft, saldoDari?: (id: string) => SaldoSejak | undefined): JenisTanya | null {
   if (t.status !== "needs_review") return null;
   if (!(Number(t.amount) > 0)) return t.merchant || (t.category && t.category !== "other") ? "nominal" : "cerita";
+  // Bukti transfer antar dua pihak: kirim atau terima dulu — kantongnya ikut arah itu.
+  if (t.bukti_transfer) return "arah";
   // Paylater tidak memakai kantong: begitu tenornya dijawab, jadi rencana cicilan.
   if (t.paylater) return "tenor";
   if (!t.kantong_id) return "kantong";
@@ -54,6 +58,8 @@ export function pertanyaanDraft(t: BarisDraft, saldoDari?: (id: string) => Saldo
 export const KALIMAT_TANYA: Record<JenisTanya, string> = {
   cerita: "Aku belum nangkep. Ceritain transaksinya? Misalnya “bensin 150rb pakai BCA”.",
   nominal: "Berapa nominalnya?",
+  // Biasanya diganti kalimatArah() yang menyebut nama kedua pihak.
+  arah: "Ini uang keluar atau masuk?",
   kantong: "Pakai kantong apa?",
   kantong_tujuan: "Pindah ke kantong mana?",
   waktu: "Tadi itu jam berapa?",
