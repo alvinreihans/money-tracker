@@ -132,7 +132,8 @@ export default function AnalitikView({
     <>
       {/* Bulannya di pemilih bulan di bawah, tidak diulang di subjudul. */}
       <AppBar judul="Analitik" />
-      <div className={s.isi}>
+      {/* Layar lebar: kartu mengalir ke dua kolom (SPEC-layar-lebar). */}
+      <div className={`${s.isi} ${s.isiKolom} ${s.lebar}`}>
         <nav className={s.pilihBulan} aria-label="Pilih bulan">
           <NextLink href={alamatBulan(geserBulan(bulan, -1))} className={s.ikonTombol} aria-label={`Bulan sebelumnya: ${bulanLalu}`}>
             <ChevronLeft size={24} />
@@ -197,10 +198,13 @@ export default function AnalitikView({
         <KartuBudget data={budget} bulan={namaBulan(awal)} />
       </div>
       {/* Tanya AI (SPEC-analitik-ai): tombol melayang kanan bawah, seperti tombol AI di WhatsApp. */}
-      <button type="button" className={s.tombolAI} aria-label="Tanya AI soal keuanganmu" onClick={() => setTanya(true)}>
-        <IkonAI />
-      </button>
-      {tanya && <TanyaAI bulan={bulan} namaBulan={Besar(namaBulan(awal))} namaBulanLalu={bulanLalu} onClose={() => setTanya(false)} />}
+      {tanya ? (
+        <TanyaAI bulan={bulan} namaBulan={Besar(namaBulan(awal))} namaBulanLalu={bulanLalu} onClose={() => setTanya(false)} />
+      ) : (
+        <button type="button" className={s.tombolAI} aria-label="Tanya AI soal keuanganmu" onClick={() => setTanya(true)}>
+          <IkonAI />
+        </button>
+      )}
     </>
   );
 }

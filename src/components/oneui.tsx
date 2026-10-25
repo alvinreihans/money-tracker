@@ -2,7 +2,8 @@
 
 import { Fragment, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import NextLink from "next/link";
-import { Check, ChevronDown, ChevronLeft, ChevronUp, CircleCheck, CircleX, EllipsisVertical, Info, TriangleAlert } from "lucide-react";
+import { Check, ChevronDown, ChevronLeft, ChevronUp, CircleCheck, CircleX, EllipsisVertical, Info, TriangleAlert, X } from "lucide-react";
+import { LAYAR_LEBAR } from "@/components/navigasi";
 import s from "@/components/ui.module.css";
 import { angkaMentah, angkaRibuan } from "@/lib/format";
 
@@ -127,6 +128,11 @@ export function KembaliKeAtas() {
  * Memakai <dialog> bawaan: fokus terkunci di dalam, Esc menutup, dan halaman
  * di belakangnya tidak bisa diklik — tanpa ditulis ulang. Dipasang hanya saat
  * dibuka; pemanggil melepasnya lewat onClose.
+ *
+ * Mulai 600px, lembar jadi pop-up di tengah (panduan layar lebar Samsung:
+ * tugas singkat di pop-up, bukan layar penuh). `samping`: di layar lebar
+ * menempel di kanan sebagai panel non-modal — halaman di sebelahnya tetap
+ * bisa dilihat dan digulir (Tanya AI di samping grafik Analitik).
  */
 export function Lembar({
   judul,
@@ -143,7 +149,7 @@ export function Lembar({
   /** Nama dialog untuk pembaca layar, bila judulnya tidak ditampilkan. */
   label?: string;
   sub?: React.ReactNode;
-  posisi?: "bawah" | "tengah" | "penuh";
+  posisi?: "bawah" | "tengah" | "penuh" | "samping";
   /** Isi berupa daftar baris: tanpa padding samping. */
   daftar?: boolean;
   tombol?: React.ReactNode;
@@ -168,20 +174,41 @@ export function Lembar({
   useLayoutEffect(() => {
     const d = ref.current;
     if (!d) return;
-    d.showModal();
+    // Panel samping: non-modal di layar lebar, modal di bawahnya. Saat lebar
+    // berubah (Fold dibuka/dilipat, jendela diubah), dialog cukup dibuka ulang
+    // dengan mode lain — isinya tidak dipasang ulang, ketikan tidak hilang.
+    const lebar = posisi === "samping" ? window.matchMedia(LAYAR_LEBAR) : null;
+    const buka = () => {
+      const fokus = document.activeElement;
+      if (d.open) d.close();
+      if (lebar?.matches) d.show();
+      else d.showModal();
+      if (fokus instanceof HTMLElement && d.contains(fokus)) fokus.focus();
+    };
+    buka();
     d.querySelector<HTMLElement>("[data-autofocus]")?.focus();
     const batal = (e: Event) => {
       e.preventDefault(); // biar React yang melepas dialognya, bukan browser
       tutup.current();
     };
+    // Dialog non-modal tidak ditutup Esc oleh browser.
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && !d.matches(":modal") && tutup.current();
     d.addEventListener("cancel", batal);
-    return () => d.removeEventListener("cancel", batal);
+    d.addEventListener("keydown", esc);
+    lebar?.addEventListener("change", buka);
+    return () => {
+      d.removeEventListener("cancel", batal);
+      d.removeEventListener("keydown", esc);
+      lebar?.removeEventListener("change", buka);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const kelas = [
     s.dialog,
     posisi === "tengah" && s.dialogTengah,
-    posisi === "penuh" && s.dialogPenuh,
+    (posisi === "penuh" || posisi === "samping") && s.dialogPenuh,
+    posisi === "samping" && s.dialogSamping,
   ]
     .filter(Boolean)
     .join(" ");
@@ -192,14 +219,16 @@ export function Lembar({
       className={kelas}
       aria-label={label ?? (typeof judul === "string" ? judul : undefined)}
       // Ketuk di luar kotak (area backdrop) menutup dialog.
-      onClick={(e) => e.target === e.currentTarget && onClose()}
+      onClick={(e) => e.target === e.currentTarget && e.currentTarget.matches(":modal") && onClose()}
     >
-      {posisi === "penuh" ? (
+      {posisi === "penuh" || posisi === "samping" ? (
         // Halaman penuh: tombol kembali lalu judul dalam satu baris, seperti
-        // "‹ Add boarding passes" di Samsung Wallet.
+        // "‹ Add boarding passes" di Samsung Wallet. Begitu jadi pop-up atau
+        // panel samping (layar lebar), ia tidak lagi "halaman": tombolnya ×.
         <div className={s.dialogKepala}>
-          <button type="button" className={s.ikonTombol} aria-label="Kembali" onClick={onClose}>
-            <ChevronLeft size={26} />
+          <button type="button" className={s.ikonTombol} aria-label={posisi === "samping" ? "Tutup" : "Kembali"} onClick={onClose}>
+            <ChevronLeft size={26} className={s.hanyaSempit} />
+            <X size={24} className={s.hanyaLebar} />
           </button>
           {judul && <h2 className={s.dialogJudul}>{judul}</h2>}
         </div>

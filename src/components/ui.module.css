@@ -1447,3 +1447,224 @@ button.blok { background: var(--blok); }
 .tombolAI:active { transform: scale(0.94); }
 .gptMemuat { display: flex; align-items: center; gap: 10px; }
 .gptMemuat p { margin: 0; font-size: 14px; }
+
+/* ---------- Layar lebar: tablet, Fold, desktop (SPEC-layar-lebar) ---------- */
+
+/* Mengikuti panduan layar lebar Samsung. Ringkas (< 600px): semua di atas
+   berlaku apa adanya. Sedang (≥ 600): kapsul bawah jadi navigation rail di
+   kiri, lembar jadi pop-up. Lebar (≥ 840): dua panel & dua kolom kartu.
+   ≥ 1200: rail melebar jadi sidebar berlabel. Semuanya CSS, jadi Fold
+   dibuka/dilipat tidak memasang ulang halaman (ketikan & gulir tetap). */
+
+.navCatatLabel,
+.nav a[data-sidebar],
+.hanyaLebar { display: none; }
+
+/* Dua panel (Riwayat, Profil). Di layar sempit hanya satu yang tampil: panel
+   kanan begitu ia berisi, selain itu daftar. */
+.panelDetail:empty { display: none; }
+.duaPanel:has(> .panelDetail:not(:empty)) > .panelDaftar { display: none; }
+
+/* Pemilih bulan Analitik selebar isi, di atas kedua kolom. */
+.pilihBulan { column-span: all; }
+
+@media (min-width: 600px) {
+  .app { padding-bottom: calc(32px + env(safe-area-inset-bottom)); }
+
+  .nav {
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: var(--rail);
+    transform: none;
+    flex-direction: column;
+    gap: 8px;
+    padding: 16px 8px calc(16px + env(safe-area-inset-bottom));
+    border-radius: 0;
+    background: var(--bg);
+    box-shadow: none;
+    overflow-y: auto;
+  }
+
+  .nav a { flex: none; height: 64px; border-radius: 20px; }
+
+  /* Aksi utama di atas rail, seperti FAB di rail One UI/Material. */
+  .navCatat { order: -1; margin: 0 auto 16px; }
+
+  .lapisBawah { left: var(--rail); right: var(--panel); bottom: calc(16px + env(safe-area-inset-bottom)); }
+  .keAtas { left: calc(50% + (var(--rail) - var(--panel)) / 2); bottom: calc(16px + env(safe-area-inset-bottom)); }
+  /* Di tepi kanan isi, bukan tepi layar. */
+  .tombolAI {
+    right: max(16px, calc((100% - var(--rail) - var(--lebar-app)) / 2 + 16px));
+    bottom: calc(16px + env(safe-area-inset-bottom));
+  }
+
+  /* Tugas singkat jadi pop-up di tengah, bukan lembar bawah / layar penuh. */
+  .dialog { max-width: 480px; margin: auto; }
+
+  .dialogPenuh {
+    width: calc(100% - 48px);
+    max-width: 640px;
+    height: min(90dvh, 960px);
+    margin: auto;
+    padding-top: 0;
+    border-radius: var(--radius-blok);
+    outline: 1px solid var(--garis);
+  }
+
+  .dialogPenuh .hanyaSempit { display: none; }
+  .dialogPenuh .hanyaLebar { display: block; }
+}
+
+/* Layar pendek (HP mendatar, jendela rendah): One UI tidak memakai app bar
+   besar di bawah tinggi 580dp. Judulnya tetap tampil (di detail, judul =
+   nominal), tetapi tanpa ruang lega setinggi sepertiga layar. */
+@media (max-height: 579px) {
+  .viewing { min-height: 0; padding: 16px 24px 8px; }
+  .judulBesar { font-size: 26px; }
+}
+
+/* Rail di layar pendek: semua tab tetap muat tanpa digulir. */
+@media (min-width: 600px) and (max-height: 579px) {
+  .nav { padding-top: 8px; gap: 4px; }
+  .nav a { height: 52px; }
+  .navCatat { margin-bottom: 8px; }
+}
+
+@media (min-width: 840px) {
+  :root:has(.lebar) { --lebar-app: 1200px; }
+  .lapisBawah { max-width: 600px; }
+
+  /* Beranda & Analitik: kartu mengalir ke dua kolom kalau ruangnya cukup
+     (mis. tidak saat panel Tanya AI terbuka di layar 1024). */
+  .isiKolom { display: block; columns: 2 340px; column-gap: 16px; }
+  .isiKolom > * { break-inside: avoid; margin-bottom: 16px; }
+
+  /* Rasio panel Samsung: 42 : 58 di bawah 960px, 38 : 62 setelahnya. */
+  .duaPanel { display: grid; grid-template-columns: minmax(0, 42fr) minmax(0, 58fr); gap: 16px; align-items: start; }
+  .duaPanel:has(> .panelDetail:not(:empty)) > .panelDaftar { display: block; }
+
+  .panelDetail,
+  .panelDetail:empty {
+    display: block;
+    position: sticky;
+    top: 0;
+    max-height: 100dvh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .panelDetail:empty::before {
+    content: attr(data-kosong);
+    height: 100dvh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    color: var(--teks-2);
+    text-align: center;
+  }
+
+  /* Halaman pengaturan di panel kanan: menunya sudah di kiri, tanpa "kembali". */
+  .duaPanel[data-tanpa-kembali] .panelDetail a[aria-label="Kembali"] { display: none; }
+
+  .panelDaftar .kartuTx[aria-current="true"],
+  .panelDaftar .baris[aria-current="page"] { background: var(--blok-2); }
+
+  /* Tanya AI: panel menempel di kanan, halaman di sebelahnya tetap terlihat. */
+  :root:has(.dialogSamping[open]:not(:modal)) { --panel: 400px; }
+
+  .dialogSamping:not(:modal) {
+    position: fixed;
+    inset: 0 0 0 auto;
+    z-index: 35;
+    width: var(--panel);
+    max-width: none;
+    height: 100dvh;
+    margin: 0;
+    padding-top: env(safe-area-inset-top);
+    border-radius: 0;
+    outline: none;
+    border-left: 1px solid var(--garis);
+  }
+
+}
+
+@media (min-width: 960px) {
+  .duaPanel { grid-template-columns: minmax(0, 38fr) minmax(0, 62fr); }
+}
+
+/* Layar hampir persegi (Fold dibuka mendatar, tablet tertentu): 50 : 50. */
+@media (min-width: 840px) and (max-aspect-ratio: 6/5) {
+  .duaPanel { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+}
+
+@media (min-width: 1200px) {
+  .nav { padding: 24px 12px calc(24px + env(safe-area-inset-bottom)); gap: 4px; }
+
+  .nav a {
+    height: 52px;
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 16px;
+    padding: 0 16px;
+    border-radius: 999px;
+    font-size: 16px;
+  }
+
+  .nav a[data-sidebar] { display: flex; }
+
+  /* Lend & Borrow punya item sendiri di sidebar: Profil tidak ikut menyala. */
+  .nav:has(a[data-sidebar][aria-current="page"]) a[aria-current="page"]:not([data-sidebar]) { background: transparent; color: var(--teks-2); font-weight: 400; }
+  .nav:has(a[data-sidebar][aria-current="page"]) .avatarNav { border-color: currentColor; background: transparent; color: inherit; }
+
+  .navCatat {
+    width: auto;
+    height: 56px;
+    justify-content: flex-start;
+    gap: 12px;
+    margin: 0 0 16px;
+    padding: 0 20px;
+    border-radius: var(--radius-tombol);
+    font-size: 16px;
+    font-weight: 700;
+  }
+
+  .navCatatLabel { display: inline; }
+}
+
+/* Mouse: efek hover, hanya di perangkat yang punya hover (HP tidak). Lapisan
+   terang tipis lewat background-image, jadi cocok untuk latar apa pun. */
+@media (hover: hover) {
+  .tekan:hover,
+  .nav a:hover,
+  .ikonTombol:hover,
+  .chip:hover { background-image: linear-gradient(rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.06)); }
+  .tekan, .chip { cursor: pointer; }
+}
+
+/* Seret foto struk ke aplikasi. */
+.lapisSeret {
+  position: fixed;
+  inset: 16px;
+  width: auto;
+  height: auto;
+  margin: 0;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  border: 2px dashed var(--primer);
+  border-radius: var(--radius-blok);
+  background: rgba(0, 0, 0, 0.75);
+  color: var(--teks);
+  font-size: 18px;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+.lapisSeret:popover-open { display: flex; }
+
+/* Beberapa kartu yang harus tetap bersama (mis. daftar + "Lihat semua"). */
+.tumpuk { display: flex; flex-direction: column; gap: 16px; }

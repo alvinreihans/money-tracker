@@ -86,7 +86,8 @@ export default function BerandaView({
       />
 
       {/* "Hari ini & yang perlu perhatian" (SPEC-navigasi); grafik ada di Analitik. */}
-      <div className={s.isi}>
+      {/* Layar lebar: kartu mengalir ke dua kolom (SPEC-layar-lebar). */}
+      <div className={`${s.isi} ${s.isiKolom} ${s.lebar}`}>
         {draft > 0 && (
           <button type="button" className={`${s.blok} ${s.baris} ${s.tekan}`} onClick={catat.bukaDaftar}>
             <span className={`${s.barisIkon} ${s.peringatan}`} aria-hidden>
@@ -102,15 +103,18 @@ export default function BerandaView({
 
         {/* Cuma 5 terakhir — Beranda untuk sekilas, riwayat lengkap di tab Riwayat. */}
         {terbaru.length > 0 ? (
-          <TransactionList
-            kembali="/"
-            items={terbaru}
-            kaki={
-              <NextLink href="/riwayat" className={`${s.kartuTx} ${s.kartuKaki} ${s.tekan}`}>
-                Lihat semua riwayat
-              </NextLink>
-            }
-          />
+          // Satu kesatuan, supaya di dua kolom "Lihat semua" tidak terpisah dari daftarnya.
+          <div className={s.tumpuk}>
+            <TransactionList
+              kembali="/"
+              items={terbaru}
+              kaki={
+                <NextLink href="/riwayat" className={`${s.kartuTx} ${s.kartuKaki} ${s.tekan}`}>
+                  Lihat semua riwayat
+                </NextLink>
+              }
+            />
+          </div>
         ) : (
           <div className={s.blok}>
             <Kosong ikon={Inbox} judul="Belum ada transaksi">

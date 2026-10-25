@@ -1,12 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { CalendarDays, Check, ChevronDown, Inbox, Search, SearchX, Shapes, Wallet, X } from "lucide-react";
+import DetailView from "@/app/(app)/transactions/[id]/DetailView";
 import { useCatat, useKategori } from "@/components/Catat";
 import { tandaKategori } from "@/components/kategori";
 import KalenderRentang from "@/components/KalenderRentang";
 import { AppBar, Kosong, Lembar, Spinner } from "@/components/oneui";
+import { LAYAR_LEBAR } from "@/components/navigasi";
 import TransactionList from "@/components/TransactionList";
 import s from "@/components/ui.module.css";
 import { fmtIDRRingkas, fmtTanggalPendek, isoLokal } from "@/lib/format";
@@ -15,6 +17,7 @@ import { kategoriJenis, namaKategori } from "@/lib/kategori";
 import {
   adaFilter,
   alamatRiwayat,
+  ambilDetail,
   FILTER_KOSONG,
   PER_MUAT,
   PERIODE,
@@ -102,6 +105,28 @@ export default function RiwayatView({
     setLanjutan({ asal: daftar, isi: [...tambahan, ...((data ?? []) as unknown as Transaction[])] });
   }
 
+  // --- Detail di panel kanan (layar lebar). Memilih transaksi hanya mengganti
+  // ?id= lewat history (tanpa render ulang server), jadi daftar yang sudah
+  // dimuat dan posisi gulirnya tetap. Dimuat ulang juga setelah simpan/refresh.
+  const idDetail = useSearchParams().get("id");
+  const [detail, setDetail] = useState<Awaited<ReturnType<typeof ambilDetail>>>(null);
+  useEffect(() => {
+    if (!idDetail) return setDetail(null);
+    let batal = false;
+    void ambilDetail(createSupabaseBrowserClient(), idDetail).then((d) => !batal && setDetail(d));
+    return () => {
+      batal = true;
+    };
+  }, [idDetail, daftar]);
+  function pilih(e: React.MouseEvent, t: Transaction) {
+    // Di layar sempit, dan Ctrl/⌘-klik (tab baru), tetap ke halaman detail.
+    if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey || !window.matchMedia(LAYAR_LEBAR).matches) return;
+    e.preventDefault();
+    const url = new URL(window.location.href);
+    url.searchParams.set("id", t.id);
+    window.history.pushState(null, "", url);
+  }
+
   const [cariBuka, setCariBuka] = useState(Boolean(q));
   const [teks, setTeks] = useState(q);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -182,108 +207,119 @@ export default function RiwayatView({
 
   return (
     <>
-      <AppBar
-        judul="Riwayat"
-        sub={ringkas}
-        aksi={
-          !cariBuka && (
-            <button type="button" className={s.ikonTombol} aria-label="Cari transaksi" onClick={() => setCariBuka(true)}>
-              <Search size={22} />
-            </button>
-          )
-        }
-      />
-
-      <div className={s.isi}>
-        {cariBuka && (
-          <div className={s.cari} role="search">
-            <Search size={20} aria-hidden />
-            <input
-              ref={inputRef}
-              type="search"
-              enterKeyHint="search"
-              aria-label="Cari merchant, keterangan, atau metode bayar"
-              placeholder="Cari merchant, keterangan…"
-              value={teks}
-              onChange={(e) => setTeks(e.target.value)}
-              onKeyDown={(e) => e.key === "Escape" && tutupCari()}
-            />
-            <button type="button" className={s.ikonTombol} aria-label="Tutup pencarian" onClick={tutupCari}>
-              <X size={20} />
-            </button>
-          </div>
-        )}
-
-        {/* Satu baris yang bisa digeser: pilihan tidak muat di layar HP. */}
-        <div className={s.chips} role="group" aria-label="Jenis transaksi">
-          {JENIS.map((j) => (
-            <button key={j.id} type="button" className={s.chip} aria-pressed={filter.jenis === j.id} onClick={() => router.push(ke({ jenis: j.id }))}>
-              {j.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Filter lain: chip berisi nilainya, ketuk → lembar pilihan. */}
-        <div className={s.chips} role="group" aria-label="Saring transaksi" style={{ marginTop: -4 }}>
-          <button type="button" className={s.chip} aria-pressed={Boolean(filter.periode || filter.dari || filter.sampai)} aria-haspopup="dialog" onClick={() => buka("tanggal")}>
-            <CalendarDays size={16} aria-hidden /> {labelTanggal} <ChevronDown size={16} aria-hidden />
-          </button>
-          <button type="button" className={s.chip} aria-pressed={filter.kantong.length > 0} aria-haspopup="dialog" onClick={() => buka("kantong")}>
-            <Wallet size={16} aria-hidden /> {labelKantong} <ChevronDown size={16} aria-hidden />
-          </button>
-          <button type="button" className={s.chip} aria-pressed={filter.kategori.length > 0} aria-haspopup="dialog" onClick={() => buka("kategori")}>
-            <Shapes size={16} aria-hidden /> {labelKategori} <ChevronDown size={16} aria-hidden />
-          </button>
-          {aktif && (
-            <button type="button" className={s.chip} onClick={() => router.push(alamatRiwayat({ ...FILTER_KOSONG, jenis: filter.jenis, q }))}>
-              <X size={16} aria-hidden /> Reset
-            </button>
-          )}
-        </div>
-
-        {daftar.length > 0 ? (
-          <TransactionList
-            items={semua}
-            kembali={alamatRiwayat(filter)}
-            perBulan={ringkasan.perBulan}
-            perHari={ringkasan.perHari}
-            kaki={
-              semua.length < total && (
-                <button
-                  type="button"
-                  className={`${s.kartuTx} ${s.kartuKaki} ${s.tekan}`}
-                  style={{ width: "100%", border: 0, cursor: "pointer" }}
-                  disabled={memuat}
-                  onClick={() => void muatLagi()}
-                >
-                  {memuat ? (
-                    <Spinner label="Memuat…" />
-                  ) : gagalMuat ? (
-                    "Gagal memuat. Ketuk untuk coba lagi"
-                  ) : (
-                    `Muat lagi · ${total - semua.length} transaksi lebih lama`
-                  )}
+      {/* Layar lebar: daftar + detail berdampingan (SPEC-layar-lebar). Di layar
+          sempit hanya satu yang tampil — detail kalau alamatnya membawa ?id=. */}
+      <div className={`${s.duaPanel} ${s.lebar}`} data-tanpa-kembali>
+        <div className={s.panelDaftar}>
+          <AppBar
+            judul="Riwayat"
+            sub={ringkas}
+            aksi={
+              !cariBuka && (
+                <button type="button" className={s.ikonTombol} aria-label="Cari transaksi" onClick={() => setCariBuka(true)}>
+                  <Search size={22} />
                 </button>
               )
             }
           />
-        ) : (
-          <div className={s.blok}>
-            {q ? (
-              <Kosong ikon={SearchX} judul={`Nggak ketemu “${q}”`}>
-                Coba kata lain, atau cek filter yang aktif.
-              </Kosong>
-            ) : aktif || filter.jenis !== "semua" ? (
-              <Kosong ikon={Inbox} judul="Tidak ada transaksi untuk filter ini">
-                <button type="button" className={s.tombol} style={{ marginTop: 16 }} onClick={() => router.push("/riwayat")}>
-                  Hapus filter
+
+          <div className={s.isi}>
+            {cariBuka && (
+              <div className={s.cari} role="search">
+                <Search size={20} aria-hidden />
+                <input
+                  ref={inputRef}
+                  type="search"
+                  enterKeyHint="search"
+                  aria-label="Cari merchant, keterangan, atau metode bayar"
+                  placeholder="Cari merchant, keterangan…"
+                  value={teks}
+                  onChange={(e) => setTeks(e.target.value)}
+                  onKeyDown={(e) => e.key === "Escape" && tutupCari()}
+                />
+                <button type="button" className={s.ikonTombol} aria-label="Tutup pencarian" onClick={tutupCari}>
+                  <X size={20} />
                 </button>
-              </Kosong>
+              </div>
+            )}
+
+            {/* Satu baris yang bisa digeser: pilihan tidak muat di layar HP. */}
+            <div className={s.chips} role="group" aria-label="Jenis transaksi">
+              {JENIS.map((j) => (
+                <button key={j.id} type="button" className={s.chip} aria-pressed={filter.jenis === j.id} onClick={() => router.push(ke({ jenis: j.id }))}>
+                  {j.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Filter lain: chip berisi nilainya, ketuk → lembar pilihan. */}
+            <div className={s.chips} role="group" aria-label="Saring transaksi" style={{ marginTop: -4 }}>
+              <button type="button" className={s.chip} aria-pressed={Boolean(filter.periode || filter.dari || filter.sampai)} aria-haspopup="dialog" onClick={() => buka("tanggal")}>
+                <CalendarDays size={16} aria-hidden /> {labelTanggal} <ChevronDown size={16} aria-hidden />
+              </button>
+              <button type="button" className={s.chip} aria-pressed={filter.kantong.length > 0} aria-haspopup="dialog" onClick={() => buka("kantong")}>
+                <Wallet size={16} aria-hidden /> {labelKantong} <ChevronDown size={16} aria-hidden />
+              </button>
+              <button type="button" className={s.chip} aria-pressed={filter.kategori.length > 0} aria-haspopup="dialog" onClick={() => buka("kategori")}>
+                <Shapes size={16} aria-hidden /> {labelKategori} <ChevronDown size={16} aria-hidden />
+              </button>
+              {aktif && (
+                <button type="button" className={s.chip} onClick={() => router.push(alamatRiwayat({ ...FILTER_KOSONG, jenis: filter.jenis, q }))}>
+                  <X size={16} aria-hidden /> Reset
+                </button>
+              )}
+            </div>
+
+            {daftar.length > 0 ? (
+              <TransactionList
+                items={semua}
+                kembali={alamatRiwayat(filter)}
+                terpilih={idDetail}
+                onPilih={pilih}
+                perBulan={ringkasan.perBulan}
+                perHari={ringkasan.perHari}
+                kaki={
+                  semua.length < total && (
+                    <button
+                      type="button"
+                      className={`${s.kartuTx} ${s.kartuKaki} ${s.tekan}`}
+                      style={{ width: "100%", border: 0, cursor: "pointer" }}
+                      disabled={memuat}
+                      onClick={() => void muatLagi()}
+                    >
+                      {memuat ? (
+                        <Spinner label="Memuat…" />
+                      ) : gagalMuat ? (
+                        "Gagal memuat. Ketuk untuk coba lagi"
+                      ) : (
+                        `Muat lagi · ${total - semua.length} transaksi lebih lama`
+                      )}
+                    </button>
+                  )
+                }
+              />
             ) : (
-              <Kosong ikon={Inbox} judul="Belum ada transaksi di sini" />
+              <div className={s.blok}>
+                {q ? (
+                  <Kosong ikon={SearchX} judul={`Nggak ketemu “${q}”`}>
+                    Coba kata lain, atau cek filter yang aktif.
+                  </Kosong>
+                ) : aktif || filter.jenis !== "semua" ? (
+                  <Kosong ikon={Inbox} judul="Tidak ada transaksi untuk filter ini">
+                    <button type="button" className={s.tombol} style={{ marginTop: 16 }} onClick={() => router.push("/riwayat")}>
+                      Hapus filter
+                    </button>
+                  </Kosong>
+                ) : (
+                  <Kosong ikon={Inbox} judul="Belum ada transaksi di sini" />
+                )}
+              </div>
             )}
           </div>
-        )}
+        </div>
+        <div className={s.panelDetail} data-kosong="Pilih transaksi untuk melihat detailnya.">
+          {detail && <DetailView key={detail.t.id} t={detail.t} ikutan={detail.ikutan} kembali={alamatRiwayat(filter)} />}
+        </div>
       </div>
 
       {lembar === "tanggal" && (

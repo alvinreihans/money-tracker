@@ -34,6 +34,20 @@
   --font: "SamsungOne", "Samsung Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --tinggi-nav: 68px;  /* kapsul navigasi bawah: 56px + padding 2 × 6px */
   --lebar-app: 600px;
+  /* Layar lebar (SPEC-layar-lebar): lebar rail/sidebar navigasi di kiri dan
+     panel Tanya AI di kanan; isi halaman mengisi ruang di antaranya. */
+  --rail: 0px;
+  --panel: 0px;
+}
+
+/* Ukuran jendela ala panduan layar lebar Samsung: ringkas < 600, sedang
+   600–839 (navigation rail), lebar ≥ 840 (dua panel); sidebar mulai 1200. */
+@media (min-width: 600px) {
+  :root { --rail: 80px; }
+}
+
+@media (min-width: 1200px) {
+  :root { --rail: 240px; }
 }
 
 * { box-sizing: border-box; }
@@ -41,6 +55,8 @@
 html, body { margin: 0; }
 
 body {
+  padding-left: var(--rail);
+  padding-right: var(--panel);
   background: var(--bg);
   color: var(--teks);
   font-family: var(--font);
@@ -50,8 +66,9 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Halaman di belakang dialog tidak ikut tergulir. */
-body:has(dialog[open]) { overflow: hidden; }
+/* Halaman di belakang dialog tidak ikut tergulir. Panel samping (Tanya AI di
+   layar lebar) bukan modal, jadi halaman tetap bisa digulir. */
+body:has(dialog:modal) { overflow: hidden; }
 
 a { color: var(--primer); text-decoration: none; }
 
