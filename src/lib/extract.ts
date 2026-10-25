@@ -417,12 +417,15 @@ const geminiSchema: GenerationConfig["responseSchema"] = {
       type: SchemaType.OBJECT,
       nullable: true,
       properties: {
-        pengirim: { type: SchemaType.OBJECT, properties: { nama: { type: SchemaType.STRING, nullable: true }, bank: { type: SchemaType.STRING, nullable: true } } },
-        penerima: { type: SchemaType.OBJECT, properties: { nama: { type: SchemaType.STRING, nullable: true }, bank: { type: SchemaType.STRING, nullable: true } } },
+        pengirim: { type: SchemaType.OBJECT, properties: { nama: { type: SchemaType.STRING, nullable: true }, bank: { type: SchemaType.STRING, nullable: true } }, required: ["nama", "bank"] },
+        penerima: { type: SchemaType.OBJECT, properties: { nama: { type: SchemaType.STRING, nullable: true }, bank: { type: SchemaType.STRING, nullable: true } }, required: ["nama", "bank"] },
       },
+      required: ["pengirim", "penerima"],
     },
   },
-  required: ["amount", "type", "category", "transaction_date"],
+  // bukti_transfer wajib ada (boleh null): kalau opsional, model sering
+  // melewatkannya dan bukti kiriman orang lain jadi tercatat pengeluaran.
+  required: ["amount", "type", "category", "transaction_date", "bukti_transfer"],
 };
 
 /**

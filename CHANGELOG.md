@@ -12,37 +12,9 @@ bagiannya di sini.
 
 ## Rencana
 
-Belum dikerjakan; dicatat supaya tidak lupa.
+Belum dikerjakan; dicatat supaya tidak lupa. Urutan fase ada di
+SPEC-catat-tuntas.md (fase 1 selesai di 2.4.0).
 
-- **Arah bukti transfer** (laporan user, 25 Okt). Bukti transfer kiriman
-  orang lain (Septiyana Pangsor → Alvin, OCBC → SeaBank) tercatat sebagai
-  pengeluaran. Penyebabnya, aturan prompt di `src/lib/extract.ts`: "nama
-  penerima ≠ nama pengirim → expense" menganggap pengunggah selalu
-  pengirimnya, padahal AI tidak tahu siapa user-nya (yang tersimpan cuma email).
-  - **Usul:** AI hanya membaca nama & bank pengirim/penerima. Aplikasi yang
-    memutuskan:
-    1. nama user yang sudah dikenal (penerima = user → masuk, pengirim →
-       keluar, keduanya → pindah kantong);
-    2. bank penerima cocok dengan kantong user dan bank pengirim tidak → masuk;
-    3. masih ragu → tanya di Catat, "Ini kamu yang kirim ke X, atau terima
-       dari Y?".
-  - Jawaban pertama menyimpan nama user (user_metadata, bisa diubah di
-    Profil), jadi berikutnya otomatis. Perlu spec (`SPEC-arah-transfer.md`).
-- **Hasil "Bagikan" tidak langsung muncul di layar.** Struk yang dibagikan dari
-  e-wallet diproses di latar, tetapi hasilnya hanya muncul sebagai
-  notifikasi. Titik di tombol + (kalau bermasalah) dan transaksi di Riwayat
-  (kalau berhasil) baru tampil setelah refresh.
-  - **Penyebab:** service worker mengunggah di latar (`public/sw.js`,
-    `unggahLatar`) dan menerima push, tetapi tidak pernah mengabari jendela
-    aplikasi yang terbuka; aplikasi juga tidak mendengarkan pesan apa pun dari
-    service worker.
-  - **Usul:**
-    1. Setelah tiap unggahan latar selesai dan saat push masuk, service
-       worker mengirim `postMessage` "transaksi berubah" ke semua jendela.
-    2. AppShell mendengarkannya lalu `router.refresh()` (data diperbarui di
-       tempat, posisi gulir tetap).
-    3. Cadangan: saat aplikasi kembali terlihat (`visibilitychange`),
-       segarkan sekali.
 - **Cerita di balik transaksi.**
   - **Masalahnya:** tiap transaksi bisa diberi konteks ("kopi sama klien",
     "kado nikahan teman"), supaya Tanya AI bisa menjawab "kenapa bulan ini
@@ -82,6 +54,17 @@ Belum dikerjakan; dicatat supaya tidak lupa.
   yang jarang berubah (kategori, kantong) disimpan sementara di server.
 
 ## [Unreleased]
+
+### Ditambahkan
+- **Arah bukti transfer.** Bukti transfer kiriman orang lain kini tercatat sebagai **pemasukan**, bukan pengeluaran.
+  - **Cara memutuskan:** aplikasi mengenali kamu dari nama di rekening (pengirim atau penerima) atau dari kantongmu (bank penerima atau pengirim).
+  - **Kalau belum jelas,** Catat bertanya *"Ini kamu yang kirim ke …, atau terima dari …?"*. Jawaban pertama menyimpan namamu, jadi berikutnya tidak ditanya lagi.
+  - Nama yang dikenali bisa dilihat, ditambah, dan dihapus di **Profil → Nama di rekening**.
+- **Urungkan hapus:** setelah menghapus transaksi, snackbar menampilkan "Urungkan". Transaksi beserta cashback/biaya adminnya kembali persis seperti semula.
+
+### Diperbaiki
+- **Hasil "Bagikan" langsung tampil.** Struk dari e-wallet yang diproses di latar langsung muncul di Riwayat, atau sebagai titik di tombol + kalau perlu dicek, tanpa refresh. Kembali ke aplikasi juga menyegarkan data.
+- **Ketikan di Catat tidak hilang** saat lembarnya ditutup (seperti draf), juga setelah aplikasi ditutup. Draf terhapus begitu dikirim.
 
 ## [2.3.1] — 2026-10-25
 

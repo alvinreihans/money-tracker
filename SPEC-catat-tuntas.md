@@ -1,6 +1,6 @@
 # Spec: Catat tuntas (fase 1)
 
-Status: **disetujui** (pertanyaan terbuka memakai usulan: minimal 2 kata, "Lainnya", teks bertahan) · 25 Oktober 2026 · branch `feat/catat-tuntas` · rilis 2.4.0
+Status: **diterapkan** (pertanyaan terbuka memakai usulan: minimal 2 kata, "Lainnya", teks bertahan) · 25 Oktober 2026 · branch `feat/catat-tuntas` · rilis 2.4.0
 
 ## Peta fase
 
@@ -85,6 +85,8 @@ Urutannya: data benar dulu, lalu konteks, lalu fitur baru di atasnya. Rinciannya
 - **Migrasi:** kolom baru `bukti_transfer_enc` (JSON nama & bank, **terenkripsi** seperti `merchant`) di `private.transaksi_data`, ditambahkan ke view dan trigger tulis.
 - Kolom ini terisi selama arahnya belum dipastikan, lalu dikosongkan setelah dijawab.
 - Nama tidak pernah disimpan sebagai teks biasa.
+
+**Catatan penerapan.** Gemini Flash-Lite sering melewatkan `bukti_transfer` selama isian itu opsional di skema: 0 dari 3 percobaan terisi. Isian itu dijadikan **wajib (boleh null)**. Hasilnya 5 dari 5 terisi dengan bank yang sudah diringkas ("SeaBank"), sementara struk biasa (SPayLater, by.U) tetap `null`.
 
 **Tidak berubah:** teks yang diketik ("terima transferan dari budi") memang sudah benar arahnya.
 
