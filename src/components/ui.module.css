@@ -1512,6 +1512,9 @@ button.blok { background: var(--blok); }
     outline: 1px solid var(--garis);
   }
 
+  /* Catat: kolom ketik selebar pop-up besar lain, bukan selebar dialog pilihan. */
+  .dialogCatat { max-width: 640px; }
+
   .dialogPenuh .hanyaSempit { display: none; }
   .dialogPenuh .hanyaLebar { display: block; }
 }

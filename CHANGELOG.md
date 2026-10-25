@@ -20,6 +20,12 @@ Belum dikerjakan; dicatat supaya tidak lupa.
 
 ## [Unreleased]
 
+### Ditambahkan
+- **Tempel gambar** (Ctrl+V) di kolom Catat: tangkapan layar atau gambar yang disalin langsung dilampirkan seperti foto dari galeri. Teks biasa tetap ditempel seperti biasa.
+
+### Diubah
+- Di layar lebar, lembar **Catat** lebih lebar (640px, sama dengan pop-up besar lain).
+
 ## [2.2.0] — 2026-10-25
 
 ### Ditambahkan

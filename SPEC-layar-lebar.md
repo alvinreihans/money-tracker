@@ -109,6 +109,8 @@ Mengikuti panduan "pop-up kecil untuk tugas singkat":
 
 ### Seret foto struk
 
+Di kolom Catat, gambar juga bisa **ditempel** (Ctrl+V): tangkapan layar atau gambar yang disalin jadi lampiran, sama seperti memilih dari galeri. Lembar Catat di layar lebar selebar pop-up besar (640px).
+
 Foto struk bisa diseret dari File Explorer, Galeri (layar terpisah di tablet/Fold), atau aplikasi lain ke **mana saja** di aplikasi. Selama diseret, tampil lapisan "Lepas untuk mencatat struk". Fotonya diproses di latar persis seperti foto dari "Bagikan", lalu hasilnya dikabari lewat snackbar. Berkas yang bukan gambar ditolak dengan pesan singkat.
 
 ### Tombol & app bar (dicek ulang ke One UI Design Guidelines, 25 Okt)
