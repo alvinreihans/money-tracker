@@ -1,4 +1,4 @@
-import { isoLokal } from "@/lib/format";
+import { isoLokal, namaBulan } from "@/lib/format";
 import { geserBulan } from "@/lib/kalender";
 import { ambilPengaturanMetode, pemasukanBasis } from "@/lib/metode";
 import { ambilUser, createSupabaseServerClient } from "@/lib/supabase/server";
@@ -26,7 +26,8 @@ export default async function BudgetPage() {
     supabase.from("transactions").select("amount, type, category, transaction_date").eq("type", "income").eq("status", "confirmed").gte("transaction_date", `${lalu}-01`),
   ]);
   const baris = pemasukan ?? [];
-  const basis = pemasukanBasis(baris.filter((t) => t.transaction_date.startsWith(bulan))) || pemasukanBasis(baris.filter((t) => t.transaction_date.startsWith(lalu)));
+  const basisIni = pemasukanBasis(baris.filter((t) => t.transaction_date.startsWith(bulan)));
+  const basis = basisIni || pemasukanBasis(baris.filter((t) => t.transaction_date.startsWith(lalu)));
 
   return (
     <BudgetView
@@ -35,6 +36,7 @@ export default async function BudgetPage() {
       rerata={Object.fromEntries(((rerata ?? []) as AvgMonthlyExpenseRow[]).map((r) => [r.category, Number(r.avg_monthly)]))}
       pengaturan={pengaturan}
       basis={basis}
+      bulanBasis={namaBulan(basisIni ? bulan : lalu)}
     />
   );
 }

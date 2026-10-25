@@ -4,13 +4,18 @@ import s from "@/components/ui.module.css";
 import { fmtIDR, fmtIDRRingkas } from "@/lib/format";
 import { LABEL_METODE, type HasilMetode, type HasilWadah } from "@/lib/metode";
 
-const IKON: Record<string, { ikon: LucideIcon; warna: string }> = {
-  kebutuhan: { ikon: Wallet, warna: "#3e91ff" },
-  pengeluaran: { ikon: Wallet, warna: "#3e91ff" },
-  "biaya-hidup": { ikon: Wallet, warna: "#3e91ff" },
-  keinginan: { ikon: ShoppingBag, warna: "#ff7a9c" },
-  tabungan: { ikon: PiggyBank, warna: "#5ecb7a" },
-  berbagi: { ikon: HandHeart, warna: "#ff9f43" },
+/**
+ * Ikon & warna tiap wadah (juga dipakai pratinjau Profil → Budget). Warnanya
+ * lolos uji buta warna di permukaan gelap untuk pasangan yang bersebelahan
+ * (Keinginan ↔ Tabungan dulu merah muda ↔ hijau: nyaris sama bagi deutan).
+ */
+export const IKON: Record<string, { ikon: LucideIcon; warna: string }> = {
+  kebutuhan: { ikon: Wallet, warna: "#3987e5" },
+  pengeluaran: { ikon: Wallet, warna: "#3987e5" },
+  "biaya-hidup": { ikon: Wallet, warna: "#3987e5" },
+  keinginan: { ikon: ShoppingBag, warna: "#d95926" },
+  tabungan: { ikon: PiggyBank, warna: "#199e70" },
+  berbagi: { ikon: HandHeart, warna: "#9085e9" },
 };
 const WARNA_STATUS = { hampir: "var(--peringatan)", lewat: "var(--bahaya)", kurang: "var(--peringatan)" } as const;
 

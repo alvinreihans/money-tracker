@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useCatat, useKategori } from "@/components/Catat";
+import { IKON } from "@/components/KartuMetode";
 import { tandaKategori } from "@/components/kategori";
 import { AppBar, BarisPilih, Field, GalatForm, InputNominal, Pesan, Spinner, useGalat } from "@/components/oneui";
 import s from "@/components/ui.module.css";
@@ -14,6 +15,88 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { rapikanBudget } from "@/lib/transaksi-input";
 
 const PERSEN_AWAL: Record<Kelompok, number> = { kebutuhan: 50, keinginan: 30, tabungan: 20, berbagi: 0 };
+
+/** Penjelasan metode terpilih, di bawah pratinjau. */
+const PENJELASAN: Record<Metode, string> = {
+  kategori: "Batas rupiah untuk tiap kategori. Cocok kalau kamu sudah tahu pos mana yang sering bocor.",
+  "50-30-20": "Seimbang: separuh pemasukan untuk kebutuhan, sisanya untuk keinginan dan tabungan. Cocok untuk mulai mengatur keuangan.",
+  "80-20": "Paling sederhana: sisihkan 20% untuk tabungan dulu, 80% sisanya bebas dipakai. Cocok kalau tidak ingin repot mengelompokkan pengeluaran.",
+  "70-20-10": "Seperti 80/20, ditambah 10% untuk berbagi: zakat, sedekah, donasi, atau hadiah.",
+  kustom: "Atur sendiri persen tiap kelompok, mis. 60/20/10/10 kalau biaya hidupmu tinggi. Jumlahnya harus 100%.",
+};
+
+const ABU = "var(--titik)";
+
+/**
+ * Pratinjau pembagian pemasukan untuk metode terpilih, seperti pratinjau di
+ * halaman pilihan resolusi One UI: satu bilah per persen, lalu satu kolom per
+ * wadah (nama, persen, rupiah). Per kategori: total target dibanding pemasukan.
+ */
+function Pratinjau({
+  metode,
+  persen,
+  basis,
+  bulanBasis,
+  totalKategori,
+}: {
+  metode: Metode;
+  persen: Record<Kelompok, number>;
+  basis: number;
+  bulanBasis: string;
+  totalKategori: number;
+}) {
+  type Potong = { warna: string; nama: string; persen: number; utama: string; sub: string | null; bahaya?: boolean };
+  let potong: Potong[];
+  if (metode === "kategori") {
+    const pakai = basis > 0 ? Math.round((totalKategori / basis) * 100) : 0;
+    potong = [
+      { warna: IKON.kebutuhan.warna, nama: "Ditargetkan", persen: basis > 0 ? Math.min(pakai, 100) : totalKategori > 0 ? 100 : 0, utama: fmtIDRRingkas(totalKategori), sub: basis > 0 ? `${pakai}% pemasukan` : null },
+    ];
+    if (basis > 0 && totalKategori > basis)
+      potong.push({ warna: "var(--bahaya)", nama: "Melebihi pemasukan", persen: 0, utama: fmtIDRRingkas(totalKategori - basis), sub: null, bahaya: true });
+    else if (basis > 0) potong.push({ warna: ABU, nama: "Belum dibagi", persen: 0, utama: fmtIDRRingkas(basis - totalKategori), sub: `${100 - pakai}% pemasukan` });
+  } else {
+    potong = wadahMetode(metode, metode === "kustom" ? persen : null).map((w) => ({
+      warna: (IKON[w.id] ?? IKON.kebutuhan).warna,
+      nama: w.nama,
+      persen: w.persen,
+      utama: `${w.persen}%`,
+      sub: basis > 0 ? fmtIDRRingkas(Math.round((basis * w.persen) / 100)) : null,
+    }));
+    const sisa = 100 - potong.reduce((t, p) => t + p.persen, 0);
+    if (sisa > 0) potong.push({ warna: ABU, nama: "Belum dibagi", persen: 0, utama: `${sisa}%`, sub: null });
+  }
+  const terisi = potong.reduce((t, p) => t + p.persen, 0);
+
+  return (
+    <div className={`${s.blok} ${s.blokIsi} ${s.pratinjau}`}>
+      <p className={s.redup} style={{ margin: 0 }}>
+        {basis > 0 ? `Pemasukan ${bulanBasis} ${fmtIDR(basis)}` : "Belum ada pemasukan bulan ini. Rupiahnya muncul setelah ada pemasukan."}
+      </p>
+      {/* Bilah hanya gambaran; angkanya ada di kolom di bawahnya. */}
+      <div className={s.pratinjauBilah} aria-hidden>
+        {potong
+          .filter((p) => p.persen > 0)
+          .map((p, i) => (
+            <span key={i} style={{ flexGrow: p.persen, background: p.warna }} />
+          ))}
+        <span key="sisa" style={{ flexGrow: Math.max(0, 100 - terisi), background: "transparent" }} />
+      </div>
+      <ul className={s.pratinjauKolom}>
+        {potong.map((p) => (
+          <li key={p.nama}>
+            <span className={s.redup}>
+              <i style={{ background: p.warna }} aria-hidden />
+              {p.nama}
+            </span>
+            <strong style={p.bahaya ? { color: "var(--bahaya)" } : undefined}>{p.utama}</strong>
+            {p.sub && <span className={s.redup}>{p.sub}</span>}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
 
 /**
  * Budget: pilih metode (SPEC-metode-budget) — per kategori, atau membagi
@@ -28,6 +111,7 @@ export default function BudgetView({
   rerata,
   pengaturan,
   basis,
+  bulanBasis,
 }: {
   userId: string;
   awal: Record<string, number>;
@@ -35,6 +119,8 @@ export default function BudgetView({
   pengaturan: PengaturanMetode;
   /** Pemasukan bulan ini (atau lalu): contoh rupiah tiap metode. */
   basis: number;
+  /** Bulan asal `basis`, mis. "Oktober" (awal bulan tanpa pemasukan: bulan lalu). */
+  bulanBasis: string;
 }) {
   const router = useRouter();
   const { kabari } = useCatat();
@@ -72,14 +158,6 @@ export default function BudgetView({
     if (!cek.ok) return persenGalat.gagal(cek.error, "persen");
     void pakaiMetode("kustom", cek.persen);
   }
-
-  // Contoh rupiah dari pemasukan user, mis. "Kebutuhan Rp 4 jt · Keinginan Rp 2,4 jt".
-  const contoh = (m: Metode) =>
-    basis > 0 && m !== "kategori"
-      ? `${wadahMetode(m, m === "kustom" ? angkaPersen : null)
-          .map((w) => `${w.nama} ${fmtIDRRingkas(Math.round((basis * w.persen) / 100))}`)
-          .join(" · ")} dari pemasukan ${fmtIDRRingkas(basis)}`
-      : null;
 
   const kategori = useKategori();
   const keluar = kategoriJenis(kategori, "expense");
@@ -123,6 +201,11 @@ export default function BudgetView({
       />
 
       <div className={s.isi}>
+        <Pratinjau metode={metode} persen={angkaPersen} basis={basis} bulanBasis={bulanBasis} totalKategori={total} />
+        <p className={s.redup} style={{ margin: "0 20px" }}>
+          {PENJELASAN[metode]}
+        </p>
+
         <h2 className={s.subheader}>Metode</h2>
         <div className={s.blok} role="radiogroup" aria-label="Metode budgeting" aria-busy={menyimpanMetode}>
           {METODE.map((m) => (
@@ -132,11 +215,6 @@ export default function BudgetView({
                 <span className={s.redup} style={{ whiteSpace: "normal" }}>
                   {LABEL_METODE[m].ket}
                 </span>
-                {metode === m && contoh(m) && (
-                  <span className={s.redup} style={{ whiteSpace: "normal" }}>
-                    {contoh(m)}
-                  </span>
-                )}
               </span>
             </BarisPilih>
           ))}

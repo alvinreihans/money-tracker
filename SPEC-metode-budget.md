@@ -70,7 +70,8 @@ Empat kelompok, satu untuk tiap pengeluaran:
 ## Tampilan
 
 - **Profil → Budget:**
-  - bagian **Metode** di atas: daftar pilihan dengan satu kalimat penjelasan dan contoh rupiah dari pemasukan user;
+  - **pratinjau pembagian** paling atas, seperti pratinjau di halaman pilihan resolusi One UI: bilah bersegmen per persen dan satu kolom per wadah (nama, persen, rupiah dari pemasukan user), lalu penjelasan metode terpilih. Per kategori: total target dibanding pemasukan ("Ditargetkan" vs "Belum dibagi"). Warna wadah sama dengan kartu Analitik dan lolos uji buta warna;
+  - bagian **Metode** di bawahnya: daftar pilihan dengan satu kalimat penjelasan;
   - **Kustom:** empat isian persen dengan penanda jumlah ("Total 100% ✓");
   - **Per kategori:** isian target per kategori seperti sekarang.
 - **Profil → Kategori:** form kategori pengeluaran mendapat pilihan **Kelompok**.

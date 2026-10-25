@@ -36,6 +36,7 @@ SPEC-catat-tuntas.md (fase 1 & 2 selesai di 2.4.0, fase 3 menyusul).
 ### Ditambahkan
 - **Metode budgeting** di **Profil → Budget**: selain budget per kategori, kini bisa memilih **50/30/20**, **80/20**, **70/20/10**, atau **Kustom** (persen sendiri, totalnya harus 100%).
   - Pemasukan bulan itu dibagi ke kelompok **Kebutuhan, Keinginan, Tabungan, Berbagi**. Awal bulan yang belum ada pemasukan memakai pemasukan bulan lalu.
+  - **Pratinjau pembagian** di atas daftar metode: bilah per persen dan rupiah tiap kelompok dari pemasukanmu, plus penjelasan singkat metodenya. Ikut berubah saat memilih metode atau mengetik persen Kustom. Untuk Per kategori, pratinjaunya membandingkan total target dengan pemasukan.
   - **Analitik** menampilkan realisasi tiap kelompok dibanding jatahnya. Mengetuk satu kelompok membuka Riwayat yang tersaring ke kelompok itu. Tabungan dibaca terbalik: makin besar makin baik.
   - **Beranda** memperingatkan kelompok yang hampir habis atau lewat.
   - **Tanya AI** menjelaskan dengan bahasa metode itu ("Keinginan Rp 10,5 jt, jauh di atas jatah Rp 2,4 jt").
