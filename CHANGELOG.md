@@ -20,6 +20,8 @@ Belum dikerjakan; dicatat supaya tidak lupa.
 
 ## [Unreleased]
 
+## [2.3.1] — 2026-10-25
+
 ### Diubah
 - **Pesan salah di form tampil di bawah isian yang salah**, bukan satu pesan di bawah form. Isian itu langsung difokus (dan digulir ke sana), garisnya merah, dan pesannya hilang begitu isiannya dibetulkan. Berlaku di Catat manual, Edit transaksi, Kantong, Kategori, Budget, pinjaman, kartu kredit, cicilan, dan password baru. Galat jaringan/server tetap di bawah form.
 - Keterangan di bawah isian (mis. daftar syarat password) tetap tampil saat ada pesan salah, karena sering justru menjelaskan cara membetulkannya.
