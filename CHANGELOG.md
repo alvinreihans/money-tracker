@@ -20,6 +20,8 @@ Belum dikerjakan; dicatat supaya tidak lupa.
 
 ## [Unreleased]
 
+## [2.2.0] — 2026-10-25
+
 ### Ditambahkan
 - **Tampilan layar lebar** untuk tablet, Galaxy Z Fold, dan desktop, mengikuti panduan layar lebar & foldable Samsung. Di HP tidak ada yang berubah.
   - Mulai 600px, navigasi bawah pindah ke **rail di kiri** dengan tombol + di atas. Mulai 1200px rail menjadi **sidebar berlabel**, dan Lend & Borrow mendapat item sendiri.
