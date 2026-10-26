@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isoLokal } from "@/lib/format";
 import { isianArah, kantongBank, tentukanArah, type BuktiTransfer } from "@/lib/arah";
+import { ambilIngatan } from "@/lib/ingat";
 import { cocokkanKantong, type Kantong } from "@/lib/kantong";
 import {
   arahPindah,
@@ -194,6 +195,16 @@ export async function simpanTransaksi(
     } else {
       row.description = [row.description, `Rencana cicilan “${sebutanCicilan}” belum dicatat`].filter(Boolean).join(" · ");
     }
+  }
+
+  // Ingat kategori per merchant (SPEC-ingat-kategori): transaksi terakhir dari
+  // merchant yang sama menggantikan tebakan AI ("WAITENJOY" yang pernah
+  // dibetulkan jadi Laundry tidak lupa lagi). Pinjaman, cicilan, dan belanja
+  // yang dipecah dari rincian ketikan kategorinya ditentukan alurnya sendiri.
+  const dipecah = Array.isArray(rincian) && rincian.length > 1;
+  if (dariAi && !p && !row.cicilan_id && !dipecah && (row.type === "expense" || row.type === "income") && row.merchant) {
+    const ingat = await ambilIngatan(supabase, String(row.merchant), String(row.type));
+    if (ingat) Object.assign(row, ingat);
   }
 
   // Begitu user punya kantong, tiap transaksi harus jelas kantongnya — kalau

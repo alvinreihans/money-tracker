@@ -2,16 +2,19 @@
 
 import { createContext, useContext, useEffect, useRef, useState, type FormEvent } from "react";
 import NextLink from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowUp, Sparkles } from "lucide-react";
 import { LAYAR_LEBAR } from "@/components/navigasi";
-import { Lembar } from "@/components/oneui";
+import { Lembar, Spinner } from "@/components/oneui";
+import { kembalikanKategori, ubahKategoriMerchant, type HasilUbahKategori } from "@/components/TawaranSerupa";
 import s from "@/components/ui.module.css";
 import { isoLokal, namaBulan } from "@/lib/format";
 import { geserBulan } from "@/lib/kalender";
+import type { UsulanKategori } from "@/lib/tanya-server";
 
 type Pesan =
   | { peran: "saya"; teks: string }
-  | { peran: "ai"; teks: string; tautan: { label: string; href: string }[]; ragu: boolean }
+  | { peran: "ai"; teks: string; tautan: { label: string; href: string }[]; ragu: boolean; usulan?: UsulanKategori }
   | { peran: "galat"; teks: string };
 
 /** Ikon sparkle bergradasi (tombol melayang & layar kosong). Gradasinya didefinisikan sekali. */
@@ -33,6 +36,84 @@ export function IkonAI({ size = 26 }: { size?: number }) {
 }
 
 const Besar = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
+
+/**
+ * Kartu konfirmasi usulan Tanya AI (SPEC-ingat-kategori): AI hanya
+ * mengusulkan; kategori baru berubah setelah user menekan Ubah, dan bisa
+ * diurungkan. Server mencari ulang transaksinya saat Ubah ditekan.
+ */
+function KartuUsulan({ u }: { u: UsulanKategori }) {
+  const router = useRouter();
+  const [keadaan, setKeadaan] = useState<"siap" | "sibuk" | "diubah" | "batal" | "dikembalikan">("siap");
+  const [hasil, setHasil] = useState<HasilUbahKategori | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const tujuan = u.kategori?.name ?? u.kategori_baru?.nama ?? "";
+
+  async function ubah() {
+    setKeadaan("sibuk");
+    setError(null);
+    const r = await ubahKategoriMerchant({ merchant: u.merchant, type: u.type, kategori: u.kategori?.slug, kategori_baru: u.kategori_baru, kelompok: null });
+    if ("error" in r) {
+      setError(r.error);
+      return setKeadaan("siap");
+    }
+    setHasil(r);
+    setKeadaan("diubah");
+    router.refresh();
+  }
+
+  async function urungkan() {
+    if (!hasil) return;
+    setKeadaan("sibuk");
+    const err = await kembalikanKategori(hasil.sebelum);
+    if (err) {
+      setError("Gagal mengurungkan. Coba lagi.");
+      return setKeadaan("diubah");
+    }
+    setKeadaan("dikembalikan");
+    router.refresh();
+  }
+
+  return (
+    <div className={s.gptUsulan} role="group" aria-label="Usulan ubah kategori">
+      {keadaan === "diubah" && hasil ? (
+        <>
+          <p>
+            {hasil.diubah} transaksi {u.merchant} sekarang {hasil.kategori.name}. Transaksi berikutnya dari {u.merchant} otomatis {hasil.kategori.name}.
+          </p>
+          <div className={s.gptUsulanTombol}>
+            <button type="button" className={s.flat} onClick={() => void urungkan()}>
+              Urungkan
+            </button>
+          </div>
+        </>
+      ) : keadaan === "dikembalikan" ? (
+        <p>Dikembalikan ke kategori semula.</p>
+      ) : keadaan === "batal" ? (
+        <p>Tidak jadi diubah.</p>
+      ) : (
+        <>
+          <p>
+            {u.kategori_baru ? `Buat kategori ${tujuan} dan ubah` : "Ubah"} {u.jumlah} transaksi {u.merchant} jadi {tujuan}?
+          </p>
+          <div className={s.gptUsulanTombol}>
+            <button type="button" className={s.flat} disabled={keadaan === "sibuk"} onClick={() => setKeadaan("batal")}>
+              Batal
+            </button>
+            <button type="button" className={s.tombol} disabled={keadaan === "sibuk"} onClick={() => void ubah()}>
+              {keadaan === "sibuk" ? <Spinner /> : "Ubah"}
+            </button>
+          </div>
+        </>
+      )}
+      {error && (
+        <small className={s.bahaya} role="alert">
+          {error}
+        </small>
+      )}
+    </div>
+  );
+}
 
 const TanyaContext = createContext<{
   terbuka: boolean;
@@ -69,12 +150,18 @@ export function TanyaProvider({ children }: { children: React.ReactNode }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ pertanyaan: q, riwayat, bulan }),
     }).catch(() => null);
-    const d = ((await res?.json().catch(() => null)) ?? {}) as { jawaban?: string; tautan?: { label: string; href: string }[]; ragu?: boolean; error?: string };
+    const d = ((await res?.json().catch(() => null)) ?? {}) as {
+      jawaban?: string;
+      tautan?: { label: string; href: string }[];
+      ragu?: boolean;
+      usulan?: UsulanKategori;
+      error?: string;
+    };
     setSibuk(false);
     setPesan((p) => [
       ...p,
       res?.ok && d.jawaban
-        ? { peran: "ai", teks: d.jawaban, tautan: d.tautan ?? [], ragu: Boolean(d.ragu) }
+        ? { peran: "ai", teks: d.jawaban, tautan: d.tautan ?? [], ragu: Boolean(d.ragu), usulan: d.usulan }
         : { peran: "galat", teks: d.error ?? "Lagi sibuk, coba lagi sebentar ya." },
     ]);
   }
@@ -206,6 +293,7 @@ function TanyaAI({
                 <div key={i} className={`${s.gptAI} ${p.peran === "galat" ? s.bahaya : ""}`} role={p.peran === "galat" ? "alert" : undefined}>
                   {p.teks}
                   {p.peran === "ai" && p.ragu && <small>⚠️ Ada angka yang belum bisa dipastikan. Cek angkanya di Riwayat.</small>}
+                  {p.peran === "ai" && p.usulan && <KartuUsulan u={p.usulan} />}
                   {p.peran === "ai" && p.tautan.length > 0 && (
                     <div className={s.gptTautan}>
                       {p.tautan.map((t) => (

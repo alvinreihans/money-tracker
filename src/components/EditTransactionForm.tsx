@@ -6,6 +6,7 @@ import { ChevronRight, PencilLine } from "lucide-react";
 import { useCatat, useKategori } from "@/components/Catat";
 import { GalatForm, Lembar, Pesan, Spinner, useGalat } from "@/components/oneui";
 import TransactionFields, { nilaiAwal } from "@/components/TransactionFields";
+import { useTawaranSerupa } from "@/components/TawaranSerupa";
 import s from "@/components/ui.module.css";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { dbErrorMessage } from "@/lib/errors";
@@ -39,6 +40,7 @@ export default function EditTransactionForm({
   const [loading, setLoading] = useState(false);
   const [nilai, setNilai] = useState(() => nilaiAwal(tx, undefined, ikutan?.amount));
   const { galat, gagal, bersihkan } = useGalat(nilai);
+  const serupa = useTawaranSerupa();
 
   function bukaForm() {
     setNilai(nilaiAwal(tx, undefined, ikutan?.amount));
@@ -87,6 +89,14 @@ export default function EditTransactionForm({
 
     setBuka(false);
     router.refresh();
+
+    // Kategori dibetulkan: tawarkan ikut membetulkan transaksi lain dari
+    // merchant yang sama (SPEC-ingat-kategori).
+    const merchant = kolom.merchant?.trim();
+    if (!terpecah && merchant && kolom.category !== tx.category && (kolom.type === "expense" || kolom.type === "income")) {
+      const nama = kategori.find((k) => k.type === kolom.type && k.slug === kolom.category)?.name ?? kolom.category;
+      void serupa.tawarkan({ merchant, type: kolom.type, kategori: { slug: kolom.category, name: nama }, kelompok: kolom.kelompok ?? null, kecuali: tx.id });
+    }
   }
 
   return (
@@ -129,6 +139,7 @@ export default function EditTransactionForm({
           </form>
         </Lembar>
       )}
+      {serupa.elemen}
     </>
   );
 }

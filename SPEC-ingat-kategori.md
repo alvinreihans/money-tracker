@@ -1,6 +1,6 @@
 # Spec: Ingat kategori per merchant
 
-Status: **disetujui** · 26 Oktober 2026 · branch `feat/ingat-kategori` · rilis 2.6.0
+Status: **diterapkan** · 26 Oktober 2026 · branch `feat/ingat-kategori` · rilis 2.6.0
 
 ## Masalah
 
@@ -17,11 +17,12 @@ AI menebak kategori dari nol di setiap unggahan. Contoh dari pemakaian nyata:
 ## A. Mengingat saat mencatat
 
 - **Kapan:** transaksi dari AI (struk, bukti bayar, Bagikan, ketikan) berjenis pengeluaran atau pemasukan, dengan merchant.
-- **Apa yang dicari:** transaksi **terakhir** dengan merchant yang sama dan jenis yang sama.
+- **Apa yang dicari:** transaksi **terakhir** (menurut tanggal transaksi) dengan merchant yang sama dan jenis yang sama, yang kategorinya bukan **Lainnya**. "Lainnya" tidak memberi informasi, jadi tebakan AI yang spesifik lebih baik.
 - **Hasilnya:** kategori dan kelompoknya **menggantikan tebakan AI**.
 - **Merchant dianggap sama:**
   - setelah huruf kecil semua dan tanpa spasi atau tanda baca ("WAITENJOY.CO" = "waitenjoy co");
-  - atau yang satu awalan yang lain, minimal 6 huruf. Nama yang terpotong ("WAITENJOY.CO…" vs "WAITENJOY.COM") tetap cocok.
+  - atau yang satu awalan yang lain, minimal 6 huruf. Nama yang terpotong ("WAITENJOY.CO…" vs "WAITENJOY.COM") tetap cocok;
+  - atau semua kata nama yang lebih pendek ada di nama yang lain, minimal 5 huruf. AI sering membuang kata seperti "Toko": "qwrtz" = "Toko Qwrtz", "Dnid Ridx" = "Dnid Ridx Dana". "Kopi" dan "Kopi Kenangan" tetap tidak cocok (terlalu pendek).
 - **Tidak berlaku untuk:**
   - pindah kantong, pinjaman, cicilan/paylater (kategorinya ditentukan alurnya sendiri);
   - belanja yang dipecah dari rincian ketikan;
@@ -50,7 +51,9 @@ Setelah kategori sebuah transaksi diubah dan disimpan (Ubah transaksi):
 Koreksi di obrolan sudah ada: setelah transaksi tersimpan, user mengetik "bukan, itu laundry" dan AI memperbarui kategorinya (`/api/transaksi/[id]/koreksi`, dengan "Batalkan perubahan").
 
 - **Ingatan:** tidak perlu langkah tambahan. Koreksi itu menjadi transaksi terakhir merchant tersebut, jadi unggahan berikutnya mengikutinya.
-- **Baru:** kalau koreksinya mengubah kategori, obrolan menawarkan hal yang sama seperti bagian B: "Ubah juga 3 transaksi WAITENJOY lain jadi Laundry?" dengan tombol **Ubah** / **Biarkan** di gelembung obrolan.
+- **Baru:** kalau koreksinya mengubah kategori, obrolan menawarkan hal yang sama seperti bagian B: "Ubah juga 3 transaksi WAITENJOY lain jadi Laundry?" dengan tombol **Ubah** / **Biarkan**, memakai lembar konfirmasi yang sama dengan bagian B (di atas obrolan).
+- **Belum termasuk:** koreksi transaksi lama lewat obrolan (hanya transaksi yang barusan tersimpan).
+
 ## D. Minta perbaikan ke Tanya AI
 
 User bisa menulis ke Tanya AI: "waitenjoy itu laundry, tolong betulkan" atau "transfer ke Dnid Ridx Dana itu makan di warteg".
@@ -71,6 +74,23 @@ User bisa menulis ke Tanya AI: "waitenjoy itu laundry, tolong betulkan" atau "tr
   - kartunya: "Buat kategori Laundry dan pindahkan 4 transaksi WAITENJOY?".
 - **Setelah diubah, otomatis diingat:** transaksi itu menjadi yang terakhir dari merchant tersebut (bagian A).
 - **Di luar cakupan:** mengubah nominal, tanggal, kantong, atau menghapus transaksi lewat Tanya AI.
+
+## Hasil
+
+- **Tanpa migrasi.** Pencocokan merchant di server (`src/lib/ingat.ts`), satu API bersama untuk B, C, dan D (`/api/kategori-merchant`).
+- **Berbeda dari rancangan:**
+  - **Aturan cocok ditambah "semua kata ada"** (lihat bagian A). E2E pertama menemukan AI mencatat "qwrtz" untuk "Toko Qwrtz", sehingga ingatan dan tawarannya tidak bekerja.
+  - **"Terakhir" menurut tanggal transaksi**, bukan waktu kategorinya diubah (tidak ada stempel waktu ubah tanpa migrasi). Membetulkan transaksi lama lalu memilih Biarkan berarti unggahan berikutnya mengikuti transaksi yang lebih baru.
+  - **Kartu Tanya AI memakai nama merchant seperti yang ditulis user**, yang mencakup semua variasi bacaan AI-nya.
+- **E2E** (akun sementara, AI sungguhan, 12 cek):
+  - WAITENJOY dibetulkan jadi Laundry → catat "waitenjoy.co 18rb" langsung Laundry;
+  - Dnid Ridx Dana dibetulkan jadi Makan → tawaran untuk 1 transaksi lama → Ubah → Urungkan;
+  - catat lagi → Makan;
+  - Tanya AI: kartu usulan tanpa mengaku sudah mengubah → Ubah → Urungkan;
+  - kategori baru "Jajan" dibuat dari usulan;
+  - pertanyaan biasa tanpa kartu;
+  - koreksi obrolan "bukan, itu laundry" → tawaran → Toko Qwrtz lama ikut Laundry.
+- **`eval:tanya`:** dua kasus baru lulus 2/2. Saat diukur, Gemini sedang lambat (14–22 dtk untuk pertanyaan satu kata, biasanya < 1 dtk), jadi semua jawaban lebih lama dari biasanya.
 
 ## Kode
 

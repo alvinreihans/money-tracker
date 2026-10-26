@@ -11,7 +11,7 @@ import { alamatRiwayat, bacaFilter, type FilterRiwayat } from "@/lib/riwayat";
  * Diuji di scripts/uji-tanya.mts.
  */
 
-export const NAMA_FUNGSI = ["ringkasan_bulan", "cari_transaksi", "saldo_kantong", "pinjaman_cicilan", "hitung"] as const;
+export const NAMA_FUNGSI = ["ringkasan_bulan", "cari_transaksi", "saldo_kantong", "pinjaman_cicilan", "hitung", "usul_ubah_kategori"] as const;
 export type NamaFungsi = (typeof NAMA_FUNGSI)[number];
 
 export const DEKLARASI_FUNGSI: FunctionDeclaration[] = [
@@ -66,6 +66,25 @@ export const DEKLARASI_FUNGSI: FunctionDeclaration[] = [
     },
   },
   {
+    name: "usul_ubah_kategori",
+    description:
+      "HANYA saat pengguna meminta membetulkan/mengganti kategori transaksi dari satu merchant (mis. 'waitenjoy itu laundry', 'transfer ke Dnid Ridx Dana itu makan'). Mencari transaksinya dan menyiapkan USULAN; belum mengubah apa pun — pengguna yang menekan tombol Ubah.",
+    parameters: {
+      type: SchemaType.OBJECT,
+      properties: {
+        merchant: { type: SchemaType.STRING, description: "Nama merchant/penerima seperti yang disebut pengguna" },
+        kategori: { type: SchemaType.STRING, description: "Slug atau nama kategori tujuan; boleh nama kategori yang belum ada (mis. 'Laundry')" },
+        kelompok: {
+          type: SchemaType.STRING,
+          format: "enum",
+          enum: ["kebutuhan", "keinginan", "tabungan", "berbagi"],
+          description: "Hanya untuk kategori pengeluaran yang belum ada: kelompok budgeting-nya (laundry → kebutuhan)",
+        },
+      },
+      required: ["merchant", "kategori"],
+    },
+  },
+  {
     name: "pinjaman_cicilan",
     description: "Siapa berutang ke pengguna, pengguna berutang ke siapa, tagihan kartu kredit, dan cicilan yang berjalan beserta jatuh tempo berikutnya.",
   },
@@ -111,7 +130,7 @@ export function filterDariArgumen(args: Record<string, unknown>, k: KonteksTanya
 
 /** Tombol telusur untuk satu pemanggilan fungsi (kalkulator tidak punya tujuan). */
 export function tautanDari(nama: NamaFungsi, args: Record<string, unknown>, k: KonteksTanya): { label: string; href: string } | null {
-  if (nama === "hitung") return null;
+  if (nama === "hitung" || nama === "usul_ubah_kategori") return null;
   // Riwayat belum bisa mengecualikan atau membatasi nominal: tautannya menampilkan sebelum dikecualikan.
   const disaring = (Array.isArray(args.kecuali) && args.kecuali.length > 0) || args.minimal != null || args.maksimal != null;
   if (nama === "cari_transaksi") return { label: disaring ? "Lihat semua di Riwayat" : "Lihat di Riwayat", href: alamatRiwayat(filterDariArgumen(args, k)) };

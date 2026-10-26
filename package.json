@@ -30,7 +30,8 @@
     "uji:tanya": "tsx scripts/uji-tanya.mts",
     "eval:tanya": "node --env-file=.env.local scripts/eval-tanya.mjs",
     "uji:arah": "tsx scripts/uji-arah.mts",
-    "uji:metode": "tsx scripts/uji-metode.mts"
+    "uji:metode": "tsx scripts/uji-metode.mts",
+    "uji:ingat": "tsx scripts/uji-ingat.mts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
