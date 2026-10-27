@@ -61,11 +61,9 @@ export async function POST(req: NextRequest) {
     const image = Buffer.from(await file.arrayBuffer());
     const result = await processReceiptImage(image, file.type, await ambilKonteksAI(supabase), catatan);
 
-    // 4. Simpan. Bila baris rekening koran untuk transaksi yang sama sudah
-    //    terlanjur masuk, baris itu disingkirkan — bukti bayar lebih lengkap.
+    // 4. Simpan.
     let inserted: Transaction;
     let pertanyaan: JenisTanya | null = null;
-    let supersededStatement = false;
     try {
       const hasil = await simpanTransaksi(
         supabase,
@@ -75,7 +73,6 @@ export async function POST(req: NextRequest) {
       // Belanja paylater yang langsung jadi rencana cicilan (SPEC-paylater).
       if (hasil.cicilan) return NextResponse.json({ success: true, cicilan: hasil.cicilan, notes: result.notes }, { status: 201 });
       inserted = hasil.transaction as Transaction;
-      supersededStatement = hasil.supersededStatement;
       pertanyaan = hasil.pertanyaan;
     } catch (dbError) {
       return NextResponse.json(
@@ -103,7 +100,6 @@ export async function POST(req: NextRequest) {
         // Status akhir: bisa jadi draft di simpanTransaksi (kantong tak cocok).
         status: inserted.status,
         source: result.source,
-        supersededStatement,
         // Jejak keputusan pipeline; membantu saat hasilnya meleset.
         notes: result.notes,
       },

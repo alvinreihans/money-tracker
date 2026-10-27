@@ -45,13 +45,7 @@ export interface Transaction {
   /** Jam transaksi (WIB), "HH:MM:SS"; opsional. Lihat SPEC-saldo-waktu.md. */
   waktu?: string | null;
   status: TransactionStatus;
-  /** Rekening/dompet tempat uang bergerak, mis. "SeaBank". */
-  account: string | null;
-  /** Lawan transaksi menurut rekening koran, mis. "ShopeePay". */
-  counterparty: string | null;
   source: TransactionSource;
-  /** Kunci idempoten untuk baris rekening koran. */
-  external_id: string | null;
   /** Teks OCR mentah, hanya terisi saat status = "needs_review". */
   raw_ocr_text: string | null;
   created_at: string; // ISO timestamptz

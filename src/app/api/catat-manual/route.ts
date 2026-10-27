@@ -12,8 +12,8 @@ export const dynamic = "force-dynamic";
 
 /**
  * Catat transaksi dari form "Isi manual". Lewat server, bukan insert langsung
- * dari browser, supaya baris rekening koran untuk transaksi yang sama ikut
- * disingkirkan seperti pada foto struk.
+ * dari browser, supaya melewati simpanTransaksi yang sama dengan foto struk
+ * (validasi, kantong, transaksi ikutan).
  */
 export async function POST(req: NextRequest) {
   const supabase = await createSupabaseServerClient();

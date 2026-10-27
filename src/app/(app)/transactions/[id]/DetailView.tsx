@@ -69,8 +69,6 @@ export default function DetailView({
     [t.kantong_id ? (pindah ? "Dari kantong" : "Kantong") : "Metode bayar", t.payment_method],
     ["Ke kantong", pindah ? kantong.find((k) => k.id === t.kantong_tujuan_id)?.name : null],
     [pindah ? "Biaya admin" : "Cashback", ikutan ? fmtIDR(ikutan.amount) : null],
-    ["Rekening", t.account],
-    ["Lawan transaksi", t.counterparty],
     ["Keterangan", terpecah ? null : t.description],
     ["Masuk lewat", labelSumber(t.source)],
     ["Dicatat", fmtWaktu(t.created_at)],
