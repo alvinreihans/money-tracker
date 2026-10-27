@@ -2,6 +2,7 @@
 
 import { createContext, Fragment, useContext, useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import NextLink from "next/link";
+import { useRouter } from "next/navigation";
 import { Check, ChevronDown, ChevronLeft, ChevronUp, CircleCheck, CircleX, EllipsisVertical, Info, TriangleAlert, X } from "lucide-react";
 import { LAYAR_LEBAR } from "@/components/navigasi";
 import s from "@/components/ui.module.css";
@@ -70,6 +71,7 @@ export function AppBar({
   aksi?: React.ReactNode;
 }) {
   const ref = useRef<HTMLElement>(null);
+  const router = useRouter();
   const [ciut, setCiut] = useState(false);
   // Satu h1 per halaman: di dua panel, judul panel detail jadi h2 (judul
   // daftarnya yang h1). Di layar sempit hanya satu panel yang tampil → h1.
@@ -98,7 +100,20 @@ export function AppBar({
       <div className={s.barAksi} data-ciut={ciut}>
         <div className={s.grupAksi}>
           {kembali && (
-            <NextLink href={kembali} className={s.ikonTombol} aria-label="Kembali">
+            <NextLink
+              href={kembali}
+              className={s.ikonTombol}
+              aria-label="Kembali"
+              // Kembali ke halaman asalnya (Profil → Utang & Piutang → Profil), seperti
+              // tombol Back HP. `kembali` hanya cadangan saat tidak ada halaman
+              // sebelumnya di aplikasi: dibuka dari notifikasi, pintasan, atau dimuat ulang.
+              onClick={(e) => {
+                const nav = (window as Window & { navigation?: { canGoBack?: boolean } }).navigation;
+                if (!nav?.canGoBack || e.metaKey || e.ctrlKey || e.shiftKey) return;
+                e.preventDefault();
+                router.back();
+              }}
+            >
               <ChevronLeft size={24} />
             </NextLink>
           )}

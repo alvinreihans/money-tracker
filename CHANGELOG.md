@@ -45,6 +45,9 @@ SPEC-catat-tuntas.md (fase 1 & 2 selesai di 2.4.0, fase 3 di 2.5.0).
 - **Betulkan sekaligus:** setelah mengubah kategori sebuah transaksi (Edit transaksi atau koreksi di obrolan Catat, mis. "bukan, itu laundry"), aplikasi menawarkan "Ubah juga 4 transaksi WAITENJOY lain jadi Laundry?". Tidak ada yang berubah tanpa persetujuan; bisa diurungkan.
 - **Minta lewat Tanya AI:** "waitenjoy itu laundry, tolong betulkan". Tanya AI menjelaskan transaksi mana yang akan berubah dan menampilkan kartu konfirmasi **Ubah** / **Batal**; kategori yang belum ada (mis. Laundry) ikut dibuat. Tanya AI tidak pernah mengubah data sebelum tombol Ubah ditekan, dan hasilnya bisa diurungkan.
 
+### Diperbaiki
+- **Tombol kembali mengingat asal halaman.** Utang & Piutang yang dibuka dari Profil kembali ke Profil (dulu selalu ke Beranda); Budget dari "Atur metode" kembali ke Analitik; Tujuan tabungan dari Kantong kembali ke Kantong. Halaman yang dibuka langsung (notifikasi, pintasan, muat ulang) tetap kembali ke induknya.
+
 ## [2.5.0] — 2026-10-26
 
 ### Ditambahkan
