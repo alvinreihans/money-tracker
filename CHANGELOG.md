@@ -38,6 +38,8 @@ SPEC-catat-tuntas.md (fase 1 & 2 selesai di 2.4.0, fase 3 di 2.5.0).
 
 ## [Unreleased]
 
+## [2.7.0] — 2026-10-27
+
 ### Diubah
 - **Database dinormalisasi** (SPEC-normalisasi). Tidak ada yang berubah di tampilan; yang berubah cara data disimpan:
   - kategori transaksi, budget, dan rencana cicilan dijaga database: tidak bisa lagi menunjuk kategori yang tidak ada;

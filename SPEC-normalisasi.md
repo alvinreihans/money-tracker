@@ -1,6 +1,6 @@
 # Spec: Normalisasi database
 
-Status: **diterapkan** (menunggu `db:migrate`) (#1–#5, #7; tanpa soft delete) · 27 Oktober 2026 · branch `feat/normalisasi` · rilis 2.7.0
+Status: **diterapkan** (migrasi sudah dijalankan) (#1–#5, #7; tanpa soft delete) · 27 Oktober 2026 · branch `feat/normalisasi` · rilis 2.7.0
 
 Audit memakai skill `designing-database-schemas` terhadap 8 tabel di skema `public` & `private`, dengan data sungguhan. Yang sudah sesuai (tidak diubah):
 - UUID sebagai kunci utama;
@@ -46,6 +46,21 @@ Trigger tulis view yang mengubah isian ke bentuk tersimpannya; aplikasi tetap bo
 - **Nama kantong yang dihapus:** transaksinya lepas dari kantong seperti dulu. Trigger `kantong_dihapus` menyalin namanya ke `payment_method` sebelum kantong hilang, jadi detailnya tetap menyebut "BCA".
 - **Nilai bawaan kategori di view:** dulu `'uncategorized'`, yang tidak ada di `categories` dan akan ditolak FK. Kini `'other'` (tidak ada baris yang memakai `'uncategorized'`).
 - **Kode mati ikut dibuang:** pencarian baris rekening koran di `simpanTransaksi` dan isian `supersededStatement` di balasan `/api/upload-receipt`.
+
+## Hasil
+
+- **Uji kering:** 16/16 (termasuk sebagai `authenticated` dan menghapus akun).
+- **Sesudah migrasi, lewat API sebagai user biasa:**
+  - sisip pengeluaran & pindah kantong;
+  - kategori tak dikenal ditolak;
+  - ganti nama kantong terlihat;
+  - hapus kantong tujuan pindah kantong (dulu gagal);
+  - nama kantong yang dihapus tetap tertulis;
+  - hapus kategori yang dipakai cicilan;
+  - kolom lama hilang;
+  - hapus akun.
+- **Catatan:** `insert … returning` lewat view mengembalikan `updated_at` kosong (view mengembalikan baris yang dikirim, sama seperti `created_at` saat urungkan hapus). Baris tersimpan tetap terisi; dibaca ulang benar. Aplikasi tidak memakai `updated_at` transaksi.
+- **Regresi:** 15 suite E2E, 16 suite unit, typecheck, `next build`, `eval:tanya` 17/17.
 
 ## #2 Indeks FK
 
