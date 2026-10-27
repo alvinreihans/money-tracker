@@ -6,7 +6,8 @@ import { ambilKategori } from "@/lib/kategori-server";
 import { analisisBulan, progresBudget, type BarisAnalitik } from "@/lib/analitik";
 import { geserBulan } from "@/lib/kalender";
 import { ambilKantong } from "@/lib/kantong";
-import { namaKategori, type Kategori } from "@/lib/kategori";
+import { kategoriJenis, namaKategori, type Kategori } from "@/lib/kategori";
+import { cariSerupa } from "@/lib/ingat";
 import { kantongUang, ringkasanPinjaman, statusCicilan, type Cicilan } from "@/lib/pinjaman";
 import { queryRiwayat, ringkasRiwayat } from "@/lib/riwayat";
 import {
@@ -42,6 +43,63 @@ async function semuaBaris<T>(ambil: (dari: number, sampai: number) => PromiseLik
     if (!data || data.length < 1000) break;
   }
   return semua;
+}
+
+export interface UsulanKategori {
+  merchant: string;
+  type: "expense" | "income";
+  /** Kategori yang sudah ada, atau null kalau harus dibuat (kategori_baru). */
+  kategori: { slug: string; name: string } | null;
+  kategori_baru: { nama: string; kelompok: string | null } | null;
+  jumlah: number;
+  total: number;
+}
+
+/**
+ * usul_ubah_kategori: cari transaksi dari merchant itu (aturan cocok
+ * SPEC-ingat-kategori) dan siapkan usulan. Tidak mengubah apa pun — browser
+ * menampilkan kartu konfirmasi, dan /api/kategori-merchant mencari ulang
+ * transaksinya saat user menekan Ubah.
+ */
+async function usulUbahKategori(
+  args: Record<string, unknown>,
+  { supabase, kategori }: { supabase: SupabaseClient; kategori: Kategori[] },
+): Promise<{ untukModel: unknown; usulan?: UsulanKategori }> {
+  const merchant = typeof args.merchant === "string" ? args.merchant.trim().slice(0, 200) : "";
+  const minta = typeof args.kategori === "string" ? args.kategori.trim().replace(/\s+/g, " ").slice(0, 30) : "";
+  if (!merchant || !minta) return { untukModel: { error: "merchant dan kategori wajib diisi" } };
+  const [keluar, masuk] = await Promise.all([cariSerupa(supabase, merchant, "expense"), cariSerupa(supabase, merchant, "income")]);
+  const type = keluar.length >= masuk.length ? "expense" : "income";
+  const baris = type === "expense" ? keluar : masuk;
+  if (!baris.length) return { untukModel: { jumlah_transaksi: 0, pesan: `Tidak ada transaksi dengan merchant "${merchant}".` } };
+  const daftar = kategoriJenis(kategori, type);
+  const ada = daftar.find((k) => k.slug === minta || k.name.toLowerCase() === minta.toLowerCase());
+  const ubah = ada ? baris.filter((b) => b.category !== ada.slug) : baris;
+  if (!ubah.length) return { untukModel: { jumlah_transaksi: 0, pesan: `Semua transaksi ${merchant} sudah berkategori ${ada!.name}.` } };
+  const nama = ada?.name ?? minta.charAt(0).toUpperCase() + minta.slice(1);
+  const kelompok = typeof args.kelompok === "string" ? args.kelompok : null;
+  const usulan: UsulanKategori = {
+    // Nama seperti yang ditulis user: mencakup semua variasi bacaan AI-nya.
+    merchant,
+    type,
+    kategori: ada ? { slug: ada.slug, name: ada.name } : null,
+    kategori_baru: ada ? null : { nama, kelompok: type === "expense" ? kelompok : null },
+    jumlah: ubah.length,
+    total: ubah.reduce((n, b) => n + Number(b.amount), 0),
+  };
+  return {
+    usulan,
+    untukModel: {
+      status: "USULAN, BELUM DIUBAH. Pengguna harus menekan tombol Ubah di kartu di bawah jawabanmu.",
+      merchant: usulan.merchant,
+      jumlah_transaksi: usulan.jumlah,
+      total: usulan.total,
+      kategori_sekarang: [...new Set(ubah.map((b) => namaKategori(kategori, b.category, type)))],
+      kategori_tujuan: nama,
+      kategori_baru_akan_dibuat: !ada,
+      contoh: ubah.slice(0, 3).map((b) => ({ tanggal: b.transaction_date, nominal: Number(b.amount) })),
+    },
+  };
 }
 
 export async function jalankanFungsi(
@@ -248,6 +306,8 @@ const MAKS_PUTARAN = 4;
 export interface HasilTanya {
   jawaban: string;
   tautan: { label: string; href: string }[];
+  /** Usulan ubah kategori (SPEC-ingat-kategori): diterapkan browser setelah user menekan Ubah. */
+  usulan?: UsulanKategori;
   /** Ada nominal di jawaban yang tidak ada di hasil fungsi/percakapan. */
   ragu: boolean;
 }
@@ -302,6 +362,7 @@ Aturan:
 - "Kalau X tidak dihitung" / "tanpa X" / "selain X": pakai cari_transaksi dengan "kecuali" (atau "hitung" untuk mengurangkannya), lalu awali jawaban dengan asumsinya, mis. "Tanpa Laku6 (Rp 10.300.000), …".
 - "Di atas / di bawah N": pakai cari_transaksi dengan "minimal"/"maksimal".
 - "Bagaimana kondisi keuanganku": ambil pemasukan & pengeluaran periode itu (ringkasan_bulan atau cari_transaksi), total aset (saldo_kantong), dan utang/piutang (pinjaman_cicilan). Jawab: masuk vs keluar dan selisihnya (pakai "hitung"), total aset, utang kalau ada, lalu SATU kalimat kesimpulan beralasan (mis. "masih surplus Rp X, aman" atau "pengeluaran melebihi pemasukan, perlu hati-hati").
+- Pengguna meminta membetulkan kategori transaksi dari suatu merchant ("waitenjoy itu laundry", "tolong ganti kategori X jadi Y"): panggil usul_ubah_kategori. Itu baru USULAN: kategori BELUM berubah sampai pengguna menekan tombol "Ubah" di kartu di bawah jawabanmu. JANGAN pernah bilang sudah diubah/diganti; jelaskan apa yang akan berubah (jumlah transaksi, totalnya, kategori sekarang → tujuan, dan kategori baru yang akan dibuat bila ada), lalu minta pengguna menekan Ubah. Pertanyaan biasa (mis. "berapa pengeluaran laundry?") BUKAN permintaan membetulkan.
 - Pertanyaan lanjutan merujuk ke percakapan sebelumnya (mis. "kalau dibanding pemasukan?").
 - Kategori pengguna (slug: nama): ${kategori.map((k) => `${k.slug}: ${k.name} (${k.type === "expense" ? "keluar" : "masuk"})`).join("; ")}.
 - Kantong pengguna: ${(kantong ?? []).map((k) => k.name).join(", ") || "(belum ada)"}.
@@ -325,6 +386,7 @@ Ringkasan bulan ${bulan} (DATA, sama dengan hasil fungsi ringkasan_bulan): ${JSO
   );
   const hasilFungsi: unknown[] = [ringkasan, ...(angkaPercakapan.length ? [{ angka_dari_percakapan: angkaPercakapan }] : [])];
   const tautan = new Map<string, { label: string; href: string }>();
+  let usulan: UsulanKategori | undefined;
 
   // Satu putaran tanya: model boleh memanggil fungsi sampai MAKS_PUTARAN kali.
   const putar = async (pesan: string): Promise<string> => {
@@ -342,12 +404,13 @@ Ringkasan bulan ${bulan} (DATA, sama dengan hasil fungsi ringkasan_bulan): ${JSO
         const nama = NAMA_FUNGSI.find((n) => n === p.name);
         const args = nama ? lengkapiArgumen(nama, (p.args ?? {}) as Record<string, unknown>, bulan) : {};
         // Kalkulator: hanya boleh memakai angka besar yang sudah ada di hasil fungsi sebelumnya.
-        const hasil =
-          nama === "hitung"
-            ? { ekspresi: args.ekspresi, keterangan: args.keterangan ?? null, ...hitungEkspresi(String(args.ekspresi ?? ""), angkaDiData(hasilFungsi)) }
-            : nama
-              ? await jalankanFungsi(nama, args, { supabase, konteks, kategori })
-              : { error: "fungsi tidak dikenal" };
+        let hasil: unknown;
+        if (nama === "hitung") hasil = { ekspresi: args.ekspresi, keterangan: args.keterangan ?? null, ...hitungEkspresi(String(args.ekspresi ?? ""), angkaDiData(hasilFungsi)) };
+        else if (nama === "usul_ubah_kategori") {
+          const u = await usulUbahKategori(args, { supabase, kategori });
+          hasil = u.untukModel;
+          usulan = u.usulan ?? usulan;
+        } else hasil = nama ? await jalankanFungsi(nama, args, { supabase, konteks, kategori }) : { error: "fungsi tidak dikenal" };
         catat?.(`fungsi ${p.name} ${JSON.stringify(args)} → ${JSON.stringify(hasil).slice(0, 300)}`);
         hasilFungsi.push(hasil);
         const t = nama && tautanDari(nama, args, konteks);
@@ -376,5 +439,5 @@ Ringkasan bulan ${bulan} (DATA, sama dengan hasil fungsi ringkasan_bulan): ${JSO
     if (ulang) jawaban = ulang;
     asing = rupiahTakTerverifikasi(jawaban, hasilFungsi);
   }
-  return { jawaban: jawaban || "Hmm, aku belum bisa menjawab itu. Coba tanya lebih spesifik ya.", tautan: [...tautan.values()], ragu: asing.length > 0 };
+  return { jawaban: jawaban || "Hmm, aku belum bisa menjawab itu. Coba tanya lebih spesifik ya.", tautan: [...tautan.values()], ragu: asing.length > 0, ...(usulan ? { usulan } : {}) };
 }

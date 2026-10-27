@@ -59,6 +59,10 @@ const KASUS = [
   // Menjelaskan "kenapa" dengan cerita transaksinya, bukan sekadar kategori:
   // HP-nya dibeli dari tabungan, bukan pemborosan bulan ini.
   { tanya: "kenapa bulan ini boros?", harus: [10300000], pola: /\bHP\b[\s\S]*tabungan|tabungan[\s\S]*\bHP\b/i },
+  // Minta membetulkan kategori (SPEC-ingat-kategori): hanya usulan + kartu,
+  // tidak mengaku sudah mengubah; pertanyaan biasa tidak memunculkan usulan.
+  { tanya: "Kopi Janji Jiwa itu harusnya kategori Jajan, tolong betulkan", harus: [], usulan: true, bukan: /\bsudah (saya |aku )?(di)?(ubah|ganti|betulkan|perbaiki|pindah)/i },
+  { tanya: "berapa pengeluaran Shopee bulan ini?", harus: [245000], tanpaUsulan: true },
 ];
 
 let uid;
@@ -114,7 +118,15 @@ try {
     const d = await r.json().catch(() => ({}));
     const teks = String(d.jawaban ?? d.error ?? "").replace(/ /g, " ");
     const kurang = k.harus.filter((n) => !teks.includes(rp(n)));
-    const ok = r.ok && !d.ragu && !kurang.length && (!k.pola || k.pola.test(teks)) && (!k.tanpaTautan || !(d.tautan ?? []).length);
+    const ok =
+      r.ok &&
+      !d.ragu &&
+      !kurang.length &&
+      (!k.pola || k.pola.test(teks)) &&
+      (!k.bukan || !k.bukan.test(teks)) &&
+      (!k.tanpaTautan || !(d.tautan ?? []).length) &&
+      (!k.usulan || Boolean(d.usulan)) &&
+      (!k.tanpaUsulan || !d.usulan);
     if (ok) lulus++;
     console.log(`${ok ? "✓" : "✗"} ${k.tanya}  (${((Date.now() - t) / 1000).toFixed(1)} dtk)\n    ${teks}${kurang.length ? `\n    kurang: ${kurang.map(rp).join(", ")}` : ""}${d.ragu ? "\n    ragu: ada nominal tak terverifikasi" : ""}`);
   }

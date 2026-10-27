@@ -1452,6 +1452,11 @@ button.blok { background: var(--blok); }
 .gptAI { font-size: 16px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
 .gptAI small { display: block; margin-top: 8px; color: var(--teks-2); font-size: 13px; }
 .gptTautan { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; white-space: normal; }
+/* Kartu konfirmasi usulan Tanya AI (SPEC-ingat-kategori). */
+.gptUsulan { display: grid; gap: 8px; margin-top: 12px; padding: 14px 16px; border-radius: 18px; background: var(--blok-2); white-space: normal; }
+.gptUsulan p { margin: 0; }
+.gptUsulanTombol { display: flex; gap: 8px; justify-content: flex-end; }
+.gptUsulanTombol > button { flex: 0 0 auto; min-height: 44px; padding: 0 18px; }
 .gptTautan a {
   min-height: 36px; padding: 0 14px; display: inline-flex; align-items: center; border: 1px solid var(--garis); border-radius: 18px;
   color: var(--teks); font-size: 14px; font-weight: 600;

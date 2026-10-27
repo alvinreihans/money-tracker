@@ -21,6 +21,7 @@ import { tandaTransaksi } from "@/components/kategori";
 import { Spinner } from "@/components/oneui";
 import s from "@/components/ui.module.css";
 import { useCatat } from "@/components/Catat";
+import { useTawaranSerupa } from "@/components/TawaranSerupa";
 import { ACCEPT_STRUK } from "@/components/UploadReceiptForm";
 import { bacaBukti, kalimatArah, kantongBank, rapikanNama } from "@/lib/arah";
 import { apakahKoreksi, CERITA_ULANG, KALIMAT_TANYA, MAKS_CERITA, mauHapus, pertanyaanDraft, PILIHAN_TENOR, type JenisTanya } from "@/lib/draft";
@@ -140,6 +141,7 @@ export default function LembarCatat({
   const router = useRouter();
   const pathname = usePathname();
   const { kantong, kategori } = useCatat();
+  const serupa = useTawaranSerupa();
   // Saldo kantong berlaku sejak jam berapa: menentukan perlu tanya jam atau tidak.
   const saldoDari = useCallback(
     (id: string) => {
@@ -593,6 +595,12 @@ export default function LembarCatat({
       { t: "koreksi", id: tx.id, perubahan: r.data.perubahan as string[], sebelum: r.data.sebelum as Partial<Transaction> },
     ]);
     router.refresh();
+    // "bukan, itu laundry": tawarkan ikut membetulkan transaksi lain dari merchant yang sama (SPEC-ingat-kategori).
+    const merchant = baru.merchant?.trim();
+    if (merchant && baru.category !== tx.category && (baru.type === "expense" || baru.type === "income")) {
+      const nama = kategori.find((k) => k.type === baru.type && k.slug === baru.category)?.name ?? baru.category;
+      void serupa.tawarkan({ merchant, type: baru.type, kategori: { slug: baru.category, name: nama }, kelompok: baru.kelompok ?? null, kecuali: baru.id });
+    }
   }
 
   async function batalkanKoreksi(i: number) {
@@ -1113,6 +1121,7 @@ export default function LembarCatat({
           onClose={() => setKamera(false)}
         />
       )}
+      {serupa.elemen}
     </>
   );
 }
