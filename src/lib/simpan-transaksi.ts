@@ -17,15 +17,6 @@ import { barisIkutan } from "@/lib/transaksi-input";
 import { pertanyaanDraft, type JenisTanya } from "@/lib/draft";
 import { jamTransaksi, perluTanyaJam, saldoSejak, type PetunjukJam } from "@/lib/waktu";
 
-/** Toleransi selisih tanggal saat mencocokkan dengan baris rekening koran lama. */
-const DEDUPE_DAY_WINDOW = 2;
-
-function shiftDate(iso: string, days: number): string {
-  const d = new Date(`${iso}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
-}
-
 /**
  * Belanja paylater jadi rencana cicilan (SPEC-paylater): tidak ada pengeluaran
  * dan tidak ada saldo yang berubah; tiap cicilan dicatat saat dibayar.
@@ -63,20 +54,15 @@ export async function namaRekening(supabase: SupabaseClient): Promise<string[]> 
 }
 
 /**
- * Simpan satu transaksi (dari struk, teks, atau isian manual) sambil
- * menyingkirkan baris rekening koran yang ternyata mewakili transaksi sama.
- *
- * Impor rekening koran sudah dihapus, tapi baris hasil impor lama masih ada.
- * Kalau transaksi yang sama dicatat lagi (mis. diisi manual dengan tanggal
- * mundur), tanpa ini ia tercatat dua kali. Catatan baru yang menang karena
- * memuat merchant dan kategori, sementara baris rekening koran cuma tertulis
- * "Pembayaran".
+ * Simpan satu transaksi (dari struk, teks, atau isian manual): tautkan
+ * kantong, putuskan arah bukti transfer, pinjaman & cicilan, ingat kategori
+ * per merchant, tandai duplikat, lalu pecah rincian ketikan bila ada.
  */
 export async function simpanTransaksi(
   supabase: SupabaseClient,
   userId: string,
   input: Record<string, unknown>,
-): Promise<{ supersededStatement: boolean; transaction: unknown; pertanyaan: JenisTanya | null; cicilan?: Cicilan }> {
+): Promise<{ transaction: unknown; pertanyaan: JenisTanya | null; cicilan?: Cicilan }> {
   const { payment_target, biaya_admin, cashback, pinjaman, cicilan: sebutanCicilan, jam, petunjuk_jam, info_paylater, bukti_transfer, rincian, ...row } = input;
   const dariAi = "payment_target" in input;
 
@@ -93,7 +79,7 @@ export async function simpanTransaksi(
     };
     if (paylater.tenor && belanja.amount > 0) {
       const cicilan = await jadikanCicilan(supabase, userId, belanja, { ...paylater, tenor: paylater.tenor });
-      return { supersededStatement: false, transaction: null, pertanyaan: null, cicilan };
+      return { transaction: null, pertanyaan: null, cicilan };
     }
     const draft = {
       ...row,
@@ -105,7 +91,7 @@ export async function simpanTransaksi(
     };
     const { data: tersimpan, error } = await supabase.from("transactions").insert(draft).select().single();
     if (error) throw new Error(error.message);
-    return { supersededStatement: false, transaction: tersimpan, pertanyaan: pertanyaanDraft(tersimpan) };
+    return { transaction: tersimpan, pertanyaan: pertanyaanDraft(tersimpan) };
   }
 
   // Tautkan ke kantong. Form mengirim id-nya langsung (dicek memang milik
@@ -236,29 +222,6 @@ export async function simpanTransaksi(
 
   const amount = Number(row.amount);
   const date = String(row.transaction_date);
-  const tunai = kantong?.kind === "cash" || String(row.payment_method ?? "").toLowerCase() === "tunai";
-
-  let supersededStatement = false;
-
-  // Transaksi tunai tidak pernah muncul di rekening koran, jadi tidak ada yang
-  // perlu disingkirkan — dan mencarinya hanya berisiko menghapus baris yang sah.
-  if (amount > 0 && !tunai) {
-    const { data: kandidat } = await supabase
-      .from("transactions")
-      .select("id")
-      .eq("user_id", userId)
-      .eq("source", "statement")
-      .eq("amount", amount)
-      .gte("transaction_date", shiftDate(date, -DEDUPE_DAY_WINDOW))
-      .lte("transaction_date", shiftDate(date, DEDUPE_DAY_WINDOW))
-      .limit(1);
-
-    const cocok = (kandidat ?? [])[0] as { id: string } | undefined;
-    if (cocok) {
-      const { error } = await supabase.from("transactions").delete().eq("id", cocok.id);
-      if (!error) supersededStatement = true;
-    }
-  }
 
   // Duplikat (SPEC-catat-andal): hasil AI yang sama persis dengan transaksi
   // tercatat — nominal, jenis, tanggal, jam (menit), kantong — jadi draft dan
@@ -330,5 +293,5 @@ export async function simpanTransaksi(
     const k = semua.find((x) => x.id === id);
     return k ? saldoSejak(k) : undefined;
   });
-  return { supersededStatement, transaction: tersimpan, pertanyaan };
+  return { transaction: tersimpan, pertanyaan };
 }

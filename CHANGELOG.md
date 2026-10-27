@@ -38,6 +38,15 @@ SPEC-catat-tuntas.md (fase 1 & 2 selesai di 2.4.0, fase 3 di 2.5.0).
 
 ## [Unreleased]
 
+### Diubah
+- **Database dinormalisasi** (SPEC-normalisasi). Tidak ada yang berubah di tampilan; yang berubah cara data disimpan:
+  - kategori transaksi, budget, dan rencana cicilan dijaga database: tidak bisa lagi menunjuk kategori yang tidak ada;
+  - transaksi tidak lagi menyimpan salinan nama kantong. **Mengganti nama kantong** kini langsung terlihat di semua transaksi lamanya;
+  - kolom sisa impor rekening koran dibuang; kolom yang sering dipakai untuk mencari mendapat indeks; waktu terakhir diubah (`updated_at`) dicatat.
+
+### Diperbaiki
+- **Kantong yang punya transaksi pindah kantong bisa dihapus lagi.** Sebelumnya gagal dengan "permission denied". Nama kantongnya tetap tertulis di transaksi lama.
+
 ## [2.6.0] — 2026-10-27
 
 ### Ditambahkan
