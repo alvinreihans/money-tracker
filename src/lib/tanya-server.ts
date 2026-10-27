@@ -3,7 +3,7 @@ import type { Content, Part } from "@google/generative-ai";
 import { GEMINI_MODEL_CHAT, getGeminiClient } from "@/lib/gemini";
 import { ambilPengaturanMetode, hitungMetode, LABEL_METODE } from "@/lib/metode";
 import { ambilKategori } from "@/lib/kategori-server";
-import { analisisBulan, progresBudget, type BarisAnalitik } from "@/lib/analitik";
+import { analisisBulan, pisahTujuan, progresBudget, type BarisAnalitik } from "@/lib/analitik";
 import { geserBulan } from "@/lib/kalender";
 import { ambilKantong } from "@/lib/kantong";
 import { kategoriJenis, namaKategori, type Kategori } from "@/lib/kategori";
@@ -131,8 +131,11 @@ export async function jalankanFungsi(
       supabase.from("budgets").select("category, amount"),
       ambilPengaturanMetode(supabase, bulan),
     ]);
-    const ini = baris.filter((r) => r.transaction_date.startsWith(bulan));
-    const barisLalu = baris.filter((r) => r.transaction_date.startsWith(lalu));
+    const semuaIni = baris.filter((r) => r.transaction_date.startsWith(bulan));
+    // Pembelian dari tujuan tabungan di luar semua angka bulanan (SPEC-analitik-tujuan).
+    const { biasa } = pisahTujuan(baris, pengaturan.tujuan);
+    const ini = biasa.filter((r) => r.transaction_date.startsWith(bulan));
+    const barisLalu = biasa.filter((r) => r.transaction_date.startsWith(lalu));
     const a = analisisBulan(ini, barisLalu, { bulan, hariIni: konteks.hariIni });
     // Angka bulan lalu ikut di sini (SPEC-cerita-tanya): "bandingin sama bulan
     // lalu" bisa dijawab tanpa putaran fungsi tambahan.
@@ -178,14 +181,25 @@ export async function jalankanFungsi(
           nominal: Number(t.amount),
           kategori: namaKat(t.category, "expense"),
           keterangan: t.description,
-          ...(pengaturan.tujuan.some((k) => k.id === t.kantong_id) ? { dibayar_dari_tujuan_tabungan: pengaturan.tujuan.find((k) => k.id === t.kantong_id)!.nama } : {}),
         })),
+      // Dibeli dengan uang yang disisihkan bulan-bulan sebelumnya: tidak ikut
+      // keluar, kategori, sorotan, maupun budget di atas.
+      dibayar_dari_tujuan_tabungan: pengaturan.tujuan
+        .map((k) => {
+          const beli = semuaIni.filter((t) => t.type === "expense" && t.kantong_id === k.id);
+          return {
+            tujuan: k.nama,
+            total: beli.reduce((n, t) => n + Number(t.amount), 0),
+            transaksi: beli.map((t) => ({ tanggal: t.transaction_date, merchant: t.merchant, nominal: Number(t.amount), kategori: namaKat(t.category, "expense"), keterangan: t.description })),
+          };
+        })
+        .filter((k) => k.transaksi.length > 0),
       kategori_paling_naik: a.kategoriNaik && { nama: namaKat(a.kategoriNaik.kategori, "expense"), naik: a.kategoriNaik.selisih, persen: a.kategoriNaik.persen },
       merchant_teratas: a.merchant,
       budget: progresBudget(budgets ?? [], ini).map((b) => ({ kategori: namaKat(b.kategori, "expense"), target: b.target, terpakai: b.aktual, sisa: b.sisa })),
       // Metode budgeting pilihan pengguna (SPEC-metode-budget); null = per kategori.
       metode: (() => {
-        const h = hitungMetode(pengaturan, ini);
+        const h = hitungMetode(pengaturan, semuaIni);
         return (
           h && {
             nama: LABEL_METODE[h.metode].nama,
@@ -355,7 +369,7 @@ Aturan:
 - Tiap giliran makan waktu: panggil SEMUA fungsi yang dibutuhkan sekaligus dalam satu giliran (boleh beberapa fungsi bersamaan), jangan satu per satu.
 - Ringkasan bulan ${bulan} SUDAH dihitung (di bawah). Untuk pertanyaan yang bisa dijawab darinya (total, kategori, perbandingan dengan bulan lalu beserta selisihnya, pengeluaran terbesar), JAWAB LANGSUNG tanpa memanggil fungsi. Panggil fungsi hanya untuk yang tidak ada di sana (bulan lain, merchant/kata tertentu, saldo, utang, kecuali/minimal/maksimal).
 - Kalau ringkasan punya "metode" (metode budgeting pilihan pengguna, mis. 50/30/20), jelaskan pengeluaran dengan bahasa metode itu: realisasi tiap wadah dibanding jatahnya (mis. "Keinginan Rp 10.545.000, jauh di atas jatah Rp 2.400.000"). Tabungan dibaca terbalik: makin besar makin baik.
-- "dibayar_dari_tujuan_tabungan" = pembelian memakai uang yang sudah disisihkan sebelumnya (mis. HP dari tabungan HP), di luar jatah bulan ini. Saat menjelaskan pengeluaran besar atau "kenapa boros", sebut bahwa itu dibayar dari tabungan, bukan pemborosan bulan ini.
+- "dibayar_dari_tujuan_tabungan" = pembelian memakai uang yang sudah disisihkan sebelumnya (mis. HP dari tabungan HP), di luar jatah bulan ini. Angka keluar, kategori, sorotan, pengeluaran terbesar, dan budget di ringkasan SUDAH tidak memasukkannya. Jangan menyebutnya pemborosan. Saat menjawab total pengeluaran, pengeluaran besar, atau "kenapa boros", sebut juga terpisah pembelian itu beserta nominalnya dan bahwa itu dibayar dari tabungan.
 - Pertanyaan KENAPA (boros, naik, banyak keluar): sebut pengeluaran terbesar beserta keterangannya bila ada (mis. "ada kado nikahan Rina Rp 500.000"); keterangan adalah cerita pengguna tentang transaksi itu.
 - SELALU panggil fungsi untuk mendapat angka. Setiap nominal di jawaban harus PERSIS ada di hasil fungsi. JANGAN berhitung di kepala: untuk selisih, jumlah, rata-rata, atau persen yang tidak ada langsung, panggil "hitung" dengan angka dari hasil fungsi.
 - Kalau periode tidak disebut, pakai bulan yang sedang dilihat (${bulan}), dan sebut periodenya di jawaban.

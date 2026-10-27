@@ -15,6 +15,7 @@ export default function RingkasanBulan({
   bulanLalu,
   hrefKeluar,
   hrefMasuk,
+  dariTujuan,
 }: {
   keluar: number;
   masuk: number;
@@ -24,6 +25,8 @@ export default function RingkasanBulan({
   bulanLalu?: string;
   hrefKeluar?: string;
   hrefMasuk?: string;
+  /** Pembelian dari tujuan tabungan, di luar Keluar (SPEC-analitik-tujuan). */
+  dariTujuan?: { total: number; nama: string; href: string } | null;
 }) {
   const selisih = masuk - keluar;
   const baris = (label: React.ReactNode, nilai: React.ReactNode, href?: string) =>
@@ -59,6 +62,16 @@ export default function RingkasanBulan({
         <span className={s.nominal}>{fmtIDRRingkas(keluar)}</span>,
         hrefKeluar,
       )}
+      {dariTujuan &&
+        baris(
+          <span>
+            Dari tujuan tabungan
+            <br />
+            <span className={s.redup}>{dariTujuan.nama}</span>
+          </span>,
+          <span className={s.nominal}>{fmtIDRRingkas(dariTujuan.total)}</span>,
+          dariTujuan.href,
+        )}
       {baris(<span>Masuk</span>, <span className={`${s.nominal} ${masuk > 0 ? s.masuk : ""}`}>{fmtIDRRingkas(masuk)}</span>, hrefMasuk)}
       {baris(
         <span>

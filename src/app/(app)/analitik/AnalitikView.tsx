@@ -56,6 +56,7 @@ export default function AnalitikView({
   bulan,
   bulanIni,
   analisis: a,
+  dariTujuan,
   tren,
   budget,
   totalBudget,
@@ -66,6 +67,8 @@ export default function AnalitikView({
   /** "YYYY-MM" berjalan */
   bulanIni: string;
   analisis: AnalisisBulan;
+  /** Pembelian dari tujuan tabungan bulan itu, per tujuan; tidak ikut di `analisis`. */
+  dariTujuan: { id: string; nama: string; total: number }[];
   tren: Bulan[];
   budget: ProgresBudget[];
   totalBudget: number;
@@ -161,6 +164,15 @@ export default function AnalitikView({
           bulanLalu={bulanLalu}
           hrefKeluar={keRiwayat({ jenis: "keluar" })}
           hrefMasuk={keRiwayat({ jenis: "masuk" })}
+          dariTujuan={
+            dariTujuan.length > 0
+              ? {
+                  total: dariTujuan.reduce((n, t) => n + t.total, 0),
+                  nama: dariTujuan.map((t) => t.nama).join(", "),
+                  href: keRiwayat({ jenis: "keluar", kantong: dariTujuan.map((t) => t.id) }),
+                }
+              : null
+          }
         />
 
         {sorotan.length > 0 && (

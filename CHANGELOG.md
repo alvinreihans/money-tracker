@@ -26,9 +26,6 @@ SPEC-catat-tuntas.md (fase 1 & 2 selesai di 2.4.0, fase 3 di 2.5.0).
     dengan metode lain. Avalanche butuh isian bunga baru di cicilan/pinjaman.
 - **AI menawarkan pecah transaksi** dari struk yang berisi barang campuran
   (menawarkan, bukan langsung memecah).
-- **Sorotan & proyeksi Analitik** memisahkan pembelian dari tujuan tabungan:
-  sekarang HP Rp 10 jt dari tabungan masih membuat "Paling boros" dan
-  proyeksi akhir bulan melonjak, walau jatah metodenya sudah benar.
 - **Opsi "tujuan ini disimpan di BCA"**, kalau saldo BCA yang lebih kecil dari
   saldo asli di bank (karena sebagian disisihkan ke tujuan) terasa membingungkan.
 
@@ -37,6 +34,12 @@ SPEC-catat-tuntas.md (fase 1 & 2 selesai di 2.4.0, fase 3 di 2.5.0).
   yang jarang berubah (kategori, kantong) disimpan sementara di server.
 
 ## [Unreleased]
+
+### Diubah
+- **Pembelian dari tujuan tabungan tidak lagi dihitung sebagai pengeluaran bulan itu** (SPEC-analitik-tujuan). HP Rp 10 jt yang dibayar dari "Tabungan HP" tidak membuat proyeksi melonjak, tidak jadi "Paling boros" atau "Belanja naik Rp 10 jt", dan tidak ikut di kategori, merchant teratas, tren 6 bulan, maupun budget per kategori.
+  - **Analitik** menampilkannya di baris sendiri, **"Dari tujuan tabungan"**, di bawah Keluar. Mengetuknya membuka Riwayat pembelian itu.
+  - **Beranda** (pengeluaran bulan ini) dan **Tanya AI** memakai angka yang sama. Tanya AI tetap tahu pembelian itu dan menyebutnya terpisah sebagai "dibayar dari tabungan".
+  - Riwayat tidak berubah: tetap menampilkan semua transaksi.
 
 ## [2.7.0] — 2026-10-27
 

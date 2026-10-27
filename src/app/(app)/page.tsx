@@ -1,5 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { hitungStreak, progresBudget } from "@/lib/analitik";
+import { hitungStreak, pisahTujuan, progresBudget } from "@/lib/analitik";
 import { ambilPengaturanMetode, hitungMetode } from "@/lib/metode";
 import { infoPecahan } from "@/lib/riwayat";
 import { isoLokal } from "@/lib/format";
@@ -24,7 +24,7 @@ export default async function BerandaPage({ searchParams }: { searchParams: Prom
   const { awalBulanIni, awalBulanLalu } = rentangBulan(sekarang);
   const hariIni = isoLokal(sekarang);
 
-  const jumlahkan = (rows: { amount: number }[] | null) =>
+  const jumlahkan = (rows: { amount: number | string }[] | null) =>
     (rows ?? []).reduce((s, r) => s + Number(r.amount), 0);
 
   // Transfer dikecualikan di semua hitungan: itu uang pindah kantong sendiri,
@@ -60,7 +60,7 @@ export default async function BerandaPage({ searchParams }: { searchParams: Prom
       .gte("transaction_date", awalBulanIni),
     supabase
       .from("transactions")
-      .select("amount")
+      .select("amount, type, kantong_id")
       .eq("type", "expense")
       .eq("status", "confirmed")
       .gte("transaction_date", awalBulanLalu)
@@ -83,11 +83,14 @@ export default async function BerandaPage({ searchParams }: { searchParams: Prom
     if (b.cicilan_ke) (dibayar[b.cicilan_id] ??= []).push(b.cicilan_ke);
   }
 
+  // Pembelian dari tujuan tabungan bukan pengeluaran bulan ini (SPEC-analitik-tujuan).
+  const keluarBiasa = pisahTujuan(keluarIni ?? [], pengaturan.tujuan).biasa;
+
   return (
     <BerandaView
       ringkasan={{
-        keluar: jumlahkan(keluarIni),
-        keluarBulanLalu: jumlahkan(keluarLalu),
+        keluar: jumlahkan(keluarBiasa),
+        keluarBulanLalu: jumlahkan(pisahTujuan(keluarLalu ?? [], pengaturan.tujuan).biasa),
       }}
       draft={draft ?? 0}
       bukaCatat={catat}
@@ -101,7 +104,7 @@ export default async function BerandaPage({ searchParams }: { searchParams: Prom
         dibayar,
         hariIni,
       )}
-      budget={progresBudget(budgets ?? [], keluarIni ?? [])}
+      budget={progresBudget(budgets ?? [], keluarBiasa)}
       metode={hitungMetode(pengaturan, keluarIni ?? [])}
       streak={hitungStreak((catatan ?? []).map((c) => c.created_at as string), sekarang)}
     />

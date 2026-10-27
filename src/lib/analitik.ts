@@ -110,6 +110,26 @@ export function progresBudget(
 export interface BarisAnalitik extends BarisNominal {
   category: string;
   merchant: string | null;
+  kantong_id?: string | null;
+}
+
+/**
+ * Pengeluaran dari kantong tujuan tabungan dipisah dari angka bulanan
+ * (SPEC-analitik-tujuan): uangnya disisihkan bulan-bulan sebelumnya, bukan
+ * dari penghasilan bulan itu. `dariTujuan` dijumlah per tujuan.
+ */
+export function pisahTujuan<T extends { amount: number | string; type: string; kantong_id?: string | null }>(
+  baris: T[],
+  tujuan: { id: string; nama: string }[],
+): { biasa: T[]; dariTujuan: { id: string; nama: string; total: number }[] } {
+  const nama = new Map(tujuan.map((k) => [k.id, k.nama]));
+  const biasa: T[] = [];
+  const total = new Map<string, number>();
+  for (const r of baris) {
+    if (r.type === "expense" && r.kantong_id && nama.has(r.kantong_id)) total.set(r.kantong_id, (total.get(r.kantong_id) ?? 0) + Number(r.amount));
+    else biasa.push(r);
+  }
+  return { biasa, dariTujuan: [...total].map(([id, t]) => ({ id, nama: nama.get(id)!, total: t })) };
 }
 
 export interface AnalisisBulan {

@@ -30,7 +30,9 @@ const L = (() => { const [t, b] = B.split("-").map(Number); const d = new Date(D
 const tgl = (bulan, hari) => `${bulan}-${String(Math.min(hari, Number(hariIni.slice(8)) || hari)).padStart(2, "0")}`;
 
 const KASUS = [
-  { tanya: "berapa total pengeluaran bulan ini?", harus: [10667000] },
+  // HP Laku6 10,3 jt dibayar dari tujuan tabungan: di luar pengeluaran bulan
+  // ini, disebut terpisah (SPEC-analitik-tujuan).
+  { tanya: "berapa total pengeluaran bulan ini?", harus: [367000, 10300000], pola: /tabungan/i },
   { tanya: "kalau transaksi Laku6 tidak dihitung, pengeluaran bulan ini berapa?", harus: [367000] },
   { tanya: "jika transaksi Laku6 tidak dihitung, bagaimana kondisi keuangan saya bulan ini?", harus: [367000, 8000000] },
   { tanya: "berapa total jajan kopi bulan ini?", harus: [47000] },
@@ -42,7 +44,7 @@ const KASUS = [
   { tanya: "total asetku berapa?", harus: [25443000] },
   { tanya: "siapa yang punya utang ke aku?", harus: [200000], pola: /budi/i },
   { tanya: "bandingin pengeluaran makan bulan ini sama bulan lalu", harus: [107000, 40000] },
-  { tanya: "selisih total pengeluaran bulan ini dan bulan lalu berapa?", harus: [10327000] },
+  { tanya: "selisih total pengeluaran bulan ini dan bulan lalu berapa?", harus: [27000] },
   {
     tanya: "kalau dibanding pemasukan gimana?",
     riwayat: [
