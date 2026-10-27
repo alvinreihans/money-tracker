@@ -90,7 +90,7 @@ User bisa menulis ke Tanya AI: "waitenjoy itu laundry, tolong betulkan" atau "tr
   - kategori baru "Jajan" dibuat dari usulan;
   - pertanyaan biasa tanpa kartu;
   - koreksi obrolan "bukan, itu laundry" → tawaran → Toko Qwrtz lama ikut Laundry.
-- **`eval:tanya`:** dua kasus baru lulus 2/2. Saat diukur, Gemini sedang lambat (14–22 dtk untuk pertanyaan satu kata, biasanya < 1 dtk), jadi semua jawaban lebih lama dari biasanya.
+- **`eval:tanya`:** 17/17 (termasuk dua kasus baru), 1–4 dtk per jawaban.
 
 ## Kode
 

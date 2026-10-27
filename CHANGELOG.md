@@ -38,6 +38,8 @@ SPEC-catat-tuntas.md (fase 1 & 2 selesai di 2.4.0, fase 3 di 2.5.0).
 
 ## [Unreleased]
 
+## [2.6.0] — 2026-10-27
+
 ### Ditambahkan
 - **Kategori diingat per merchant.** Transaksi dari merchant yang pernah dicatat langsung memakai kategori transaksi terakhirnya, tidak ditebak ulang AI. Contoh: "WAITENJOY" yang sudah dibetulkan jadi Laundry tidak kembali jadi Makan di unggahan berikutnya; transfer ke "Dnid Ridx Dana" (warteg tanpa akun merchant) tetap Makan.
   - Nama yang dibaca sedikit berbeda tetap dikenali: huruf besar-kecil, tanda baca, nama terpotong, atau kata depan yang hilang ("qwrtz" = "Toko Qwrtz").
