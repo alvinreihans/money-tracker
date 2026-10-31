@@ -253,9 +253,12 @@ function TanyaAI({
   // Pertanyaan bertahap bisa lama: setelah 8 detik, beri tahu masih dikerjakan.
   const [lama, setLama] = useState(false);
   useEffect(() => {
-    if (!sibuk) return setLama(false);
+    if (!sibuk) return;
     const t = setTimeout(() => setLama(true), 8000);
-    return () => clearTimeout(t);
+    return () => {
+      clearTimeout(t);
+      setLama(false);
+    };
   }, [sibuk]);
   const akhirRef = useRef<HTMLDivElement>(null);
   const ketikRef = useRef<HTMLTextAreaElement>(null);

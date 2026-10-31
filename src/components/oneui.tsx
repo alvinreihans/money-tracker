@@ -14,6 +14,10 @@ import { angkaMentah, angkaRibuan } from "@/lib/format";
  * (https://developer.samsung.com/one-ui).
  */
 
+const tanpaLangganan = () => () => {};
+/** False saat render server, true setelah hidrasi: penanda form sudah bisa dipakai. */
+export const useSudahHidrasi = () => useSyncExternalStore(tanpaLangganan, () => true, () => false);
+
 /** Apakah layar sedang lebar (dua panel). Di server selalu false. */
 export function useLayarLebar() {
   return useSyncExternalStore(
@@ -217,8 +221,9 @@ export function Lembar({
   children: React.ReactNode;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
-  const isianAwal = useRef(JSON.stringify(isian));
-  const berubah = isian !== undefined && JSON.stringify(isian) !== isianAwal.current;
+  // Isian saat lembar dibuka, sekali saja: pembanding "Buang perubahan?".
+  const [isianAwal] = useState(() => JSON.stringify(isian));
+  const berubah = isian !== undefined && JSON.stringify(isian) !== isianAwal;
   const [tanyaBuang, setTanyaBuang] = useState(false);
   const cobaTutup = () => (berubah ? setTanyaBuang(true) : onClose());
   const tutup = useRef(cobaTutup);
@@ -437,7 +442,7 @@ export function useGalat(nilai?: object | null) {
     sebelum.current = nilai;
     const k = galat?.kolom;
     if (k && lama && nilai && !Object.is((lama as Record<string, unknown>)[k], (nilai as Record<string, unknown>)[k])) setGalat(null);
-  });
+  }, [nilai, galat?.kolom]);
   return {
     galat,
     gagal: (pesan: string, kolom?: string) => {

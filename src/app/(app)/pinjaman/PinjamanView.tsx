@@ -235,7 +235,7 @@ function FormKartu({ userId, onClose }: { userId: string; onClose: () => void })
   const [per, setPer] = useState(isoLokal(new Date()));
   const [bunga, setBunga] = useState("");
   const [loading, setLoading] = useState(false);
-  const { galat, gagal, bersihkan } = useGalat({ nama, bunga });
+  const { galat, gagal } = useGalat({ nama, bunga });
 
   async function simpan(e?: FormEvent) {
     e?.preventDefault();

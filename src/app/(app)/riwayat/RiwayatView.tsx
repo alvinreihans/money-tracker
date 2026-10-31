@@ -96,11 +96,13 @@ export default function RiwayatView({
   // ?id= lewat history (tanpa render ulang server), jadi daftar yang sudah
   // dimuat dan posisi gulirnya tetap. Dimuat ulang juga setelah simpan/refresh.
   const idDetail = useSearchParams().get("id");
-  const [detail, setDetail] = useState<Awaited<ReturnType<typeof ambilDetail>>>(null);
+  const [dimuat, setDimuat] = useState<Awaited<ReturnType<typeof ambilDetail>>>(null);
+  // Tanpa ?id= tidak ada detail, apa pun yang terakhir dimuat.
+  const detail = idDetail ? dimuat : null;
   useEffect(() => {
-    if (!idDetail) return setDetail(null);
+    if (!idDetail) return;
     let batal = false;
-    void ambilDetail(createSupabaseBrowserClient(), idDetail).then((d) => !batal && setDetail(d));
+    void ambilDetail(createSupabaseBrowserClient(), idDetail).then((d) => !batal && setDimuat(d));
     return () => {
       batal = true;
     };

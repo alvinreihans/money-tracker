@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { GalatForm, Pesan, Spinner, useGalat } from "@/components/oneui";
+import { GalatForm, Pesan, Spinner, useGalat, useSudahHidrasi } from "@/components/oneui";
 import PasswordField from "@/components/PasswordField";
 import BrandMark from "@/components/BrandMark";
 import s from "@/components/ui.module.css";
@@ -18,8 +18,7 @@ export default function ResetPasswordPage() {
   // Halaman ini di-render server dulu, jadi formnya sudah terlihat siap sebelum
   // JS-nya termuat. Di koneksi lambat, menekan kirim di jeda itu memicu submit
   // bawaan browser: halaman reload dan isian hilang. Penanda ini menutup celahnya.
-  const [siap, setSiap] = useState(false);
-  useEffect(() => setSiap(true), []);
+  const siap = useSudahHidrasi();
   // Tautan reset (flow implicit, lihat halaman login) membawa token di hash URL.
   // Client @supabase/ssr hanya menerima PKCE, jadi tokennya dipasang manual.
   // Tanpa token dan tanpa session: tautannya kedaluwarsa (Supabase menaruh

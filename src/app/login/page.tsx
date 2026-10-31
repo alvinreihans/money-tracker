@@ -4,7 +4,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 import { Mail } from "lucide-react";
-import { Field, Pesan, Spinner } from "@/components/oneui";
+import { Field, Pesan, Spinner, useSudahHidrasi } from "@/components/oneui";
 import PasswordField from "@/components/PasswordField";
 import BrandMark from "@/components/BrandMark";
 import s from "@/components/ui.module.css";
@@ -51,12 +51,13 @@ export default function LoginPage() {
   // Halaman ini di-render server dulu, jadi formnya sudah terlihat siap sebelum
   // JS-nya termuat. Di koneksi lambat, menekan kirim di jeda itu memicu submit
   // bawaan browser: halaman reload dan isian hilang. Penanda ini menutup celahnya.
-  const [siap, setSiap] = useState(false);
-  useEffect(() => setSiap(true), []);
+  const siap = useSudahHidrasi();
 
   // Pesan dari /auth/callback saat tautan email gagal ditukar jadi session.
   useEffect(() => {
     const kode = new URLSearchParams(window.location.search).get("error");
+    // Alamat hanya terbaca di browser, sekali setelah hidrasi.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (kode && ERROR_TAUTAN[kode]) setError(ERROR_TAUTAN[kode]);
   }, []);
 

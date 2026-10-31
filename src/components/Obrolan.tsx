@@ -458,6 +458,8 @@ export default function LembarCatat({
   useEffect(() => {
     if (sudahDibuka.current) return;
     sudahDibuka.current = true;
+    // Membuka draft/daftar sekali saat dipasang — aksi pengguna yang tertunda, bukan state turunan.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (perintah.draft) void bukaDraft(perintah.draft, false);
     else if (perintah.layar === "daftar") void muatDaftar();
     // eslint-disable-next-line react-hooks/exhaustive-deps
