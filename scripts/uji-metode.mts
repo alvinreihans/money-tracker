@@ -4,7 +4,7 @@
  * status, pengeluaran dari tujuan tabungan (SPEC-tujuan-tabungan).
  */
 import assert from "node:assert/strict";
-import { cekPersen, hitungMetode, saranPenghasilan, wadahMetode, type BarisMetode } from "../src/lib/metode.ts";
+import { cekPersen, hitungMetode, KELOMPOK, KELOMPOK_KUSTOM, saranPenghasilan, wadahMetode, type BarisMetode } from "../src/lib/metode.ts";
 import { progresTujuan } from "../src/lib/tujuan.ts";
 
 // --- Wadah
@@ -81,6 +81,25 @@ const kosong = hitungMetode({ metode: "50-30-20", persen: null, penghasilan: 0 }
 assert.equal(kosong.wadah[0].target, 0);
 assert.equal(kosong.wadah[2].realisasi, 0, "tabungan tidak negatif");
 assert.equal(hitungMetode({ metode: "kategori", persen: null, penghasilan: 8000000 }, ini), null);
+
+// --- Kelompok baru (SPEC-kelompok-baru): Pengembangan diri & Tak terduga dihitung Kebutuhan di metode persentase
+assert.equal(KELOMPOK.length, 6);
+assert.deepEqual([...KELOMPOK_KUSTOM], ["kebutuhan", "keinginan", "tabungan", "berbagi"], "isian kustom tetap empat");
+const baru: BarisMetode[] = [
+  ...ini,
+  { type: "expense", category: "education", amount: 400000, kelompok_efektif: "pengembangan" },
+  { type: "expense", category: "transport", amount: 600000, kelompok_efektif: "tak_terduga" },
+];
+// Sama persis dengan bila 1 jt itu berkelompok kebutuhan.
+const sebagaiKebutuhan: BarisMetode[] = [...ini, { type: "expense", category: "food", amount: 1000000, kelompok_efektif: "kebutuhan" }];
+for (const [metode, persen] of [["50-30-20", null], ["80-20", null], ["70-20-10", null], ["kustom", { kebutuhan: 60, keinginan: 20, tabungan: 15, berbagi: 5 }]] as const) {
+  const a = hitungMetode({ metode, persen, penghasilan: 8000000 }, baru)!;
+  const b = hitungMetode({ metode, persen, penghasilan: 8000000 }, sebagaiKebutuhan)!;
+  assert.deepEqual(a.wadah.map((w) => [w.id, w.realisasi]), b.wadah.map((w) => [w.id, w.realisasi]), metode);
+}
+// Kustom: wadah kelompok baru tidak muncul walau 0% (dulu kelompok 0% dibuang beserta pengeluarannya).
+assert.deepEqual(wadahMetode("kustom", { kebutuhan: 80, tabungan: 20 }).map((w) => w.id), ["kebutuhan", "tabungan"]);
+assert.ok(cekPersen({ kebutuhan: 50, keinginan: 30, tabungan: 20, pengembangan: 10 } as never).ok, "kelompok di luar empat diabaikan cekPersen");
 
 // --- Progres tujuan
 assert.deepEqual(progresTujuan({ target: 10000000, tenggat: "2027-03-31", saldo: 6000000 }, "2026-10-25"), {

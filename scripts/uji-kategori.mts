@@ -59,6 +59,15 @@ const katKeluar = (kelompok?: string) => validasiKategori({ type: "expense", nam
 assert.equal((katKeluar("kebutuhan") as { data: { kelompok: string } }).data.kelompok, "kebutuhan");
 assert.equal((katKeluar() as { data: { kelompok: string } }).data.kelompok, "keinginan");
 assert.equal(katKeluar("mewah").ok, false);
+// Kelompok baru (SPEC-kelompok-baru).
+assert.equal((katKeluar("pengembangan") as { data: { kelompok: string } }).data.kelompok, "pengembangan");
+assert.equal((katKeluar("tak_terduga") as { data: { kelompok: string } }).data.kelompok, "tak_terduga");
+// Pendidikan bawaan: warnanya dari palet (bisa disunting di Profil → Kategori).
+const pendidikan = KATEGORI_BAWAAN.find((k) => k.slug === "education")!;
+assert.equal(validasiKategori({ type: "expense", name: "Pendidikan baru", icon: pendidikan.icon, color: pendidikan.color, kelompok: "pengembangan" }).ok, true);
+// AI: kelompok baru diterima, kelompok asing jadi null.
+assert.equal(normalize({ amount: 300000, type: "expense", category: "education", kelompok: "pengembangan" }).kelompok, "pengembangan");
+assert.equal(normalize({ amount: 300000, type: "expense", category: "transport", kelompok: "liburan" }).kelompok, null);
 assert.equal(validasiKategori({ name: "kopi", icon: "coffee", color: "#ff9f43" }, keluar).ok, false); // nama kembar
 assert.equal(validasiKategori({ name: "", icon: "coffee", color: "#ff9f43" }).ok, false);
 assert.equal(validasiKategori({ name: "x".repeat(31), icon: "coffee", color: "#ff9f43" }).ok, false);

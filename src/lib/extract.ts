@@ -6,6 +6,7 @@ import type { BuktiTransfer } from "@/lib/arah";
 import type { InfoPaylater } from "@/lib/pinjaman";
 import type { PetunjukJam } from "@/lib/waktu";
 import { KATEGORI_BAWAAN, kategoriJenis, LAINNYA, type Kategori } from "@/lib/kategori";
+import { KELOMPOK } from "@/lib/metode";
 import type { ExtractedReceipt, TransactionType } from "@/types/transaction";
 
 /**
@@ -21,6 +22,7 @@ const PETUNJUK: Record<string, string> = {
   entertainment: "nonton/game/langganan",
   bills: "listrik/pln/air/pulsa/internet/wifi",
   fees: "biaya admin/biaya transfer",
+  education: "kursus/buku pelajaran/seminar/SPP",
   salary: "gaji/gajian",
   bonus: "bonus/THR/insentif",
   business: "jualan/usaha/omzet",
@@ -84,9 +86,9 @@ Skema:
   "paylater": { "penyedia": string, "tenor": number | null, "per_cicilan": number | null, "jatuh_tempo": "YYYY-MM-DD" | null } | null,
   "document_type": "receipt" | "payment_proof",
   "bukti_transfer": { "pengirim": { "nama": string | null, "bank": string | null }, "penerima": { "nama": string | null, "bank": string | null } } | null,
-  "kelompok": "kebutuhan" | "keinginan" | "tabungan" | "berbagi" | null,
-  "rincian": [{ "amount": number, "category": string, "kelompok": "kebutuhan" | "keinginan" | "tabungan" | "berbagi" | null, "description": string | null }] | null,
-  "usulan_pecah": [{ "category": string, "kelompok": "kebutuhan" | "keinginan" | "tabungan" | "berbagi" | null, "subtotal": number, "barang": string }] | null
+  "kelompok": "kebutuhan" | "keinginan" | "tabungan" | "berbagi" | "pengembangan" | "tak_terduga" | null,
+  "rincian": [{ "amount": number, "category": string, "kelompok": "kebutuhan" | "keinginan" | "tabungan" | "berbagi" | "pengembangan" | "tak_terduga" | null, "description": string | null }] | null,
+  "usulan_pecah": [{ "category": string, "kelompok": "kebutuhan" | "keinginan" | "tabungan" | "berbagi" | "pengembangan" | "tak_terduga" | null, "subtotal": number, "barang": string }] | null
 }
 
 Aturan:
@@ -145,6 +147,9 @@ Aturan:
   "keinginan": makan di restoran mewah/fine dining, kafe premium, tiket
   konser, liburan. "berbagi": zakat, sedekah, infak, donasi, kado/hadiah.
   "tabungan": beli emas, reksadana, saham, deposito, setor tabungan/investasi.
+  "pengembangan": kursus, buku, seminar, sertifikasi, workshop.
+  "tak_terduga": HANYA bila disebut mendadak/darurat/rusak ("ban bocor",
+  "HP jatuh rusak, servis", "berobat darurat"); servis atau berobat biasa: null.
   Makan biasa, belanja harian, bensin, tagihan: null.
 - rincian: HANYA bila pengguna MENGETIK sendiri rincian belanja campuran
   dengan nominal per bagian, mis. "15rb di indomaret, 10rb sabun 5rb kopi"
@@ -271,8 +276,7 @@ function buktiAtauNull(b: unknown): BuktiTransfer | null {
   return hasil.pengirim.nama || hasil.penerima.nama ? hasil : null;
 }
 
-const KELOMPOK_SAH = ["kebutuhan", "keinginan", "tabungan", "berbagi"];
-const kelompokAtauNull = (k: unknown) => (typeof k === "string" && KELOMPOK_SAH.includes(k) ? k : null);
+const kelompokAtauNull = (k: unknown) => (typeof k === "string" && (KELOMPOK as readonly string[]).includes(k) ? k : null);
 
 /**
  * Rincian belanja campuran (SPEC-metode-budget): minimal dua bagian bernominal
@@ -519,7 +523,7 @@ const geminiSchema: GenerationConfig["responseSchema"] = {
       },
       required: ["pengirim", "penerima"],
     },
-    kelompok: { type: SchemaType.STRING, format: "enum", enum: ["kebutuhan", "keinginan", "tabungan", "berbagi"], nullable: true },
+    kelompok: { type: SchemaType.STRING, format: "enum", enum: [...KELOMPOK], nullable: true },
     usulan_pecah: {
       type: SchemaType.ARRAY,
       nullable: true,
@@ -527,7 +531,7 @@ const geminiSchema: GenerationConfig["responseSchema"] = {
         type: SchemaType.OBJECT,
         properties: {
           category: { type: SchemaType.STRING },
-          kelompok: { type: SchemaType.STRING, format: "enum", enum: ["kebutuhan", "keinginan", "tabungan", "berbagi"], nullable: true },
+          kelompok: { type: SchemaType.STRING, format: "enum", enum: [...KELOMPOK], nullable: true },
           subtotal: { type: SchemaType.NUMBER },
           barang: { type: SchemaType.STRING },
         },

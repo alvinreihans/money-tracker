@@ -9,14 +9,25 @@ import { geserBulan } from "@/lib/kalender";
  * SPEC-tujuan-tabungan. Fungsi murni — dipakai Analitik, Beranda, Tanya AI.
  */
 
-export const KELOMPOK = ["kebutuhan", "keinginan", "tabungan", "berbagi"] as const;
+export const KELOMPOK = ["kebutuhan", "keinginan", "tabungan", "berbagi", "pengembangan", "tak_terduga"] as const;
 export type Kelompok = (typeof KELOMPOK)[number];
+
+/**
+ * Kelompok yang punya isian persen di Kustom. Pengembangan diri & Tak terduga
+ * (untuk 6 Jars & Kakeibo, SPEC-kelompok-baru) dihitung Kebutuhan di metode
+ * persentase.
+ */
+export const KELOMPOK_KUSTOM = ["kebutuhan", "keinginan", "tabungan", "berbagi"] as const;
+export type KelompokKustom = (typeof KELOMPOK_KUSTOM)[number];
+const IKUT_KEBUTUHAN: Kelompok[] = ["pengembangan", "tak_terduga"];
 
 export const NAMA_KELOMPOK: Record<Kelompok, string> = {
   kebutuhan: "Kebutuhan",
   keinginan: "Keinginan",
   tabungan: "Tabungan & investasi",
   berbagi: "Berbagi",
+  pengembangan: "Pengembangan diri",
+  tak_terduga: "Tak terduga",
 };
 
 export const METODE = ["kategori", "50-30-20", "80-20", "70-20-10", "kustom"] as const;
@@ -40,7 +51,7 @@ export interface SaranPenghasilan {
 
 export interface PengaturanMetode {
   metode: Metode;
-  persen: Partial<Record<Kelompok, number>> | null;
+  persen: Partial<Record<KelompokKustom, number>> | null;
   /** Penghasilan per bulan yang dibagi metode: yang diatur user, atau saran. */
   penghasilan: number;
   /** Diatur user di Profil → Budget; null = ikut saran. */
@@ -129,27 +140,32 @@ export interface Wadah {
  * Kebutuhan — kewajiban, bukan keinginan; di 70/20/10 dan kustom ia punya
  * wadah sendiri.
  */
-export function wadahMetode(metode: Metode, persen?: Partial<Record<Kelompok, number>> | null): Wadah[] {
+export function wadahMetode(metode: Metode, persen?: Partial<Record<KelompokKustom, number>> | null): Wadah[] {
   switch (metode) {
     case "50-30-20":
       return [
-        { id: "kebutuhan", nama: "Kebutuhan", kelompok: ["kebutuhan", "berbagi"], persen: 50 },
+        { id: "kebutuhan", nama: "Kebutuhan", kelompok: ["kebutuhan", "berbagi", ...IKUT_KEBUTUHAN], persen: 50 },
         { id: "keinginan", nama: "Keinginan", kelompok: ["keinginan"], persen: 30 },
         { id: "tabungan", nama: "Tabungan & investasi", kelompok: ["tabungan"], persen: 20 },
       ];
     case "80-20":
       return [
-        { id: "pengeluaran", nama: "Pengeluaran", kelompok: ["kebutuhan", "keinginan", "berbagi"], persen: 80 },
+        { id: "pengeluaran", nama: "Pengeluaran", kelompok: ["kebutuhan", "keinginan", "berbagi", ...IKUT_KEBUTUHAN], persen: 80 },
         { id: "tabungan", nama: "Tabungan & investasi", kelompok: ["tabungan"], persen: 20 },
       ];
     case "70-20-10":
       return [
-        { id: "biaya-hidup", nama: "Biaya hidup", kelompok: ["kebutuhan", "keinginan"], persen: 70 },
+        { id: "biaya-hidup", nama: "Biaya hidup", kelompok: ["kebutuhan", "keinginan", ...IKUT_KEBUTUHAN], persen: 70 },
         { id: "tabungan", nama: "Tabungan & investasi", kelompok: ["tabungan"], persen: 20 },
         { id: "berbagi", nama: "Berbagi", kelompok: ["berbagi"], persen: 10 },
       ];
     case "kustom":
-      return KELOMPOK.map((k) => ({ id: k, nama: NAMA_KELOMPOK[k], kelompok: [k], persen: Math.max(0, Math.round(persen?.[k] ?? 0)) })).filter(
+      return KELOMPOK_KUSTOM.map((k) => ({
+        id: k,
+        nama: NAMA_KELOMPOK[k],
+        kelompok: k === "kebutuhan" ? [k, ...IKUT_KEBUTUHAN] : [k],
+        persen: Math.max(0, Math.round(persen?.[k] ?? 0)),
+      })).filter(
         (w) => w.persen > 0,
       );
     default:
@@ -158,14 +174,14 @@ export function wadahMetode(metode: Metode, persen?: Partial<Record<Kelompok, nu
 }
 
 /** Persen kustom sah: empat bilangan bulat 0–100 yang jumlahnya 100. */
-export function cekPersen(persen: Partial<Record<Kelompok, unknown>>): { ok: true; persen: Record<Kelompok, number> } | { ok: false; error: string } {
-  const hasil = {} as Record<Kelompok, number>;
-  for (const k of KELOMPOK) {
+export function cekPersen(persen: Partial<Record<KelompokKustom, unknown>>): { ok: true; persen: Record<KelompokKustom, number> } | { ok: false; error: string } {
+  const hasil = {} as Record<KelompokKustom, number>;
+  for (const k of KELOMPOK_KUSTOM) {
     const n = Number(persen[k] ?? 0);
     if (!Number.isInteger(n) || n < 0 || n > 100) return { ok: false, error: `Persen ${NAMA_KELOMPOK[k]} harus 0–100.` };
     hasil[k] = n;
   }
-  const total = KELOMPOK.reduce((t, k) => t + hasil[k], 0);
+  const total = KELOMPOK_KUSTOM.reduce((t, k) => t + hasil[k], 0);
   if (total !== 100) return { ok: false, error: `Jumlahnya harus 100% (sekarang ${total}%).` };
   return { ok: true, persen: hasil };
 }

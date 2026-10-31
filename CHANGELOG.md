@@ -39,6 +39,10 @@ SPEC-catat-tuntas.md (fase 1 & 2 selesai di 2.4.0, fase 3 di 2.5.0).
   - Diskon, PPN, dan biaya layanan dibagi aplikasi secara proporsional, jadi jumlah bagiannya selalu pas dengan yang dibayar.
   - Hanya untuk struk dengan barang beda kategori. Teks ketikan tidak ditawari. Tawaran hilang sendiri kalau nominal transaksinya diubah.
   - Nama barang di usulan disimpan terenkripsi, seperti keterangan transaksi.
+- **Dua kelompok baru: Pengembangan diri dan Tak terduga** (SPEC-kelompok-baru), untuk metode 6 Jars dan Kakeibo. Bisa dipilih di Edit transaksi, Pecah transaksi, Profil → Kategori, dan filter Riwayat.
+  - Kategori bawaan baru **Pendidikan** (kelompok Pengembangan diri). Akun yang sudah punya kategori bernama Pendidikan tidak mendapat duplikat.
+  - AI memberi kelompok Pengembangan diri untuk kursus, buku, dan seminar, dan Tak terduga hanya bila disebut mendadak/darurat/rusak.
+  - Di metode 50/30/20, 80/20, 70/20/10, dan Kustom keduanya dihitung Kebutuhan, jadi angkanya tidak berubah. Kustom tetap empat isian persen.
 
 ### Diubah
 - **Pembelian dari tujuan tabungan tidak lagi dihitung sebagai pengeluaran bulan itu** (SPEC-analitik-tujuan). HP Rp 10 jt yang dibayar dari "Tabungan HP" tidak membuat proyeksi melonjak, tidak jadi "Paling boros" atau "Belanja naik Rp 10 jt", dan tidak ikut di kategori, merchant teratas, tren 6 bulan, maupun budget per kategori.

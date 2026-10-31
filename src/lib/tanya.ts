@@ -2,6 +2,7 @@ import { SchemaType, type FunctionDeclaration } from "@google/generative-ai";
 import { geserHari } from "@/lib/format";
 import { geserBulan } from "@/lib/kalender";
 import { cocokkanKantong, type Kantong } from "@/lib/kantong";
+import { KELOMPOK } from "@/lib/metode";
 import { alamatRiwayat, bacaFilter, type FilterRiwayat } from "@/lib/riwayat";
 
 /**
@@ -77,7 +78,7 @@ export const DEKLARASI_FUNGSI: FunctionDeclaration[] = [
         kelompok: {
           type: SchemaType.STRING,
           format: "enum",
-          enum: ["kebutuhan", "keinginan", "tabungan", "berbagi"],
+          enum: [...KELOMPOK],
           description: "Hanya untuk kategori pengeluaran yang belum ada: kelompok budgeting-nya (laundry → kebutuhan)",
         },
       },

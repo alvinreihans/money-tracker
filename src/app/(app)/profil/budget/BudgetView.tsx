@@ -11,11 +11,11 @@ import s from "@/components/ui.module.css";
 import { dbErrorMessage } from "@/lib/errors";
 import { fmtIDR, fmtIDRRingkas, isianNominal } from "@/lib/format";
 import { kategoriJenis } from "@/lib/kategori";
-import { cekPersen, KELOMPOK, LABEL_METODE, METODE, NAMA_KELOMPOK, wadahMetode, type Kelompok, type Metode, type PengaturanMetode, type SaranPenghasilan } from "@/lib/metode";
+import { cekPersen, KELOMPOK_KUSTOM, LABEL_METODE, METODE, NAMA_KELOMPOK, wadahMetode, type KelompokKustom, type Metode, type PengaturanMetode, type SaranPenghasilan } from "@/lib/metode";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { rapikanBudget } from "@/lib/transaksi-input";
 
-const PERSEN_AWAL: Record<Kelompok, number> = { kebutuhan: 50, keinginan: 30, tabungan: 20, berbagi: 0 };
+const PERSEN_AWAL: Record<KelompokKustom, number> = { kebutuhan: 50, keinginan: 30, tabungan: 20, berbagi: 0 };
 
 /** Penjelasan metode terpilih, di bawah pratinjau. */
 const PENJELASAN: Record<Metode, string> = {
@@ -46,7 +46,7 @@ function Pratinjau({
   totalKategori,
 }: {
   metode: Metode;
-  persen: Record<Kelompok, number>;
+  persen: Record<KelompokKustom, number>;
   /** Penghasilan per bulan yang dibagi (SPEC-tujuan-tabungan). */
   basis: number;
   ketBasis: string;
@@ -134,8 +134,8 @@ export default function BudgetView({
   const router = useRouter();
   const { kabari } = useCatat();
   const [metode, setMetode] = useState<Metode>(pengaturan.metode);
-  const [persen, setPersen] = useState<Record<Kelompok, string>>(
-    () => Object.fromEntries(KELOMPOK.map((k) => [k, String(pengaturan.persen?.[k] ?? PERSEN_AWAL[k])])) as Record<Kelompok, string>,
+  const [persen, setPersen] = useState<Record<KelompokKustom, string>>(
+    () => Object.fromEntries(KELOMPOK_KUSTOM.map((k) => [k, String(pengaturan.persen?.[k] ?? PERSEN_AWAL[k])])) as Record<KelompokKustom, string>,
   );
   const [menyimpanMetode, setMenyimpanMetode] = useState(false);
   // Metode yang benar-benar tersimpan (Kustom baru tersimpan setelah persennya diisi).
@@ -145,10 +145,10 @@ export default function BudgetView({
   const [isianPenghasilan, setIsianPenghasilan] = useState<string | null>(null);
   const basis = diatur ?? pengaturan.saran.nilai;
   const persenGalat = useGalat(persen);
-  const angkaPersen = Object.fromEntries(KELOMPOK.map((k) => [k, Number(persen[k] || 0)])) as Record<Kelompok, number>;
-  const totalPersen = KELOMPOK.reduce((t, k) => t + angkaPersen[k], 0);
+  const angkaPersen = Object.fromEntries(KELOMPOK_KUSTOM.map((k) => [k, Number(persen[k] || 0)])) as Record<KelompokKustom, number>;
+  const totalPersen = KELOMPOK_KUSTOM.reduce((t, k) => t + angkaPersen[k], 0);
 
-  async function pakaiMetode(m: Metode, p: Record<Kelompok, number> | null = null) {
+  async function pakaiMetode(m: Metode, p: Record<KelompokKustom, number> | null = null) {
     setMenyimpanMetode(true);
     const { error } = await createSupabaseBrowserClient()
       .from("metode_budget")
@@ -261,7 +261,7 @@ export default function BudgetView({
           <form className={s.form} onSubmit={simpanKustom}>
             <GalatForm value={persenGalat.galat}>
               <div className={`${s.blok} ${s.blokForm}`} data-kolom="persen">
-                {KELOMPOK.map((k) => (
+                {KELOMPOK_KUSTOM.map((k) => (
                   <Field key={k} label={`${NAMA_KELOMPOK[k]} (%)`} kolom={k === "kebutuhan" ? "persen" : undefined}>
                     <input
                       inputMode="numeric"
