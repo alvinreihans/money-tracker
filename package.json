@@ -1,12 +1,12 @@
 {
   "name": "money-tracker",
-  "version": "2.8.0",
+  "version": "2.8.1",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "db:migrate": "node --env-file-if-exists=.env.local scripts/migrate.mjs",
     "db:status": "node --env-file-if-exists=.env.local scripts/migrate.mjs --status",
     "db:baseline": "node --env-file-if-exists=.env.local scripts/migrate.mjs --baseline",
@@ -29,9 +29,11 @@
     "uji:riwayat": "tsx scripts/uji-riwayat.mts",
     "uji:tanya": "tsx scripts/uji-tanya.mts",
     "eval:tanya": "node --env-file=.env.local scripts/eval-tanya.mjs",
+    "e2e": "node --env-file-if-exists=.env.local e2e/jalankan.mjs",
     "uji:arah": "tsx scripts/uji-arah.mts",
     "uji:metode": "tsx scripts/uji-metode.mts",
-    "uji:ingat": "tsx scripts/uji-ingat.mts"
+    "uji:ingat": "tsx scripts/uji-ingat.mts",
+    "uji:isolasi": "node --env-file=.env.local scripts/uji-isolasi.mjs"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
@@ -52,6 +54,8 @@
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@types/web-push": "^3.6.4",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "^16.4.2",
     "pg": "^8.23.0",
     "tsx": "^4.23.13",
     "typescript": "^5.9.3"

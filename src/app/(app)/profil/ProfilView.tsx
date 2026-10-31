@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import NextLink from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { ChevronRight, Download, HandCoins, LogOut, PiggyBank, Shapes, Target, UserRound, Wallet } from "lucide-react";
+import { ChevronRight, Download, HandCoins, LogOut, PiggyBank, Shapes, Target, Wallet } from "lucide-react";
 import { useCatat, useKategori } from "@/components/Catat";
 import { LAYAR_LEBAR } from "@/components/navigasi";
 import { AppBar } from "@/components/oneui";

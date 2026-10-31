@@ -7,7 +7,7 @@ import BrandMark from "@/components/BrandMark";
 import { Field, InputNominal, Pesan, Spinner } from "@/components/oneui";
 import s from "@/components/ui.module.css";
 import { dbErrorMessage } from "@/lib/errors";
-import { isianNominal, isoLokal } from "@/lib/format";
+import { isianNominal } from "@/lib/format";
 import { emojiKantong, type Kantong } from "@/lib/kantong";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
@@ -70,7 +70,6 @@ export default function MulaiView({ userId, kantong }: { userId: string; kantong
     try {
       if (simpan) {
         const db = createSupabaseBrowserClient().from("user_accounts");
-        const hariIni = isoLokal(new Date());
         const baru = SARAN.filter((k) => dipilih.includes(k.name)).map((k) => ({
           user_id: userId,
           name: k.name,

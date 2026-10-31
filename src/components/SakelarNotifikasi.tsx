@@ -36,6 +36,8 @@ export default function SakelarNotifikasi() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Dukungan & izin notifikasi hanya bisa dibaca di browser, setelah hidrasi.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!didukung()) return setKeadaan("tidak-didukung");
     if (Notification.permission === "denied") return setKeadaan("diblokir");
     pendaftaran()

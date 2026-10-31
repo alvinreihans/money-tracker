@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useState, useSyncExternalStore, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Banknote, Mountain, Percent, Snowflake } from "lucide-react";
 import { useCatat } from "@/components/Catat";
@@ -19,6 +19,17 @@ const KET_STRATEGI: Record<StrategiUtang, string> = {
 const JENIS: Record<Utang["jenis"], string> = { orang: "Pinjaman", kredit: "Kartu kredit", cicilan: "Cicilan" };
 /** "Nanti saja" hanya di perangkat ini; pilihan strategi sendiri tersimpan di akun. */
 const KUNCI_NANTI = "strategi-utang-nanti";
+const dengarStorage = (ubah: () => void) => {
+  window.addEventListener("storage", ubah);
+  return () => window.removeEventListener("storage", ubah);
+};
+const bacaNanti = () => {
+  try {
+    return localStorage.getItem(KUNCI_NANTI) === "1";
+  } catch {
+    return false;
+  }
+};
 
 /** Yang bunganya diatur: kantong orang/kartu kredit, atau rencana cicilan. */
 export interface SasaranBunga {
@@ -102,16 +113,12 @@ export default function BagianStrategi({
 }) {
   const router = useRouter();
   const { kabari } = useCatat();
-  const [nanti, setNanti] = useState(true);
+  // Di server dianggap "nanti" supaya tawaran tidak berkedip muncul lalu hilang.
+  const nantiTersimpan = useSyncExternalStore(dengarStorage, bacaNanti, () => true);
+  const [nantiBaru, setNanti] = useState(false);
+  const nanti = nantiBaru || nantiTersimpan;
   const [isianEkstra, setIsianEkstra] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  useEffect(() => {
-    try {
-      setNanti(localStorage.getItem(KUNCI_NANTI) === "1");
-    } catch {
-      setNanti(false);
-    }
-  }, []);
 
   async function simpan(isi: { strategi_utang?: StrategiUtang | null; ekstra_utang?: number | null }, pesan: string) {
     setLoading(true);
