@@ -64,6 +64,7 @@ ikon lucide-react), tanpa pustaka UI atau pustaka grafik.
 | `src/proxy.ts` | Penyegaran sesi Supabase dan perlindungan `/api/*` |
 | `supabase/migrations/` | Migrasi database berversi, dijalankan berurutan oleh `npm run db:migrate` |
 | `scripts/` | Runner migrasi dan skrip uji/diagnostik |
+| `e2e/` | Uji end-to-end di browser (Edge/Chrome headless lewat DevTools Protocol), satu file per suite |
 | `SPEC-*.md` | Spesifikasi tiap fitur, dengan keputusan dan pertanyaan terbuka |
 
 ## Mulai
@@ -87,6 +88,7 @@ Langkah lengkap, termasuk jebakan koneksi Supabase, ada di [SETUP.md](SETUP.md).
 | Perintah | Kegunaan |
 |---|---|
 | `npm run dev` / `build` / `start` | Pengembangan, build produksi, jalankan hasil build |
+| `npm run lint` | ESLint dengan aturan resmi Next.js |
 | `npm run db:status` | Lihat migrasi mana yang belum jalan (read-only) |
 | `npm run db:migrate` | Terapkan migrasi yang belum jalan |
 | `npm run db:baseline` | Tandai migrasi lama sebagai sudah berjalan |
@@ -94,7 +96,14 @@ Langkah lengkap, termasuk jebakan koneksi Supabase, ada di [SETUP.md](SETUP.md).
 | `npm run test:teks` | Diagnostik jalur teks |
 | `npm run ukur:ocr` | Ukur kualitas OCR |
 | `npm run uji:<nama>` | Skrip uji per area: `validasi`, `tanggal`, `saran`, `analitik`, `kantong`, `kategori`, `pinjaman`, `notifikasi`, `ekspor`, `draft`, `waktu`, `riwayat`, `tanya`, `arah`, `metode`, `ingat`, `bundle` |
+| `npm run uji:isolasi` | Akun lain tidak bisa membaca, mengubah, atau merujuk data akun ini (lewat API sungguhan) |
 | `npm run eval:tanya` | Evaluasi jawaban Tanya AI |
+| `npm run e2e [-- suite …]` | Semua suite E2E, atau yang disebut; butuh `npm run dev` jalan |
+
+`uji:isolasi`, `eval:tanya`, dan `e2e` memakai akun sementara (`*-sementara@example.com`)
+yang dihapus di akhir, jadi aman dijalankan terhadap database sungguhan. Suite
+`arah` membaca bukti transfer asli dari `archive/e2e-arah.json` (tidak ikut
+di-commit); tanpa file itu suitenya dilewati.
 
 Skrip diagnostik menjalankan kode produksi yang sama, lalu membongkar tiap
 tahapnya supaya hasilnya bisa diperiksa sebelum dipercaya. Skrip uji ditulis
