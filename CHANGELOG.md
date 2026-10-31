@@ -43,8 +43,15 @@ SPEC-catat-tuntas.md (fase 1 & 2 selesai di 2.4.0, fase 3 di 2.5.0).
   - Kategori bawaan baru **Pendidikan** (kelompok Pengembangan diri). Akun yang sudah punya kategori bernama Pendidikan tidak mendapat duplikat.
   - AI memberi kelompok Pengembangan diri untuk kursus, buku, dan seminar, dan Tak terduga hanya bila disebut mendadak/darurat/rusak.
   - Di metode 50/30/20, 80/20, 70/20/10, dan Kustom keduanya dihitung Kebutuhan, jadi angkanya tidak berubah. Kustom tetap empat isian persen.
+- **Empat metode budgeting baru** (SPEC-metode-lanjutan), di Profil → Budget, Analitik, Beranda, dan Tanya AI. Tabungannya dihitung dari uang yang **benar-benar disisihkan** (pindah ke tujuan tabungan dan beli emas/reksadana), bukan sisa di rekening.
+  - **Zero-Based:** target per kategori ditambah target tabungan; "Belum dialokasikan" menunjukkan penghasilan yang belum diberi tugas sampai Rp 0.
+  - **Pay Yourself First:** atur persen tabungan (bawaan 20%), sisanya bebas. Setelah gajian, Beranda menampilkan **"Belum disisihkan"** dengan tombol **Sisihkan** sampai tabungannya tercapai.
+  - **6 Jars:** kebutuhan 55%, hiburan, pendidikan, tabungan jangka panjang, kebebasan finansial masing-masing 10%, berbagi 5%.
+  - **Kakeibo:** empat pos tanpa jatah (bertahan hidup, pilihan, budaya, ekstra), target tabungan, dan "Bisa dibelanjakan". Mulai tanggal 25 dan di bulan yang sudah lewat, Analitik punya tombol **Refleksi** yang meminta Tanya AI merangkum bulan itu dalam empat poin.
 
 ### Diubah
+- **"Disisihkan ke tujuan" kini setoran bersih:** uang yang ditarik lagi dari tujuan tabungan ke kantong biasa dikurangkan, dan pindah antar tujuan tidak dihitung.
+- Nama kelompok yang panjang di kartu budget turun baris, tidak terpotong.
 - **Pembelian dari tujuan tabungan tidak lagi dihitung sebagai pengeluaran bulan itu** (SPEC-analitik-tujuan). HP Rp 10 jt yang dibayar dari "Tabungan HP" tidak membuat proyeksi melonjak, tidak jadi "Paling boros" atau "Belanja naik Rp 10 jt", dan tidak ikut di kategori, merchant teratas, tren 6 bulan, maupun budget per kategori.
   - **Analitik** menampilkannya di baris sendiri, **"Dari tujuan tabungan"**, di bawah Keluar. Mengetuknya membuka Riwayat pembelian itu.
   - **Beranda** (pengeluaran bulan ini) dan **Tanya AI** memakai angka yang sama. Tanya AI tetap tahu pembelian itu dan menyebutnya terpisah sebagai "dibayar dari tabungan".
