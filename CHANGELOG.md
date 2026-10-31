@@ -13,7 +13,7 @@ bagiannya di sini.
 ## Rencana
 
 Belum dikerjakan; dicatat supaya tidak lupa. Urutan fase ada di
-SPEC-catat-tuntas.md (fase 1 & 2 selesai di 2.4.0, fase 3 di 2.5.0).
+SPEC-catat-tuntas.md (fase 1 & 2 selesai di 2.4.0, fase 3 di 2.5.0, fase 4 di 2.8.0).
 
 - **Opsi "tujuan ini disimpan di BCA"**, kalau saldo BCA yang lebih kecil dari
   saldo asli di bank (karena sebagian disisihkan ke tujuan) terasa membingungkan.
@@ -23,6 +23,8 @@ SPEC-catat-tuntas.md (fase 1 & 2 selesai di 2.4.0, fase 3 di 2.5.0).
   yang jarang berubah (kategori, kantong) disimpan sementara di server.
 
 ## [Unreleased]
+
+## [2.8.0] — 2026-10-31
 
 ### Ditambah
 - **AI menawarkan pecah struk campuran** (SPEC-tawar-pecah). Struk Indomaret berisi beras, sabun, dan cokelat kini ditawari dipecah: "Belanja harian Rp 70.000 · Makan Rp 17.500". Tawarannya muncul di kartu hasil Catat dan di atas halaman detail, sampai dipecah atau ditutup.
