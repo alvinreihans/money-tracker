@@ -95,6 +95,7 @@ Langkah lengkap, termasuk jebakan koneksi Supabase, ada di [SETUP.md](SETUP.md).
 | `npm run test:receipt -- <file/folder>` | Diagnostik jalur gambar |
 | `npm run test:teks` | Diagnostik jalur teks |
 | `npm run ukur:ocr` | Ukur kualitas OCR |
+| `npm run ukur:teks` | Ukur ketepatan AI membaca teks ketikan (18 kalimat, Groq sungguhan) |
 | `npm run uji:<nama>` | Skrip uji per area: `validasi`, `tanggal`, `saran`, `analitik`, `kantong`, `kategori`, `pinjaman`, `notifikasi`, `ekspor`, `draft`, `waktu`, `riwayat`, `tanya`, `arah`, `metode`, `ingat`, `bundle` |
 | `npm run uji:isolasi` | Akun lain tidak bisa membaca, mengubah, atau merujuk data akun ini (lewat API sungguhan) |
 | `npm run eval:tanya` | Evaluasi jawaban Tanya AI |

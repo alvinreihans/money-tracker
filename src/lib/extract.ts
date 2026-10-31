@@ -1,4 +1,4 @@
-import { SchemaType, type GenerationConfig } from "@google/generative-ai";
+import { SchemaType, type GenerationConfig, type GenerativeModel } from "@google/generative-ai";
 import { getGeminiClient, GEMINI_MODEL } from "@/lib/gemini";
 import { runGroqChain, parseJsonLoose } from "@/lib/groq";
 import { isoLokal } from "@/lib/format";
@@ -40,6 +40,8 @@ export interface KonteksAI {
   kategori: Kategori[];
   pihak?: string[];
   cicilan?: { nama: string; penyedia: string | null }[];
+  /** Nama kantong uang & tujuan tabungan milik user (SPEC-ai-kantong). */
+  kantong?: string[];
 }
 
 const KONTEKS_BAWAAN: KonteksAI = { kategori: KATEGORI_BAWAAN };
@@ -63,7 +65,15 @@ function toISODate(d: Date): string {
 // Prompt bersama (dipakai Groq maupun Gemini agar hasilnya konsisten)
 // ---------------------------------------------------------------------------
 
-function buildSystemPrompt(todayISO: string, { kategori, pihak = [], cicilan = [] }: KonteksAI): string {
+/**
+ * Prompt sistem ekstraksi. `sumber`: "struk" (gambar/teks OCR) memuat aturan
+ * khusus struk & bukti bayar; "ketik" (teks Catat) memuat rincian ketikan.
+ * Teks ketikan paling sering dipakai, jadi aturannya dibuat seringkas mungkin:
+ * paket gratis Groq membatasi ±8.000 token/menit per model (SPEC-ai-kantong).
+ */
+export function buildSystemPrompt(todayISO: string, { kategori, pihak = [], cicilan = [], kantong = [] }: KonteksAI, sumber: "ketik" | "struk"): string {
+  const struk = sumber === "struk";
+  const hanya = (ya: boolean, teks: string) => (ya ? teks : "");
   return `Anda adalah mesin ekstraksi data transaksi keuangan berbahasa Indonesia.
 Kembalikan HANYA objek JSON valid sesuai skema.
 
@@ -84,17 +94,25 @@ Skema:
   "pinjaman": { "arah": "beri" | "terima_bayar" | "pinjam" | "bayar", "pihak": string } | null,
   "cicilan": string | null,
   "paylater": { "penyedia": string, "tenor": number | null, "per_cicilan": number | null, "jatuh_tempo": "YYYY-MM-DD" | null } | null,
+  "kelompok": "kebutuhan" | "keinginan" | "tabungan" | "berbagi" | "pengembangan" | "tak_terduga" | null,${hanya(
+    struk,
+    `
   "document_type": "receipt" | "payment_proof",
   "bukti_transfer": { "pengirim": { "nama": string | null, "bank": string | null }, "penerima": { "nama": string | null, "bank": string | null } } | null,
-  "kelompok": "kebutuhan" | "keinginan" | "tabungan" | "berbagi" | "pengembangan" | "tak_terduga" | null,
-  "rincian": [{ "amount": number, "category": string, "kelompok": "kebutuhan" | "keinginan" | "tabungan" | "berbagi" | "pengembangan" | "tak_terduga" | null, "description": string | null }] | null,
-  "usulan_pecah": [{ "category": string, "kelompok": "kebutuhan" | "keinginan" | "tabungan" | "berbagi" | "pengembangan" | "tak_terduga" | null, "subtotal": number, "barang": string }] | null
+  "usulan_pecah": [{ "category": string, "kelompok": "kebutuhan" | "keinginan" | "tabungan" | "berbagi" | "pengembangan" | "tak_terduga" | null, "subtotal": number, "barang": string }] | null`,
+  )}${hanya(
+    !struk,
+    `
+  "rincian": [{ "amount": number, "category": string, "kelompok": "kebutuhan" | "keinginan" | "tabungan" | "berbagi" | "pengembangan" | "tak_terduga" | null, "description": string | null }] | null`,
+  )}
 }
 
 Aturan:
 - amount: nilai KEWAJIBAN transaksi, dalam angka murni Rupiah tanpa simbol
   maupun pemisah ribuan.
-  Pahami singkatan: "10k"/"10rb"/"10ribu" = 10000, "1,5jt"/"1.5juta" = 1500000.
+  Pahami singkatan: "10k"/"10rb"/"10ribu" = 10000, "1,5jt"/"1.5juta" = 1500000.${hanya(
+    struk,
+    `
 
   Pada struk belanja, ambil baris TOTAL / TOTAL BELANJA / GRAND TOTAL / JUMLAH.
   JANGAN mengambil:
@@ -117,7 +135,8 @@ Aturan:
   Bila ada rincian harga dan potongan, amount = yang BENAR-BENAR dibayar setelah
   diskon ("Kamu Membayar", "Total Bayar", "Total Pembayaran"), BUKAN harga sebelum
   diskon ("Total Pembelian", "Subtotal"). Contoh: "Kamu Membayar Rp15.680 / Total
-  Pembelian Rp35.680 / SPayLater Diskon -Rp20.000" -> amount 15680.
+  Pembelian Rp35.680 / SPayLater Diskon -Rp20.000" -> amount 15680.`,
+  )}
 - type: arah uang dari sudut pandang PEMILIK catatan.
   "income" bila uang MASUK ke pemilik: gaji/gajian, THR, bonus, cashback,
   refund, bunga, hasil jual barang, atau uang yang dikasih/dikirim/ditransfer
@@ -126,7 +145,9 @@ Aturan:
   "transfer" HANYA untuk memindahkan uang antar rekening/dompet milik sendiri:
   topup e-wallet ("topup gopay 100rb dari bca"), tarik tunai, atau "pindahin
   500rb dari bca ke seabank". Transfer ke orang lain atau bayar tagihan tetap
-  "expense".
+  "expense".${hanya(
+    struk,
+    `
   Bukti transfer antar dua pihak dari aplikasi bank/e-wallet (ada pengirim —
   "Dari"/"Pengirim"/"Sumber Dana" — DAN penerima berupa nama orang — "Ke"/
   "Penerima"/"Tujuan"): Anda TIDAK tahu siapa pemilik catatan, jadi JANGAN
@@ -141,7 +162,8 @@ Aturan:
   "ALV*** R***"); bank = nama bank/dompet SINGKAT seperti payment_method
   ("BANK SEABANK INDONESIA" -> "SeaBank", "Saldo ShopeePay" -> "ShopeePay").
   Bank pengirim yang tidak tertulis boleh diambil dari logo/nama aplikasi
-  bukti itu (bukti dari aplikasi OCBC -> "OCBC"). Nomor rekening bukan nama bank.
+  bukti itu (bukti dari aplikasi OCBC -> "OCBC"). Nomor rekening bukan nama bank.`,
+  )}
 - kelompok: HANYA untuk "expense", dan HANYA bila jelas berbeda dari kelompok
   biasa kategorinya; selain itu null (aplikasi memakai kelompok kategorinya).
   "keinginan": makan di restoran mewah/fine dining, kafe premium, tiket
@@ -150,20 +172,26 @@ Aturan:
   "pengembangan": kursus, buku, seminar, sertifikasi, workshop.
   "tak_terduga": HANYA bila disebut mendadak/darurat/rusak ("ban bocor",
   "HP jatuh rusak, servis", "berobat darurat"); servis atau berobat biasa: null.
-  Makan biasa, belanja harian, bensin, tagihan: null.
+  Makan biasa, belanja harian, bensin, tagihan: null.${hanya(
+    !struk,
+    `
 - rincian: HANYA bila pengguna MENGETIK sendiri rincian belanja campuran
   dengan nominal per bagian, mis. "15rb di indomaret, 10rb sabun 5rb kopi"
   -> amount 15000, rincian [{amount 10000, category "groceries", kelompok
   null, description "sabun"}, {amount 5000, category "food", kelompok
   "keinginan", description "kopi"}]. Jumlah semua amount rincian HARUS sama
-  dengan amount. Jangan diisi dari struk/daftar barang di gambar; selain itu null.
+  dengan amount. Selain itu null.`,
+  )}${hanya(
+    struk,
+    `
 - usulan_pecah: HANYA untuk struk belanja (gambar atau teks OCR) yang daftar barangnya
   terbaca dan barangnya masuk ke DUA kategori atau lebih (mis. beras & sabun = groceries,
   cokelat & minuman ringan = food). Satu objek per kategori: category = slug kategorinya,
   kelompok seperti aturan kelompok di bawah (null bila biasa), subtotal = jumlah harga
   barang-barang itu SEBELUM diskon/PPN/biaya layanan (aplikasi yang membagi potongannya),
   barang = nama barangnya singkat ("Beras 5 kg, sabun"). Semua barang satu kategori,
-  daftar barang tidak terbaca, bukti bayar e-wallet, atau teks ketikan: null.
+  daftar barang tidak terbaca, atau bukti bayar e-wallet: null.`,
+  )}
 - category: isi dengan SLUG (kiri) dari daftar milik user di bawah, sesuai type.
   Pilih berdasarkan arti NAMA kategorinya (kanan); kalau ada yang lebih spesifik
   dan cocok, pilih yang itu. Kalau tidak ada yang cocok: "other".
@@ -176,8 +204,8 @@ ${daftarPrompt(kategori, "income")}
   "income": sumber uangnya bila disebut ("Ibu", "Kantor"). Nama bank/dompet
   BUKAN merchant — itu payment_method.
 - transaction_date: format "YYYY-MM-DD". Jika tidak disebut, gunakan hari ini: ${todayISO}.
-- time: jam transaksi format 24 jam "HH:MM" bila TERTERA di struk/bukti ("Waktu Selesai
-  23 Okt 2026, 13:57" -> "13:57"; "14:05:33" -> "14:05") atau DISEBUT ("jam 10" -> "10:00",
+- time: jam transaksi format 24 jam "HH:MM" bila ${struk ? `TERTERA di struk/bukti ("Waktu Selesai
+  23 Okt 2026, 13:57" -> "13:57"; "14:05:33" -> "14:05") atau ` : ""}DISEBUT ("jam 10" -> "10:00",
   "jam 2 siang" -> "14:00", "pukul 19.30" -> "19:30"). Jangan menebak. Selain itu null.
 - time_hint: HANYA bila time null. Bagian hari yang disebut: "pagi", "siang", "sore",
   "malam" ("tadi pagi beli roti" -> "pagi"). "lampau" bila teks menyatakan sudah terjadi
@@ -188,8 +216,8 @@ ${daftarPrompt(kategori, "income")}
   Transfer", "Catatan", catatan pesanan ("Kado nikahan Rina", "Bayar arisan
   Oktober", "Patungan makan tim"). Teks bawaan aplikasi yang tidak bercerita
   ("Transfer Dana", "Pembayaran", "Top Up", "Transfer", "Pembelian") BUKAN
-  description -> null. Untuk struk belanja tanpa catatan: ringkasan singkat
-  barangnya boleh ("Beras 5 kg, minyak goreng"), atau null.
+  description -> null.${hanya(struk, ` Untuk struk belanja tanpa catatan: ringkasan singkat
+  barangnya boleh ("Beras 5 kg, minyak goreng"), atau null.`)}
 - payment_method: metode bayar bila disebut, normalkan istilah gaul/singkatan:
   "sopipay"/"spay"/"shopee pay"=ShopeePay; "gopay"=GoPay; "ovo"=OVO; "dana"=DANA;
   "qris"=QRIS; "cash"/"tunai"/"cod"=Tunai; "transfer"/"tf"/"m-banking"=Transfer;
@@ -197,7 +225,12 @@ ${daftarPrompt(kategori, "income")}
   Kalau nama bank/dompet disebut, pakai NAMA itu, bukan "Transfer"/"Kartu":
   "tf mandiri" -> Mandiri; "masuk seabank" -> SeaBank; "debit bca" -> BCA.
   Untuk "income", ini rekening/dompet tempat uang MASUK ("masuk bca", "ke bri" -> BRI).
-  Untuk "transfer", ini rekening/dompet ASAL uangnya ("tarik tunai dari bca" -> BCA).
+  Untuk "transfer", ini rekening/dompet ASAL uangnya ("tarik tunai dari bca" -> BCA).${hanya(
+    kantong.length > 0,
+    `
+  Kantong milik user: ${kantong.join(", ")}. Kalau salah satunya disebut ("dari jago", "ke Liburan"),
+  pakai nama persisnya. Uang yang disisihkan/ditabung/dipindah ke salah satunya = "transfer".`,
+  )}
 - payment_target: HANYA untuk "transfer", rekening/dompet TUJUAN dengan
   normalisasi yang sama ("topup gopay dari bca" -> GoPay; tarik tunai -> Tunai).
   Selain transfer null.
@@ -228,22 +261,29 @@ ${daftarPrompt(kategori, "income")}
 - paylater: HANYA untuk "expense" yang DIBAYAR pakai paylater (SPayLater/Shopee PayLater, GoPayLater,
   Kredivo, Akulaku, Atome, Indodana, Traveloka PayLater). Paylater BUKAN e-wallet: "SPayLater" bukan
   ShopeePay, "GoPayLater" bukan GoPay — payment_method null. penyedia = nama paylater-nya; tenor =
-  berapa kali cicilan bila tertera/disebut ("3x", "cicilan 3 bulan", "SPayLater - 3 Bulan" = 3;
-  OCR bisa memecah "Bulan" ke baris berikutnya), "bayar bulan depan"/"30 hari"/"- 1 Bulan" = 1;
+  berapa kali cicilan bila tertera/disebut ("3x", "cicilan 3 bulan"${struk ? `, "SPayLater - 3 Bulan" = 3;
+  OCR bisa memecah "Bulan" ke baris berikutnya` : " = 3"}), "bayar bulan depan"/"30 hari"/"- 1 Bulan" = 1;
   per_cicilan & jatuh_tempo bila tertera. Yang tidak ada null. Selain itu paylater null.
-  Membayar tagihan/cicilan paylater = field cicilan, bukan paylater.
+  Membayar tagihan/cicilan paylater = field cicilan, bukan paylater.${hanya(
+    struk,
+    `
 - document_type: "payment_proof" bila ini tangkapan layar bukti bayar dari
   aplikasi (ShopeePay/GoPay/OVO/DANA/QRIS/m-banking), "receipt" bila ini struk
   kertas dari mesin kasir. Dipakai untuk mencegah transaksi tercatat dua kali
-  saat rekening koran diimpor.
+  saat rekening koran diimpor.`,
+  )}
 
-Contoh teks ketikan (field lain mengikuti aturan di atas):
+Contoh (field lain mengikuti aturan di atas):
 - "dikasih duit ibu 500k ke bri" -> type "income", amount 500000, merchant "Ibu", payment_method "BRI", payment_target null
 - "gajian 8jt masuk bca" -> type "income", amount 8000000, merchant null, payment_method "BCA"
 - "topup gopay 100rb dari bca" -> type "transfer", payment_method "BCA", payment_target "GoPay"
-- "transfer ke budi 50rb pake bca" -> type "expense", merchant "Budi", payment_method "BCA"
-- bukti "Dikirim Dari ALVIN ***, Kirim Ke BUDI KUSNANDAR BCA: 6090069720, Sumber Dana Saldo ShopeePay, Rp10.000"
-  -> type "expense", amount 10000, merchant "Budi Kusnandar", payment_method "ShopeePay", payment_target null
+- "sisihkan 200rb dari bca ke Liburan" -> type "transfer", payment_method "BCA", payment_target "Liburan"
+- "transfer ke budi 50rb pake bca" -> type "expense", merchant "Budi", payment_method "BCA"${hanya(
+    struk,
+    `
+- bukti "Dikirim Dari RINA ***, Kirim Ke BUDI KUSNANDAR BCA: 6090069720, Sumber Dana Saldo ShopeePay, Rp10.000"
+  -> type "expense", amount 10000, merchant "Budi Kusnandar", payment_method "ShopeePay", payment_target null`,
+  )}
 - "kopi 25rb gopay" -> type "expense", payment_method "GoPay"
 - "beli pulsa 50rb shopeepay cashback 5rb" -> type "expense", payment_method "ShopeePay", cashback 5000
 - "topup gopay 100rb dari bca admin 1000" -> type "transfer", payment_method "BCA", payment_target "GoPay", fee 1000
@@ -469,7 +509,7 @@ export async function extractWithGroq(
   diketik = false,
 ): Promise<GroqExtraction> {
   const { value, model } = await runGroqChain<Partial<ExtractedReceipt>>(
-    buildSystemPrompt(toISODate(new Date()), konteks),
+    buildSystemPrompt(toISODate(new Date()), konteks, diketik ? "ketik" : "struk"),
     diketik ? `Teks berikut diketik langsung oleh pengguna:\n---\n${text}` : `${OCR_CONTEXT}\n\n---\n${text}`,
   );
   return { extracted: normalize(value, konteks.kategori, !diketik), model };
@@ -558,7 +598,7 @@ export async function extractWithGeminiVision(
 ): Promise<ExtractedReceipt> {
   const model = getGeminiClient().getGenerativeModel({
     model: GEMINI_MODEL,
-    systemInstruction: buildSystemPrompt(toISODate(new Date()), konteks),
+    systemInstruction: buildSystemPrompt(toISODate(new Date()), konteks, "struk"),
     generationConfig: {
       responseMimeType: "application/json",
       responseSchema: geminiSchema,
@@ -566,30 +606,51 @@ export async function extractWithGeminiVision(
     },
   });
 
-  // Ini pilihan terakhir — tidak ada jalur lain di belakangnya. Gemini kerap
-  // membalas 503 "high demand" yang sifatnya sesaat, jadi menyerah pada
-  // percobaan pertama berarti membuang struk yang sebenarnya masih bisa dibaca.
+  const teks = await geminiDenganUlang(model, [
+    { inlineData: { data: base64Image, mimeType } },
+    {
+      text: catatan?.trim()
+        ? `Ekstrak data dari struk ini.\nCatatan dari pengguna (lebih dipercaya untuk kantong & keterangan): ${catatan.trim()}`
+        : "Ekstrak data dari struk ini.",
+    },
+  ]);
+  return normalize(parseJsonLoose(teks), konteks.kategori, true);
+}
+
+/**
+ * Cadangan jalur teks (SPEC-ai-kantong): bila seluruh rantai Groq gagal —
+ * biasanya batas laju paket gratis saat mencatat beberapa transaksi beruntun —
+ * teks ketikan dibaca Gemini dengan prompt yang sama. Tanpa skema JSON: skema
+ * Gemini milik jalur struk dan tidak memuat rincian ketikan.
+ */
+export async function extractTextWithGemini(text: string, konteks: KonteksAI = KONTEKS_BAWAAN): Promise<ExtractedReceipt> {
+  const model = getGeminiClient().getGenerativeModel({
+    model: GEMINI_MODEL,
+    systemInstruction: buildSystemPrompt(toISODate(new Date()), konteks, "ketik"),
+    generationConfig: { responseMimeType: "application/json", temperature: 0 },
+  });
+  const teks = await geminiDenganUlang(model, [{ text: `Teks berikut diketik langsung oleh pengguna:\n---\n${text}` }]);
+  return normalize(parseJsonLoose(teks), konteks.kategori);
+}
+
+/**
+ * Satu panggilan Gemini, diulang untuk galat sesaat. Gemini kerap membalas 503
+ * "high demand" yang sifatnya sesaat; menyerah pada percobaan pertama berarti
+ * membuang catatan yang sebenarnya masih bisa dibaca.
+ */
+async function geminiDenganUlang(model: GenerativeModel, isi: Parameters<GenerativeModel["generateContent"]>[0]): Promise<string> {
   let lastError: unknown;
   for (let attempt = 0; attempt < 3; attempt++) {
     if (attempt > 0) {
       await new Promise((r) => setTimeout(r, 1500 * attempt)); // 1.5s, lalu 3s
     }
     try {
-      const result = await model.generateContent([
-        { inlineData: { data: base64Image, mimeType } },
-        {
-          text: catatan?.trim()
-            ? `Ekstrak data dari struk ini.\nCatatan dari pengguna (lebih dipercaya untuk kantong & keterangan): ${catatan.trim()}`
-            : "Ekstrak data dari struk ini.",
-        },
-      ]);
-      return normalize(parseJsonLoose(result.response.text()), konteks.kategori, true);
+      return (await model.generateContent(isi)).response.text();
     } catch (err) {
       lastError = err;
       if (!isRetryableGeminiError(err)) throw err;
     }
   }
-
   throw lastError;
 }
 

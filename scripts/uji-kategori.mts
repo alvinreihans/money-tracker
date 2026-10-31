@@ -5,7 +5,7 @@
  * Pemakaian: npm run uji:kategori
  */
 import assert from "node:assert/strict";
-import { nominalDariPromo, normalize, tenorDariTeks, usulanPecah } from "../src/lib/extract.ts";
+import { buildSystemPrompt, nominalDariPromo, normalize, tenorDariTeks, usulanPecah } from "../src/lib/extract.ts";
 import {
   cariKategori,
   KATEGORI_BAWAAN,
@@ -142,4 +142,14 @@ assert.deepEqual(normalize({ amount: 15000, type: "expense", category: "grocerie
 assert.equal(normalize({ amount: 15000, type: "expense", category: "groceries", rincian: [r(10000, "groceries"), r(4000, "food")] }).rincian, null);
 assert.equal(normalize({ amount: 15000, type: "expense", category: "groceries", rincian: [r(10000, "groceries"), r(5000, "rokok")] }).rincian?.[1].category, "other");
 
-console.log("✓ kategori: daftar per jenis, validasi, transaksi & AI memakai kategori milik user; nominal dari baris promo ditolak; tenor paylater dari teks; usulan pecah struk & rincian ketikan");
+// --- Prompt AI (SPEC-ai-kantong): nama kantong user; aturan struk hanya untuk struk.
+const kantongUser = { kategori: KATEGORI_BAWAAN, kantong: ["BCA", "Liburan", "Dana Darurat"] };
+const ketik = buildSystemPrompt("2026-10-31", kantongUser, "ketik");
+const strukP = buildSystemPrompt("2026-10-31", kantongUser, "struk");
+assert.ok(ketik.includes("Kantong milik user: BCA, Liburan, Dana Darurat."), "nama kantong user ada di prompt");
+assert.ok(!buildSystemPrompt("2026-10-31", { kategori: KATEGORI_BAWAAN }, "ketik").includes("Kantong milik user"), "user tanpa kantong: kalimatnya tidak ditulis");
+assert.ok(ketik.includes('"rincian"') && !ketik.includes("usulan_pecah") && !ketik.includes("TUNAI / CASH") && !ketik.includes("bukti_transfer"), "teks ketikan tanpa aturan struk");
+assert.ok(strukP.includes("usulan_pecah") && strukP.includes("TUNAI / CASH") && strukP.includes("bukti_transfer") && !strukP.includes('"rincian"'), "struk tanpa rincian ketikan");
+assert.ok(ketik.length < strukP.length * 0.8, `prompt ketikan lebih ringkas (${ketik.length} vs ${strukP.length} karakter)`);
+
+console.log("✓ kategori: daftar per jenis, validasi, transaksi & AI memakai kategori milik user; nominal dari baris promo ditolak; tenor paylater dari teks; usulan pecah struk & rincian ketikan; prompt AI per sumber & nama kantong");
