@@ -15,15 +15,6 @@ bagiannya di sini.
 Belum dikerjakan; dicatat supaya tidak lupa. Urutan fase ada di
 SPEC-catat-tuntas.md (fase 1 & 2 selesai di 2.4.0, fase 3 di 2.5.0).
 
-- **Metode budgeting lanjutan (fase 4)** (acuan: artikel Prudential "Metode
-  Budgeting"). Persentase per kelompok (50/30/20, 80/20, 70/20/10, kustom)
-  selesai di fase 3; sisanya:
-  - **Zero-Based:** penanda "sisa belum dialokasikan" di budget per kategori
-    yang harus jadi Rp 0.
-  - **Jar/6 Jars, Kakeibo, Pay Yourself First:** preset baru di mesin
-    persentase (Kakeibo memakai 4 kelompoknya sendiri).
-  - **Debt Snowball / Avalanche** di Utang & Piutang, boleh berjalan bersamaan
-    dengan metode lain. Avalanche butuh isian bunga baru di cicilan/pinjaman.
 - **Opsi "tujuan ini disimpan di BCA"**, kalau saldo BCA yang lebih kecil dari
   saldo asli di bank (karena sebagian disisihkan ke tujuan) terasa membingungkan.
 
@@ -48,6 +39,10 @@ SPEC-catat-tuntas.md (fase 1 & 2 selesai di 2.4.0, fase 3 di 2.5.0).
   - **Pay Yourself First:** atur persen tabungan (bawaan 20%), sisanya bebas. Setelah gajian, Beranda menampilkan **"Belum disisihkan"** dengan tombol **Sisihkan** sampai tabungannya tercapai.
   - **6 Jars:** kebutuhan 55%, hiburan, pendidikan, tabungan jangka panjang, kebebasan finansial masing-masing 10%, berbagi 5%.
   - **Kakeibo:** empat pos tanpa jatah (bertahan hidup, pilihan, budaya, ekstra), target tabungan, dan "Bisa dibelanjakan". Mulai tanggal 25 dan di bulan yang sudah lewat, Analitik punya tombol **Refleksi** yang meminta Tanya AI merangkum bulan itu dalam empat poin.
+- **Strategi pelunasan utang: Snowball atau Avalanche** (SPEC-pelunasan) di Utang & Piutang, berjalan bersama metode budget apa pun. Muncul kalau ada dua utang atau lebih (pinjaman orang, kartu kredit, sisa cicilan).
+  - **Snowball:** sisa terkecil dulu. **Avalanche:** bunga tertinggi dulu. Yang pertama ditandai **Fokus**; "Uang ekstra per bulan" menunjukkan ke mana uang tambahan sebaiknya pergi.
+  - Bunga per bulan (opsional) bisa diisi saat menambah kartu kredit atau cicilan, dan lewat aksi baru **Atur bunga** untuk orang, kartu, dan cicilan (termasuk cicilan dari belanja paylater).
+  - Tanya AI bisa menjawab "utang mana dulu?" sesuai strategi pilihan.
 
 ### Diubah
 - **"Disisihkan ke tujuan" kini setoran bersih:** uang yang ditarik lagi dari tujuan tabungan ke kantong biasa dikurangkan, dan pindah antar tujuan tidak dihitung.

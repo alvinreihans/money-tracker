@@ -87,7 +87,7 @@ export const DEKLARASI_FUNGSI: FunctionDeclaration[] = [
   },
   {
     name: "pinjaman_cicilan",
-    description: "Siapa berutang ke pengguna, pengguna berutang ke siapa, tagihan kartu kredit, dan cicilan yang berjalan beserta jatuh tempo berikutnya.",
+    description: "Siapa berutang ke pengguna, pengguna berutang ke siapa, tagihan kartu kredit, cicilan yang berjalan beserta jatuh tempo berikutnya, bunganya, dan strategi pelunasan (Snowball/Avalanche): utang mana yang dilunasi dulu.",
   },
 ];
 

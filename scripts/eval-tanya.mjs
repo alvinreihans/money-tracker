@@ -73,10 +73,16 @@ const KASUS = [
     tanya: "bagaimana toples 6 jars-ku bulan ini?",
     metode: { metode: "6-jars" },
     // Setor 600 rb ke Tabungan HP (jatah toples 800 rb) dan kursus 400 rb (Pendidikan, jatah 800 rb).
-    siapkan: ({ tx, bca, tabunganHp }) => [
-      tx(600000, "transfer", "other", "Tabungan HP", tgl(B, 4), bca.id, { kantong_tujuan_id: tabunganHp.id }),
-      tx(400000, "expense", "education", "Kursus Bahasa", tgl(B, 4), bca.id, { kelompok: "pengembangan" }),
-    ],
+    siapkan: async ({ sb, tx, bca, tabunganHp }) => {
+      const { data } = await sb
+        .from("transactions")
+        .insert([
+          tx(600000, "transfer", "other", "Tabungan HP", tgl(B, 4), bca.id, { kantong_tujuan_id: tabunganHp.id }),
+          tx(400000, "expense", "education", "Kursus Bahasa", tgl(B, 4), bca.id, { kelompok: "pengembangan" }),
+        ])
+        .select("id");
+      return () => sb.from("transactions").delete().in("id", data.map((x) => x.id));
+    },
     harus: [400000, 600000, 800000],
     pola: /pendidikan/i,
   },
@@ -85,6 +91,33 @@ const KASUS = [
     tanya: `Refleksi Kakeibo ${namaB}`,
     metode: { metode: "kakeibo", target_tabungan: 1000000 },
     harus: [8000000, 1000000, 367000, 6633000],
+  },
+  // Strategi pelunasan (SPEC-pelunasan): Avalanche → bunga tertinggi dulu (Laptop 2,95%/bln).
+  // Kartu kredit & cicilan tidak menyentuh kantong uang, jadi saldo & aset kasus lain tetap.
+  {
+    tanya: "utang mana yang harus kulunasi dulu?",
+    metode: { strategi_utang: "avalanche" },
+    siapkan: async ({ sb, uid }) => {
+      const sejak = "2026-01-01T00:00:00+07:00";
+      const { data: kartu } = await sb
+        .from("user_accounts")
+        .insert([
+          { user_id: uid, name: "Kartu BCA", kind: "kredit", emoji: "💳", saldo_awal: -3000000, saldo_sejak: sejak, bunga_persen: 1.75 },
+          { user_id: uid, name: "Kartu Mandiri", kind: "kredit", emoji: "💳", saldo_awal: -1500000, saldo_sejak: sejak, bunga_persen: 2.25 },
+        ])
+        .select("id");
+      const { data: cic } = await sb
+        .from("cicilan")
+        .insert({ user_id: uid, nama: "Laptop", penyedia: "Kredivo", category: "shopping", nominal: 1000000, tenor: 6, jatuh_tempo_awal: `${B}-25`, bunga_persen: 2.95 })
+        .select("id")
+        .single();
+      return async () => {
+        await sb.from("cicilan").delete().eq("id", cic.id);
+        await sb.from("user_accounts").delete().in("id", kartu.map((k) => k.id));
+      };
+    },
+    harus: [],
+    pola: /laptop/i,
   },
 ];
 
@@ -124,9 +157,9 @@ try {
   const { data: laku6, error: e3 } = await sb.from("transactions").insert(tx(10300000, "expense", "shopping", "Laku6", tgl(B, 3), tabunganHp.id, { description: "Beli HP baru, HP lama rusak" })).select("id").single();
   if (e3) throw e3;
   await sb.from("transactions").insert(tx(10300000, "transfer", "other", "Tabungan HP", tgl(B, 3), bca.id, { kantong_tujuan_id: tabunganHp.id, pelengkap_tujuan: laku6.id }));
-  const METODE_AWAL = { user_id: uid, metode: "50-30-20", persen: null, target_tabungan: null };
+  const METODE_AWAL = { user_id: uid, metode: "50-30-20", persen: null, target_tabungan: null, strategi_utang: null, ekstra_utang: null };
   await sb.from("metode_budget").upsert(METODE_AWAL);
-  const ctx = { tx, bca, tabunganHp };
+  const ctx = { sb, uid, tx, bca, tabunganHp };
 
   const ref = new URL(U).hostname.split(".")[0];
   const isi = "base64-" + Buffer.from(JSON.stringify(sesi.session)).toString("base64url");
@@ -140,7 +173,7 @@ try {
     if (i && (!hanya.length || hanya.indexOf(i + 1) > 0)) await tidur(JEDA);
     // Metode & data khusus kasus ini (dibuang lagi setelahnya).
     if (k.metode) await sb.from("metode_budget").upsert({ ...METODE_AWAL, ...k.metode });
-    const tambahan = k.siapkan ? (await sb.from("transactions").insert(k.siapkan(ctx)).select("id")).data ?? [] : [];
+    const bersihkan = k.siapkan ? await k.siapkan(ctx) : null;
     const t = Date.now();
     const r = await fetch(`${BASE}/api/tanya`, { method: "POST", headers: { cookie, origin: BASE, "content-type": "application/json" }, body: JSON.stringify({ pertanyaan: k.tanya, riwayat: k.riwayat ?? [], bulan: B }) });
     const d = await r.json().catch(() => ({}));
@@ -155,7 +188,7 @@ try {
       (!k.tanpaTautan || !(d.tautan ?? []).length) &&
       (!k.usulan || Boolean(d.usulan)) &&
       (!k.tanpaUsulan || !d.usulan);
-    if (tambahan.length) await sb.from("transactions").delete().in("id", tambahan.map((x) => x.id));
+    if (bersihkan) await bersihkan();
     if (k.metode) await sb.from("metode_budget").upsert(METODE_AWAL);
     if (ok) lulus++;
     console.log(`${ok ? "✓" : "✗"} ${k.tanya}  (${((Date.now() - t) / 1000).toFixed(1)} dtk)\n    ${teks}${kurang.length ? `\n    kurang: ${kurang.map(rp).join(", ")}` : ""}${d.ragu ? `\n    ragu: ${(d.nominal_ragu ?? []).map(rp).join(", ") || "ada nominal tak terverifikasi"}` : ""}`);

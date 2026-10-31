@@ -2,15 +2,16 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowDownLeft, ArrowUpRight, Banknote, CalendarClock, CalendarDays, CreditCard, HandCoins, History, Wallet } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, Banknote, CalendarClock, CalendarDays, CreditCard, HandCoins, History, Percent, Wallet } from "lucide-react";
 import { AppBar, Field, InputNominal, Kosong, Lembar, Pesan, Spinner, useGalat } from "@/components/oneui";
 import s from "@/components/ui.module.css";
 import { dbErrorMessage } from "@/lib/errors";
 import { fmtIDR, fmtTanggalPendek, isoLokal } from "@/lib/format";
 import { emojiKantong, type Kantong } from "@/lib/kantong";
-import { EMOJI_KREDIT, kantongUang, ringkasanPinjaman, type ArahPinjaman, type Cicilan } from "@/lib/pinjaman";
+import { bacaBunga, daftarUtang, EMOJI_KREDIT, kantongUang, ringkasanPinjaman, type ArahPinjaman, type Cicilan, type StrategiUtang } from "@/lib/pinjaman";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import BagianCicilan from "./BagianCicilan";
+import BagianStrategi, { AturBunga, type SasaranBunga } from "./BagianStrategi";
 import FormPinjaman from "./FormPinjaman";
 
 type KantongSaldo = Kantong & { saldo: number };
@@ -26,12 +27,17 @@ export default function PinjamanView({
   kantong,
   cicilan,
   dibayar,
+  strategi,
+  ekstra,
 }: {
   userId: string;
   hariIni: string;
   kantong: KantongSaldo[];
   cicilan: Cicilan[];
   dibayar: Record<string, number[]>;
+  /** Strategi pelunasan (SPEC-pelunasan); null = belum memilih. */
+  strategi: StrategiUtang | null;
+  ekstra: number | null;
 }) {
   const router = useRouter();
   const r = ringkasanPinjaman(kantong);
@@ -41,6 +47,8 @@ export default function PinjamanView({
   const [aksi, setAksi] = useState<KantongSaldo | null>(null);
   const [kartuBaru, setKartuBaru] = useState(false);
   const [cicilanBaru, setCicilanBaru] = useState(false);
+  const [bunga, setBunga] = useState<SasaranBunga | null>(null);
+  const utang = daftarUtang(kantong, cicilan, dibayar, hariIni);
 
   const kosong = r.lend.length + r.borrow.length + r.lunas.length + r.kartu.length + cicilan.length === 0;
 
@@ -126,6 +134,14 @@ export default function PinjamanView({
           onTutupBaru={() => setCicilanBaru(false)}
         />
 
+        <BagianStrategi
+          userId={userId}
+          utang={utang}
+          strategi={strategi}
+          ekstra={ekstra}
+          onAturBunga={(u) => setBunga({ tabel: u.jenis === "cicilan" ? "cicilan" : "user_accounts", id: u.id, nama: u.nama, bunga: u.bunga })}
+        />
+
         {r.lunas.length > 0 && (
           <>
             <h2 className={s.subheader}>Sudah lunas</h2>
@@ -136,14 +152,15 @@ export default function PinjamanView({
 
       {aksi && (
         <Lembar judul={aksi.name} daftar onClose={() => setAksi(null)}>
-          {pilihanAksi(aksi).map(({ label, ikon: Ikon, arah }) => (
+          {pilihanAksi(aksi).map(({ label, ikon: Ikon, arah, bunga: aturBunga }) => (
             <button
               key={label}
               type="button"
               className={s.baris}
               onClick={() => {
                 setAksi(null);
-                if (arah) setForm({ arah, pihak: aksi });
+                if (aturBunga) setBunga({ tabel: "user_accounts", id: aksi.id, nama: aksi.name, bunga: aksi.bunga_persen == null ? null : Number(aksi.bunga_persen) });
+                else if (arah) setForm({ arah, pihak: aksi });
                 // Riwayat tersaring ke kantong orang/kartu ini (SPEC-riwayat-filter).
                 else router.push(`/riwayat?kantong=${aksi.id}`);
               }}
@@ -169,14 +186,16 @@ export default function PinjamanView({
       )}
 
       {kartuBaru && <FormKartu userId={userId} onClose={() => setKartuBaru(false)} />}
+      {bunga && <AturBunga sasaran={bunga} onClose={() => setBunga(null)} />}
     </>
   );
 }
 
-/** Aksi untuk satu orang/kartu, sesuai posisinya. */
-function pilihanAksi(k: KantongSaldo): { label: string; ikon: React.ElementType; arah?: ArahPinjaman }[] {
+/** Aksi untuk satu orang/kartu, sesuai posisinya. Atur bunga: hanya yang kuutangi (SPEC-pelunasan). */
+function pilihanAksi(k: KantongSaldo): { label: string; ikon: React.ElementType; arah?: ArahPinjaman; bunga?: true }[] {
   const riwayat = { label: "Lihat riwayat", ikon: History };
-  if (k.kind === "kredit") return [{ label: "Bayar tagihan", ikon: Banknote, arah: "bayar" }, riwayat];
+  const bunga = { label: "Atur bunga", ikon: Percent, bunga: true as const };
+  if (k.kind === "kredit") return [{ label: "Bayar tagihan", ikon: Banknote, arah: "bayar" }, bunga, riwayat];
   if (k.saldo > 0)
     return [
       { label: "Terima bayaran", ikon: ArrowDownLeft, arah: "terima_bayar" },
@@ -187,6 +206,7 @@ function pilihanAksi(k: KantongSaldo): { label: string; ikon: React.ElementType;
     return [
       { label: "Bayar", ikon: Banknote, arah: "bayar" },
       { label: "Pinjam lagi", ikon: ArrowDownLeft, arah: "pinjam" },
+      bunga,
       riwayat,
     ];
   return [
@@ -213,17 +233,20 @@ function FormKartu({ userId, onClose }: { userId: string; onClose: () => void })
   const [nama, setNama] = useState("Kartu kredit");
   const [tagihan, setTagihan] = useState("");
   const [per, setPer] = useState(isoLokal(new Date()));
+  const [bunga, setBunga] = useState("");
   const [loading, setLoading] = useState(false);
-  const { galat, gagal, bersihkan } = useGalat({ nama });
+  const { galat, gagal, bersihkan } = useGalat({ nama, bunga });
 
   async function simpan(e?: FormEvent) {
     e?.preventDefault();
     const n = nama.trim().replace(/\s+/g, " ");
     if (!n) return gagal("Namanya diisi dulu.", "nama");
+    const b = bacaBunga(bunga);
+    if (!b.ok) return gagal(b.error, "bunga");
     setLoading(true);
     const { error: err } = await createSupabaseBrowserClient()
       .from("user_accounts")
-      .insert({ user_id: userId, name: n, kind: "kredit", emoji: EMOJI_KREDIT, saldo_awal: -Number(tagihan || 0), saldo_per: per });
+      .insert({ user_id: userId, name: n, kind: "kredit", emoji: EMOJI_KREDIT, saldo_awal: -Number(tagihan || 0), saldo_per: per, bunga_persen: b.nilai });
     setLoading(false);
     if (err) return gagal(dbErrorMessage(err, `Kantong "${n}"`));
     onClose();
@@ -234,7 +257,7 @@ function FormKartu({ userId, onClose }: { userId: string; onClose: () => void })
     <Lembar
       judul="Tambah kartu kredit"
       posisi="penuh"
-      isian={[nama, tagihan, per]}
+      isian={[nama, tagihan, per, bunga]}
       onClose={() => !loading && onClose()}
       pil={[
         { label: "Batal", batal: true, disabled: loading },
@@ -251,6 +274,9 @@ function FormKartu({ userId, onClose }: { userId: string; onClose: () => void })
           </Field>
           <Field label="Per tanggal" ikon={CalendarDays}>
             <input type="date" required value={per} onChange={(e) => setPer(e.target.value)} />
+          </Field>
+          <Field label="Bunga per bulan (%)" ikon={Percent} galat={galat?.kolom === "bunga" ? galat.pesan : null} kolom="bunga" keterangan="Opsional, mis. 1,75. Dipakai untuk urutan Avalanche.">
+            <input inputMode="decimal" value={bunga} onChange={(e) => setBunga(e.target.value.replace(/[^\d.,]/g, "").slice(0, 5))} placeholder="Bunga per bulan (%)" />
           </Field>
         </div>
         <p className={s.redup} style={{ margin: "0 20px" }}>

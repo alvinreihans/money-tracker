@@ -8,7 +8,7 @@ import { geserBulan } from "@/lib/kalender";
 import { ambilKantong } from "@/lib/kantong";
 import { kategoriJenis, namaKategori, type Kategori } from "@/lib/kategori";
 import { cariSerupa } from "@/lib/ingat";
-import { kantongUang, ringkasanPinjaman, statusCicilan, type Cicilan } from "@/lib/pinjaman";
+import { daftarUtang, kantongUang, ringkasanPinjaman, statusCicilan, urutPelunasan, type Cicilan } from "@/lib/pinjaman";
 import { queryRiwayat, ringkasRiwayat } from "@/lib/riwayat";
 import {
   angkaDiData,
@@ -307,17 +307,20 @@ export async function jalankanFungsi(
   }
 
   // pinjaman_cicilan
-  const [{ kantong, saldo }, { data: cicilan }, { data: bayar }] = await Promise.all([
+  const [{ kantong, saldo }, { data: cicilan }, { data: bayar }, { data: strategi }] = await Promise.all([
     ambilKantong(supabase),
     supabase.from("cicilan").select("*"),
     supabase.from("transactions").select("cicilan_id, cicilan_ke").not("cicilan_id", "is", null),
+    supabase.from("metode_budget").select("strategi_utang, ekstra_utang").maybeSingle(),
   ]);
-  const p = ringkasanPinjaman(kantong.map((k) => ({ ...k, saldo: saldo.get(k.id) ?? 0 })));
+  const kantongSaldo = kantong.map((k) => ({ ...k, saldo: saldo.get(k.id) ?? 0 }));
+  const p = ringkasanPinjaman(kantongSaldo);
+  const bungaAtauNull = (b: unknown) => (b == null ? null : Number(b));
   const dibayar: Record<string, number[]> = {};
   for (const b of (bayar ?? []) as { cicilan_id: string; cicilan_ke: number | null }[]) if (b.cicilan_ke) (dibayar[b.cicilan_id] ??= []).push(b.cicilan_ke);
   return {
     mereka_berutang_ke_pengguna: p.lend.map((x) => ({ nama: x.kantong.name, jumlah: x.jumlah })),
-    pengguna_berutang: p.borrow.map((x) => ({ nama: x.kantong.name, jumlah: x.jumlah, kartu_kredit: x.kantong.kind === "kredit" })),
+    pengguna_berutang: p.borrow.map((x) => ({ nama: x.kantong.name, jumlah: x.jumlah, kartu_kredit: x.kantong.kind === "kredit", bunga_persen_per_bulan: bungaAtauNull(x.kantong.bunga_persen) })),
     total_piutang: p.totalLend,
     total_utang: p.totalBorrow,
     cicilan: ((cicilan ?? []) as Cicilan[])
@@ -331,7 +334,17 @@ export async function jalankanFungsi(
         sisa_nominal: st.sisaNominal,
         berikutnya: st.berikutnya && { ke: st.berikutnya.ke, jatuh_tempo: st.berikutnya.jatuhTempo },
         telat: st.telat,
+        bunga_persen_per_bulan: bungaAtauNull(c.bunga_persen),
       })),
+    // Strategi pelunasan (SPEC-pelunasan): pilihan pengguna (null = belum memilih) dan urutan keduanya.
+    strategi_pelunasan: strategi?.strategi_utang ?? null,
+    uang_ekstra_per_bulan: Number(strategi?.ekstra_utang) > 0 ? Number(strategi!.ekstra_utang) : null,
+    urutan_pelunasan: (() => {
+      const utang = daftarUtang(kantongSaldo, (cicilan ?? []) as Cicilan[], dibayar, konteks.hariIni);
+      const susun = (st: "snowball" | "avalanche") =>
+        urutPelunasan(utang, st).map((u) => ({ nama: u.nama, jenis: u.jenis, jumlah: u.jumlah, bunga_persen_per_bulan: u.bunga, alasan: u.alasan }));
+      return { snowball: susun("snowball"), avalanche: susun("avalanche") };
+    })(),
   };
 }
 
@@ -398,6 +411,7 @@ Aturan:
 - "Kalau X tidak dihitung" / "tanpa X" / "selain X": pakai cari_transaksi dengan "kecuali" (atau "hitung" untuk mengurangkannya), lalu awali jawaban dengan asumsinya, mis. "Tanpa Laku6 (Rp 10.300.000), …".
 - "Di atas / di bawah N": pakai cari_transaksi dengan "minimal"/"maksimal".
 - "Bagaimana kondisi keuanganku": ambil pemasukan & pengeluaran periode itu (ringkasan_bulan atau cari_transaksi), total aset (saldo_kantong), dan utang/piutang (pinjaman_cicilan). Jawab: masuk vs keluar dan selisihnya (pakai "hitung"), total aset, utang kalau ada, lalu SATU kalimat kesimpulan beralasan (mis. "masih surplus Rp X, aman" atau "pengeluaran melebihi pemasukan, perlu hati-hati").
+- "Utang mana dulu?" / strategi pelunasan: panggil pinjaman_cicilan. Kalau "strategi_pelunasan" terisi, jawab dengan urutan strategi itu dari "urutan_pelunasan" (yang pertama = fokus; "uang_ekstra_per_bulan" ke sana). Kalau null, jelaskan singkat Snowball (sisa terkecil dulu) dan Avalanche (bunga tertinggi dulu) beserta urutan teratas masing-masing. Bunga null = belum diisi pengguna.
 - Pengguna meminta membetulkan kategori transaksi dari suatu merchant ("waitenjoy itu laundry", "tolong ganti kategori X jadi Y"): panggil usul_ubah_kategori. Itu baru USULAN: kategori BELUM berubah sampai pengguna menekan tombol "Ubah" di kartu di bawah jawabanmu. JANGAN pernah bilang sudah diubah/diganti; jelaskan apa yang akan berubah (jumlah transaksi, totalnya, kategori sekarang → tujuan, dan kategori baru yang akan dibuat bila ada), lalu minta pengguna menekan Ubah. Pertanyaan biasa (mis. "berapa pengeluaran laundry?") BUKAN permintaan membetulkan.
 - Pertanyaan lanjutan merujuk ke percakapan sebelumnya (mis. "kalau dibanding pemasukan?").
 - Kategori pengguna (slug: nama): ${kategori.map((k) => `${k.slug}: ${k.name} (${k.type === "expense" ? "keluar" : "masuk"})`).join("; ")}.
