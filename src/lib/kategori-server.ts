@@ -11,16 +11,21 @@ export async function ambilKategori(supabase: SupabaseClient): Promise<Kategori[
   return data?.length ? (data as Kategori[]) : KATEGORI_BAWAAN;
 }
 
-/** Konteks untuk prompt AI: kategori, nama orang & kartu kredit, dan rencana cicilan milik user. */
+/**
+ * Konteks untuk prompt AI: kategori, nama orang & kartu kredit, rencana
+ * cicilan, dan nama kantong uang & tujuan tabungan milik user (SPEC-ai-kantong).
+ */
 export async function ambilKonteksAI(supabase: SupabaseClient): Promise<KonteksAI> {
-  const [kategori, { data: pihak }, { data: cicilan }] = await Promise.all([
+  const [kategori, { data: akun }, { data: cicilan }] = await Promise.all([
     ambilKategori(supabase),
-    supabase.from("user_accounts").select("name").in("kind", ["orang", "kredit"]),
+    supabase.from("user_accounts").select("name, kind"),
     supabase.from("cicilan").select("nama, penyedia"),
   ]);
+  const nama = (pihak: boolean) => (akun ?? []).filter((k) => (k.kind === "orang" || k.kind === "kredit") === pihak).map((k) => k.name as string);
   return {
     kategori,
-    pihak: (pihak ?? []).map((p) => p.name as string),
+    pihak: nama(true),
     cicilan: (cicilan ?? []) as KonteksAI["cicilan"],
+    kantong: nama(false),
   };
 }

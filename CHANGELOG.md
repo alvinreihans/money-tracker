@@ -18,13 +18,17 @@ SPEC-catat-tuntas.md (fase 1 & 2 selesai di 2.4.0, fase 3 di 2.5.0, fase 4 di 2.
 - **Opsi "tujuan ini disimpan di BCA"**, kalau saldo BCA yang lebih kecil dari
   saldo asli di bank (karena sebagian disisihkan ke tujuan) terasa membingungkan.
 
-- **AI tahu nama kantong user** saat membaca teks Catat: sekarang "sisihkan 200rb dari bca ke Liburan" kadang masih ditanya "Pindah ke kantong mana?", karena AI hanya diberi daftar kategori, orang, dan cicilan.
-
 - **Caching data di server** (lanjutan), kalau setelah diukur di produksi
   halaman masih terasa lambat atau kuota Supabase/Vercel menipis: mis. data
   yang jarang berubah (kategori, kantong) disimpan sementara di server.
 
 ## [Unreleased]
+
+### Diubah
+- **AI Catat mengenali nama kantong & tujuan tabunganmu** (SPEC-ai-kantong). "sisihkan 200rb dari bca ke Liburan" atau "nabung 500rb ke dana darurat pakai gopay" langsung tercatat sebagai pindah kantong yang benar, tanpa ditanya "Pindah ke kantong mana?". Pada 18 kalimat uji, ketepatannya naik dari 31/36 menjadi 35/36; kalimat pindah kantong 12/12.
+
+### Diperbaiki
+- **Mencatat beberapa transaksi beruntun lewat teks tidak lagi berakhir jadi "nggak berhasil dibaca".** AI utama (Groq, paket gratis) hanya kuat ±1 catatan per menit per model; bila sedang penuh, teks kini dibaca Gemini. Aturan khusus struk juga tidak lagi dikirim untuk teks ketikan, jadi tiap catatan memakai ±28% lebih sedikit kuota.
 
 ## [2.8.1] — 2026-10-31
 

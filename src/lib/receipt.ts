@@ -2,6 +2,7 @@ import { runOcr, isOcrUsable, type OcrResult } from "@/lib/ocr";
 import {
   extractWithGroq,
   extractWithGeminiVision,
+  extractTextWithGemini,
   isValidExtraction,
   nominalDariPromo,
   tenorDariTeks,
@@ -38,7 +39,7 @@ function ringkasBacaan(e: ExtractedReceipt): string {
  */
 
 export type ReceiptStatus = "confirmed" | "needs_review";
-export type ExtractionSource = "groq" | "gemini_vision" | "none";
+export type ExtractionSource = "groq" | "gemini_vision" | "gemini_text" | "none";
 
 export interface ProcessedReceipt {
   status: ReceiptStatus;
@@ -204,8 +205,9 @@ export async function processReceiptImage(
 }
 
 /**
- * Pipeline untuk input TEKS (mis. "kopi 25rb gopay" di kolom Catat).
- * Tidak ada OCR dan tidak ada fallback vision — tidak ada gambar untuk dibaca.
+ * Pipeline untuk input TEKS (mis. "kopi 25rb gopay" di kolom Catat): rantai
+ * Groq, lalu Gemini bila seluruh rantai gagal (batas laju paket gratis Groq,
+ * SPEC-ai-kantong). Tidak ada OCR — tidak ada gambar untuk dibaca.
  */
 export async function processReceiptText(
   text: string,
@@ -222,7 +224,19 @@ export async function processReceiptText(
     notes.push(`Groq (${model}) menghasilkan data tidak valid`);
     return done("needs_review", extracted, null, "groq", notes, text);
   } catch (err) {
-    notes.push(`Seluruh rantai Groq gagal: ${errMsg(err)}`);
+    notes.push(`Seluruh rantai Groq gagal: ${errMsg(err)} — coba Gemini`);
+  }
+
+  try {
+    const extracted = await extractTextWithGemini(text, konteks);
+    if (isValidExtraction(extracted, konteks.kategori)) {
+      notes.push(`Ekstraksi berhasil via Gemini (${GEMINI_MODEL})`);
+      return done("confirmed", extracted, null, "gemini_text", notes, text);
+    }
+    notes.push(`Gemini (${GEMINI_MODEL}) menghasilkan data tidak valid`);
+    return done("needs_review", extracted, null, "gemini_text", notes, text);
+  } catch (err) {
+    notes.push(`Gemini gagal: ${errMsg(err)}`);
     return done("needs_review", emptyDraft(), null, "none", notes);
   }
 }

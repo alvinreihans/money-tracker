@@ -13,6 +13,7 @@
     "test:receipt": "tsx --env-file-if-exists=.env.local scripts/test-receipt.mts",
     "test:teks": "tsx --env-file-if-exists=.env.local scripts/test-teks.mts",
     "ukur:ocr": "tsx --env-file-if-exists=.env.local scripts/ukur-ocr.mts",
+    "ukur:teks": "tsx --env-file-if-exists=.env.local scripts/ukur-teks.mts",
     "build:standalone": "next build",
     "uji:bundle": "node scripts/uji-bundle.mjs",
     "uji:validasi": "tsx scripts/uji-validasi.mts",
