@@ -26,6 +26,8 @@ SPEC-catat-tuntas.md (fase 1 & 2 selesai di 2.4.0, fase 3 di 2.5.0, fase 4 di 2.
 
 ## [Unreleased]
 
+## [2.8.1] — 2026-10-31
+
 ### Keamanan
 - **Transaksi tidak bisa lagi merujuk data akun lain.** Sebelumnya, siapa pun yang tahu id transaksi atau kantong milik orang lain (mis. dari tautan `/transactions/<id>`) bisa memasangnya di transaksinya sendiri sebagai bagian pecahan, ikutan, atau kantong, lalu membaca merchant dan nama kantong pemiliknya. Kini database menolak rujukan ke transaksi, kantong, atau rencana cicilan milik akun lain. Tidak ada data lama yang terkena (sudah diperiksa).
 
