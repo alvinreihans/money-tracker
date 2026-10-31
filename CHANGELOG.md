@@ -24,6 +24,8 @@ SPEC-catat-tuntas.md (fase 1 & 2 selesai di 2.4.0, fase 3 di 2.5.0, fase 4 di 2.
 
 ## [Unreleased]
 
+## [2.9.0] — 2026-10-31
+
 ### Diubah
 - **AI Catat mengenali nama kantong & tujuan tabunganmu** (SPEC-ai-kantong). "sisihkan 200rb dari bca ke Liburan" atau "nabung 500rb ke dana darurat pakai gopay" langsung tercatat sebagai pindah kantong yang benar, tanpa ditanya "Pindah ke kantong mana?". Pada 18 kalimat uji, ketepatannya naik dari 31/36 menjadi 35/36; kalimat pindah kantong 12/12.
 
