@@ -88,7 +88,7 @@ export function tentukanArah<K extends Pick<Kantong, "name"> & Partial<Pick<Kant
   return null;
 }
 
-/** "SEPTIYANA PANGSOR" → "Septiyana Pangsor". */
+/** "DEWI LESTARI" → "Dewi Lestari". */
 export function rapikanNama(nama: string | null): string | null {
   const n = nama?.trim().replace(/\s+/g, " ");
   if (!n) return null;
@@ -131,7 +131,7 @@ export function bacaArah(teks: string): Arah | null {
   return null;
 }
 
-/** Pertanyaannya: "Ini kamu yang kirim ke Alvin, atau terima dari Septiyana?" */
+/** Pertanyaannya: "Ini kamu yang kirim ke Rina, atau terima dari Dewi?" */
 export function kalimatArah(bukti: BuktiTransfer): string {
   const depan = (n: string | null) => rapikanNama(n)?.split(" ")[0];
   const ke = depan(bukti.penerima.nama);

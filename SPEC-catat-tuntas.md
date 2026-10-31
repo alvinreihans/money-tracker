@@ -28,7 +28,7 @@ Urutannya: data benar dulu, lalu konteks, lalu fitur baru di atasnya. Rinciannya
 
 ## 2. Arah bukti transfer
 
-**Masalah** (laporan user). Bukti transfer kiriman orang lain (Septiyana Pangsor → Alvin, OCBC → SeaBank) tercatat sebagai **pengeluaran**.
+**Masalah** (laporan user). Bukti transfer kiriman orang lain (Dewi Lestari → Rina, OCBC → SeaBank) tercatat sebagai **pengeluaran**.
 
 **Penyebab.** Prompt (`src/lib/extract.ts`) berbunyi "nama penerima ≠ nama pengirim → expense". Aturan itu menganggap pengunggah selalu pengirimnya, padahal AI tidak tahu siapa user-nya: yang tersimpan cuma email.
 
@@ -55,7 +55,7 @@ Urutannya: data benar dulu, lalu konteks, lalu fitur baru di atasnya. Rinciannya
    | ya | ya | tidak bisa disimpulkan → tanya |
    | tidak | tidak | tidak bisa disimpulkan → tanya |
 
-3. **Masih ragu → tanya.** Transaksi disimpan sebagai "belum selesai" dengan pertanyaan baru `arah`: *"Ini kamu yang kirim ke Alvin, atau terima dari Septiyana?"*
+3. **Masih ragu → tanya.** Transaksi disimpan sebagai "belum selesai" dengan pertanyaan baru `arah`: *"Ini kamu yang kirim ke Rina, atau terima dari Dewi?"*
    - Chip "Aku kirim" dan "Aku terima".
    - Chip "Pindah antar rekeningku" ditambahkan bila kedua bank cocok dengan kantong user.
    - Dari Bagikan, pertanyaan ini muncul lewat titik di + dan notifikasi "perlu dicek" yang sudah ada.
@@ -138,6 +138,6 @@ Setelah menghapus transaksi yang **sudah selesai**, snackbar menampilkan *"Trans
 
 ## Pertanyaan terbuka
 
-1. **Ketat-longgar pencocokan nama.** Usulnya minimal 2 kata yang sama. Lebih longgar (1 kata, mis. "Alvin") bisa salah kalau pengirimnya Alvin lain.
+1. **Ketat-longgar pencocokan nama.** Usulnya minimal 2 kata yang sama. Lebih longgar (1 kata, mis. "Rina") bisa salah kalau pengirimnya Rina lain.
 2. **Kategori pemasukan dari transfer masuk.** Usulnya "Lainnya". Alternatifnya, AI menebak (mis. "Hadiah" bila keperluannya "kado").
 3. **Teks Catat bertahan setelah aplikasi ditutup** (`localStorage`) atau cukup selama aplikasi terbuka? Usulnya bertahan.

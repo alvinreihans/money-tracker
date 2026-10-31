@@ -100,7 +100,7 @@ export default function NamaRekening() {
               {nama.length < MAKS_NAMA && (
                 <form onSubmit={tambah} className={s.form}>
                   <div className={`${s.blok} ${s.blokForm}`}>
-                    <Field label="Tambah nama" ikon={IdCard} kolom="baru" galat={galat?.kolom === "baru" ? galat.pesan : null} keterangan="Seperti tertulis di rekening, mis. “Alvin Reihansyah”.">
+                    <Field label="Tambah nama" ikon={IdCard} kolom="baru" galat={galat?.kolom === "baru" ? galat.pesan : null} keterangan="Seperti tertulis di rekening, mis. “Rina Kartika”.">
                       <input value={baru} maxLength={60} onChange={(e) => setBaru(e.target.value)} placeholder="Tambah nama" autoComplete="name" />
                     </Field>
                   </div>
