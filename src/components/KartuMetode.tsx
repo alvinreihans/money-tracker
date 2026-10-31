@@ -1,5 +1,5 @@
 import NextLink from "next/link";
-import { ChevronRight, CircleAlert, CircleCheck, PiggyBank, ShoppingBag, HandHeart, Wallet, type LucideIcon } from "lucide-react";
+import { ChevronRight, CircleAlert, CircleCheck, GraduationCap, PiggyBank, ShoppingBag, HandHeart, TrendingUp, Wallet, Zap, type LucideIcon } from "lucide-react";
 import s from "@/components/ui.module.css";
 import { fmtIDR, fmtIDRRingkas } from "@/lib/format";
 import { LABEL_METODE, type HasilMetode, type HasilWadah } from "@/lib/metode";
@@ -8,6 +8,8 @@ import { LABEL_METODE, type HasilMetode, type HasilWadah } from "@/lib/metode";
  * Ikon & warna tiap wadah (juga dipakai pratinjau Profil → Budget). Warnanya
  * lolos uji buta warna di permukaan gelap untuk pasangan yang bersebelahan
  * (Keinginan ↔ Tabungan dulu merah muda ↔ hijau: nyaris sama bagi deutan).
+ * Wadah metode lanjutan (SPEC-metode-lanjutan) diuji sama untuk urutan 6 Jars
+ * dan Kakeibo: pasangan bersebelahan berjarak CIELAB ≥ 23 di semua simulasi.
  */
 export const IKON: Record<string, { ikon: LucideIcon; warna: string }> = {
   kebutuhan: { ikon: Wallet, warna: "#3987e5" },
@@ -16,11 +18,22 @@ export const IKON: Record<string, { ikon: LucideIcon; warna: string }> = {
   keinginan: { ikon: ShoppingBag, warna: "#d95926" },
   tabungan: { ikon: PiggyBank, warna: "#199e70" },
   berbagi: { ikon: HandHeart, warna: "#9085e9" },
+  bebas: { ikon: Wallet, warna: "#3987e5" },
+  hiburan: { ikon: ShoppingBag, warna: "#d95926" },
+  pendidikan: { ikon: GraduationCap, warna: "#d97bb3" },
+  "tabungan-panjang": { ikon: PiggyBank, warna: "#199e70" },
+  kebebasan: { ikon: TrendingUp, warna: "#c99a16" },
+  bertahan: { ikon: Wallet, warna: "#3987e5" },
+  pilihan: { ikon: ShoppingBag, warna: "#d95926" },
+  budaya: { ikon: GraduationCap, warna: "#d97bb3" },
+  ekstra: { ikon: Zap, warna: "#e8c547" },
 };
 const WARNA_STATUS = { hampir: "var(--peringatan)", lewat: "var(--bahaya)", kurang: "var(--peringatan)" } as const;
 
 /** Keterangan status, ditulis (bukan warna saja). */
 function teksStatus(w: HasilWadah): string {
+  if (w.tanpaJatah) return `${w.terpakai}% dari belanja`;
+  if (w.tabungan && w.target === 0) return "Target belum diatur";
   if (w.tabungan) return w.status === "tercapai" ? "Tercapai" : `Kurang ${fmtIDRRingkas(w.target - w.realisasi)}`;
   if (w.status === "lewat") return `Lewat ${fmtIDRRingkas(w.realisasi - w.target)} (${w.terpakai - 100}%)`;
   return `Sisa ${fmtIDRRingkas(w.target - w.realisasi)}`;
@@ -67,14 +80,14 @@ export default function KartuMetode({
             <span className={s.barisTeks}>
               <span className={s.budgetAtas}>
                 <span className={s.barisJudul}>
-                  {w.nama} <span className={s.redup}>{w.persen}%</span>
+                  {w.nama} {w.persen > 0 && <span className={s.redup}>{w.persen}%</span>}
                 </span>
                 <span className={s.nominal}>{fmtIDR(w.realisasi)}</span>
               </span>
               <span
                 className={s.progres}
                 role="progressbar"
-                aria-label={`${w.nama}: ${w.terpakai}% dari ${w.tabungan ? "target" : "jatah"}`}
+                aria-label={`${w.nama}: ${w.terpakai}% dari ${w.tanpaJatah ? "belanja" : w.tabungan ? "target" : "jatah"}`}
                 aria-valuenow={w.terpakai}
                 aria-valuemin={0}
                 aria-valuemax={100}
@@ -87,9 +100,11 @@ export default function KartuMetode({
                   {(w.status === "lewat" || w.status === "kurang") && <CircleAlert size={14} aria-hidden />}
                   {teksStatus(w)}
                 </span>
-                <span>
-                  {w.tabungan ? "target" : "jatah"} {fmtIDR(w.target)}
-                </span>
+                {!w.tanpaJatah && w.target > 0 && (
+                  <span>
+                    {w.tabungan ? "target" : "jatah"} {fmtIDR(w.target)}
+                  </span>
+                )}
               </span>
             </span>
             {alamat && <ChevronRight size={18} color="var(--teks-2)" aria-hidden style={{ alignSelf: "center" }} />}
@@ -106,15 +121,53 @@ export default function KartuMetode({
         );
       })}
 
-      {/* Tujuan tabungan (SPEC-tujuan-tabungan): yang disisihkan, dan yang dibeli dari tabungan lama — di luar jatah. */}
-      {!judul && hasil.keTujuan > 0 && (
+      {/* Zero-Based (SPEC-metode-lanjutan): sisa penghasilan yang belum diberi tugas. */}
+      {!judul && hasil.belumDialokasikan != null && (
         <div className={s.statBaris}>
           <span>
-            Disisihkan ke tujuan
+            {hasil.belumDialokasikan < 0 ? "Target melebihi penghasilan" : "Belum dialokasikan"}
+            <br />
+            <span className={s.redup}>{hasil.belumDialokasikan === 0 ? "Semua rupiah sudah punya tugas ✓" : "Atur target di Profil → Budget"}</span>
+          </span>
+          <span className={s.nominal} style={hasil.belumDialokasikan === 0 ? undefined : { color: hasil.belumDialokasikan < 0 ? "var(--bahaya)" : "var(--peringatan)" }}>
+            {fmtIDR(Math.abs(hasil.belumDialokasikan))}
+          </span>
+        </div>
+      )}
+      {/* Kakeibo: penghasilan − target tabungan, dibanding yang dibelanjakan. */}
+      {!judul && hasil.kakeibo && (
+        <>
+          <div className={s.statBaris}>
+            <span>
+              Bisa dibelanjakan
+              <br />
+              <span className={s.redup}>Penghasilan dikurangi target tabungan</span>
+            </span>
+            <span className={s.nominal}>{fmtIDR(hasil.kakeibo.bisaDibelanjakan)}</span>
+          </div>
+          <div className={s.statBaris}>
+            <span>
+              {hasil.kakeibo.sisa < 0 ? "Lewat" : "Sisa"}
+              <br />
+              <span className={s.redup}>Sudah dibelanjakan {fmtIDR(hasil.kakeibo.dibelanjakan)}</span>
+            </span>
+            <span className={s.nominal} style={hasil.kakeibo.sisa < 0 ? { color: "var(--bahaya)" } : undefined}>
+              {fmtIDR(Math.abs(hasil.kakeibo.sisa))}
+            </span>
+          </div>
+        </>
+      )}
+
+      {/* Tujuan tabungan (SPEC-tujuan-tabungan): setoran bersih bulan ini — kecuali metodenya sudah punya wadah
+          setoran sendiri — dan yang dibeli dari tabungan lama, di luar jatah. */}
+      {!judul && hasil.keTujuan !== 0 && !hasil.wadah.some((w) => w.sumber === "setoran-tujuan" || w.sumber === "setoran-total") && (
+        <div className={s.statBaris}>
+          <span>
+            {hasil.keTujuan > 0 ? "Disisihkan ke tujuan" : "Ditarik dari tujuan"}
             <br />
             <span className={s.redup}>Bulan ini</span>
           </span>
-          <span className={`${s.nominal} ${s.masuk}`}>{fmtIDR(hasil.keTujuan)}</span>
+          <span className={`${s.nominal} ${hasil.keTujuan > 0 ? s.masuk : ""}`}>{fmtIDR(Math.abs(hasil.keTujuan))}</span>
         </div>
       )}
       {!judul &&

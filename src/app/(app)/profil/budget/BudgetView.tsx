@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { Banknote } from "lucide-react";
+import { Banknote, PiggyBank } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCatat, useKategori } from "@/components/Catat";
 import { IKON } from "@/components/KartuMetode";
@@ -24,7 +24,15 @@ const PENJELASAN: Record<Metode, string> = {
   "80-20": "Paling sederhana: sisihkan 20% untuk tabungan dulu, 80% sisanya bebas dipakai. Cocok kalau tidak ingin repot mengelompokkan pengeluaran.",
   "70-20-10": "Seperti 80/20, ditambah 10% untuk berbagi: zakat, sedekah, donasi, atau hadiah.",
   kustom: "Atur sendiri persen tiap kelompok, mis. 60/20/10/10 kalau biaya hidupmu tinggi. Jumlahnya harus 100%.",
+  // SPEC-metode-lanjutan: tabungannya dihitung dari yang benar-benar disisihkan, bukan sisa.
+  "zero-based": "Setiap rupiah diberi tugas: target per kategori ditambah tabungan sampai sama dengan penghasilan. Tabungan dihitung dari yang benar-benar disisihkan ke tujuan.",
+  pyf: "Sisihkan tabungan dulu begitu gajian, sisanya bebas dipakai tanpa batas per pos. Tabungan dihitung dari yang benar-benar disisihkan ke tujuan, bukan sisa.",
+  "6-jars": "Enam toples: kebutuhan 55%, hiburan, pendidikan, tabungan jangka panjang, kebebasan finansial (investasi) masing-masing 10%, dan berbagi 5%.",
+  kakeibo: "Metode Jepang: catat belanja di empat pos (bertahan hidup, pilihan, budaya, ekstra), pasang target tabungan, lalu refleksi di akhir bulan.",
 };
+
+/** Metode yang diisi dulu baru disimpan; selain ini tersimpan begitu diketuk. */
+const ISI_DULU: Metode[] = ["kustom", "pyf", "kakeibo", "zero-based"];
 
 const ABU = "var(--titik)";
 
@@ -44,27 +52,43 @@ function Pratinjau({
   ketBasis,
   onUbah,
   totalKategori,
+  targetTabungan,
 }: {
   metode: Metode;
-  persen: Record<KelompokKustom, number>;
+  /** Persen Kustom, atau { tabungan } untuk Pay Yourself First. */
+  persen: Partial<Record<KelompokKustom, number>>;
   /** Penghasilan per bulan yang dibagi (SPEC-tujuan-tabungan). */
   basis: number;
   ketBasis: string;
   onUbah: () => void;
   totalKategori: number;
+  /** Target tabungan rupiah (Zero-Based, Kakeibo). */
+  targetTabungan: number;
 }) {
   type Potong = { warna: string; nama: string; persen: number; utama: string; sub: string | null; bahaya?: boolean };
   let potong: Potong[];
-  if (metode === "kategori") {
-    const pakai = basis > 0 ? Math.round((totalKategori / basis) * 100) : 0;
+  const porsi = (n: number) => (basis > 0 ? Math.round((n / basis) * 100) : 0);
+  if (metode === "kategori" || metode === "zero-based") {
+    // Zero-Based: target kategori + tabungan harus pas dengan penghasilan.
+    const zb = metode === "zero-based";
+    const tab = zb ? targetTabungan : 0;
+    const sisa = basis - totalKategori - tab;
     potong = [
-      { warna: IKON.kebutuhan.warna, nama: "Ditargetkan", persen: basis > 0 ? Math.min(pakai, 100) : totalKategori > 0 ? 100 : 0, utama: fmtIDRRingkas(totalKategori), sub: basis > 0 ? `${pakai}% penghasilan` : null },
+      { warna: IKON.kebutuhan.warna, nama: "Ditargetkan", persen: basis > 0 ? Math.min(porsi(totalKategori), 100) : totalKategori > 0 ? 100 : 0, utama: fmtIDRRingkas(totalKategori), sub: basis > 0 ? `${porsi(totalKategori)}% penghasilan` : null },
     ];
-    if (basis > 0 && totalKategori > basis)
-      potong.push({ warna: "var(--bahaya)", nama: "Melebihi penghasilan", persen: 0, utama: fmtIDRRingkas(totalKategori - basis), sub: null, bahaya: true });
-    else if (basis > 0) potong.push({ warna: ABU, nama: "Belum dibagi", persen: 0, utama: fmtIDRRingkas(basis - totalKategori), sub: `${100 - pakai}% penghasilan` });
+    if (zb) potong.push({ warna: IKON.tabungan.warna, nama: "Tabungan", persen: Math.min(porsi(tab), 100), utama: fmtIDRRingkas(tab), sub: basis > 0 ? `${porsi(tab)}% penghasilan` : null });
+    if (basis > 0 && sisa < 0)
+      potong.push({ warna: "var(--bahaya)", nama: "Melebihi penghasilan", persen: 0, utama: fmtIDRRingkas(-sisa), sub: null, bahaya: true });
+    else if (zb && basis > 0)
+      potong.push({ warna: sisa > 0 ? "var(--peringatan)" : ABU, nama: "Belum dialokasikan", persen: 0, utama: fmtIDRRingkas(sisa), sub: sisa === 0 ? "Semua rupiah punya tugas ✓" : `${porsi(sisa)}% penghasilan` });
+    else if (basis > 0) potong.push({ warna: ABU, nama: "Belum dibagi", persen: 0, utama: fmtIDRRingkas(sisa), sub: `${100 - porsi(totalKategori)}% penghasilan` });
+  } else if (metode === "kakeibo") {
+    potong = [
+      { warna: IKON.tabungan.warna, nama: "Target tabungan", persen: Math.min(porsi(targetTabungan), 100), utama: fmtIDRRingkas(targetTabungan), sub: basis > 0 ? `${porsi(targetTabungan)}% penghasilan` : null },
+      { warna: IKON.kebutuhan.warna, nama: "Bisa dibelanjakan", persen: Math.max(0, 100 - porsi(targetTabungan)), utama: fmtIDRRingkas(Math.max(0, basis - targetTabungan)), sub: "4 pos, tanpa jatah" },
+    ];
   } else {
-    potong = wadahMetode(metode, metode === "kustom" ? persen : null).map((w) => ({
+    potong = wadahMetode(metode, metode === "kustom" || metode === "pyf" ? persen : null).map((w) => ({
       warna: (IKON[w.id] ?? IKON.kebutuhan).warna,
       nama: w.nama,
       persen: w.persen,
@@ -137,6 +161,10 @@ export default function BudgetView({
   const [persen, setPersen] = useState<Record<KelompokKustom, string>>(
     () => Object.fromEntries(KELOMPOK_KUSTOM.map((k) => [k, String(pengaturan.persen?.[k] ?? PERSEN_AWAL[k])])) as Record<KelompokKustom, string>,
   );
+  // Pay Yourself First: persen tabungan; Zero-Based & Kakeibo: target tabungan rupiah.
+  const [persenPyf, setPersenPyf] = useState(String(pengaturan.metode === "pyf" ? (pengaturan.persen?.tabungan ?? 20) : 20));
+  const [isianTarget, setIsianTarget] = useState(isianNominal(pengaturan.targetTabungan ?? undefined));
+  const [galatIsi, setGalatIsi] = useState<string | null>(null);
   const [menyimpanMetode, setMenyimpanMetode] = useState(false);
   // Metode yang benar-benar tersimpan (Kustom baru tersimpan setelah persennya diisi).
   const [tersimpan, setTersimpan] = useState<Metode>(pengaturan.metode);
@@ -148,11 +176,12 @@ export default function BudgetView({
   const angkaPersen = Object.fromEntries(KELOMPOK_KUSTOM.map((k) => [k, Number(persen[k] || 0)])) as Record<KelompokKustom, number>;
   const totalPersen = KELOMPOK_KUSTOM.reduce((t, k) => t + angkaPersen[k], 0);
 
-  async function pakaiMetode(m: Metode, p: Record<KelompokKustom, number> | null = null) {
+  /** `target`: target tabungan rupiah (Zero-Based, Kakeibo); undefined = tidak diubah. */
+  async function pakaiMetode(m: Metode, p: Partial<Record<KelompokKustom, number>> | null = null, target?: number | null) {
     setMenyimpanMetode(true);
     const { error } = await createSupabaseBrowserClient()
       .from("metode_budget")
-      .upsert({ user_id: userId, metode: m, persen: p, updated_at: new Date().toISOString() });
+      .upsert({ user_id: userId, metode: m, persen: p, ...(target !== undefined ? { target_tabungan: target } : {}), updated_at: new Date().toISOString() });
     setMenyimpanMetode(false);
     if (error) return kabari(dbErrorMessage(error));
     setMetode(m);
@@ -176,10 +205,25 @@ export default function BudgetView({
   }
 
   function pilih(m: Metode) {
-    if (m === metode && m !== "kustom") return;
-    // Kustom: atur persennya dulu, baru disimpan.
-    if (m === "kustom") return setMetode("kustom");
-    void pakaiMetode(m);
+    setGalatIsi(null);
+    // Kustom, PYF, Kakeibo, Zero-Based: isiannya diatur dulu, baru disimpan.
+    if (ISI_DULU.includes(m)) return setMetode(m);
+    if (m !== metode) void pakaiMetode(m);
+  }
+
+  function simpanPyf(e?: FormEvent) {
+    e?.preventDefault();
+    const n = Number(persenPyf);
+    if (!Number.isInteger(n) || n < 1 || n > 90) return setGalatIsi("Persen tabungan 1–90%.");
+    setGalatIsi(null);
+    void pakaiMetode("pyf", { tabungan: n });
+  }
+
+  function simpanKakeibo(e?: FormEvent) {
+    e?.preventDefault();
+    if (!(Number(isianTarget) > 0)) return setGalatIsi("Isi target tabungan per bulan.");
+    setGalatIsi(null);
+    void pakaiMetode("kakeibo", null, Number(isianTarget));
   }
 
   function simpanKustom(e?: FormEvent) {
@@ -208,17 +252,23 @@ export default function BudgetView({
 
     setLoading(true);
     const db = createSupabaseBrowserClient();
-    const [pasang, lepas] = await Promise.all([
+    const zb = metode === "zero-based";
+    const [pasang, lepas, pakai] = await Promise.all([
       cek.simpan.length
         ? db.from("budgets").upsert(cek.simpan.map((b) => ({ ...b, user_id: userId, updated_at: new Date().toISOString() })))
         : { error: null },
       cek.hapus.length ? db.from("budgets").delete().in("category", cek.hapus) : { error: null },
+      // Zero-Based: metode & target tabungannya ikut tersimpan di sini.
+      zb
+        ? db.from("metode_budget").upsert({ user_id: userId, metode: "zero-based", persen: null, target_tabungan: Number(isianTarget) > 0 ? Number(isianTarget) : null, updated_at: new Date().toISOString() })
+        : { error: null },
     ]);
     setLoading(false);
 
-    const err = pasang.error ?? lepas.error;
+    const err = pasang.error ?? lepas.error ?? pakai.error;
     if (err) return setPesan({ jenis: "bahaya", teks: dbErrorMessage(err) });
-    setPesan({ jenis: "sukses", teks: "Budget tersimpan." });
+    if (zb) setTersimpan("zero-based");
+    setPesan({ jenis: "sukses", teks: zb ? "Zero-Based tersimpan." : "Budget tersimpan." });
     router.refresh();
   }
 
@@ -233,7 +283,8 @@ export default function BudgetView({
       <div className={s.isi}>
         <Pratinjau
           metode={metode}
-          persen={angkaPersen}
+          persen={metode === "pyf" ? { tabungan: Number(persenPyf) || 0 } : angkaPersen}
+          targetTabungan={Number(isianTarget) || 0}
           basis={basis}
           ketBasis={diatur != null ? "Diatur sendiri" : ketSaran(pengaturan.saran)}
           onUbah={() => setIsianPenghasilan(isianNominal(basis || undefined))}
@@ -282,18 +333,56 @@ export default function BudgetView({
           </form>
         )}
 
-        {metode !== "kategori" && (
+        {metode === "pyf" && (
+          <form className={s.form} onSubmit={simpanPyf}>
+            <GalatForm value={galatIsi ? { pesan: galatIsi, kolom: "pyf" } : null}>
+              <div className={`${s.blok} ${s.blokForm}`}>
+                <Field label="Tabungan (%)" ikon={PiggyBank} kolom="pyf" keterangan="Disisihkan ke tujuan tabungan begitu gajian. 1–90%, umumnya 20%.">
+                  <input inputMode="numeric" value={persenPyf} onChange={(e) => setPersenPyf(e.target.value.replace(/\D/g, "").slice(0, 2))} placeholder="Tabungan (%)" />
+                </Field>
+              </div>
+            </GalatForm>
+            <button type="submit" className={s.tombol} disabled={menyimpanMetode}>
+              {menyimpanMetode ? <Spinner /> : "Pakai Pay Yourself First"}
+            </button>
+          </form>
+        )}
+
+        {metode === "kakeibo" && (
+          <form className={s.form} onSubmit={simpanKakeibo}>
+            <GalatForm value={galatIsi ? { pesan: galatIsi, kolom: "kakeibo" } : null}>
+              <div className={`${s.blok} ${s.blokForm}`}>
+                <Field label="Target tabungan per bulan (Rp)" ikon={PiggyBank} kolom="kakeibo" keterangan="Disisihkan ke tujuan tabungan atau dibelikan emas/reksadana. Berlaku tiap bulan sampai diubah.">
+                  <InputNominal value={isianTarget} onChange={setIsianTarget} placeholder="Target tabungan per bulan (Rp)" />
+                </Field>
+              </div>
+            </GalatForm>
+            <button type="submit" className={s.tombol} disabled={menyimpanMetode}>
+              {menyimpanMetode ? <Spinner /> : "Pakai Kakeibo"}
+            </button>
+          </form>
+        )}
+
+        {metode !== "kategori" && metode !== "zero-based" && (
           <p className={s.redup} style={{ margin: "0 20px" }}>
-            Kelompok tiap kategori bisa diubah di Profil → Kategori, dan tiap transaksi di Edit transaksi. Target per kategori tetap tersimpan, dipakai lagi kalau kembali ke Per kategori.
+            Kelompok tiap kategori bisa diubah di Profil → Kategori, dan tiap transaksi di Edit transaksi. Target per kategori tetap tersimpan, dipakai lagi kalau kembali ke Per kategori atau Zero-Based.
           </p>
         )}
       </div>
 
-      {metode === "kategori" && (
+      {(metode === "kategori" || metode === "zero-based") && (
         <form className={`${s.isi} ${s.form}`} onSubmit={simpan} style={{ marginTop: 16 }}>
           <p className={s.redup} style={{ margin: "0 20px" }}>
             Berlaku sama tiap bulan. Kosongkan kalau kategori itu nggak perlu dibatasi.
           </p>
+
+          {metode === "zero-based" && (
+            <div className={`${s.blok} ${s.blokForm}`}>
+              <Field label="Tabungan per bulan (Rp)" ikon={PiggyBank} keterangan="Bagian penghasilan yang disisihkan ke tujuan tabungan atau dibelikan emas/reksadana.">
+                <InputNominal value={isianTarget} onChange={setIsianTarget} placeholder="Tabungan per bulan (Rp)" />
+              </Field>
+            </div>
+          )}
 
           <GalatForm value={galat}>
             <div className={`${s.blok} ${s.blokForm}`}>

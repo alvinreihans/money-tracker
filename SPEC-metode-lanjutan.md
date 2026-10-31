@@ -83,7 +83,7 @@ Sekarang `pilih()` menyimpan semua metode selain Kustom begitu diketuk, dan `pak
   - Statusnya hanya "aman" atau "lewat", tanpa "hampir".
   - Beranda baru menandainya di "Budget hampir habis" bila **lewat** (keputusan user 31 Okt 2026).
 
-**Beranda: kartu "Belum disisihkan bulan ini: Rp 1.600.000"**
+**Beranda: kartu "Belum disisihkan" — "Rp 1.600.000 tabungan bulan ini"**, di atas daftar transaksi terbaru (bersama catatan yang belum selesai), karena paling berguna tepat setelah gajian
 - **Kapan tampil:** sudah ada penghasilan masuk bulan itu, dan setoran nyata < target. Hilang sendiri begitu setoran ≥ target.
 - **Data penghasilan:** Beranda sekarang hanya mengambil pengeluaran bulan ini. `ambilPengaturanMetode` sudah mengambil pemasukan 3 bulan terakhir (`masuk`), tapi hanya mengembalikan saran. Ia ditambah isian `penghasilanBulanIni`: kategori penghasilan, bulan yang diminta.
 - **Tombol Sisihkan** sama dengan aksi "Sisihkan" di Profil → Tujuan: `bukaManual({ type: "transfer", kantong_tujuan_id, merchant })`, ditambah `amount` = kekurangannya (sebagai teks isian, `isianNominal`).

@@ -19,7 +19,7 @@ const SIBUK = "Lagi sibuk, coba lagi sebentar ya.";
  * (src/lib/tanya-server.ts); di sini hanya login, validasi, dan batas waktu.
  * Tidak menyimpan apa pun.
  *
- * Balasan: { jawaban, tautan: [{label, href}], ragu }.
+ * Balasan: { jawaban, tautan: [{label, href}], ragu, nominal_ragu? }.
  */
 export async function POST(req: NextRequest) {
   const user = await ambilUser();

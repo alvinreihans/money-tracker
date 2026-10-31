@@ -67,6 +67,7 @@ export default async function AnalitikPage({ searchParams }: { searchParams: Pro
       // Metode budgeting (SPEC-metode-budget): null = budget per kategori. Ia
       // memisahkan pembelian dari tujuan sendiri, jadi menerima semua baris.
       metode={hitungMetode(pengaturan, semuaIni)}
+      idTujuan={pengaturan.tujuan.map((k) => k.id)}
     />
   );
 }

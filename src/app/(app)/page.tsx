@@ -85,6 +85,14 @@ export default async function BerandaPage({ searchParams }: { searchParams: Prom
 
   // Pembelian dari tujuan tabungan bukan pengeluaran bulan ini (SPEC-analitik-tujuan).
   const keluarBiasa = pisahTujuan(keluarIni ?? [], pengaturan.tujuan).biasa;
+  const metode = hitungMetode(pengaturan, keluarIni ?? []);
+  // Pay Yourself First & Zero-Based (SPEC-metode-lanjutan): setelah gajian,
+  // ingatkan tabungan yang belum disisihkan sampai setorannya ≥ target.
+  const tabungan = metode?.metode === "pyf" || metode?.metode === "zero-based" ? metode.wadah.find((w) => w.sumber === "setoran-total") : undefined;
+  const sisihkan =
+    tabungan && pengaturan.penghasilanBulanIni > 0 && tabungan.target > tabungan.realisasi
+      ? { kurang: tabungan.target - tabungan.realisasi, tujuan: pengaturan.tujuan }
+      : null;
 
   return (
     <BerandaView
@@ -105,7 +113,8 @@ export default async function BerandaPage({ searchParams }: { searchParams: Prom
         hariIni,
       )}
       budget={progresBudget(budgets ?? [], keluarBiasa)}
-      metode={hitungMetode(pengaturan, keluarIni ?? [])}
+      metode={metode}
+      sisihkan={sisihkan}
       streak={hitungStreak((catatan ?? []).map((c) => c.created_at as string), sekarang)}
     />
   );

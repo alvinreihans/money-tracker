@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import NextLink from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronRight, ClipboardList, Inbox } from "lucide-react";
+import { ChevronRight, ClipboardList, Inbox, PiggyBank } from "lucide-react";
 import BarisStreak from "@/components/BarisStreak";
 import { useCatat } from "@/components/Catat";
 import KartuBudget from "@/components/KartuBudget";
@@ -14,7 +14,7 @@ import { AppBar, Kosong } from "@/components/oneui";
 import { TombolTanya } from "@/components/TanyaAI";
 import TransactionList from "@/components/TransactionList";
 import s from "@/components/ui.module.css";
-import { fmtIDR, namaBulan } from "@/lib/format";
+import { fmtIDR, isianNominal, namaBulan } from "@/lib/format";
 import { rentangBulan } from "@/lib/periode";
 import type { RingkasBeranda } from "@/lib/pinjaman";
 import type { ProgresBudget } from "@/lib/analitik";
@@ -32,6 +32,7 @@ export default function BerandaView({
   streak,
   bukaCatat,
   metode,
+  sisihkan,
   pecahan,
 }: {
   ringkasan: { keluar: number; keluarBulanLalu: number };
@@ -43,6 +44,8 @@ export default function BerandaView({
   streak: { hari: number; hariIni: boolean };
   /** Metode budgeting aktif (SPEC-metode-budget); null = budget per kategori. */
   metode: HasilMetode | null;
+  /** Tabungan yang belum disisihkan bulan ini (Pay Yourself First, Zero-Based); null = tidak perlu diingatkan. */
+  sisihkan: { kurang: number; tujuan: { id: string; nama: string }[] } | null;
   /** Transaksi yang dipecah: total per transaksi asli (SPEC-metode-budget). */
   pecahan: InfoPecahan;
   /** ?catat=<id> dari push: buka percakapan catatan itu. */
@@ -112,6 +115,43 @@ export default function BerandaView({
         )}
 
         {/* Cuma 5 terakhir — Beranda untuk sekilas, riwayat lengkap di tab Riwayat. */}
+        {/* Tepat setelah gajian paling berguna: di atas, bersama catatan yang belum selesai. */}
+        {sisihkan && (
+          <section className={s.blok}>
+            <div className={s.baris}>
+              <span className={s.barisIkon} style={{ background: "color-mix(in srgb, #199e70 18%, transparent)", color: "#199e70" }} aria-hidden>
+                <PiggyBank size={20} />
+              </span>
+              <span className={s.barisTeks}>
+                <span className={s.barisJudul}>Belum disisihkan</span>
+                <span className={s.redup} style={{ whiteSpace: "normal" }}>
+                  <strong className={s.nominal}>{fmtIDR(sisihkan.kurang)}</strong> tabungan bulan ini. Sisihkan dulu, sisanya bebas dipakai.
+                </span>
+              </span>
+            </div>
+            {sisihkan.tujuan.length > 0 ? (
+              // Sama dengan "Sisihkan" di Profil → Tujuan; satu tujuan langsung terisi.
+              <button
+                type="button"
+                className={s.blokKaki}
+                onClick={() =>
+                  catat.bukaManual({
+                    type: "transfer",
+                    category: "other",
+                    amount: isianNominal(sisihkan.kurang),
+                    ...(sisihkan.tujuan.length === 1 ? { kantong_tujuan_id: sisihkan.tujuan[0].id, merchant: sisihkan.tujuan[0].nama } : {}),
+                  })
+                }
+              >
+                Sisihkan
+              </button>
+            ) : (
+              <NextLink href="/profil/tujuan" className={s.blokKaki}>
+                Buat tujuan
+              </NextLink>
+            )}
+          </section>
+        )}
         {terbaru.length > 0 ? (
           // Satu kesatuan, supaya di dua kolom "Lihat semua" tidak terpisah dari daftarnya.
           <div className={s.tumpuk}>
@@ -143,7 +183,7 @@ export default function BerandaView({
 
         <KartuKantong data={kantong} />
         <KartuPinjaman data={pinjaman} />
-        {metode ? (
+        {metode && metode.metode !== "zero-based" ? (
           // Hanya kelompok yang ≥ 80% jatahnya; kartu tidak tampil kalau semua aman.
           <KartuMetode hasil={metode} judul="Budget hampir habis" />
         ) : (

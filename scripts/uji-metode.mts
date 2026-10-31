@@ -4,7 +4,7 @@
  * status, pengeluaran dari tujuan tabungan (SPEC-tujuan-tabungan).
  */
 import assert from "node:assert/strict";
-import { cekPersen, hitungMetode, KELOMPOK, KELOMPOK_KUSTOM, saranPenghasilan, wadahMetode, type BarisMetode } from "../src/lib/metode.ts";
+import { cekPersen, hitungMetode, KELOMPOK, KELOMPOK_KUSTOM, saranPenghasilan, setoranBersih, wadahMetode, type BarisMetode } from "../src/lib/metode.ts";
 import { progresTujuan } from "../src/lib/tujuan.ts";
 
 // --- Wadah
@@ -101,6 +101,66 @@ for (const [metode, persen] of [["50-30-20", null], ["80-20", null], ["70-20-10"
 assert.deepEqual(wadahMetode("kustom", { kebutuhan: 80, tabungan: 20 }).map((w) => w.id), ["kebutuhan", "tabungan"]);
 assert.ok(cekPersen({ kebutuhan: 50, keinginan: 30, tabungan: 20, pengembangan: 10 } as never).ok, "kelompok di luar empat diabaikan cekPersen");
 
+// --- Setoran bersih ke tujuan (SPEC-metode-lanjutan): setor − tarik; antar-tujuan tidak dihitung
+const idTujuan = new Set(["t-a", "t-b"]);
+assert.equal(
+  setoranBersih(
+    [
+      { amount: 1000000, kantong_id: "bca", kantong_tujuan_id: "t-a" },
+      { amount: 400000, kantong_id: "t-a", kantong_tujuan_id: "bca" },
+      { amount: 300000, kantong_id: "t-a", kantong_tujuan_id: "t-b" },
+      { amount: 50000, kantong_id: "bca", kantong_tujuan_id: "gopay" },
+    ],
+    idTujuan,
+  ),
+  600000,
+);
+assert.equal(setoranBersih([{ amount: 500000, kantong_id: "t-a", kantong_tujuan_id: "bca" }], idTujuan), -500000, "lebih banyak ditarik");
+
+// --- Pay Yourself First 20%: tabungan = setoran nyata (600 rb ke tujuan + 1 jt emas), bukan sisa
+const pyf = hitungMetode({ metode: "pyf", persen: { tabungan: 20 }, penghasilan: 8000000, keTujuan: 600000 }, ini)!;
+assert.deepEqual(pyf.wadah.map((w) => [w.id, w.target, w.realisasi, w.status]), [
+  ["tabungan", 1600000, 1600000, "tercapai"],
+  ["bebas", 6400000, 6200000, "aman"],
+], "97% Bebas dipakai tetap aman, tanpa 'hampir'");
+const pyfLewat = hitungMetode({ metode: "pyf", persen: { tabungan: 20 }, penghasilan: 8000000 }, [...ini, { type: "expense", category: "shopping", amount: 300000, kelompok_efektif: "keinginan" }])!;
+assert.deepEqual(pyfLewat.wadah.map((w) => [w.id, w.realisasi, w.status]), [["tabungan", 1000000, "kurang"], ["bebas", 6500000, "lewat"]]);
+assert.equal(wadahMetode("pyf", null)[0].persen, 20, "bawaan 20%");
+
+// --- 6 Jars: toples tabungan jangka panjang = setoran ke tujuan, kebebasan finansial = beli emas/reksadana
+const jars = hitungMetode({ metode: "6-jars", persen: null, penghasilan: 8000000, keTujuan: 600000 }, baru)!;
+assert.deepEqual(jars.wadah.map((w) => [w.id, w.target, w.realisasi, w.status]), [
+  ["kebutuhan", 4400000, 3600000, "hampir"],
+  ["hiburan", 800000, 2900000, "lewat"],
+  ["pendidikan", 800000, 400000, "aman"],
+  ["tabungan-panjang", 800000, 600000, "kurang"],
+  ["kebebasan", 800000, 1000000, "tercapai"],
+  ["berbagi", 400000, 300000, "aman"],
+]);
+assert.equal(wadahMetode("6-jars").reduce((n, w) => n + w.persen, 0), 100);
+
+// --- Kakeibo: empat pos tanpa jatah (porsi dari total belanja), target tabungan rupiah
+const kak = hitungMetode({ metode: "kakeibo", persen: null, penghasilan: 8000000, keTujuan: 600000, targetTabungan: 1500000 }, baru)!;
+assert.deepEqual(kak.wadah.map((w) => [w.id, w.realisasi, w.terpakai, w.status]), [
+  ["bertahan", 3300000, 46, "aman"],
+  ["pilihan", 2900000, 40, "aman"],
+  ["budaya", 400000, 6, "aman"],
+  ["ekstra", 600000, 8, "aman"],
+  ["tabungan", 1600000, 107, "tercapai"],
+]);
+assert.deepEqual(kak.kakeibo, { bisaDibelanjakan: 6500000, dibelanjakan: 7200000, sisa: -700000 });
+
+// --- Zero-Based: belum dialokasikan = penghasilan − Σ target kategori − tabungan
+const zb = (totalTarget: number, targetTabungan: number | null) =>
+  hitungMetode({ metode: "zero-based", persen: null, penghasilan: 8000000, keTujuan: 600000, totalTarget, targetTabungan }, ini)!;
+assert.equal(zb(5000000, 1500000).belumDialokasikan, 1500000);
+assert.equal(zb(6000000, 2000000).belumDialokasikan, 0);
+assert.equal(zb(7000000, 2000000).belumDialokasikan, -1000000);
+assert.deepEqual(zb(6000000, 2000000).wadah.map((w) => [w.id, w.target, w.realisasi, w.status]), [["tabungan", 2000000, 1600000, "kurang"]]);
+// Metode lama tidak punya isian metode lanjutan.
+assert.equal(h.belumDialokasikan, undefined);
+assert.equal(h.kakeibo, undefined);
+
 // --- Progres tujuan
 assert.deepEqual(progresTujuan({ target: 10000000, tenggat: "2027-03-31", saldo: 6000000 }, "2026-10-25"), {
   terkumpul: 6000000, sisa: 4000000, persen: 60, tercapai: false, perBulan: 666667, telat: false,
@@ -111,4 +171,4 @@ const capai = progresTujuan({ target: 10000000, tenggat: "2026-09-30", saldo: 10
 assert.deepEqual([capai.tercapai, capai.persen, capai.sisa, capai.telat, capai.perBulan], [true, 100, 0, false, null]);
 assert.deepEqual(progresTujuan({ target: 5000000, saldo: -100 }, "2026-10-25").terkumpul, 0);
 
-console.log("✓ metode budgeting: wadah preset & kustom, persen 100%, saran penghasilan (gajian akhir bulan, uang masuk bukan penghasilan), realisasi per kelompok, tabungan dari sisa, status, pengeluaran dari tujuan tabungan, progres tujuan");
+console.log("✓ metode budgeting: wadah preset & kustom, persen 100%, saran penghasilan (gajian akhir bulan, uang masuk bukan penghasilan), realisasi per kelompok, tabungan dari sisa, status, pengeluaran dari tujuan tabungan, progres tujuan; kelompok baru; setoran bersih; PYF, 6 Jars, Kakeibo, Zero-Based");
