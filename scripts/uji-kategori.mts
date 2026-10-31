@@ -5,7 +5,7 @@
  * Pemakaian: npm run uji:kategori
  */
 import assert from "node:assert/strict";
-import { nominalDariPromo, normalize, tenorDariTeks } from "../src/lib/extract.ts";
+import { nominalDariPromo, normalize, tenorDariTeks, usulanPecah } from "../src/lib/extract.ts";
 import {
   cariKategori,
   KATEGORI_BAWAAN,
@@ -59,6 +59,15 @@ const katKeluar = (kelompok?: string) => validasiKategori({ type: "expense", nam
 assert.equal((katKeluar("kebutuhan") as { data: { kelompok: string } }).data.kelompok, "kebutuhan");
 assert.equal((katKeluar() as { data: { kelompok: string } }).data.kelompok, "keinginan");
 assert.equal(katKeluar("mewah").ok, false);
+// Kelompok baru (SPEC-kelompok-baru).
+assert.equal((katKeluar("pengembangan") as { data: { kelompok: string } }).data.kelompok, "pengembangan");
+assert.equal((katKeluar("tak_terduga") as { data: { kelompok: string } }).data.kelompok, "tak_terduga");
+// Pendidikan bawaan: warnanya dari palet (bisa disunting di Profil → Kategori).
+const pendidikan = KATEGORI_BAWAAN.find((k) => k.slug === "education")!;
+assert.equal(validasiKategori({ type: "expense", name: "Pendidikan baru", icon: pendidikan.icon, color: pendidikan.color, kelompok: "pengembangan" }).ok, true);
+// AI: kelompok baru diterima, kelompok asing jadi null.
+assert.equal(normalize({ amount: 300000, type: "expense", category: "education", kelompok: "pengembangan" }).kelompok, "pengembangan");
+assert.equal(normalize({ amount: 300000, type: "expense", category: "transport", kelompok: "liburan" }).kelompok, null);
 assert.equal(validasiKategori({ name: "kopi", icon: "coffee", color: "#ff9f43" }, keluar).ok, false); // nama kembar
 assert.equal(validasiKategori({ name: "", icon: "coffee", color: "#ff9f43" }).ok, false);
 assert.equal(validasiKategori({ name: "x".repeat(31), icon: "coffee", color: "#ff9f43" }).ok, false);
@@ -101,4 +110,36 @@ for (const [ditulis, harap] of [["SPayLater", "Shopee PayLater"], ["ShopeePay", 
   assert.equal(normalize({ amount: 1000, type: "expense", category: "food", paylater: { penyedia: ditulis, tenor: 1, per_cicilan: null, jatuh_tempo: null } }).paylater?.penyedia, harap, ditulis);
 }
 
-console.log("✓ kategori: daftar per jenis, validasi, transaksi & AI memakai kategori milik user; nominal dari baris promo ditolak; tenor paylater dari teks");
+// --- Usulan pecah struk campuran (SPEC-tawar-pecah) ---
+const u = (cat: string, subtotal: number, barang = "x") => ({ category: cat, kelompok: null, subtotal, barang });
+const jumlah = (b: { amount: number }[] | null) => b?.reduce((n, x) => n + x.amount, 0);
+// Diskon 12,5% dibagi proporsional.
+assert.deepEqual(usulanPecah([u("groceries", 80000, "Beras, sabun"), u("food", 20000, "Cokelat")], 87500, KATEGORI_BAWAAN)?.map((b) => [b.category, b.amount, b.description]), [["groceries", 70000, "Beras, sabun"], ["food", 17500, "Cokelat"]]);
+// PPN 11% ikut dibagi.
+assert.deepEqual(usulanPecah([u("groceries", 60000), u("food", 40000)], 111000, KATEGORI_BAWAAN)?.map((b) => b.amount), [66600, 44400]);
+// Sisa pembulatan ke bagian terbesar; jumlah selalu pas.
+const bulat = usulanPecah([u("groceries", 30000), u("food", 30000), u("shopping", 40000)], 99999, KATEGORI_BAWAAN);
+assert.deepEqual(bulat?.map((b) => b.amount), [29999, 29999, 40001]);
+assert.equal(jumlah(bulat), 99999);
+// Dibuang: sekategori, menyimpang > 25%, kurang dari 2, lebih dari 10, subtotal 0.
+assert.equal(usulanPecah([u("food", 50000), u("food", 50000)], 100000, KATEGORI_BAWAAN), null);
+assert.equal(usulanPecah([u("groceries", 70000), u("food", 60000)], 100000, KATEGORI_BAWAAN), null);
+assert.notEqual(usulanPecah([u("groceries", 70000), u("food", 55000)], 100000, KATEGORI_BAWAAN), null); // 25% pas masih diterima
+assert.equal(usulanPecah([u("groceries", 100000)], 100000, KATEGORI_BAWAAN), null);
+assert.equal(usulanPecah(Array.from({ length: 11 }, (_, i) => u(i % 2 ? "food" : "groceries", 1000)), 11000, KATEGORI_BAWAAN), null);
+assert.equal(usulanPecah([u("groceries", 100000), u("food", 0)], 100000, KATEGORI_BAWAAN), null);
+// Kategori asing jatuh ke Lainnya.
+assert.deepEqual(usulanPecah([u("groceries", 50000), u("rokok", 50000)], 100000, KATEGORI_BAWAAN)?.map((b) => b.category), ["groceries", "other"]);
+// Hanya dari struk: teks ketikan (tanpa dariStruk) membuang usulan.
+const struk = { amount: 87500, type: "expense" as const, category: "groceries", usulan_pecah: [u("groceries", 80000), u("food", 20000)] as never };
+assert.equal(normalize(struk).usulan_pecah, null);
+assert.equal(jumlah(normalize(struk, KATEGORI_BAWAAN, true).usulan_pecah), 87500);
+assert.equal(normalize({ ...struk, pinjaman: { arah: "beri", pihak: "Budi" } }, KATEGORI_BAWAAN, true).usulan_pecah, null);
+
+// --- Rincian ketikan (rincianAtauNull lewat normalize) ---
+const r = (amount: number, category: string) => ({ amount, category, kelompok: null, description: null });
+assert.deepEqual(normalize({ amount: 15000, type: "expense", category: "groceries", rincian: [r(10000, "groceries"), r(5000, "food")] }).rincian?.map((b) => b.amount), [10000, 5000]);
+assert.equal(normalize({ amount: 15000, type: "expense", category: "groceries", rincian: [r(10000, "groceries"), r(4000, "food")] }).rincian, null);
+assert.equal(normalize({ amount: 15000, type: "expense", category: "groceries", rincian: [r(10000, "groceries"), r(5000, "rokok")] }).rincian?.[1].category, "other");
+
+console.log("✓ kategori: daftar per jenis, validasi, transaksi & AI memakai kategori milik user; nominal dari baris promo ditolak; tenor paylater dari teks; usulan pecah struk & rincian ketikan");

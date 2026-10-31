@@ -7,7 +7,10 @@ import assert from "node:assert/strict";
 import { hitungSaldo, type Kantong } from "../src/lib/kantong.ts";
 import {
   arahPindah,
+  bacaBunga,
   bagiRata,
+  daftarUtang,
+  urutPelunasan,
   jadwalCicilan,
   rencanaPaylater,
   jatuhTempoKe,
@@ -136,4 +139,38 @@ assert.deepEqual(bagiRata(5000, 1), [5000]);
 const sudahDua = statusCicilan({ tenor: 3, jatuh_tempo_awal: "2026-11-23", nominal: 5227 }, [1, 2, 3], "2026-10-23");
 assert.ok(sudahDua.lunas);
 
-console.log("✓ pinjaman: jatuh tempo, jadwal & status cicilan, arah pindah, ringkasan Lend & Borrow, kartu Beranda, paylater → cicilan, bayar beberapa sekaligus");
+// --- Strategi pelunasan (SPEC-pelunasan)
+const kantongUtang = [
+  { id: "budi", name: "Budi", kind: "orang", saldo: -2000000, bunga_persen: null },
+  { id: "ani", name: "Ani", kind: "orang", saldo: 300000, bunga_persen: null }, // piutang, tidak ikut
+  { id: "cc", name: "Kartu BCA", kind: "kredit", saldo: -5000000, bunga_persen: "1.75" },
+  { id: "cc2", name: "Kartu lunas", kind: "kredit", saldo: 0, bunga_persen: 2 },
+];
+const rencanaUtang = [
+  { id: "hp", nama: "HP", penyedia: "Shopee PayLater", category: "shopping", nominal: 500000, tenor: 6, jatuh_tempo_awal: "2026-09-05", kantong_id: null, catatan: null, bunga_persen: 2.95 },
+  { id: "tv", nama: "TV", penyedia: null, category: "shopping", nominal: 100000, tenor: 2, jatuh_tempo_awal: "2026-08-05", kantong_id: null, catatan: null },
+];
+// HP: 2 dari 6 sudah dibayar → sisa 4 × 500 rb = 2 jt; TV sudah lunas.
+const utang = daftarUtang(kantongUtang, rencanaUtang, { hp: [1, 2], tv: [1, 2] }, "2026-10-20");
+assert.deepEqual(
+  utang.map((u) => [u.id, u.jenis, u.jumlah, u.bunga]),
+  [["cc", "kredit", 5000000, 1.75], ["budi", "orang", 2000000, null], ["hp", "cicilan", 2000000, 2.95]],
+  "piutang, kartu tanpa tagihan, dan cicilan lunas tidak ikut",
+);
+// Snowball: terkecil dulu; Budi & HP sama 2 jt → bunga lebih tinggi (HP) dulu.
+assert.deepEqual(urutPelunasan(utang, "snowball").map((u) => [u.id, u.alasan]), [["hp", "sisa terkecil"], ["budi", null], ["cc", null]]);
+// Avalanche: bunga tertinggi dulu; tanpa bunga di belakang.
+assert.deepEqual(urutPelunasan(utang, "avalanche").map((u) => [u.id, u.alasan]), [["hp", "bunga 2,95%/bln"], ["cc", "bunga 1,75%/bln"], ["budi", "bunga belum diisi"]]);
+// Avalanche: sama-sama tanpa bunga → terkecil dulu.
+assert.deepEqual(
+  urutPelunasan([{ id: "a", nama: "A", jenis: "orang", jumlah: 900, bunga: null }, { id: "b", nama: "B", jenis: "orang", jumlah: 100, bunga: null }], "avalanche").map((u) => u.id),
+  ["b", "a"],
+);
+// Isian bunga.
+assert.deepEqual(bacaBunga(""), { ok: true, nilai: null });
+assert.deepEqual(bacaBunga("1,75"), { ok: true, nilai: 1.75 });
+assert.deepEqual(bacaBunga("2.95"), { ok: true, nilai: 2.95 });
+assert.deepEqual(bacaBunga("10"), { ok: true, nilai: 10 });
+for (const salah of ["11", "1,755", "-1", "abc", "1,"]) assert.equal(bacaBunga(salah).ok, false, salah);
+
+console.log("✓ pinjaman: jatuh tempo, jadwal & status cicilan, arah pindah, ringkasan Lend & Borrow, kartu Beranda, paylater → cicilan, bayar beberapa sekaligus, strategi pelunasan Snowball/Avalanche, isian bunga");

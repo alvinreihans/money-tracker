@@ -1,4 +1,5 @@
 import type { TransactionType } from "@/types/transaction";
+import { KELOMPOK } from "@/lib/metode";
 
 /**
  * Kategori milik user (tabel `categories`). transactions.category dan
@@ -36,6 +37,7 @@ export const KATEGORI_BAWAAN: Kategori[] = [
   { type: "expense", slug: "entertainment", name: "Hiburan", icon: "clapperboard", color: "#bf7af0", sort: 6 },
   { type: "expense", slug: "bills", name: "Tagihan", icon: "receipt", color: "#4fc9e0", sort: 7 },
   { type: "expense", slug: "fees", name: "Biaya admin", icon: "coins", color: "#8fa3bf", sort: 8 },
+  { type: "expense", slug: "education", name: "Pendidikan", icon: "graduation-cap", color: "#3e91ff", sort: 9 },
   { type: "expense", slug: LAINNYA, name: "Lainnya", icon: "circle-ellipsis", color: "#9b9b9b", sort: 99 },
   { type: "income", slug: "salary", name: "Gaji", icon: "briefcase", color: "#5ecb7a", sort: 1 },
   { type: "income", slug: "bonus", name: "Bonus/THR", icon: "sparkles", color: "#5ecb7a", sort: 2 },
@@ -117,7 +119,7 @@ export function validasiKategori(input: Record<string, unknown>, lain: Kategori[
   }
   // Kelompok budgeting (SPEC-metode-budget): hanya kategori pengeluaran.
   const kelompok = input.type === "expense" ? (input.kelompok || "keinginan") : null;
-  if (kelompok !== null && !["kebutuhan", "keinginan", "tabungan", "berbagi"].includes(String(kelompok))) {
+  if (kelompok !== null && !(KELOMPOK as readonly string[]).includes(String(kelompok))) {
     return { ok: false, error: "Pilih kelompoknya dulu.", kolom: "kelompok" };
   }
   // Penghasilan (SPEC-tujuan-tabungan): hanya kategori pemasukan; bawaannya ya.

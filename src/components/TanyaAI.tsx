@@ -120,6 +120,9 @@ const TanyaContext = createContext<{
   buka: () => void;
   /** Bulan acuan halaman ini (Analitik); null = bulan berjalan. */
   aturBulan: (bulan: string | null) => void;
+  /** Buka lalu langsung kirim pertanyaan, seperti kartu saran. */
+  tanyaLangsung: (q: string) => void;
+  sibuk: boolean;
 } | null>(null);
 
 /**
@@ -167,7 +170,18 @@ export function TanyaProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <TanyaContext.Provider value={{ terbuka, buka: () => setTerbuka(true), aturBulan: setBulanHalaman }}>
+    <TanyaContext.Provider
+      value={{
+        terbuka,
+        buka: () => setTerbuka(true),
+        aturBulan: setBulanHalaman,
+        tanyaLangsung: (q) => {
+          setTerbuka(true);
+          void tanya(q);
+        },
+        sibuk,
+      }}
+    >
       {children}
       {terbuka && (
         <TanyaAI
@@ -192,6 +206,12 @@ export function useTanyaBulan(bulan: string) {
     aturBulan?.(bulan);
     return () => aturBulan?.(null);
   }, [aturBulan, bulan]);
+}
+
+/** Buka Tanya AI dan langsung kirim pertanyaan (Refleksi Kakeibo di Analitik); null di luar provider. */
+export function useTanyaLangsung() {
+  const t = useContext(TanyaContext);
+  return t && { kirim: t.tanyaLangsung, sibuk: t.sibuk };
 }
 
 /** Tombol melayang kanan bawah, seperti tombol AI di WhatsApp (Beranda, Analitik). */

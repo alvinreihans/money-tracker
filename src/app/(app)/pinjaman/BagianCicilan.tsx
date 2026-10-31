@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { Banknote, CalendarClock, CalendarDays, Check, ListChecks, NotebookPen, Package, Shapes, Store, Trash2, Wallet } from "lucide-react";
+import { Banknote, CalendarClock, CalendarDays, Check, ListChecks, NotebookPen, Package, Percent, Shapes, Store, Trash2, Wallet } from "lucide-react";
 import { useKategori } from "@/components/Catat";
 import { tandaKategori } from "@/components/kategori";
 import { Field, GalatForm, InputNominal, Konfirmasi, Lembar, Pesan, Pilih, Segmen, Spinner, useGalat } from "@/components/oneui";
@@ -11,8 +11,9 @@ import { dbErrorMessage } from "@/lib/errors";
 import { fmtIDR, fmtTanggal, fmtTanggalPendek, isianNominal, isoLokal } from "@/lib/format";
 import { emojiKantong, type Kantong } from "@/lib/kantong";
 import { kategoriJenis, LAINNYA } from "@/lib/kategori";
-import { bagiRata, jadwalCicilan, kantongUang, statusCicilan, type Angsuran, type Cicilan } from "@/lib/pinjaman";
+import { bacaBunga, bagiRata, jadwalCicilan, kantongUang, statusCicilan, type Angsuran, type Cicilan } from "@/lib/pinjaman";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { AturBunga, type SasaranBunga } from "./BagianStrategi";
 
 type KantongSaldo = Kantong & { saldo: number };
 
@@ -47,6 +48,7 @@ export default function BagianCicilan({
   const [bayar, setBayar] = useState<{ rencana: Cicilan; jumlah: number } | null>(null);
   const [jadwal, setJadwal] = useState<Cicilan | null>(null);
   const [hapus, setHapus] = useState<Cicilan | null>(null);
+  const [bunga, setBunga] = useState<SasaranBunga | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Pembayar: kantong uang dan kartu kredit (untuk cicilan kartu).
@@ -102,6 +104,8 @@ export default function BagianCicilan({
         </>
       )}
 
+      {bunga && <AturBunga sasaran={bunga} onClose={() => setBunga(null)} />}
+
       {aksi && (
         <Lembar judul={aksi.nama} daftar onClose={() => setAksi(null)}>
           {(() => {
@@ -115,6 +119,10 @@ export default function BagianCicilan({
                 ? [{ label: `Lunasi ${st.sisa} cicilan sisa · ${fmtIDR(st.sisaNominal)}`, ikon: Check, jalan: () => setBayar({ rencana: aksi, jumlah: st.sisa }) }]
                 : []),
               { label: "Lihat jadwal", ikon: ListChecks, jalan: () => setJadwal(aksi) },
+              // SPEC-pelunasan: juga untuk rencana dari belanja paylater.
+              ...(!st.lunas
+                ? [{ label: "Atur bunga", ikon: Percent, jalan: () => setBunga({ tabel: "cicilan", id: aksi.id, nama: aksi.nama, bunga: aksi.bunga_persen == null ? null : Number(aksi.bunga_persen) }) }]
+                : []),
               { label: "Hapus rencana", ikon: Trash2, jalan: () => setHapus(aksi) },
             ];
             return pilihan.map(({ label, ikon: Ikon, jalan }) => (
@@ -323,6 +331,7 @@ function FormRencana({ userId, pembayar, onClose }: { userId: string; pembayar: 
     jatuh_tempo_awal: isoLokal(new Date()),
     kantong_id: pembayar.find((k) => k.bawaan)?.id ?? "",
     catatan: "",
+    bunga: "",
   });
   const [loading, setLoading] = useState(false);
   const { galat, gagal, bersihkan } = useGalat(isian);
@@ -337,6 +346,8 @@ function FormRencana({ userId, pembayar, onClose }: { userId: string; pembayar: 
     if (!nama) return gagal("Nama barangnya diisi dulu.", "nama");
     if (!(Number(isian.nominal) > 0)) return gagal("Nominal per bulannya harus lebih dari nol.", "nominal");
     if (!(Number.isInteger(tenor) && tenor >= 1 && tenor <= 120)) return gagal("Tenornya 1–120 bulan.", "tenor");
+    const b = bacaBunga(isian.bunga);
+    if (!b.ok) return gagal(b.error, "bunga");
     setLoading(true);
     const { error: err } = await createSupabaseBrowserClient()
       .from("cicilan")
@@ -350,6 +361,7 @@ function FormRencana({ userId, pembayar, onClose }: { userId: string; pembayar: 
         jatuh_tempo_awal: isian.jatuh_tempo_awal,
         kantong_id: isian.kantong_id || null,
         catatan: isian.catatan.trim() || null,
+        bunga_persen: b.nilai,
       });
     setLoading(false);
     if (err) return gagal(dbErrorMessage(err));
@@ -404,6 +416,9 @@ function FormRencana({ userId, pembayar, onClose }: { userId: string; pembayar: 
                 onChange={(e) => ubah({ tenor: e.target.value.replace(/\D/g, "").slice(0, 3) })}
                 placeholder="Tenor (bulan)"
               />
+            </Field>
+            <Field label="Bunga per bulan (%)" ikon={Percent} kolom="bunga" keterangan="Opsional, untuk urutan Avalanche. Kosongkan kalau sudah termasuk di nominal.">
+              <input inputMode="decimal" value={isian.bunga} onChange={(e) => ubah({ bunga: e.target.value.replace(/[^\d.,]/g, "").slice(0, 5) })} placeholder="Bunga per bulan (%)" />
             </Field>
             <Field label="Jatuh tempo pertama" ikon={CalendarClock} keterangan="Bulan berikutnya di tanggal yang sama.">
               <input type="date" required value={isian.jatuh_tempo_awal} onChange={(e) => ubah({ jatuh_tempo_awal: e.target.value })} />

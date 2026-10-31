@@ -8,10 +8,10 @@ import KartuMetode from "@/components/KartuMetode";
 import KomposisiKategori from "@/components/KomposisiKategori";
 import { AppBar } from "@/components/oneui";
 import RingkasanBulan from "@/components/RingkasanBulan";
-import { TombolTanya, useTanyaBulan } from "@/components/TanyaAI";
+import { TombolTanya, useTanyaBulan, useTanyaLangsung } from "@/components/TanyaAI";
 import TrenBulanan from "@/components/TrenBulanan";
 import s from "@/components/ui.module.css";
-import { fmtIDR, fmtIDRRingkas, geserHari, namaBulan } from "@/lib/format";
+import { fmtIDR, fmtIDRRingkas, geserHari, isoLokal, namaBulan } from "@/lib/format";
 import { geserBulan } from "@/lib/kalender";
 import { namaKategori } from "@/lib/kategori";
 import { alamatRiwayat, FILTER_KOSONG, type FilterRiwayat } from "@/lib/riwayat";
@@ -56,23 +56,30 @@ export default function AnalitikView({
   bulan,
   bulanIni,
   analisis: a,
+  dariTujuan,
   tren,
   budget,
   totalBudget,
   metode,
+  idTujuan,
 }: {
   /** "YYYY-MM" terpilih */
   bulan: string;
   /** "YYYY-MM" berjalan */
   bulanIni: string;
   analisis: AnalisisBulan;
+  /** Pembelian dari tujuan tabungan bulan itu, per tujuan; tidak ikut di `analisis`. */
+  dariTujuan: { id: string; nama: string; total: number }[];
   tren: Bulan[];
   budget: ProgresBudget[];
   totalBudget: number;
   metode: HasilMetode | null;
+  /** Kantong tujuan tabungan: tautan wadah setoran ke Riwayat (SPEC-metode-lanjutan). */
+  idTujuan: string[];
 }) {
   const kategori = useKategori();
   useTanyaBulan(bulan);
+  const tanyaLangsung = useTanyaLangsung();
   const awal = `${bulan}-01`;
   const akhir = geserHari(`${geserBulan(bulan, 1)}-01`, -1);
   const label = `${Besar(namaBulan(awal))} ${bulan.slice(0, 4)}`;
@@ -161,6 +168,15 @@ export default function AnalitikView({
           bulanLalu={bulanLalu}
           hrefKeluar={keRiwayat({ jenis: "keluar" })}
           hrefMasuk={keRiwayat({ jenis: "masuk" })}
+          dariTujuan={
+            dariTujuan.length > 0
+              ? {
+                  total: dariTujuan.reduce((n, t) => n + t.total, 0),
+                  nama: dariTujuan.map((t) => t.nama).join(", "),
+                  href: keRiwayat({ jenis: "keluar", kantong: dariTujuan.map((t) => t.id) }),
+                }
+              : null
+          }
         />
 
         {sorotan.length > 0 && (
@@ -198,14 +214,33 @@ export default function AnalitikView({
         )}
 
         <TrenBulanan data={tren} />
-        {metode ? (
+        {metode && metode.metode !== "zero-based" ? (
           <KartuMetode
             hasil={metode}
-            // Tabungan dihitung dari sisa, tidak ada daftar transaksinya.
-            href={(w) => (w.tabungan ? null : keRiwayat({ jenis: "keluar", kelompok: w.kelompok }))}
+            // Setoran ke tujuan → pindah kantong tujuan; sisa & setoran + emas tidak punya satu daftar.
+            href={(w) =>
+              w.sumber === "setoran-tujuan"
+                ? keRiwayat({ jenis: "pindah", kantong: idTujuan })
+                : w.sumber === "sisa" || w.sumber === "setoran-total"
+                  ? null
+                  : keRiwayat({ jenis: "keluar", kelompok: w.kelompok })
+            }
           />
         ) : (
           <KartuBudget data={budget} bulan={namaBulan(awal)} />
+        )}
+        {/* Zero-Based: target per kategori di atas, tabungan & sisa yang belum diberi tugas di sini. */}
+        {metode?.metode === "zero-based" && <KartuMetode hasil={metode} />}
+        {/* Kakeibo: refleksi akhir bulan lewat Tanya AI, mulai tanggal 25 atau untuk bulan yang sudah lewat. */}
+        {metode?.metode === "kakeibo" && tanyaLangsung && (bulan < bulanIni || Number(isoLokal(new Date()).slice(8)) >= 25) && (
+          <button
+            type="button"
+            className={`${s.tombol} ${s.tombolSekunder}`}
+            disabled={tanyaLangsung.sibuk}
+            onClick={() => tanyaLangsung.kirim(`Refleksi Kakeibo ${label}`)}
+          >
+            Refleksi {label}
+          </button>
         )}
       </div>
       {/* Tanya AI (SPEC-cerita-tanya): obrolannya di kerangka aplikasi, memakai bulan yang dipilih di sini. */}

@@ -43,6 +43,8 @@ export interface Kantong {
   emoji?: string | null;
   /** Hanya kantong orang: jatuh tempo pinjaman (opsional). */
   jatuh_tempo?: string | null;
+  /** Hanya orang & kartu kredit: bunga per bulan (%), untuk urutan Avalanche (SPEC-pelunasan). */
+  bunga_persen?: number | string | null;
   /** Hanya kantong tujuan tabungan (SPEC-tujuan-tabungan). */
   target?: number | string | null;
   tenggat?: string | null;

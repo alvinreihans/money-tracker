@@ -74,6 +74,8 @@ export interface TransactionRow {
   bukti_transfer: ExtractedReceipt["bukti_transfer"];
   kelompok: ExtractedReceipt["kelompok"];
   rincian: ExtractedReceipt["rincian"];
+  /** Struk campuran: disimpan sebagai tawaran pecah (SPEC-tawar-pecah). */
+  usulan_pecah: ExtractedReceipt["usulan_pecah"];
   transaction_date: string;
   /** Bukan kolom: jam & petunjuknya dari AI, diolah simpanTransaksi jadi `waktu`. */
   jam: string | null;
@@ -111,6 +113,7 @@ function emptyDraft(): ExtractedReceipt {
     bukti_transfer: null,
     kelompok: null,
     rincian: null,
+    usulan_pecah: null,
   };
 }
 
@@ -247,6 +250,7 @@ export function toTransactionRow(
     bukti_transfer: e.bukti_transfer,
     kelompok: e.kelompok,
     rincian: e.rincian,
+    usulan_pecah: e.usulan_pecah,
     transaction_date: e.transaction_date,
     jam: e.time,
     petunjuk_jam: e.time_hint,

@@ -198,6 +198,8 @@ for (const file of files) {
 
   console.log(`\n  ${c.bold("Hasil")}  ${label}`);
   console.log(`  ${ringkas(result.extracted)}`);
+  // Usulan pecah struk campuran (SPEC-tawar-pecah).
+  for (const b of result.extracted?.usulan_pecah ?? []) console.log(c.dim(`    pecah: ${b.category} Rp ${b.amount.toLocaleString("id-ID")} · ${b.description ?? "-"}`));
 
   if (result.status === "confirmed" && result.source === "groq") lolos++;
   else if (result.status === "confirmed") viaVision++;

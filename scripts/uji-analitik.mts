@@ -4,7 +4,7 @@
  * Pemakaian: npm run uji:analitik
  */
 import assert from "node:assert/strict";
-import { analisisBulan, hitungStreak, progresBudget, trenBulanan } from "../src/lib/analitik.ts";
+import { analisisBulan, hitungStreak, pisahTujuan, progresBudget, trenBulanan } from "../src/lib/analitik.ts";
 
 // 22 Okt 2026, 10.00 WIB.
 const sekarang = new Date("2026-10-22T03:00:00Z");
@@ -111,4 +111,18 @@ assert.deepEqual(baru.kategoriNaik, { kategori: "shopping", selisih: 245000, per
 const kosong = analisisBulan([], sep, { bulan: "2026-10", hariIni: "2026-10-22" });
 assert.deepEqual([kosong.keluar, kosong.proyeksi, kosong.hariBoros, kosong.kategori, kosong.kategoriNaik, kosong.merchant], [0, null, null, [], null, []]);
 
-console.log("✓ analitik: tren bulanan, streak, budget, analisis per bulan (sorotan, kategori, merchant, proyeksi)");
+// --- Pembelian dari tujuan tabungan dipisah (SPEC-analitik-tujuan) ---
+const tujuan = [{ id: "hp", nama: "Tabungan HP" }, { id: "liburan", nama: "Liburan" }];
+const campur = [
+  { amount: "10000000", type: "expense", kantong_id: "hp", transaction_date: "2026-10-18" },
+  { amount: 500000, type: "expense", kantong_id: "hp", transaction_date: "2026-10-19" },
+  { amount: 25000, type: "expense", kantong_id: "bca", transaction_date: "2026-10-18" },
+  { amount: 8000000, type: "income", kantong_id: "hp", transaction_date: "2026-10-01" }, // bukan pengeluaran: tetap
+  { amount: 30000, type: "expense", kantong_id: null, transaction_date: "2026-10-02" },
+];
+const pisah = pisahTujuan(campur, tujuan);
+assert.deepEqual(pisah.biasa.map((r) => Number(r.amount)), [25000, 8000000, 30000]);
+assert.deepEqual(pisah.dariTujuan, [{ id: "hp", nama: "Tabungan HP", total: 10500000 }]);
+assert.deepEqual(pisahTujuan(campur, []).biasa.length, 5);
+
+console.log("✓ analitik: tren bulanan, streak, budget, analisis per bulan (sorotan, kategori, merchant, proyeksi), pisah tujuan tabungan");

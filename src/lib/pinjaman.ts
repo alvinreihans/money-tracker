@@ -35,6 +35,8 @@ export interface Cicilan {
   jatuh_tempo_awal: string;
   kantong_id: string | null;
   catatan: string | null;
+  /** Bunga per bulan (%), opsional: urutan Avalanche (SPEC-pelunasan). */
+  bunga_persen?: number | string | null;
 }
 
 const dua = (n: number) => String(n).padStart(2, "0");
@@ -247,4 +249,77 @@ export function rencanaPaylater(
 export function bagiRata(total: number, jumlah: number): number[] {
   const per = Math.floor(total / jumlah);
   return Array.from({ length: jumlah }, (_, i) => (i === jumlah - 1 ? total - per * (jumlah - 1) : per));
+}
+
+// ---------------------------------------------------------------------------
+// Strategi pelunasan (SPEC-pelunasan): Snowball / Avalanche
+// ---------------------------------------------------------------------------
+
+export type StrategiUtang = "snowball" | "avalanche";
+
+export interface Utang {
+  /** id kantong (orang/kartu) atau id rencana cicilan. */
+  id: string;
+  nama: string;
+  jenis: "orang" | "kredit" | "cicilan";
+  /** Yang masih harus dibayar. */
+  jumlah: number;
+  /** Bunga per bulan (%); null = belum diisi. */
+  bunga: number | null;
+}
+
+const angkaAtauNull = (n: unknown) => (n === null || n === undefined || n === "" ? null : Number(n));
+
+/**
+ * Semua yang masih harus dibayar: orang bersaldo negatif, kartu kredit
+ * bertagihan, dan sisa cicilan yang belum lunas. Piutang tidak ikut.
+ */
+export function daftarUtang(
+  kantong: { id: string; name: string; kind: string; saldo: number; bunga_persen?: number | string | null }[],
+  cicilan: Cicilan[],
+  dibayar: Record<string, number[]>,
+  hariIni: string,
+): Utang[] {
+  const dariKantong = ringkasanPinjaman(kantong).borrow.map(({ kantong: k, jumlah }) => ({
+    id: k.id,
+    nama: k.name,
+    jenis: k.kind === "kredit" ? ("kredit" as const) : ("orang" as const),
+    jumlah,
+    bunga: angkaAtauNull(k.bunga_persen),
+  }));
+  const dariCicilan = cicilan.flatMap((c) => {
+    const st = statusCicilan(c, dibayar[c.id] ?? [], hariIni);
+    return st.lunas ? [] : [{ id: c.id, nama: c.nama, jenis: "cicilan" as const, jumlah: st.sisaNominal, bunga: angkaAtauNull(c.bunga_persen) }];
+  });
+  return [...dariKantong, ...dariCicilan];
+}
+
+/**
+ * Urutan pelunasan. Snowball: saldo terkecil dulu (cepat ada yang lunas),
+ * seri → bunga tertinggi. Avalanche: bunga tertinggi dulu (paling hemat
+ * bunga), seri atau sama-sama tanpa bunga → saldo terkecil; bunga yang belum
+ * diisi dihitung 0%.
+ */
+export function urutPelunasan(utang: Utang[], strategi: StrategiUtang): (Utang & { alasan: string | null })[] {
+  const b = (u: Utang) => u.bunga ?? 0;
+  const urut = [...utang].sort((x, y) => (strategi === "snowball" ? x.jumlah - y.jumlah || b(y) - b(x) : b(y) - b(x) || x.jumlah - y.jumlah));
+  return urut.map((u, i) => ({
+    ...u,
+    alasan:
+      strategi === "avalanche"
+        ? u.bunga == null
+          ? "bunga belum diisi"
+          : `bunga ${u.bunga.toLocaleString("id-ID")}%/bln`
+        : i === 0
+          ? "sisa terkecil"
+          : null,
+  }));
+}
+
+/** Isian "Bunga per bulan (%)": kosong = tanpa bunga; 0–10, dua desimal, koma boleh. */
+export function bacaBunga(teks: string): { ok: true; nilai: number | null } | { ok: false; error: string } {
+  const t = teks.trim().replace(",", ".");
+  if (!t) return { ok: true, nilai: null };
+  if (!/^\d{1,2}(\.\d{1,2})?$/.test(t) || Number(t) > 10) return { ok: false, error: "Bunga per bulan 0–10%, mis. 1,75." };
+  return { ok: true, nilai: Number(t) };
 }

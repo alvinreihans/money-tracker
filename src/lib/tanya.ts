@@ -2,6 +2,7 @@ import { SchemaType, type FunctionDeclaration } from "@google/generative-ai";
 import { geserHari } from "@/lib/format";
 import { geserBulan } from "@/lib/kalender";
 import { cocokkanKantong, type Kantong } from "@/lib/kantong";
+import { KELOMPOK } from "@/lib/metode";
 import { alamatRiwayat, bacaFilter, type FilterRiwayat } from "@/lib/riwayat";
 
 /**
@@ -77,7 +78,7 @@ export const DEKLARASI_FUNGSI: FunctionDeclaration[] = [
         kelompok: {
           type: SchemaType.STRING,
           format: "enum",
-          enum: ["kebutuhan", "keinginan", "tabungan", "berbagi"],
+          enum: [...KELOMPOK],
           description: "Hanya untuk kategori pengeluaran yang belum ada: kelompok budgeting-nya (laundry → kebutuhan)",
         },
       },
@@ -86,7 +87,7 @@ export const DEKLARASI_FUNGSI: FunctionDeclaration[] = [
   },
   {
     name: "pinjaman_cicilan",
-    description: "Siapa berutang ke pengguna, pengguna berutang ke siapa, tagihan kartu kredit, dan cicilan yang berjalan beserta jatuh tempo berikutnya.",
+    description: "Siapa berutang ke pengguna, pengguna berutang ke siapa, tagihan kartu kredit, cicilan yang berjalan beserta jatuh tempo berikutnya, bunganya, dan strategi pelunasan (Snowball/Avalanche): utang mana yang dilunasi dulu.",
   },
 ];
 

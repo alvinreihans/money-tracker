@@ -479,6 +479,8 @@ button.blok { background: var(--blok); }
 }
 
 .budgetBawah { color: var(--teks-2); font-size: 14px; }
+/* Nama wadah panjang ("Kebebasan finansial 10%") turun baris, tidak terpotong. */
+.budgetAtas .barisJudul { white-space: normal; }
 
 .titik {
   width: 10px;

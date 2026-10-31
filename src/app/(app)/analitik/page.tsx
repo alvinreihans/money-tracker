@@ -1,6 +1,6 @@
 import { ambilPengaturanMetode, hitungMetode } from "@/lib/metode";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { analisisBulan, progresBudget, trenBulanan, type BarisAnalitik } from "@/lib/analitik";
+import { analisisBulan, pisahTujuan, progresBudget, trenBulanan, type BarisAnalitik } from "@/lib/analitik";
 import { geserHari, isoLokal } from "@/lib/format";
 import { geserBulan } from "@/lib/kalender";
 import AnalitikView from "./AnalitikView";
@@ -48,20 +48,26 @@ export default async function AnalitikPage({ searchParams }: { searchParams: Pro
   ]);
 
   const lalu = geserBulan(bulan, -1);
-  const barisIni = baris.filter((r) => r.transaction_date.startsWith(bulan));
-  const barisLalu = baris.filter((r) => r.transaction_date.startsWith(lalu));
+  const semuaIni = baris.filter((r) => r.transaction_date.startsWith(bulan));
+  // Pembelian dari tujuan tabungan di luar semua angka bulanan (SPEC-analitik-tujuan).
+  const { biasa } = pisahTujuan(baris, pengaturan.tujuan);
+  const barisIni = biasa.filter((r) => r.transaction_date.startsWith(bulan));
+  const barisLalu = biasa.filter((r) => r.transaction_date.startsWith(lalu));
 
   return (
     <AnalitikView
       bulan={bulan}
       bulanIni={bulanIni}
       analisis={analisisBulan(barisIni, barisLalu, { bulan, hariIni })}
+      dariTujuan={pisahTujuan(semuaIni, pengaturan.tujuan).dariTujuan}
       // Tanggal di tengah bulan pilihan: trenBulanan berakhir di bulan itu.
-      tren={trenBulanan(baris, new Date(`${bulan}-15T12:00:00+07:00`), BULAN_TREN)}
+      tren={trenBulanan(biasa, new Date(`${bulan}-15T12:00:00+07:00`), BULAN_TREN)}
       budget={progresBudget(budgets ?? [], barisIni)}
       totalBudget={(budgets ?? []).reduce((n, b) => n + Number(b.amount), 0)}
-      // Metode budgeting (SPEC-metode-budget): null = budget per kategori.
-      metode={hitungMetode(pengaturan, barisIni)}
+      // Metode budgeting (SPEC-metode-budget): null = budget per kategori. Ia
+      // memisahkan pembelian dari tujuan sendiri, jadi menerima semua baris.
+      metode={hitungMetode(pengaturan, semuaIni)}
+      idTujuan={pengaturan.tujuan.map((k) => k.id)}
     />
   );
 }
