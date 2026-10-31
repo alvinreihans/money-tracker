@@ -26,6 +26,9 @@ next-env.d.ts
 # output diagnostik struk
 /.receipt-test/
 
+# tangkapan layar uji E2E
+/e2e/hasil/
+
 # Data pribadi — JANGAN pernah di-commit.
 # Berisi rekening koran (nama, alamat, no. rekening, saldo) dan bukti bayar.
 /archive/
