@@ -85,7 +85,8 @@ Skema:
   "document_type": "receipt" | "payment_proof",
   "bukti_transfer": { "pengirim": { "nama": string | null, "bank": string | null }, "penerima": { "nama": string | null, "bank": string | null } } | null,
   "kelompok": "kebutuhan" | "keinginan" | "tabungan" | "berbagi" | null,
-  "rincian": [{ "amount": number, "category": string, "kelompok": "kebutuhan" | "keinginan" | "tabungan" | "berbagi" | null, "description": string | null }] | null
+  "rincian": [{ "amount": number, "category": string, "kelompok": "kebutuhan" | "keinginan" | "tabungan" | "berbagi" | null, "description": string | null }] | null,
+  "usulan_pecah": [{ "category": string, "kelompok": "kebutuhan" | "keinginan" | "tabungan" | "berbagi" | null, "subtotal": number, "barang": string }] | null
 }
 
 Aturan:
@@ -151,6 +152,13 @@ Aturan:
   null, description "sabun"}, {amount 5000, category "food", kelompok
   "keinginan", description "kopi"}]. Jumlah semua amount rincian HARUS sama
   dengan amount. Jangan diisi dari struk/daftar barang di gambar; selain itu null.
+- usulan_pecah: HANYA untuk struk belanja (gambar atau teks OCR) yang daftar barangnya
+  terbaca dan barangnya masuk ke DUA kategori atau lebih (mis. beras & sabun = groceries,
+  cokelat & minuman ringan = food). Satu objek per kategori: category = slug kategorinya,
+  kelompok seperti aturan kelompok di bawah (null bila biasa), subtotal = jumlah harga
+  barang-barang itu SEBELUM diskon/PPN/biaya layanan (aplikasi yang membagi potongannya),
+  barang = nama barangnya singkat ("Beras 5 kg, sabun"). Semua barang satu kategori,
+  daftar barang tidak terbaca, bukti bayar e-wallet, atau teks ketikan: null.
 - category: isi dengan SLUG (kiri) dari daftar milik user di bawah, sesuai type.
   Pilih berdasarkan arti NAMA kategorinya (kanan); kalau ada yang lebih spesifik
   dan cocok, pilih yang itu. Kalau tidak ada yang cocok: "other".
@@ -288,8 +296,41 @@ function rincianAtauNull(r: unknown, amount: number, kategori: Kategori[]): Extr
   return bagian.reduce((n, b) => n + b.amount, 0) === amount ? bagian : null;
 }
 
-/** Rapikan hasil mentah model menjadi ExtractedReceipt yang konsisten. */
-export function normalize(parsed: Partial<ExtractedReceipt>, kategori: Kategori[] = KATEGORI_BAWAAN): ExtractedReceipt {
+/**
+ * Usulan pecah struk campuran (SPEC-tawar-pecah): subtotal per kategori dari
+ * AI (sebelum diskon/pajak) diskalakan ke amount yang benar-benar dibayar,
+ * sisa pembulatan ke bagian terbesar — jumlahnya selalu pas. Dibuang bila
+ * kurang dari 2 atau lebih dari 10 bagian, semua sekategori, ada subtotal ≤ 0,
+ * atau Σ subtotal menyimpang > 25% dari amount (tanda salah baca).
+ */
+export function usulanPecah(u: unknown, amount: number, kategori: Kategori[]): ExtractedReceipt["usulan_pecah"] {
+  if (!Array.isArray(u) || u.length < 2 || u.length > 10 || !(amount > 0)) return null;
+  const keluar = kategoriJenis(kategori, "expense");
+  const mentah = u.map((b) => {
+    const o = (b ?? {}) as Record<string, unknown>;
+    const slug = typeof o.category === "string" ? o.category.trim() : "";
+    return {
+      subtotal: Number(o.subtotal) || 0,
+      category: keluar.some((k) => k.slug === slug) ? slug : LAINNYA,
+      kelompok: kelompokAtauNull(o.kelompok),
+      description: typeof o.barang === "string" && o.barang.trim() ? o.barang.trim().slice(0, 200) : null,
+    };
+  });
+  const total = mentah.reduce((n, b) => n + b.subtotal, 0);
+  if (mentah.some((b) => !(b.subtotal > 0)) || new Set(mentah.map((b) => b.category)).size < 2) return null;
+  if (Math.abs(total - amount) > amount * 0.25) return null;
+  const bagian = mentah.map(({ subtotal, ...b }) => ({ ...b, amount: Math.floor((amount * subtotal) / total) }));
+  const terbesar = bagian.reduce((i, b, j) => (b.amount > bagian[i].amount ? j : i), 0);
+  bagian[terbesar].amount += amount - bagian.reduce((n, b) => n + b.amount, 0);
+  return bagian.every((b) => b.amount > 0) ? bagian.map(({ amount, category, kelompok, description }) => ({ amount, category, kelompok, description })) : null;
+}
+
+/**
+ * Rapikan hasil mentah model menjadi ExtractedReceipt yang konsisten.
+ * `dariStruk`: hanya jalur struk (Gemini Vision, OCR → Groq) yang boleh
+ * membawa usulan pecah; teks ketikan memakai rincian.
+ */
+export function normalize(parsed: Partial<ExtractedReceipt>, kategori: Kategori[] = KATEGORI_BAWAAN, dariStruk = false): ExtractedReceipt {
   const p = parsed.pinjaman as { arah?: unknown; pihak?: unknown } | null | undefined;
   const pinjaman =
     p && typeof p.pihak === "string" && p.pihak.trim() && ["beri", "terima_bayar", "pinjam", "bayar"].includes(p.arah as string)
@@ -324,6 +365,7 @@ export function normalize(parsed: Partial<ExtractedReceipt>, kategori: Kategori[
     bukti_transfer: pinjaman ? null : buktiAtauNull(parsed.bukti_transfer),
     kelompok: type === "expense" ? kelompokAtauNull(parsed.kelompok) : null,
     rincian: type === "expense" && !pinjaman ? rincianAtauNull(parsed.rincian, Number(parsed.amount) || 0, kategori) : null,
+    usulan_pecah: dariStruk && type === "expense" && !pinjaman ? usulanPecah(parsed.usulan_pecah, Number(parsed.amount) || 0, kategori) : null,
     transaction_date:
       typeof parsed.transaction_date === "string" && parsed.transaction_date
         ? parsed.transaction_date
@@ -426,7 +468,7 @@ export async function extractWithGroq(
     buildSystemPrompt(toISODate(new Date()), konteks),
     diketik ? `Teks berikut diketik langsung oleh pengguna:\n---\n${text}` : `${OCR_CONTEXT}\n\n---\n${text}`,
   );
-  return { extracted: normalize(value, konteks.kategori), model };
+  return { extracted: normalize(value, konteks.kategori, !diketik), model };
 }
 
 // ---------------------------------------------------------------------------
@@ -478,6 +520,20 @@ const geminiSchema: GenerationConfig["responseSchema"] = {
       required: ["pengirim", "penerima"],
     },
     kelompok: { type: SchemaType.STRING, format: "enum", enum: ["kebutuhan", "keinginan", "tabungan", "berbagi"], nullable: true },
+    usulan_pecah: {
+      type: SchemaType.ARRAY,
+      nullable: true,
+      items: {
+        type: SchemaType.OBJECT,
+        properties: {
+          category: { type: SchemaType.STRING },
+          kelompok: { type: SchemaType.STRING, format: "enum", enum: ["kebutuhan", "keinginan", "tabungan", "berbagi"], nullable: true },
+          subtotal: { type: SchemaType.NUMBER },
+          barang: { type: SchemaType.STRING },
+        },
+        required: ["category", "subtotal", "barang"],
+      },
+    },
   },
   // bukti_transfer wajib ada (boleh null): kalau opsional, model sering
   // melewatkannya dan bukti kiriman orang lain jadi tercatat pengeluaran.
@@ -523,7 +579,7 @@ export async function extractWithGeminiVision(
             : "Ekstrak data dari struk ini.",
         },
       ]);
-      return normalize(parseJsonLoose(result.response.text()), konteks.kategori);
+      return normalize(parseJsonLoose(result.response.text()), konteks.kategori, true);
     } catch (err) {
       lastError = err;
       if (!isRetryableGeminiError(err)) throw err;

@@ -8,7 +8,7 @@ import EditTransactionForm from "@/components/EditTransactionForm";
 import { tandaTransaksi } from "@/components/kategori";
 import { LAYAR_LEBAR } from "@/components/navigasi";
 import { AppBar, Pesan } from "@/components/oneui";
-import PecahTransaksi from "@/components/PecahTransaksi";
+import PecahTransaksi, { bacaUsulan } from "@/components/PecahTransaksi";
 import BayarDariTujuan from "@/components/BayarDariTujuan";
 import s from "@/components/ui.module.css";
 import { bacaBukti, rapikanNama } from "@/lib/arah";
@@ -58,6 +58,7 @@ export default function DetailView({
   // Dipecah: tampil sebagai satu transaksi dengan total semua bagiannya.
   const terpecah = bagian.length > 0;
   const total = Number(t.amount) + bagian.reduce((n, b) => n + Number(b.amount), 0);
+  const usulan = bacaUsulan(t);
   const namaKelompok = (x: Transaction) => NAMA_KELOMPOK[(x.kelompok_efektif as Kelompok) ?? "keinginan"];
 
   // Baris kosong dilewati: label tanpa isi cuma bikin rincian terlihat bolong.
@@ -109,6 +110,9 @@ export default function DetailView({
                 : "Struk atau teksnya nggak berhasil dibaca, jadi nominalnya belum benar dan belum ikut dihitung di laporan."}
           </Pesan>
         )}
+
+        {/* Struk campuran: tawaran pecah di atas supaya terlihat (SPEC-tawar-pecah). */}
+        {!draft && !terpecah && t.type === "expense" && usulan && <PecahTransaksi tx={t} bagian={bagian} usulan={usulan} />}
 
         <dl className={s.blok} style={{ margin: 0 }}>
           {rincian.map(([k, v]) => (

@@ -19,6 +19,7 @@ import {
 import CameraCapture from "@/components/CameraCapture";
 import { tandaTransaksi } from "@/components/kategori";
 import { Spinner } from "@/components/oneui";
+import PecahTransaksi, { bacaUsulan, ringkasUsulan } from "@/components/PecahTransaksi";
 import s from "@/components/ui.module.css";
 import { useCatat } from "@/components/Catat";
 import { useTawaranSerupa } from "@/components/TawaranSerupa";
@@ -142,6 +143,8 @@ export default function LembarCatat({
   const pathname = usePathname();
   const { kantong, kategori } = useCatat();
   const serupa = useTawaranSerupa();
+  // Struk campuran yang sedang dipecah dari kartu hasilnya (SPEC-tawar-pecah).
+  const [pecah, setPecah] = useState<Transaction | null>(null);
   // Saldo kantong berlaku sejak jam berapa: menentukan perlu tanya jam atau tidak.
   const saldoDari = useCallback(
     (id: string) => {
@@ -673,6 +676,7 @@ export default function LembarCatat({
     const { ikon: Ikon, warna } = tandaTransaksi(tx, kategori);
     const nama = namaKategori(kategori, tx.category, tx.type);
     const tanda = tx.type === "expense" ? "−" : tx.type === "income" ? "+" : "";
+    const usulan = !batal && !perbaikan ? bacaUsulan(tx) : null;
     return (
       <div key={key} className={`${s.kartuHasil} ${batal ? s.kartuBatal : ""}`}>
         <div className={s.tersimpan}>{batal ? "Dibatalkan" : <><Check size={14} /> Tersimpan</>}</div>
@@ -692,6 +696,7 @@ export default function LembarCatat({
             {fmtIDR(Number(tx.amount))}
           </span>
         </div>
+        {usulan && <p className={s.redup} style={{ margin: "8px 0 0" }}>Isinya campur: {ringkasUsulan(usulan, kategori)}</p>}
         {!batal && (
           <div className={s.aksiKartu}>
             {perbaikan ? (
@@ -702,6 +707,7 @@ export default function LembarCatat({
             ) : (
               <>
                 <button type="button" className={s.flat} onClick={() => void batalkan(tx)}>Batalkan</button>
+                {usulan && <button type="button" className={s.flat} onClick={() => setPecah(tx)}>Pecah</button>}
                 <button type="button" className={s.flat} onClick={() => keDetail(tx)}>Ubah</button>
                 {/* Cerita di baliknya, untuk Tanya AI nanti — tidak memaksa. */}
                 {!tx.description && (
@@ -1119,6 +1125,19 @@ export default function LembarCatat({
             lampirkan(file);
           }}
           onClose={() => setKamera(false)}
+        />
+      )}
+      {pecah && (
+        <PecahTransaksi
+          tx={pecah}
+          bagian={[]}
+          usulan={bacaUsulan(pecah)}
+          hanyaLembar
+          onSelesai={(disimpan) => {
+            // Sudah dipecah: tawarannya hilang dari kartu (usulan dikosongkan di database).
+            if (disimpan) setPesan((prev) => prev.map((p) => (p.t === "kartu" && p.tx.id === pecah.id ? { ...p, tx: { ...p.tx, usulan_pecah: null } } : p)));
+            setPecah(null);
+          }}
         />
       )}
       {serupa.elemen}

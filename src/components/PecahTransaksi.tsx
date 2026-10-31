@@ -9,10 +9,10 @@ import { Field, InputNominal, Konfirmasi, Lembar, Pesan, Pilih, Spinner } from "
 import s from "@/components/ui.module.css";
 import { dbErrorMessage } from "@/lib/errors";
 import { fmtIDR, isianNominal } from "@/lib/format";
-import { kategoriJenis } from "@/lib/kategori";
+import { kategoriJenis, LAINNYA, namaKategori } from "@/lib/kategori";
 import { KELOMPOK, NAMA_KELOMPOK, type Kelompok } from "@/lib/metode";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import type { Transaction } from "@/types/transaction";
+import type { BagianPecah, Transaction } from "@/types/transaction";
 
 interface Bagian {
   /** Baris yang sudah ada (asli atau bagian); kosong = bagian baru. */
@@ -32,6 +32,22 @@ const dariTx = (t: Transaction): Bagian => ({
   description: t.description ?? "",
 });
 
+/** Usulan pecah struk campuran yang tersimpan (SPEC-tawar-pecah); null bila tidak ada/rusak. */
+export function bacaUsulan(t: Pick<Transaction, "usulan_pecah">): BagianPecah[] | null {
+  if (!t.usulan_pecah) return null;
+  try {
+    const v = JSON.parse(t.usulan_pecah);
+    return Array.isArray(v) && v.length > 1 ? (v as BagianPecah[]) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** "Belanja harian Rp 74.000 · Makan Rp 13.500" */
+export function ringkasUsulan(usulan: BagianPecah[], kategori: Parameters<typeof namaKategori>[0]): string {
+  return usulan.map((b) => `${namaKategori(kategori, b.category, "expense")} ${fmtIDR(b.amount)}`).join(" · ");
+}
+
 /**
  * Pecah transaksi (SPEC-metode-budget): belanja campuran (minimarket Rp 15 rb
  * = sabun Rp 10 rb kebutuhan + kopi Rp 5 rb keinginan) dibagi jadi beberapa
@@ -39,15 +55,41 @@ const dariTx = (t: Transaction): Bagian => ({
  * Di database tiap bagian baris sendiri (`pecahan_dari` → transaksi asli),
  * jadi total, filter, dan analitik tetap benar; di layar tetap satu transaksi.
  * Jumlah semua bagian harus sama dengan total semula — saldo tidak berubah.
+ *
+ * Struk campuran (SPEC-tawar-pecah): dengan `usulan`, yang tampil kartu
+ * tawarannya (bukan tombol); usulan mengisi lembar bila diterima. `hanyaLembar`: langsung membuka
+ * lembar berisi usulan (dari kartu hasil Catat), lalu `onSelesai`.
  */
-export default function PecahTransaksi({ tx, bagian }: { tx: Transaction; bagian: Transaction[] }) {
+export default function PecahTransaksi({
+  tx,
+  bagian,
+  usulan = null,
+  hanyaLembar = false,
+  onSelesai,
+}: {
+  tx: Transaction;
+  bagian: Transaction[];
+  usulan?: BagianPecah[] | null;
+  hanyaLembar?: boolean;
+  /** `disimpan`: transaksinya dipecah. */
+  onSelesai?: (disimpan: boolean) => void;
+}) {
   const router = useRouter();
   const { kabari } = useCatat();
   const kategori = useKategori();
   const total = Number(tx.amount) + bagian.reduce((n, b) => n + Number(b.amount), 0);
   const terpecah = bagian.length > 0;
-  const [buka, setBuka] = useState(false);
-  const [isian, setIsian] = useState<Bagian[]>([]);
+  // Kategori yang terhapus sejak usulan dibuat jatuh ke Lainnya (FK kategori).
+  const dariUsulan = (u: BagianPecah[]): Bagian[] =>
+    u.map((b, i) => ({
+      id: i === 0 ? tx.id : null,
+      amount: isianNominal(b.amount),
+      category: kategoriJenis(kategori, "expense").some((k) => k.slug === b.category) ? b.category : LAINNYA,
+      kelompok: b.kelompok ?? "",
+      description: b.description ?? "",
+    }));
+  const [buka, setBuka] = useState(hanyaLembar && Boolean(usulan));
+  const [isian, setIsian] = useState<Bagian[]>(() => (hanyaLembar && usulan ? dariUsulan(usulan) : []));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tanyaGabung, setTanyaGabung] = useState(false);
@@ -56,11 +98,32 @@ export default function PecahTransaksi({ tx, bagian }: { tx: Transaction; bagian
   const selisih = total - jumlah;
   const kelompokBawaan = (slug: string) => NAMA_KELOMPOK[(kategoriJenis(kategori, "expense").find((k) => k.slug === slug)?.kelompok as Kelompok) ?? "keinginan"];
 
-  function mulai() {
+  function mulai(u?: BagianPecah[]) {
     // Belum dipecah: bagian pertama = transaksi ini, bagian kedua kosong.
-    setIsian(terpecah ? [dariTx(tx), ...bagian.map(dariTx)] : [{ ...dariTx(tx), amount: isianNominal(total) }, { id: null, amount: "", category: tx.category, kelompok: "", description: "" }]);
+    setIsian(
+      u
+        ? dariUsulan(u)
+        : terpecah
+          ? [dariTx(tx), ...bagian.map(dariTx)]
+          : [{ ...dariTx(tx), amount: isianNominal(total) }, { id: null, amount: "", category: tx.category, kelompok: "", description: "" }],
+    );
     setError(null);
     setBuka(true);
+  }
+
+  function tutup(disimpan = false) {
+    setBuka(false);
+    onSelesai?.(disimpan);
+  }
+
+  /** Tolak tawaran: usulannya dikosongkan, tidak ditawarkan lagi. */
+  async function tolak() {
+    setLoading(true);
+    const { error: e } = await createSupabaseBrowserClient().from("transactions").update({ usulan_pecah: null }).eq("id", tx.id);
+    setLoading(false);
+    if (e) return kabari(dbErrorMessage(e));
+    kabari("Tawaran pecah ditutup");
+    router.refresh();
   }
 
   // Bagian pertama menampung sisanya: ketik "kopi 5.000" → sabun jadi 10.000 sendiri.
@@ -84,7 +147,8 @@ export default function PecahTransaksi({ tx, bagian }: { tx: Transaction; bagian
     const [asli, ...lain] = isian;
     const tetap = new Set(lain.flatMap((b) => (b.id ? [b.id] : [])));
     const hasil = await Promise.all([
-      db.from("transactions").update(isi(asli)).eq("id", tx.id),
+      // Usulan pecah selesai dipakai, apa pun hasil pecahannya.
+      db.from("transactions").update({ ...isi(asli), usulan_pecah: null }).eq("id", tx.id),
       ...lain.filter((b) => b.id).map((b) => db.from("transactions").update(isi(b)).eq("id", b.id!)),
       ...lain
         .filter((b) => !b.id)
@@ -106,7 +170,7 @@ export default function PecahTransaksi({ tx, bagian }: { tx: Transaction; bagian
     setLoading(false);
     const gagal = hasil.find((r) => r.error)?.error;
     if (gagal) return setError(dbErrorMessage(gagal));
-    setBuka(false);
+    tutup(isian.length > 1);
     kabari(isian.length > 1 ? `Dipecah jadi ${isian.length} bagian` : "Pecahan digabung lagi");
     router.refresh();
   }
@@ -119,14 +183,34 @@ export default function PecahTransaksi({ tx, bagian }: { tx: Transaction; bagian
     setLoading(false);
     if (e1 || e2) return setError(dbErrorMessage((e1 ?? e2)!));
     setTanyaGabung(false);
-    setBuka(false);
+    tutup();
     kabari("Digabung lagi jadi satu transaksi");
     router.refresh();
   }
 
+  const tawaran = !terpecah && !hanyaLembar && usulan;
   return (
     <>
-      <button type="button" className={`${s.blok} ${s.baris} ${s.tekan}`} onClick={mulai}>
+      {tawaran && (
+        <Pesan
+          jenis="info"
+          judul="Isi struk ini campur"
+          aksi={
+            <div className={s.aksiKartu} style={{ justifyContent: "flex-start", marginTop: 0 }}>
+              <button type="button" className={s.flat} disabled={loading} onClick={() => mulai(usulan)}>
+                Pecah
+              </button>
+              <button type="button" className={s.flat} disabled={loading} onClick={() => void tolak()}>
+                Tutup
+              </button>
+            </div>
+          }
+        >
+          {`${ringkasUsulan(usulan, kategori)}. Pecah supaya tiap bagian masuk kategorinya sendiri?`}
+        </Pesan>
+      )}
+      {!hanyaLembar && !tawaran && (
+      <button type="button" className={`${s.blok} ${s.baris} ${s.tekan}`} onClick={() => mulai()}>
         <span className={s.barisIkon} aria-hidden>
           <Split size={20} />
         </span>
@@ -136,6 +220,7 @@ export default function PecahTransaksi({ tx, bagian }: { tx: Transaction; bagian
         </span>
         <ChevronRight size={20} color="var(--teks-2)" aria-hidden />
       </button>
+      )}
 
       {buka && (
         <Lembar
@@ -143,7 +228,7 @@ export default function PecahTransaksi({ tx, bagian }: { tx: Transaction; bagian
           sub={`Total ${fmtIDR(total)} dibagi ke beberapa bagian. Di daftar tetap tampil satu transaksi.`}
           posisi="penuh"
           isian={isian}
-          onClose={() => !loading && setBuka(false)}
+          onClose={() => !loading && tutup()}
           pil={[
             { label: "Batal", batal: true, disabled: loading },
             { label: loading ? <Spinner /> : "Simpan", onClick: () => void simpan(), disabled: loading },

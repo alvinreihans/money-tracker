@@ -41,6 +41,8 @@ export interface Transaction {
   pecahan_dari?: string | null;
   /** Transfer pelengkap "Dibayar dari tujuan tabungan": id pengeluarannya (SPEC-tujuan-tabungan). */
   pelengkap_tujuan?: string | null;
+  /** Struk campuran: JSON BagianPecah[] usulan AI, sampai dipecah/ditutup (SPEC-tawar-pecah). */
+  usulan_pecah?: string | null;
   transaction_date: string; // ISO date: "YYYY-MM-DD"
   /** Jam transaksi (WIB), "HH:MM:SS"; opsional. Lihat SPEC-saldo-waktu.md. */
   waktu?: string | null;
@@ -83,7 +85,17 @@ export interface ExtractedReceipt {
   /** Hanya expense: kelompok budgeting bila jelas beda dari bawaan kategorinya (SPEC-metode-budget). */
   kelompok: string | null;
   /** Hanya expense: rincian belanja campuran yang diketik user (jumlahnya = amount). */
-  rincian: { amount: number; category: string; kelompok: string | null; description: string | null }[] | null;
+  rincian: BagianPecah[] | null;
+  /** Hanya expense dari struk: barang beda kategori, ditawarkan untuk dipecah (jumlahnya = amount). */
+  usulan_pecah: BagianPecah[] | null;
+}
+
+/** Satu bagian transaksi yang dipecah (rincian ketikan atau usulan dari struk). */
+export interface BagianPecah {
+  amount: number;
+  category: string;
+  kelompok: string | null;
+  description: string | null;
 }
 
 /** Bentuk baris yang dikembalikan RPC get_avg_monthly_expense_by_category(). */

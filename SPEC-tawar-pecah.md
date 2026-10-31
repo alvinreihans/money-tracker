@@ -93,7 +93,7 @@ Skema AI mendapat isian baru `usulan_pecah`. Isian ini **hanya dari struk**; tek
 - Struk dari Bagikan (antrean `useAntreanStruk`) tidak punya kartu hasil. Tawarannya hanya muncul di halaman detail.
 
 **Halaman detail:**
-- Kartu tawaran yang sama di atas "Pecah transaksi": "AI melihat isi struk ini campur", rincian singkat, tombol **Pecah** dan **Tutup**.
+- Kartu tawaran **paling atas** (di tempat peringatan draft), supaya tidak tenggelam di bawah lipatan layar: "Isi struk ini campur", rincian singkat, tombol **Pecah** dan **Tutup**. Selama tawaran tampil, tombol "Pecah transaksi" di bawah tidak ditampilkan (tawaran sudah membuka lembar yang sama).
 - Tutup mengosongkan usulan, dan tawaran tidak muncul lagi.
 - Draft ("Belum selesai") tidak menampilkan tawaran, sama seperti "Pecah transaksi" yang disembunyikan untuk draft (`DetailView`). Lihat batas di §2.
 

@@ -24,8 +24,6 @@ SPEC-catat-tuntas.md (fase 1 & 2 selesai di 2.4.0, fase 3 di 2.5.0).
     persentase (Kakeibo memakai 4 kelompoknya sendiri).
   - **Debt Snowball / Avalanche** di Utang & Piutang, boleh berjalan bersamaan
     dengan metode lain. Avalanche butuh isian bunga baru di cicilan/pinjaman.
-- **AI menawarkan pecah transaksi** dari struk yang berisi barang campuran
-  (menawarkan, bukan langsung memecah).
 - **Opsi "tujuan ini disimpan di BCA"**, kalau saldo BCA yang lebih kecil dari
   saldo asli di bank (karena sebagian disisihkan ke tujuan) terasa membingungkan.
 
@@ -34,6 +32,13 @@ SPEC-catat-tuntas.md (fase 1 & 2 selesai di 2.4.0, fase 3 di 2.5.0).
   yang jarang berubah (kategori, kantong) disimpan sementara di server.
 
 ## [Unreleased]
+
+### Ditambah
+- **AI menawarkan pecah struk campuran** (SPEC-tawar-pecah). Struk Indomaret berisi beras, sabun, dan cokelat kini ditawari dipecah: "Belanja harian Rp 70.000 · Makan Rp 17.500". Tawarannya muncul di kartu hasil Catat dan di atas halaman detail, sampai dipecah atau ditutup.
+  - **Pecah** membuka lembar "Pecah transaksi" yang sudah terisi; tidak ada yang berubah sebelum Simpan.
+  - Diskon, PPN, dan biaya layanan dibagi aplikasi secara proporsional, jadi jumlah bagiannya selalu pas dengan yang dibayar.
+  - Hanya untuk struk dengan barang beda kategori. Teks ketikan tidak ditawari. Tawaran hilang sendiri kalau nominal transaksinya diubah.
+  - Nama barang di usulan disimpan terenkripsi, seperti keterangan transaksi.
 
 ### Diubah
 - **Pembelian dari tujuan tabungan tidak lagi dihitung sebagai pengeluaran bulan itu** (SPEC-analitik-tujuan). HP Rp 10 jt yang dibayar dari "Tabungan HP" tidak membuat proyeksi melonjak, tidak jadi "Paling boros" atau "Belanja naik Rp 10 jt", dan tidak ikut di kategori, merchant teratas, tren 6 bulan, maupun budget per kategori.

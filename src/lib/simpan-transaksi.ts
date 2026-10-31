@@ -63,7 +63,7 @@ export async function simpanTransaksi(
   userId: string,
   input: Record<string, unknown>,
 ): Promise<{ transaction: unknown; pertanyaan: JenisTanya | null; cicilan?: Cicilan }> {
-  const { payment_target, biaya_admin, cashback, pinjaman, cicilan: sebutanCicilan, jam, petunjuk_jam, info_paylater, bukti_transfer, rincian, ...row } = input;
+  const { payment_target, biaya_admin, cashback, pinjaman, cicilan: sebutanCicilan, jam, petunjuk_jam, info_paylater, bukti_transfer, rincian, usulan_pecah, ...row } = input;
   const dariAi = "payment_target" in input;
 
   // Belanja pakai paylater: bukan pengeluaran dari kantong mana pun. Tenor
@@ -256,6 +256,13 @@ export async function simpanTransaksi(
   type Bagian = { amount: number; category: string; kelompok: string | null; description: string | null };
   const bagian = dariAi && row.type === "expense" && Array.isArray(rincian) && rincian.length > 1 ? (rincian as Bagian[]) : null;
   if (bagian) Object.assign(row, { ...bagian[0], description: bagian[0].description ?? row.description });
+
+  // Struk campuran (SPEC-tawar-pecah): usulannya disimpan untuk ditawarkan,
+  // tidak langsung dipecah. Bukan untuk pinjaman, cicilan, atau yang sudah dipecah.
+  const usulan = Array.isArray(usulan_pecah) && usulan_pecah.length > 1 ? (usulan_pecah as Bagian[]) : null;
+  if (usulan && dariAi && !bagian && !p && !row.cicilan_id && row.type === "expense" && usulan.reduce((n, b) => n + b.amount, 0) === Number(row.amount)) {
+    row.usulan_pecah = JSON.stringify(usulan);
+  }
 
   const { data: tersimpan, error } = await supabase.from("transactions").insert(row).select().single();
 
