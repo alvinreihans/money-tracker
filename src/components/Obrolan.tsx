@@ -36,7 +36,7 @@ import { saldoSejak } from "@/lib/waktu";
 import type { Transaction } from "@/types/transaction";
 
 /**
- * Catat sebagai obrolan (SPEC-catat-chat.md): lembar yang bisa membesar.
+ * Catat sebagai obrolan (docs/specs/SPEC-catat-chat.md): lembar yang bisa membesar.
  * Ringkas = pintasan + kolom ketik seperti dulu; besar = obrolan satu
  * transaksi, atau daftar catatan yang belum selesai.
  *

@@ -1,5 +1,5 @@
 /**
- * Jam transaksi & saldo per jam (SPEC-saldo-waktu.md). Fungsi murni — diuji di
+ * Jam transaksi & saldo per jam (docs/specs/SPEC-saldo-waktu.md). Fungsi murni — diuji di
  * scripts/uji-waktu.mts. Semua jam dalam WIB, format "HH:MM".
  */
 

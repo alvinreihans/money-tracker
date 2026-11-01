@@ -1,4 +1,4 @@
--- Normalisasi database (SPEC-normalisasi.md). View public.transactions tetap
+-- Normalisasi database (docs/specs/SPEC-normalisasi.md). View public.transactions tetap
 -- mengembalikan kolom yang sama (kecuali kolom lama yang dibuang), jadi kode
 -- aplikasi tidak perlu tahu bentuk penyimpanannya.
 

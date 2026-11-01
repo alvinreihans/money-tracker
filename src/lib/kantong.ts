@@ -36,7 +36,7 @@ export interface Kantong {
   saldo_awal: number | string;
   /** "YYYY-MM-DD": tanggal WIB dari saldo_sejak (disinkronkan trigger database). */
   saldo_per: string;
-  /** Sejak kapan saldo_awal berlaku (timestamptz). Lihat SPEC-saldo-waktu.md. */
+  /** Sejak kapan saldo_awal berlaku (timestamptz). Lihat docs/specs/SPEC-saldo-waktu.md. */
   saldo_sejak?: string | null;
   /** Kantong tunai bawaan: tidak bisa dihapus, jenisnya tetap tunai. */
   bawaan?: boolean;

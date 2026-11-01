@@ -2,7 +2,7 @@ import { cocokkanKantong, type Kantong } from "@/lib/kantong";
 import { perluTanyaJam, type SaldoSejak } from "@/lib/waktu";
 
 /**
- * Catat sebagai obrolan (SPEC-catat-chat.md): apa yang masih kurang dari
+ * Catat sebagai obrolan (docs/specs/SPEC-catat-chat.md): apa yang masih kurang dari
  * sebuah draft, dan membaca jawaban user. Fungsi murni — diuji di
  * scripts/uji-draft.mts.
  */

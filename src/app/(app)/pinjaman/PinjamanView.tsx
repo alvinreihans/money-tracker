@@ -19,7 +19,7 @@ type KantongSaldo = Kantong & { saldo: number };
 /**
  * Lend & Borrow: siapa yang utang ke aku (Lend), ke siapa aku utang dan
  * tagihan kartu kredit (Borrow), serta cicilan berjalan. Semua pinjaman
- * dicatat sebagai pindah kantong ke/dari kantong orang (SPEC-lend-borrow.md).
+ * dicatat sebagai pindah kantong ke/dari kantong orang (docs/specs/SPEC-lend-borrow.md).
  */
 export default function PinjamanView({
   userId,

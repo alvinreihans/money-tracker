@@ -1,7 +1,7 @@
 import { normal } from "@/lib/kantong";
 
 /**
- * Lend & Borrow dan cicilan (SPEC-lend-borrow.md). Fungsi murni — diuji di
+ * Lend & Borrow dan cicilan (docs/specs/SPEC-lend-borrow.md). Fungsi murni — diuji di
  * scripts/uji-pinjaman.mts.
  *
  * - Pinjaman ke/dari orang = kantong berjenis "orang"; saldonya positif berarti

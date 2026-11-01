@@ -30,7 +30,7 @@ export async function kabariDraft(supabase: SupabaseClient, tx: Transaction, asa
 }
 
 /**
- * Thumbnail struk untuk percakapan yang belum selesai (SPEC-catat-chat.md):
+ * Thumbnail struk untuk percakapan yang belum selesai (docs/specs/SPEC-catat-chat.md):
  * supaya besok pagi user masih ingat itu transaksi apa. WebP ±720 px (masih
  * terbaca saat diperbesar), disimpan terenkripsi lewat RPC; ikut terhapus
  * begitu catatannya selesai. Gagal = tanpa foto, catatannya tetap aman.

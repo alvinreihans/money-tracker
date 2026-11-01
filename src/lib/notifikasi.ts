@@ -3,7 +3,7 @@ import { hitungSaldo, type BarisSaldo, type Kantong } from "@/lib/kantong";
 import { jadwalCicilan, type Cicilan } from "@/lib/pinjaman";
 
 /**
- * Isi push notifikasi harian (SPEC-notifikasi.md). Fungsi murni — diuji di
+ * Isi push notifikasi harian (docs/specs/SPEC-notifikasi.md). Fungsi murni — diuji di
  * scripts/uji-notifikasi.mts; pengirimannya di lib/push.ts.
  */
 
@@ -21,7 +21,7 @@ export interface DataNotifikasi {
   kantong: (Pick<Kantong, "id" | "name" | "kind" | "saldo_awal" | "saldo_per" | "jatuh_tempo">)[];
   cicilan: Pick<Cicilan, "id" | "nama" | "nominal" | "tenor" | "jatuh_tempo_awal">[];
   transaksi: (BarisSaldo & { created_at: string; cicilan_id: string | null; cicilan_ke: number | null })[];
-  /** Catatan yang belum selesai dilengkapi (SPEC-catat-chat.md). */
+  /** Catatan yang belum selesai dilengkapi (docs/specs/SPEC-catat-chat.md). */
   draft?: { id: string; dibuat: string; source: string }[];
 }
 

@@ -22,7 +22,7 @@ const SARAN_PENYEDIA = ["Shopee PayLater", "GoPayLater", "Kredivo", "Akulaku", "
 /**
  * Cicilan (paylater & cicilan kartu kredit). Belanjanya tidak dihitung
  * pengeluaran; tiap cicilan yang dibayar menjadi pengeluaran biasa dengan
- * kategori rencananya (keputusan di SPEC-lend-borrow.md).
+ * kategori rencananya (keputusan di docs/specs/SPEC-lend-borrow.md).
  */
 export default function BagianCicilan({
   userId,

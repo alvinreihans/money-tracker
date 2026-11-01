@@ -44,7 +44,7 @@ export interface Transaction {
   /** Struk campuran: JSON BagianPecah[] usulan AI, sampai dipecah/ditutup (SPEC-tawar-pecah). */
   usulan_pecah?: string | null;
   transaction_date: string; // ISO date: "YYYY-MM-DD"
-  /** Jam transaksi (WIB), "HH:MM:SS"; opsional. Lihat SPEC-saldo-waktu.md. */
+  /** Jam transaksi (WIB), "HH:MM:SS"; opsional. Lihat docs/specs/SPEC-saldo-waktu.md. */
   waktu?: string | null;
   status: TransactionStatus;
   source: TransactionSource;

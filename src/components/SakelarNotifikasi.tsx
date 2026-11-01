@@ -26,7 +26,7 @@ const didukung = () => "serviceWorker" in navigator && "PushManager" in window &
 const pendaftaran = () => navigator.serviceWorker.register("/sw.js");
 
 /**
- * Sakelar push notifikasi per perangkat (SPEC-notifikasi.md). Langganannya
+ * Sakelar push notifikasi per perangkat (docs/specs/SPEC-notifikasi.md). Langganannya
  * disimpan di push_langganan; begitu nyala, server mengirim notifikasi
  * konfirmasi lewat jalur yang sama dengan cron harian.
  */

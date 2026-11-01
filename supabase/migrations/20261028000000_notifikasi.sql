@@ -1,5 +1,5 @@
 -- =============================================================
--- Migration: push notifikasi (SPEC-notifikasi.md, disetujui 22 Okt 2026)
+-- Migration: push notifikasi (docs/specs/SPEC-notifikasi.md, disetujui 22 Okt 2026)
 -- =============================================================
 
 -- 1. Langganan push per perangkat. Unik per (user, endpoint): satu HP yang

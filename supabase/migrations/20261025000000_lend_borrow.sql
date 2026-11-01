@@ -1,5 +1,5 @@
 -- =============================================================
--- Migration: Lend & Borrow, cicilan (SPEC-lend-borrow.md)
+-- Migration: Lend & Borrow, cicilan (docs/specs/SPEC-lend-borrow.md)
 -- =============================================================
 
 -- 1. Jenis kantong baru.
