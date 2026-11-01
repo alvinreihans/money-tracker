@@ -1,6 +1,6 @@
 # Spec: Normalisasi database
 
-Status: **diterapkan** (migrasi sudah dijalankan) (#1–#5, #7; tanpa soft delete) · 27 Oktober 2026 · branch `feat/normalisasi` · rilis 2.7.0
+Status: **diterapkan** · rilis 2.7.0 (#1–#5, #7; tanpa soft delete), isolasi rujukan rilis 2.8.1 · 27 Oktober 2026 · branch `feat/normalisasi` · migrasi `20261107000000_normalisasi.sql` · disinkronkan dengan kode 1 Nov 2026
 
 Audit memakai skill `designing-database-schemas` terhadap 8 tabel di skema `public` & `private`, dengan data sungguhan. Yang sudah sesuai (tidak diubah):
 - UUID sebagai kunci utama;
@@ -17,21 +17,22 @@ Audit memakai skill `designing-database-schemas` terhadap 8 tabel di skema `publ
 
 ## Prinsip: aplikasi tidak perlu tahu
 
-View `public.transactions` tetap mengembalikan kolom yang sama, jadi kode aplikasi (84 tempat membaca `payment_method`, semua filter kategori) tidak berubah:
+View `public.transactions` tetap mengembalikan kolom yang sama, jadi kode aplikasi (puluhan tempat membaca `payment_method`, semua filter kategori) tidak berubah:
 
 | Kolom view | Disimpan | Ditampilkan view |
 |---|---|---|
 | `category` | **NULL** untuk pindah kantong | `'other'` untuk pindah kantong, selain itu apa adanya |
 | `payment_method` | **NULL** bila ada `kantong_id` (teks hanya untuk draft tanpa kantong) | nama kantong **saat ini**, atau teks tersimpan |
 
-Trigger tulis view yang mengubah isian ke bentuk tersimpannya; aplikasi tetap boleh mengirim `'other'` dan nama kantong seperti sekarang.
+Trigger `transaksi_normal` (`before insert or update` di `private.transaksi_data`, security definer) yang mengubah isian ke bentuk tersimpannya: `category := NULL` bila `type = 'transfer'`, `payment_method := NULL` bila ada `kantong_id`. Aplikasi tetap boleh mengirim `'other'` dan nama kantong seperti sekarang.
 
 ## #1 FK kategori
 
 - **`transaksi_data (user_id, type, category)` → `categories (user_id, type, slug)`:**
   - `ON UPDATE CASCADE`;
   - `ON DELETE NO ACTION`: dicek di akhir pernyataan, jadi menghapus akun (cascade ke kategori & transaksi sekaligus) tetap jalan;
-  - pindah kantong ber-`category` NULL tidak dicek.
+  - pindah kantong ber-`category` NULL tidak dicek;
+  - `category` kini boleh NULL, dijaga CHECK `transaksi_data_kategori_check`: `type = 'transfer' or category is not null`.
 - **`budgets` & `cicilan`:** belum punya kolom jenis.
   - Ditambah `type text not null default 'expense'` dengan `check (type = 'expense')`.
   - FK ke `categories` yang sama; budget ikut terhapus bersama kategorinya (`ON DELETE CASCADE`), cicilan `NO ACTION`.
@@ -75,7 +76,8 @@ Trigger tulis view yang mengubah isian ke bentuk tersimpannya; aplikasi tetap bo
 ## #4 Kolom lama
 
 - **Dibuang:** `account`, `counterparty`, `external_id` (beserta indeks unik `idx_transactions_external`). Semuanya kosong, sisa impor rekening koran yang sudah dihapus.
-- **View:** dibuat ulang (`DROP` + `CREATE`), karena Postgres tidak bisa membuang kolom dari view. Trigger tulis dan hak `authenticated` dipasang lagi; tidak ada view atau fungsi lain yang bergantung padanya (sudah dicek).
+- **View:** dibuat ulang (`DROP` + `CREATE`, `security_barrier`), karena Postgres tidak bisa membuang kolom dari view. Trigger tulis `transactions_tulis`, nilai bawaan kolom, dan hak `authenticated` (CRUD) & `service_role` (select/insert/delete) dipasang lagi; tidak ada view atau fungsi lain yang bergantung padanya (sudah dicek).
+- **Definisi terbaru:** view di `20261108000000_fase4.sql` (+ `usulan_pecah`), trigger tulis di `20261109000000_isolasi_rujukan.sql` (+ pemeriksaan rujukan, lihat bawah).
 - **Kode:**
   - baris "Rekening" & "Lawan transaksi" di detail transaksi dihapus;
   - tipe `Transaction` dirapikan;
@@ -89,7 +91,18 @@ Trigger tulis view yang mengubah isian ke bentuk tersimpannya; aplikasi tetap bo
 
 ## #7 CHECK `jatuh_tempo`
 
-`jatuh_tempo` hanya untuk kantong `orang` dan `kredit` (notifikasi tagihan kartu kredit memakainya). Hari ini tidak ada baris yang melanggar.
+`user_accounts_jatuh_tempo_check`: `jatuh_tempo is null or kind in ('orang', 'kredit')` (notifikasi tagihan kartu kredit memakainya). Hari ini tidak ada baris yang melanggar. Catatan: UI hanya mengisi `jatuh_tempo` untuk `orang` (`FormPinjaman`); belum ada cara mengisinya untuk `kredit` (SPEC-notifikasi, Belum diterapkan).
+
+## Isolasi rujukan (2.8.1)
+
+Migrasi `20261109000000_isolasi_rujukan.sql`, diuji `npm run uji:isolasi` (`scripts/uji-isolasi.mjs`).
+
+- **Masalah:** RLS menutup baca/ubah/hapus data akun lain, tapi kolom rujukan transaksi menerima id milik akun lain. Trigger salin (security definer, lihat di atas) lalu menyalin merchant, tanggal, dan kantong baris itu ke baris si penyisip, dan trigger ikut mengubah barisnya saat pemilik asli mengedit. Id tampil di alamat (`/transactions/<id>`).
+- **Perbaikan:**
+  - `transactions_tulis` menolak (`42501`, "Rujukan ke data akun lain tidak diizinkan") bila `induk_id`, `pecahan_dari`, `pelengkap_tujuan`, `duplikat_dari` menunjuk transaksi akun lain, `kantong_id`/`kantong_tujuan_id` kantong akun lain, atau `cicilan_id` cicilan akun lain. Berlaku untuk insert & update.
+  - Lapis kedua: `pecahan_salin_asli`, `pecahan_ikut_asli`, `ikutan_salin_induk`, `ikutan_ikut_induk` hanya membaca/mengubah baris dengan `user_id` yang sama.
+  - Policy `cicilan_own`: `kantong_id` cicilan harus kantong sendiri.
+- **`uji:isolasi`** (dua akun sementara lewat API sungguhan, dihapus di akhir): akun B dan pengunjung tidak bisa membaca/mengubah/menghapus/menulis atas nama A di `user_accounts`, `categories`, `budgets`, `cicilan`, `metode_budget`, `push_langganan`, `transactions`, `draft_catat`; RPC `foto_draft`, `simpan_foto_draft`, `hapus_kategori`, `saldo_kantong`, `get_avg_monthly_expense_by_category` tidak membocorkan/mengubah milik A; tujuh kolom rujukan ditolak tanpa bocor; data A tetap utuh.
 
 ## Pengujian
 
@@ -107,3 +120,8 @@ Trigger tulis view yang mengubah isian ke bentuk tersimpannya; aplikasi tetap bo
 
 - **Jangan:** mengubah logika ingat kategori; mengubah tampilan atau perilaku aplikasi.
 - **Tanya dulu:** mengganti slug kategori jadi `category_id` (perubahan kode jauh lebih besar, manfaatnya kecil karena slug kategori buatan user sudah acak & tetap).
+
+## Belum diterapkan
+
+- Soft delete (`deleted_at`): ditolak, lihat Keputusan user.
+- Slug kategori → `category_id`: belum, tanya dulu (lihat Boundaries).

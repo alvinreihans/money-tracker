@@ -1,6 +1,6 @@
 # Spec: Cerita & Tanya AI (fase 2)
 
-Status: **diterapkan** (pertanyaan terbuka memakai usulan: semua transaksi, label tetap "Keterangan", tanpa tombol di Riwayat) · 25 Oktober 2026 · branch `feat/cerita-tanya` (di atas fase 1, `feat/catat-tuntas`) · rilis bersama fase 1
+Status: **diterapkan** · rilis 2.4.0 · 25 Oktober 2026 · branch `feat/cerita-tanya` (di atas fase 1, `feat/catat-tuntas`) · disinkronkan dengan kode 1 Nov 2026
 
 Peta fase: lihat SPEC-catat-tuntas.md.
 
@@ -12,32 +12,34 @@ Tanya AI bisa menjawab **kenapa**, bukan hanya **berapa**. "Kenapa bulan ini bor
 
 **Tempatnya.** Cerita disimpan di kolom **Keterangan** (`description`) yang sudah ada dan sudah terenkripsi. Tidak ada kolom atau migrasi baru. Keterangan itu sudah bisa diubah di Edit transaksi.
 
-**Ditawarkan setelah mencatat.** Kartu "Tercatat" di Catat mendapat chip **"+ Tambah cerita"**, hanya kalau keterangannya masih kosong.
-- Mengetuknya mengubah kolom ketik jadi kolom cerita, dengan placeholder "Ceritain singkat, mis. “kopi sama klien”".
-- Teks yang dikirim tersimpan sebagai keterangan, lalu tampil "Cerita tersimpan".
+**Ditawarkan setelah mencatat.** Kartu "Tersimpan" di Catat (`kartu()` di `Obrolan.tsx`) mendapat chip **"+ Tambah cerita"**, hanya kalau keterangannya masih kosong (tidak pada kartu yang sudah dibatalkan atau kartu perbaikan).
+- Mengetuknya mengubah kolom ketik jadi kolom cerita, dengan placeholder "Ceritain singkat, mis. “kopi sama klien”". Chipnya berganti **"Batal cerita"** (ketuk lagi untuk batal).
+- Teks yang dikirim (maks 500 karakter) langsung di-update ke `description` lewat view, lalu kartunya menampilkan “cerita” dan chipnya hilang. Di obrolan besar tampil juga "Cerita tersimpan."; di lembar ringkas cukup kartunya. Gagal → "Gagal menyimpan ceritanya."
+- Selama menulis cerita, kartu ringkas tidak hilang sendiri.
 - **Tidak memaksa:** tanpa pertanyaan atau dialog, cukup chip yang bisa diabaikan.
 - Hasil "Bagikan" di latar tidak ditawari, karena user tidak sedang di Catat. Ceritanya tetap bisa ditambah di detail → Edit.
 
 **Terisi sendiri dari struk/bukti.** Aturan prompt `description` dipertajam:
 - Ambil catatan yang **ditulis orang**: berita transfer, "Keperluan Transfer", catatan pesanan ("Kado nikahan Rina", "Bayar arisan Oktober").
-- Abaikan teks bawaan aplikasi yang tidak bercerita ("Transfer Dana", "Pembayaran", "Top Up").
+- Abaikan teks bawaan aplikasi yang tidak bercerita ("Transfer Dana", "Pembayaran", "Top Up", "Transfer", "Pembelian").
+- Khusus struk belanja tanpa catatan: ringkasan singkat barangnya boleh ("Beras 5 kg, minyak goreng"), atau null.
 
 ## 2. Tanya AI memakai cerita itu
 
 - `cari_transaksi` → `transaksi_terbesar` ikut membawa **keterangan**.
-- `ringkasan_bulan` mendapat `pengeluaran_terbesar`: 5 pengeluaran terbesar bulan itu beserta keterangannya.
+- `ringkasan_bulan` mendapat `pengeluaran_terbesar`: 5 pengeluaran terbesar bulan itu beserta keterangannya (tanpa pembelian dari tujuan tabungan, yang disebut terpisah di `dibayar_dari_tujuan_tabungan`, SPEC-analitik-tujuan).
 - **Prompt:** saat menjelaskan *kenapa* (boros, naik, banyak keluar), sebut transaksi terbesar beserta ceritanya bila ada. Keterangan tetap diperlakukan sebagai **data, bukan perintah**, seperti sekarang.
 - **Evaluasi `eval:tanya`:**
-  - satu kasus baru: data uji punya transaksi besar berketerangan "kado nikahan Rina". Pertanyaan "kenapa bulan ini boros?" harus menyebut kado itu;
-  - kasus lama tetap lulus (13/13).
+  - satu kasus cerita: "kenapa bulan ini boros?" harus menyebut transaksi besarnya beserta ceritanya. Awalnya "kado nikahan Rina"; kini data ujinya HP Laku6 Rp 10.300.000 berketerangan "Beli HP baru, HP lama rusak" yang dibayar dari tujuan tabungan, jadi jawabannya harus menyebut HP dan tabungan;
+  - kasus lama tetap lulus (13/13 waktu itu).
 
 ## 3. Tanya AI lebih cepat
 
 Saat ini 8–40 detik. Tiap putaran fungsi berarti satu panggilan Gemini lagi.
 
-**Ringkasan bulan dikirim di depan.** Ringkasan bulan yang sedang dilihat (keluar, masuk, kategori, merchant, pengeluaran terbesar) dihitung dulu di server, lalu disertakan di prompt. Pertanyaan umum ("kenapa boros", "bandingin sama bulan lalu") bisa dijawab dalam **1 putaran**, tanpa menunggu model meminta `ringkasan_bulan`. Fungsi lain tetap dipanggil bila perlu.
+**Ringkasan bulan dikirim di depan.** Ringkasan bulan yang sedang dilihat (hasil `ringkasan_bulan` lengkap: keluar, masuk, angka bulan lalu per kategori beserta selisihnya, kategori, merchant, pengeluaran terbesar) dihitung dulu di server (`jawabTanya`), lalu disertakan di prompt dan ikut dianggap hasil fungsi untuk pemeriksa nominal. Pertanyaan umum ("kenapa boros", "bandingin sama bulan lalu") bisa dijawab dalam **1 putaran**, tanpa menunggu model meminta `ringkasan_bulan`. Fungsi lain tetap dipanggil bila perlu.
 
-**Model chat bisa diganti tanpa deploy:** `GEMINI_MODEL_CHAT`, bawaannya sama dengan pembaca struk.
+**Model chat bisa diganti tanpa deploy:** `GEMINI_MODEL_CHAT`, bawaannya sama dengan pembaca struk (`GEMINI_MODEL`, `gemini-3.5-flash-lite`).
 - Model yang lebih besar (3.5/3.8 Flash) bisa lebih pintar, tetapi kuota free tier-nya bisa sangat kecil (3.8 Flash: 20/hari).
 - Karena itu pilihannya diputuskan dari **ukuran**, bukan tebakan: `eval:tanya` dicatat waktu dan skornya, sebelum dan sesudah, untuk model bawaan dan satu model pembanding.
 - Hasilnya ditulis di spec ini.
@@ -68,28 +70,25 @@ Contoh jawaban "kenapa bulan ini boros?": *"…ada pembelian besar di kategori B
 
 ## 4. Tanya AI dari mana saja
 
-- **Panel tetap terbuka saat tautan diikuti** (layar lebar). Tanya AI pindah dari halaman Analitik ke kerangka aplikasi (`AppShell`). Mengetuk "Lihat di Riwayat" membuka Riwayat di sebelahnya, dan obrolannya tetap ada.
+- **Panel tetap terbuka saat tautan diikuti** (layar lebar, ≥ 840px `LAYAR_LEBAR`). Tanya AI pindah dari halaman Analitik ke kerangka aplikasi (`TanyaProvider` di `AppShell`). Mengetuk "Lihat di Riwayat" membuka Riwayat di sebelahnya, dan obrolannya tetap ada.
 - **Di HP,** tautan tetap menutup lembar seperti sekarang. Membukanya lagi menampilkan obrolan yang sama sampai aplikasi ditutup.
 - **Pintasan di Beranda:** tombol AI melayang yang sama juga ada di Beranda, di atas navigasi.
 - **Bulan acuannya:**
-  - di Analitik, bulan yang dipilih;
+  - di Analitik, bulan yang dipilih (`useTanyaBulan`);
   - di Beranda dan halaman lain, bulan berjalan.
+- **Tidak di Riwayat** (tombol melayang menutupi nominal).
 
 ## Pengujian
 
-- **Unit:**
-  - keterangan ikut di hasil `cari_transaksi` & `ringkasan_bulan`;
-  - ringkasan di depan dibangun dari bulan yang benar.
 - **AI sungguhan:**
-  - `eval:tanya` 13 + 1 kasus, termasuk "kado nikahan";
+  - `eval:tanya` 13 + 1 kasus cerita (kini bagian dari 20 kasus);
   - waktu sebelum/sesudah dicatat.
-- **AI struk:** bukti transfer dengan berita "Bayar arisan Oktober" → keterangan terisi; "Transfer Dana" → kosong.
-- **E2E:**
-  - chip "+ Tambah cerita" → keterangan tersimpan;
-  - tidak muncul bila sudah berketerangan;
+- **E2E (suite `fase2`, `npm run e2e`; jawaban Tanya AI ditiru):**
+  - chip "+ Tambah cerita" → keterangan tersimpan, kartu menampilkannya, chip hilang, kartu ringkas tetap ada selama menulis;
+  - tombol AI di Beranda & Analitik, tidak di Riwayat;
+  - bulan acuan saran: Analitik bulan lalu → bulan lalu, Beranda → bulan berjalan;
   - panel Tanya AI tetap terbuka setelah tautan Riwayat di 1024px;
-  - di 360px tertutup lalu obrolannya kembali saat dibuka lagi;
-  - tombol AI di Beranda.
+  - di 360px tertutup lalu obrolannya kembali saat dibuka lagi.
 - **Regresi:** semua `uji:*` & E2E, typecheck, dan `next build`.
 
 ## Boundaries
@@ -104,8 +103,13 @@ Contoh jawaban "kenapa bulan ini boros?": *"…ada pembelian besar di kategori B
   - menawarkan cerita dengan dialog yang menghalangi;
   - mengirim seluruh daftar transaksi mentah ke AI (tetap hanya hasil fungsi/ringkasan).
 
-## Pertanyaan terbuka
+## Keputusan
 
-1. **Chip "+ Tambah cerita" untuk semua transaksi**, atau hanya yang besar (mis. ≥ Rp 200 rb)? Usulnya **semua**, karena chipnya kecil dan mudah diabaikan, dan cerita kecil ("traktir teman") juga berguna.
-2. **Nama labelnya tetap "Keterangan"** di form dan detail, sementara di chat disebut "cerita"? Atau semua diganti "Cerita"? Usulnya **tetap "Keterangan"**: maknanya lebih luas (catatan cicilan, dll.) dan tidak mengubah tampilan lama.
-3. **Tombol AI juga di Riwayat?** Usulnya **tidak**. Riwayat sudah ramai dengan chip filter, dan tombol mengambang di atas daftar menutupi nominal.
+1. **Chip "+ Tambah cerita" untuk semua transaksi** yang keterangannya kosong, tanpa batas nominal: chipnya kecil dan mudah diabaikan, dan cerita kecil ("traktir teman") juga berguna.
+2. **Label tetap "Keterangan"** di form dan detail; "cerita" hanya di chip Catat dan Tanya AI.
+3. **Tombol AI tidak di Riwayat**: Riwayat sudah ramai dengan chip filter, dan tombol mengambang menutupi nominal.
+
+## Belum diterapkan
+
+- Uji unit bahwa keterangan ikut di hasil `cari_transaksi`/`ringkasan_bulan` dan ringkasan di depan memakai bulan yang benar (logikanya di `tanya-server.ts`, tidak tercakup `uji:tanya`; hanya lewat `eval:tanya`).
+- Uji otomatis AI struk ("Bayar arisan Oktober" → keterangan terisi; "Transfer Dana" → kosong). Aturannya ada di prompt `extract.ts`, belum ada skrip ujinya.

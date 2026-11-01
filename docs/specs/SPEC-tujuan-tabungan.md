@@ -1,6 +1,6 @@
 # Spec: Penghasilan & tujuan tabungan (lanjutan fase 3)
 
-Status: **diterapkan** · 25 Oktober 2026 · branch `feat/metode-budget` · ikut rilis 2.5.0
+Status: **diterapkan** · rilis 2.5.0 (25 Oktober 2026, branch `feat/metode-budget`) · disinkronkan dengan kode 1 Nov 2026
 
 Lanjutan SPEC-metode-budget.md. Pemicunya pemakaian nyata:
 1. **Gajian akhir bulan.** Metode membagi pemasukan *bulan ini*. Sebelum gajian, yang terbagi hanya uang masuk kecil (Rp 858 rb), jadi semua kelompok tampak lewat ratusan persen.
@@ -12,81 +12,79 @@ Lanjutan SPEC-metode-budget.md. Pemicunya pemakaian nyata:
 - **Basis = penghasilan per bulan** yang disarankan aplikasi dan boleh diubah user; jatahnya tetap sepanjang bulan, kapan pun gajiannya.
 - **Penghasilan bawaan:** Gaji, Bonus/THR, Usaha/Jualan, Freelance/Proyek. Pemberian, Cashback/Refund, Bunga/Investasi, Lainnya = uang masuk biasa.
 - **Tujuan tabungan dibangun sekarang** (bukan sekadar tanda "dibayar dari tabungan").
+- **Tabungan di rekening yang sama** diterima untuk versi ini: kalau uang tujuan sebenarnya masih di BCA (tidak dipindah ke pocket), saldo BCA di aplikasi lebih kecil dari saldo asli di bank, karena sebagian "pindah" ke kantong tujuan. Total aset tetap benar; Profil → Kantong menampilkan baris "Disisihkan ke tujuan".
 
 ## A. Penghasilan
 
-- **`categories.penghasilan`** (boolean, hanya pemasukan):
-  - bawaan sesuai daftar di atas;
-  - kategori pemasukan buatan user: **ya** (biasanya sumber penghasilan: kos-kosan, ojol), kecuali Lainnya;
+- **`categories.penghasilan`** (boolean, hanya pemasukan; jenis lain selalu null):
+  - bawaan: semua kategori pemasukan kecuali slug `gift`, `refund`, `investment`, `other` (`private.penghasilan_bawaan`);
+  - kategori pemasukan buatan user: **ya** (biasanya sumber penghasilan: kos-kosan, ojol);
   - **Profil → Kategori:** form kategori pemasukan mendapat sakelar **"Dihitung sebagai penghasilan"**.
 - **`metode_budget.penghasilan`** (rupiah, null = ikut saran).
-- **Saran:** rerata penghasilan 3 bulan penuh terakhir yang ada penghasilannya. Belum ada riwayat sebulan penuh → penghasilan bulan ini → bulan lalu → 0.
-- **Profil → Budget:** baris **"Penghasilan per bulan Rp 8.000.000"** di kartu pratinjau, dengan keterangan "rerata 3 bulan terakhir" atau "diatur sendiri", dan tombol **Ubah** (isian nominal + "Pakai saran").
-- **Basis metode** (Analitik, Beranda, Tanya AI) = penghasilan per bulan ini. Tabungan tetap dari sisa: basis − pengeluaran selain tabungan.
+- **Saran** (`saranPenghasilan`): rerata penghasilan dari bulan penuh (3 terakhir) yang ada penghasilannya. Tidak ada → penghasilan bulan ini → 0.
+- **Profil → Budget:** di kartu pratinjau, "Penghasilan per bulan Rp 8.000.000" dengan keterangan "Rerata N bulan terakhir" / "Penghasilan bulan ini" / "Belum ada penghasilan tercatat" / "Diatur sendiri", dan tombol **Ubah** (isian nominal + "Pakai saran (Rp …)").
+- **Basis metode** (Analitik, Beranda, Tanya AI) = penghasilan per bulan ini. Untuk metode persentase, Tabungan dari sisa: basis − pengeluaran selain tabungan (metode lain: SPEC-metode-lanjutan).
 
 ## B. Tujuan tabungan
 
-Mengikuti pola Lend & Borrow, yang mencatat orang sebagai kantong berjenis `orang`:
+Mengikuti pola Utang & Piutang, yang mencatat orang sebagai kantong berjenis `orang`:
 
 - **Tujuan = kantong berjenis `tujuan`** dengan **target** (wajib) dan **tenggat** (opsional). Saldonya = yang sudah terkumpul.
 - **Menyisihkan = transfer** dari kantong mana pun ke kantong tujuan:
-  - lewat Catat: "sisihkan 500rb dari bca ke HP baru" (kantong dicocokkan dari nama, seperti sekarang);
+  - lewat Catat: "sisihkan 500rb dari bca ke HP baru" (kantong & tujuan dicocokkan dari nama, SPEC-ai-kantong);
   - bukti transfer ke kantong bank sungguhan (pocket Jago/Blu/SeaBank) yang diberi nama sama/alias juga otomatis masuk.
-- **Memakai = pengeluaran dari kantong tujuan.** Pengeluaran ini **tidak dihitung** di jatah bulanan metode, dan ditampilkan sendiri di kartu metode: "Dari tujuan tabungan: HP baru Rp 10,3 jt".
+- **Memakai = pengeluaran dari kantong tujuan.** Pengeluaran ini **tidak dihitung** di jatah bulanan metode (sejak 2.8.0 juga tidak di angka bulanan lain: SPEC-analitik-tujuan), dan ditampilkan sendiri di kartu metode: "Dibayar dari tujuan: HP baru".
 - **Total aset** tetap menghitung kantong tujuan (uangnya tetap milikmu).
 
 ### Tampilan
 
-- **Profil → Tujuan tabungan** (baru; di layar lebar terbuka di panel kanan Profil, jadi tidak perlu item sidebar sendiri):
-  - tiap tujuan: emoji, nama, bilah progres, "Rp 6 jt dari Rp 10 jt", dan bila ada tenggat: "Sisihkan Rp 1 jt/bulan agar tercapai Maret";
-  - tercapai → tanda "Tercapai" (ikon + teks);
-  - ketuk → detail: riwayat setoran & pemakaian (Riwayat tersaring ke kantong itu), ubah, hapus;
-  - tombol **"+ Tujuan baru"**: nama, emoji, target, tenggat, saldo awal (yang sudah terkumpul sebelum memakai aplikasi).
-- **Tombol cepat di detail tujuan:** **Sisihkan** (form transfer dengan tujuan terisi) dan **Pakai** (form pengeluaran dengan kantong terisi).
-- **Kantong:** tujuan tidak tampil di daftar Profil → Kantong (seperti kantong orang), tapi muncul di pilihan kantong (Catat, edit transaksi) di kelompok "Tujuan tabungan".
-- **Kartu metode (Analitik/Beranda):** baris Tabungan menambah "Rp 800 rb ke tujuan bulan ini"; baris terpisah untuk pemakaian dari tujuan.
-- **Tanya AI:** ringkasan membawa daftar tujuan (terkumpul, target, tenggat) dan pemakaian dari tujuan bulan itu, jadi "kenapa boros?" bisa dijawab "beli HP baru Rp 10,3 jt dari tabungan HP".
+- **Profil → Tujuan tabungan** (`/profil/tujuan`; baris menu "HP baru, liburan, dana darurat"; di layar lebar terbuka di panel kanan Profil, tanpa item sidebar sendiri):
+  - app bar: "Rp … terkumpul" dan tombol **+** ("Tujuan baru"); kosong → "Belum ada tujuan" dengan tombol **Buat tujuan**;
+  - tiap tujuan: emoji, nama, terkumpul, bilah progres, "dari Rp 10 jt", dan keterangan: "Sisihkan Rp 1 jt/bulan sampai Maret 2027" (ada tenggat; bulan ini ikut dihitung), "Kurang Rp …", "Lewat tenggat, kurang Rp …" (ikon peringatan), atau "Tercapai" (ikon + teks);
+  - tujuan yang sudah dipakai habis (saldo ≤ 0 dan pernah dipakai) pindah ke bagian **Selesai** ("Sudah dipakai");
+  - ketuk → lembar aksi: **Sisihkan**, **Pakai**, **Lihat riwayat** (Riwayat tersaring ke kantong itu), **Ubah**;
+  - form **Tujuan baru / Ubah tujuan**: nama, emoji (saran + ketik), target, tenggat (opsional, untuk tujuan baru tidak sebelum hari ini), "Sudah terkumpul" (saldo awal sebelum memakai aplikasi, berlaku sejak tujuan dibuat). **Hapus tujuan** ada di form Ubah, hanya untuk tujuan tanpa riwayat.
+- **Sisihkan** dan **Pakai** membuka isian manual Catat yang sudah terisi (pindah ke tujuan / bayar pakai tujuan).
+- **Kantong:** tujuan tidak tampil di daftar Profil → Kantong (seperti kantong orang); di sana cukup satu baris "Disisihkan ke tujuan · n tujuan tabungan" yang membuka halaman tujuan. Di pilihan kantong (Catat, edit transaksi) tujuan tampil di daftar yang sama dengan kantong lain (pengeluaran, pemasukan, pindah).
+- **Kartu metode (Analitik/Beranda):** baris "Disisihkan ke tujuan · Bulan ini" (setoran bersih; negatif → "Ditarik dari tujuan"), kecuali metodenya sudah punya wadah setoran sendiri; dan baris "Dibayar dari tujuan: HP baru · Di luar jatah bulan ini" per tujuan.
+- **Tanya AI:** `saldo_kantong` membawa tiap tujuan (terkumpul, target, tenggat); ringkasan bulan membawa `dibayar_dari_tujuan_tabungan` dan `disisihkan_ke_tujuan_tabungan`, jadi "kenapa boros?" bisa dijawab "beli HP baru Rp 10,3 jt dari tabungan HP".
 
-### Transaksi lama: "Dibayar dari tabungan"
+### Transaksi lama: "Dibayar dari tujuan tabungan"
 
 Pembelian yang sudah tercatat dari BCA (seperti HP tadi):
-- Detail transaksi pengeluaran mendapat aksi **"Dibayar dari tujuan tabungan"**: pilih tujuan, atau buat baru dengan target = nominalnya.
+- Detail transaksi pengeluaran (bukan draft) mendapat baris **"Dibayar dari tujuan tabungan"**: pilih tujuan, atau **Tujuan baru** (cukup nama; target = nominalnya, berlaku sejak tanggal belanja).
 - Aplikasi lalu:
-  - memindahkan kantong pengeluaran itu ke kantong tujuan;
-  - bila saldo tujuan kurang, mencatat transfer kekurangannya dari kantong asal ke tujuan, di waktu yang sama, sebelum pengeluaran.
-- **Saldo kantong asal tidak berubah sama sekali.** Yang berubah hanya: pengeluaran itu keluar dari jatah bulanan dan tercatat sebagai pemakaian tujuan.
-- Bisa dibatalkan ("Batalkan dari tujuan") → kantong kembali, transfer pelengkapnya terhapus.
+  - bila saldo tujuan sekarang kurang (atau tujuannya dibuat sesudah tanggal belanja), mencatat **transfer pelengkap** kekurangannya dari kantong asal ke tujuan, di tanggal & jam yang sama (`pelengkap_tujuan` = id pengeluaran);
+  - memindahkan kantong pengeluaran itu ke kantong tujuan (bagian pecahan ikut).
+- **Tujuan kosong → saldo kantong asal tidak berubah sama sekali.** Tujuan yang sudah berisi ikut terpakai: saldo tujuan turun sebesar itu dan kantong asal naik sebesar itu (uang tujuan dianggap dipakai untuk belanja ini). Pengeluarannya keluar dari jatah bulanan dan tercatat sebagai pemakaian tujuan.
+- Snackbar "Dibayar dari tujuan …" dengan **Urungkan**. Sesudahnya, bila ada transfer pelengkap, detail menampilkan "Dibayar dari tujuan … · Di luar jatah bulan ini" dengan tombol **Batalkan** → kantong kembali, transfer pelengkap terhapus. Tanpa pelengkap, kantong asalnya tidak tercatat; pembatalan lewat Urungkan atau mengubah kantong di Ubah transaksi.
+- Menghapus pengeluarannya ikut menghapus transfer pelengkapnya.
 
 ## Data (migrasi)
 
-- `categories.penghasilan boolean` + isian awal sesuai daftar; trigger kategori bawaan untuk user baru ikut mengisinya.
-- `metode_budget.penghasilan numeric null`.
-- Jenis kantong baru `tujuan`; `user_accounts.target numeric null`, `user_accounts.tenggat date null` (hanya untuk jenis `tujuan`, dicek constraint).
-- `transaksi_data.pelengkap_tujuan uuid null` → pengeluaran yang dilengkapi (transfer pelengkap dari aksi "Dibayar dari tujuan tabungan"; `on delete cascade`, jadi ikut terhapus bersama pengeluarannya).
+`20261106000000_penghasilan_tujuan.sql`:
+- `categories.penghasilan boolean` + isian awal sesuai bawaan; trigger kategori (bawaan untuk user baru & isian baru) ikut mengisinya.
+- `metode_budget.penghasilan numeric(14,2) null check (> 0)`.
+- Jenis kantong baru `tujuan`; `user_accounts.target numeric(14,2) null`, `user_accounts.tenggat date null`. Constraint `user_accounts_target_check`: `tujuan` wajib `coalesce(target > 0, false)`; jenis lain target & tenggat null. Grant kolom insert/update `target, tenggat`.
+- `transaksi_data.pelengkap_tujuan uuid null references transaksi_data on delete cascade` (+ indeks), dibawa view & trigger tulis.
 
 ## Pengujian
 
-- **Unit:**
-  - saran penghasilan: rerata 3 bulan penuh, cadangan bulan ini/lalu, kategori non-penghasilan tidak dihitung;
+- **Unit** (`uji:metode`):
+  - saran penghasilan: rerata 3 bulan penuh (gajian akhir bulan), cadangan bulan ini, kategori non-penghasilan tidak dihitung;
   - basis dari penghasilan diatur sendiri;
   - pengeluaran dari kantong tujuan tidak masuk realisasi wadah;
-  - setoran bulan ini per tujuan;
-  - "perlu Rp X/bulan" dari tenggat.
-- **E2E:**
-  - Budget menampilkan penghasilan saran, lalu Ubah → jatah ikut berubah;
-  - kategori pemasukan: sakelar penghasilan tersimpan;
-  - buat tujuan "HP baru" Rp 10 jt dengan tenggat;
-  - sisihkan lewat Catat → progres naik, total aset tetap;
-  - pakai dari tujuan → kartu metode tidak lewat, baris "Dari tujuan tabungan" muncul;
-  - transaksi lama Rp 10,3 jt dari BCA → "Dibayar dari tujuan tabungan" → saldo BCA sama, Keinginan turun, batalkan → kembali seperti semula.
-- **Tanya AI:** `eval:tanya` + 1 kasus ("kenapa bulan ini boros?" menyebut HP dibayar dari tabungan).
+  - setoran bersih ke tujuan;
+  - progres tujuan & "perlu Rp X/bulan" dari tenggat.
+- **E2E** (`e2e/tujuan.mjs`, akun sementara): lihat Hasil.
+- **Tanya AI:** `eval:tanya` ("kenapa bulan ini boros?" menyebut HP dibayar dari tabungan).
 - **Regresi:** semua `uji:*` & E2E, typecheck, `next build`.
 
 ## Boundaries
 
-- **Disetujui lewat spec ini:** migrasi di atas; halaman & entri navigasi Tujuan tabungan.
-- **Tanya dulu:** mengubah arti "bulan" (periode gajian); menghapus tujuan yang masih bersaldo (aplikasi meminta saldonya dipindah dulu).
-- **Jangan:** mengubah saldo kantong asal saat "Dibayar dari tujuan tabungan"; mengeluarkan tujuan dari total aset.
+- **Jangan:** mengeluarkan tujuan dari total aset; mengubah saldo kantong asal saat "Dibayar dari tujuan tabungan" ke tujuan yang kosong.
+- **Tanya dulu:** mengubah arti "bulan" (periode gajian).
+- Tujuan yang punya riwayat tidak bisa dihapus (lihat Hasil); tujuan tanpa riwayat boleh dihapus walau punya saldo awal.
 
 ## Hasil
 
@@ -96,10 +94,13 @@ Pembelian yang sudah tercatat dari BCA (seperti HP tadi):
   - **Tidak ada item sidebar.** Halaman tujuan ada di dalam Profil, jadi di layar lebar sudah terbuka di panel kanan Profil.
   - **Tujuan yang punya riwayat tidak bisa dihapus.** Menghapusnya melepas pengeluaran dari kantong tujuan, sehingga pembelian itu masuk lagi ke jatah bulan itu. Tujuan yang sudah dipakai habis pindah ke bagian **Selesai**.
   - **"Sisihkan" dan "Pakai" membuka isian manual Catat** yang sudah terisi (pindah ke tujuan / bayar pakai tujuan), bukan form baru.
-  - **"Batalkan dari tujuan" hanya muncul bila ada transfer pelengkap.** Bila saldo tujuan cukup (tanpa pelengkap), kantong asalnya tidak tercatat; pembatalan lewat snackbar "Urungkan" atau mengubah kantong di Ubah transaksi.
+  - **"Batalkan" hanya muncul bila ada transfer pelengkap.** Bila saldo tujuan cukup (tanpa pelengkap), kantong asalnya tidak tercatat; pembatalan lewat snackbar "Urungkan" atau mengubah kantong di Ubah transaksi.
+  - **Pilihan kantong tidak dikelompokkan**: tujuan tampil di daftar yang sama.
 - **E2E** (akun sementara, 15 cek): penghasilan saran Rp 8 jt dari rerata gaji akhir bulan (bukan Rp 858.211 uang masuk bulan ini); Ubah lalu Pakai saran; sakelar penghasilan kategori; tujuan baru dengan tenggat ("Sisihkan Rp 1 jt/bulan"); Sisihkan lewat isian manual; Catat teks "sisihkan 200rb dari bca ke Liburan" (AI) masuk ke tujuan; HP Rp 10,3 jt → "Dibayar dari tujuan tabungan" (tujuan baru) → Keinginan Rp 0, baris "Dibayar dari tujuan: HP baru", saldo BCA tidak berubah; Batalkan; pindah lagi lalu hapus + Urungkan (pelengkap ikut kembali); Kantong menampilkan "Disisihkan ke tujuan" dan total aset tetap; Profil memakai nama Utang & Piutang.
 - **Utang & Piutang:** nama baru Lend & Borrow (Lend → Piutang, Borrow → Utang) di semua teks aplikasi. Alamat `/pinjaman` dan nama di kode tetap.
 
-## Pertanyaan terbuka
+## Belum diterapkan
 
-1. **Tabungan di rekening yang sama** (diputuskan: diterima untuk versi ini, dengan baris "Disisihkan ke tujuan" di Profil → Kantong). Kalau uang tujuan sebenarnya masih di BCA (tidak dipindah ke pocket), saldo BCA di aplikasi jadi lebih kecil dari saldo asli di bank, karena sebagian "pindah" ke kantong tujuan. Total aset tetap benar. Usul: terima untuk versi ini, dan di Profil → Kantong tulis "Rp 10 jt disisihkan ke tujuan" di bawah totalnya. Opsi "tujuan ini disimpan di BCA" (saldo BCA menampilkan gabungannya) menyusul bila terasa membingungkan.
+- Pilihan kantong dikelompokkan dengan judul "Tujuan tabungan".
+- Opsi "tujuan ini disimpan di BCA" (saldo BCA menampilkan gabungannya) — menyusul bila tabungan di rekening yang sama terasa membingungkan.
+- Menghapus tujuan bersaldo dengan meminta saldonya dipindah dulu (kini hanya dicegah bila punya riwayat).

@@ -1,10 +1,12 @@
 # Spec: Metode lanjutan — Zero-Based, Pay Yourself First, 6 Jars, Kakeibo
 
-Status: **disetujui** · 31 Oktober 2026, setelah cek silang dengan kode · modul `metode-lanjutan` (PETA-fase4), butuh `kelompok-baru`
+Status: **diterapkan** · rilis 2.8.0 · disetujui 31 Oktober 2026 · modul `metode-lanjutan` (PETA-fase4), butuh `kelompok-baru` · disinkronkan dengan kode 1 Nov 2026
 
 ## Tujuan
 
 Empat metode baru di samping Per kategori, 50/30/20, 80/20, 70/20/10, dan Kustom. Semuanya bisa dipilih di Profil → Budget, lalu tampil di Analitik, Beranda, dan Tanya AI dengan bahasa metode itu.
+
+Urutan di daftar Profil → Budget: Per kategori, Zero-Based, 50/30/20, 80/20, 70/20/10, 6 Jars, Pay Yourself First, Kakeibo, Kustom (`METODE`).
 
 ## Prinsip bersama: tabungan dihitung dari setoran nyata
 
@@ -16,11 +18,7 @@ Uang yang sekadar tersisa di BCA tidak dihitung. Inti keempat metode ini adalah 
 
 ### Setoran bersih (keputusan user 31 Okt 2026)
 
-`keTujuan` di `ambilPengaturanMetode` sekarang menjumlah semua pindah kantong berstatus confirmed (bukan pelengkap) yang **tujuannya** kantong tujuan, dari kantong asal apa pun. Akibatnya:
-- memindah dari tujuan A ke tujuan B ikut terhitung setoran;
-- menarik uang dari tujuan kembali ke bank tidak pernah dikurangkan.
-
-Diganti menjadi, untuk bulan itu, kecuali pindah kantong pelengkap (`pelengkap_tujuan`):
+`keTujuan` di `ambilPengaturanMetode` = `setoranBersih(...)` atas pindah kantong bulan itu yang berstatus confirmed, punya kantong tujuan, dan bukan pelengkap (`pelengkap_tujuan` null):
 
 ```
 setoran bersih = Σ pindah dari kantong BUKAN tujuan → kantong tujuan
@@ -31,11 +29,11 @@ setoran bersih = Σ pindah dari kantong BUKAN tujuan → kantong tujuan
 - Pengeluaran dari tujuan ("Pakai") bukan penarikan. Itu pembelian, yang sudah dipisah oleh SPEC-analitik-tujuan.
 - Hasilnya boleh negatif (lebih banyak ditarik daripada disetor). Tampilannya "Ditarik dari tujuan Rp X".
 
-Karena `keTujuan` dipakai bersama, baris "Disisihkan ke tujuan" di `KartuMetode` untuk metode lama juga memakai angka bersih ini.
+Karena `keTujuan` dipakai bersama, baris "Disisihkan ke tujuan" di `KartuMetode` untuk metode lama juga memakai angka bersih ini (sebelum 2.8.0: semua pindah ke tujuan, tanpa dikurangi tarikan).
 
 ### Metode lama
 
-50/30/20, 80/20, 70/20/10, dan Kustom tetap memakai aturan sekarang: tabungan = penghasilan − pengeluaran.
+50/30/20, 80/20, 70/20/10, dan Kustom tetap memakai aturan lama: tabungan = penghasilan − pengeluaran selain kelompok tabungan.
 
 Pembelian dari kantong tujuan tetap di luar semua wadah (SPEC-analitik-tujuan).
 
@@ -47,47 +45,48 @@ Pembelian dari kantong tujuan tetap di luar semua wadah (SPEC-analitik-tujuan).
 
 **Pengaturan:**
 - target per kategori (tabel `budgets` yang sudah ada, berlaku sama tiap bulan);
-- satu baris **Tabungan** dalam rupiah (`metode_budget.target_tabungan`).
+- satu isian **Tabungan per bulan** dalam rupiah (`metode_budget.target_tabungan`), opsional.
 
 **Profil → Budget:**
-- Form target per kategori yang sekarang hanya tampil untuk `metode === "kategori"` juga tampil untuk `zero-based`. Isian Tabungan ada di atasnya.
-- Memilih Zero-Based memakai alur "isi dulu, baru simpan" seperti Kustom: tidak langsung disimpan saat diketuk.
-- Pratinjau memperluas potongan "Belum dibagi"/"Melebihi penghasilan" milik Per kategori (bukan pratinjau baru). Untuk Zero-Based, potongannya Σ target, Tabungan, dan **"Belum dialokasikan Rp X"** = penghasilan − Σ target − tabungan.
-  - X > 0: kuning.
-  - X < 0: merah, "Lebih Rp X dari penghasilan".
-  - X = 0: "Semua rupiah sudah punya tugas ✓".
+- Form target per kategori tampil untuk `kategori` dan `zero-based`. Untuk Zero-Based, isian "Tabungan per bulan (Rp)" ada di atasnya.
+- Memilih Zero-Based tidak langsung menyimpan. Metode, target tabungan (kosong = null), dan target per kategori tersimpan bersama lewat tombol **Simpan** form itu ("Zero-Based tersimpan.").
+- Pratinjau memperluas potongan milik Per kategori (bukan pratinjau baru): **Ditargetkan** (Σ target), **Tabungan**, lalu satu potongan sisa = penghasilan − Σ target − tabungan:
+  - sisa > 0: **"Belum dialokasikan"**, kuning, sub "N% penghasilan";
+  - sisa = 0: "Belum dialokasikan Rp 0", abu-abu, sub "Semua rupiah punya tugas ✓";
+  - sisa < 0: **"Melebihi penghasilan"** merah, nominal kelebihannya;
+  - penghasilan 0: tanpa potongan sisa.
 - Menyimpan tetap boleh walau belum 0. Ini peringatan, bukan larangan.
-- Catatan "Target per kategori tetap tersimpan, dipakai lagi kalau kembali ke Per kategori" disesuaikan: target itu juga dipakai Zero-Based.
+- Catatan di bawah daftar metode (untuk metode selain Per kategori & Zero-Based): "Target per kategori tetap tersimpan, dipakai lagi kalau kembali ke Per kategori atau Zero-Based."
 
-**Analitik & Beranda.** Keduanya sekarang memilih salah satu kartu: `metode ? <KartuMetode/> : <KartuBudget/>` (`AnalitikView.tsx`, `BerandaView.tsx`). Untuk Zero-Based keduanya menampilkan **KartuBudget** (sama dengan Per kategori), ditambah blok kecil Zero-Based:
-- **Analitik:** baris **Tabungan** (setoran bersih vs target, tercapai/kurang) dan baris **Belum dialokasikan** bila ≠ 0.
-- **Beranda:** KartuBudget "Budget hampir habis" seperti biasa, ditambah kartu pengingat setoran seperti Pay Yourself First bila tabungan belum tercapai.
+**Analitik:** **KartuBudget** (sama dengan Per kategori), lalu `KartuMetode` "Metode Zero-Based" (tidak bisa diketuk) berisi:
+- wadah **Tabungan**: setoran bersih + pengeluaran kelompok tabungan vs target tabungan, "Tercapai"/"Kurang Rp X"; target kosong → "Target belum diatur";
+- baris **Belum dialokasikan** (selalu tampil): positif kuning dengan "Atur target di Profil → Budget"; nol "Semua rupiah sudah punya tugas ✓"; negatif merah berjudul "Target melebihi penghasilan".
+
+**Beranda:** KartuBudget "Budget hampir habis" seperti Per kategori, ditambah kartu "Belum disisihkan" seperti Pay Yourself First bila tabungan belum tercapai.
 
 ### Pay Yourself First
 
 **Gagasan:** sisihkan tabungan dulu begitu gajian; sisanya bebas, tanpa batas per pos.
 
 **Pengaturan:**
-- persen tabungan, bawaan 20%, 1–90%;
+- persen tabungan, bawaan 20%, bilangan bulat 1–90% ("Persen tabungan 1–90%.");
 - disimpan di `metode_budget.persen` sebagai `{"tabungan": 20}`;
-- alur "isi dulu, baru simpan" seperti Kustom.
+- alur "isi dulu, baru simpan" seperti Kustom: tombol **Pakai Pay Yourself First**.
 
-Sekarang `pilih()` menyimpan semua metode selain Kustom begitu diketuk, dan `pakaiMetode` mengirim `persen: null`. Jadi untuk PYF, Zero-Based, dan Kakeibo:
-- `pilih()` membuka isiannya, tidak langsung menyimpan;
-- `pakaiMetode` mengirim `persen` milik metode itu;
-- pratinjau mendapat `persen` PYF, tidak hanya untuk Kustom.
+`pilih()` hanya menyimpan langsung metode di luar `ISI_DULU` (`kustom`, `pyf`, `kakeibo`, `zero-based`); untuk keempatnya ia membuka isiannya. `pakaiMetode(m, persen, target)` mengirim `persen` milik metode itu (PYF `{tabungan}`, Kustom empat kelompok, lainnya null) dan `target_tabungan` bila diberikan. Pratinjau mendapat `persen` PYF, tidak hanya Kustom.
 
 **Wadah:**
-- **Tabungan:** target = penghasilan × persen; realisasi = setoran nyata.
-- **Bebas dipakai:** batasnya penghasilan − target tabungan, realisasinya semua pengeluaran.
+- **Tabungan:** target = penghasilan × persen; realisasi = setoran bersih + pengeluaran kelompok tabungan.
+- **Bebas dipakai:** jatahnya penghasilan × (100 − persen)%, realisasinya semua pengeluaran selain kelompok tabungan.
   - Statusnya hanya "aman" atau "lewat", tanpa "hampir".
-  - Beranda baru menandainya di "Budget hampir habis" bila **lewat** (keputusan user 31 Okt 2026).
+  - Beranda baru menampilkannya di "Budget hampir habis" bila **lewat** (keputusan user 31 Okt 2026).
 
-**Beranda: kartu "Belum disisihkan" — "Rp 1.600.000 tabungan bulan ini"**, di atas daftar transaksi terbaru (bersama catatan yang belum selesai), karena paling berguna tepat setelah gajian
-- **Kapan tampil:** sudah ada penghasilan masuk bulan itu, dan setoran nyata < target. Hilang sendiri begitu setoran ≥ target.
-- **Data penghasilan:** Beranda sekarang hanya mengambil pengeluaran bulan ini. `ambilPengaturanMetode` sudah mengambil pemasukan 3 bulan terakhir (`masuk`), tapi hanya mengembalikan saran. Ia ditambah isian `penghasilanBulanIni`: kategori penghasilan, bulan yang diminta.
-- **Tombol Sisihkan** sama dengan aksi "Sisihkan" di Profil → Tujuan: `bukaManual({ type: "transfer", kantong_tujuan_id, merchant })`, ditambah `amount` = kekurangannya (sebagai teks isian, `isianNominal`).
-  - Satu tujuan: tujuannya langsung terisi.
+**Beranda: kartu "Belum disisihkan"** — "**Rp 1.600.000** tabungan bulan ini. Sisihkan dulu, sisanya bebas dipakai." Letaknya di atas daftar transaksi terbaru, setelah "catatan belum selesai", karena paling berguna tepat setelah gajian.
+- **Berlaku untuk** Pay Yourself First dan Zero-Based.
+- **Kapan tampil:** penghasilan bulan berjalan > 0, dan realisasi wadah Tabungan < targetnya. Nominalnya kekurangannya. Hilang sendiri begitu realisasi ≥ target.
+- **Data penghasilan:** `ambilPengaturanMetode` mengembalikan `penghasilanBulanIni`: jumlah pemasukan berkategori penghasilan di bulan **berjalan** (bukan bulan yang diminta), dari data `masuk` 3 bulan yang sudah diambil untuk saran.
+- **Tombol Sisihkan** sama dengan aksi "Sisihkan" di Profil → Tujuan: `bukaManual({ type: "transfer", category: "other", amount })`, `amount` = kekurangannya (`isianNominal`).
+  - Satu tujuan: `kantong_tujuan_id` dan `merchant` (nama tujuan) langsung terisi.
   - Beberapa tujuan: user memilih di "Ke kantong". Daftar itu berisi semua kantong, tidak hanya tujuan; dibiarkan sama dengan Sisihkan di Tujuan (keputusan user 31 Okt 2026).
   - Belum ada tujuan: tombolnya **Buat tujuan** dan membuka Profil → Tujuan.
 
@@ -102,8 +101,8 @@ Sekarang `pilih()` menyimpan semua metode selain Kustom begitu diketuk, dan `pak
 | Kebebasan finansial | 10 | pengeluaran kelompok tabungan (emas, reksadana) |
 | Berbagi | 5 | berbagi |
 
-- Persennya tetap (tidak bisa diatur). Yang ingin persen lain memakai Kustom.
-- Dua toples tabungan dibaca terbalik: makin besar makin baik, seperti wadah tabungan sekarang.
+- Persennya tetap (tidak bisa diatur). Yang ingin persen lain memakai Kustom. Memilihnya langsung menyimpan.
+- Dua toples tabungan dibaca terbalik ("Tercapai"/"Kurang"): makin besar makin baik.
 
 ### Kakeibo
 
@@ -116,23 +115,27 @@ Sekarang `pilih()` menyimpan semua metode selain Kustom begitu diketuk, dan `pak
 | Budaya | pengembangan diri |
 | Ekstra | tak terduga |
 
-**Pengaturan:** target tabungan dalam rupiah (`metode_budget.target_tabungan`, berlaku tiap bulan sampai diubah), dengan alur "isi dulu, baru simpan".
+**Pengaturan:** target tabungan dalam rupiah, **wajib** > 0 ("Isi target tabungan per bulan."), di `metode_budget.target_tabungan`, berlaku tiap bulan sampai diubah. Alur "isi dulu, baru simpan": tombol **Pakai Kakeibo**.
 
-**Tampilan (Analitik):**
-- **Bisa dibelanjakan** = penghasilan − target tabungan, dibanding total pengeluaran.
-- Empat pos: nominal dan porsinya dari total, tanpa jatah per pos.
-- **Tabungan:** setoran nyata vs target.
+**Pratinjau (Profil → Budget):** "Target tabungan" (rupiah, % penghasilan) dan "Bisa dibelanjakan" (penghasilan − target, sub "4 pos, tanpa jatah").
+
+**Tampilan (Analitik, `KartuMetode`):**
+- Empat pos: nominal dan "N% dari belanja" (porsi dari total pengeluaran selain kelompok tabungan), tanpa jatah, selalu "aman".
+- **Tabungan:** setoran bersih + pengeluaran kelompok tabungan vs target.
+- **Bisa dibelanjakan** = penghasilan − target tabungan.
+- **Sisa** (atau **Lewat**, merah) = bisa dibelanjakan − dibelanjakan, dengan keterangan "Sudah dibelanjakan Rp X". Dibelanjakan = pengeluaran selain kelompok tabungan.
+- Beranda tidak menampilkan apa pun untuk Kakeibo (pos tanpa jatah tidak pernah "hampir"/"lewat").
 
 **Refleksi:**
-- Mulai tanggal 25, dan di bulan yang sudah lewat, Analitik menampilkan tombol **Refleksi {nama bulan}**.
+- Mulai tanggal 25 di bulan berjalan, dan di bulan yang sudah lewat, Analitik menampilkan tombol **Refleksi {Nama bulan YYYY}** (mis. "Refleksi Oktober 2026").
 - Tombol itu membuka Tanya AI dan langsung mengirim "Refleksi Kakeibo {Nama bulan YYYY}", seperti kartu saran di layar kosong Tanya AI. Nama bulannya disebut karena prompt mengartikan "bulan ini" sebagai bulan berjalan.
-- Konteks Tanya AI sekarang memberi `buka`, `terbuka`, dan `aturBulan`. Ditambah `tanyaLangsung(q)`, yang membuka lalu memanggil `tanya(q)` milik provider. `tanya` diam saja bila sedang sibuk, jadi tombolnya dinonaktifkan selama Tanya AI sibuk.
-- AI menjawab empat pertanyaan Kakeibo dari data:
-  - penghasilan yang dibagi (`penghasilan_dibagi`), bukan semua uang masuk;
-  - target tabungan;
-  - total dibelanjakan;
-  - satu saran perbaikan.
-- Agar angkanya tidak ditandai `ragu`, `bisa_dibelanjakan` dan `sisa` (bisa dibelanjakan − dibelanjakan) dihitung lebih dulu di isian `metode`.
+- Konteks Tanya AI punya `tanyaLangsung(q)` (buka lalu kirim) dan `sibuk`; `useTanyaLangsung()` mengembalikan `{ kirim, sibuk }`, atau null di luar provider (tombol tidak tampil). Tombolnya dinonaktifkan selama Tanya AI sibuk.
+- AI menjawab empat poin bernomor dari data:
+  1. penghasilan yang dibagi (`penghasilan_dibagi`), bukan semua uang masuk;
+  2. target tabungan dan yang benar-benar disisihkan (realisasi wadah Tabungan);
+  3. dibelanjakan dibanding bisa dibelanjakan, beserta sisa atau lewatnya;
+  4. satu saran perbaikan dari pos dengan belanja terbesar.
+- Agar angkanya tidak ditandai `ragu`, `bisa_dibelanjakan`, `dibelanjakan`, dan `sisa` dihitung lebih dulu di isian `metode.kakeibo`.
 - Aturan "2–5 kalimat" dilonggarkan khusus refleksi: empat poin pendek tanpa markdown (keputusan user 31 Okt 2026).
 
 ## Data & kode
@@ -143,70 +146,76 @@ Sekarang `pilih()` menyimpan semua metode selain Kustom begitu diketuk, dan `pak
 - default `metode` = `'kategori'`, supaya baris bisa dibuat dari halaman lain (lihat SPEC-pelunasan).
 
 **`metode.ts`:**
-- `METODE` (juga gerbang parse di `ambilPengaturanMetode`), `LABEL_METODE`, dan `wadahMetode` (PYF, 6 Jars, Kakeibo).
+- `METODE` (juga gerbang parse di `ambilPengaturanMetode`; nilai asing → `kategori`), `LABEL_METODE`, dan `wadahMetode(metode, persen, targetTabungan)` (PYF, 6 Jars, Kakeibo, Zero-Based).
+- `setoranBersih(pindah, idTujuan)`: fungsi murni setoran bersih.
 - `ambilPengaturanMetode` ditambah:
-  - `target_tabungan`;
+  - `targetTabungan` (null bila belum diatur);
   - `penghasilanBulanIni`;
   - `totalTarget` (Σ `budgets`, untuk Zero-Based; diambil di sini supaya tiap pemanggil tidak menghitung sendiri);
-  - `keTujuan` versi setoran bersih: mengambil pindah kantong yang dari **atau** ke kantong tujuan.
+  - `keTujuan` versi setoran bersih (lihat di atas).
 - **`hitungMetode` diperluas, bukan diganti:**
-  - wadah menandai sumber realisasinya: `pengeluaran`, `setoran-tujuan`, `setoran-total`, atau `sisa`;
-  - Kakeibo boleh tanpa target per wadah;
-  - Zero-Based mengembalikan baris tabungan dan belum dialokasikan;
+  - `Wadah.sumber` menandai asal realisasinya: `pengeluaran` (bawaan), `sisa` (tabungan metode lama), `setoran-tujuan` (Tabungan jangka panjang 6 Jars), atau `setoran-total` (setoran + kelompok tabungan: Tabungan PYF, Zero-Based, Kakeibo);
+  - `targetTetap` (target rupiah, bukan persen), `tanpaJatah` (pos Kakeibo), `bebas` (Bebas dipakai PYF: tanpa "hampir");
+  - Zero-Based mengembalikan wadah Tabungan dan `belumDialokasikan` (penghasilan − Σ target − target tabungan);
+  - Kakeibo mengembalikan `kakeibo: { bisaDibelanjakan, dibelanjakan, sisa }`;
   - semua masukan baru opsional, karena `uji-metode.mts` memanggil `hitungMetode({metode, persen, penghasilan})` tanpa isian baru.
 - **Metode lama tetap lulus `uji:metode` tanpa diubah.** Itu bukti angkanya tidak bergeser.
-  - Pengecualian: tes `keTujuan`, yang memang berubah menjadi setoran bersih.
+  - Pengecualian: `keTujuan`, yang memang berubah menjadi setoran bersih.
 
 **Pemanggil `hitungMetode`/`ambilPengaturanMetode` yang ikut diubah:**
-- `analitik/page.tsx` + `AnalitikView.tsx` (pilihan kartu untuk Zero-Based, blok Zero-Based, tombol refleksi Kakeibo);
+- `analitik/page.tsx` + `AnalitikView.tsx` (KartuBudget + KartuMetode untuk Zero-Based, tombol refleksi Kakeibo, tautan wadah);
 - `(app)/page.tsx` + `BerandaView.tsx` (pilihan kartu, kartu "Belum disisihkan");
 - `tanya-server.ts`;
-- `profil/budget/BudgetView.tsx`.
+- `profil/budget/BudgetView.tsx` (isian PYF/Kakeibo/Zero-Based, pratinjau).
 
 **`KartuMetode`:**
-- Tidak menulis `{persen}%` untuk wadah tanpa persen (Kakeibo).
-- Ikon & warna wadah baru di `IKON` (sekarang wadah tak dikenal jatuh ke ikon Kebutuhan). Warnanya diuji buta warna terhadap tetangganya, seperti warna yang sudah ada.
-- Baris "Disisihkan ke tujuan" tidak ditampilkan bila metode itu sudah punya wadah setoran tujuan (6 Jars, PYF, Zero-Based, Kakeibo), supaya tidak dobel.
-- Mode Beranda (`judul`) sekarang membuang semua wadah tabungan. Itu tetap; "Bebas dipakai" PYF hanya ikut bila lewat.
+- Tidak menulis `{persen}%` untuk wadah berpersen 0 (Kakeibo, Tabungan Zero-Based).
+- Ikon & warna wadah baru di `IKON`: bebas, hiburan, pendidikan, tabungan-panjang, kebebasan, bertahan, pilihan, budaya, ekstra (wadah tak dikenal jatuh ke ikon Kebutuhan). Warnanya diuji buta warna terhadap tetangganya (jarak CIELAB ≥ 23), seperti warna yang sudah ada.
+- Baris "Disisihkan ke tujuan"/"Ditarik dari tujuan" tidak ditampilkan bila metode itu sudah punya wadah bersumber `setoran-tujuan`/`setoran-total` (6 Jars, PYF, Zero-Based, Kakeibo), supaya tidak dobel.
+- Mode Beranda (`judul`) membuang semua wadah tabungan dan wadah berstatus aman. "Bebas dipakai" PYF hanya ikut bila lewat.
 
 **Tautan ke Riwayat (`AnalitikView`):**
-- sekarang memakai kelompok untuk wadah bukan tabungan;
-- wadah bersumber `setoran-tujuan` membuka Riwayat pindah kantong ke tujuan;
-- wadah bersumber `sisa` tidak bisa diketuk.
+- wadah bersumber `pengeluaran`: Riwayat pengeluaran bulan itu dengan filter kelompok wadahnya (termasuk Kebebasan finansial → kelompok tabungan);
+- wadah bersumber `setoran-tujuan`: Riwayat pindah kantong bulan itu, filter kantong = semua kantong tujuan;
+- wadah bersumber `sisa` atau `setoran-total` tidak bisa diketuk;
+- kartu Zero-Based tidak punya tautan sama sekali.
 
 **Tanya AI (`tanya-server.ts`, ringkasan bulan):**
-- Isian `metode` memuat wadah baru, setoran bersih, `bisa_dibelanjakan` dan `sisa` (Kakeibo), serta belum dialokasikan (Zero-Based).
-- Catatan per wadah tabungan sekarang selalu "tabungan = penghasilan dikurangi pengeluaran selain tabungan". Catatan itu dibuat mengikuti sumber realisasinya; untuk metode setoran nyata: "tabungan = yang benar-benar disisihkan bulan ini".
+- Isian `metode` memuat wadah baru (pos tanpa jatah: `porsi_dari_belanja_persen` alih-alih jatah), `disisihkan_ke_tujuan_tabungan` (setoran bersih), `kakeibo` (`target_tabungan`, `bisa_dibelanjakan`, `dibelanjakan`, `sisa`), serta `belum_dialokasikan` (Zero-Based).
+- Catatan per wadah tabungan (`CATATAN_TABUNGAN`) mengikuti sumber realisasinya:
+  - `sisa`: "tabungan = penghasilan dikurangi pengeluaran selain tabungan";
+  - `setoran-total`: "tabungan = yang benar-benar disisihkan bulan ini: setoran bersih ke tujuan tabungan ditambah beli emas/reksadana";
+  - `setoran-tujuan`: setoran bersih ke tujuan tabungan;
+  - `pengeluaran`: beli emas, reksadana, dan investasi lain (kelompok tabungan).
 - Aturan prompt baru:
-  - di metode setoran nyata, "tabungan" berarti yang disisihkan, bukan sisa;
-  - "Refleksi Kakeibo {bulan}": pakai bulan yang disebut, jawab empat poin dengan angka dari isian `metode`.
+  - di Zero-Based, PYF, 6 Jars, dan Kakeibo, "tabungan" berarti yang disisihkan, bukan sisa; pos Kakeibo tidak punya jatah; `belum_dialokasikan` negatif = target melebihi penghasilan;
+  - "Refleksi Kakeibo {bulan}": pakai ringkasan bulan yang disebut, jawab empat poin bernomor (lihat Refleksi).
 
 ## Pengujian
 
 **`uji:metode`, untuk tiap metode baru dengan data contoh:**
-- target, realisasi, dan status tiap wadah;
-- setoran bersih: setor 1 jt lalu tarik 400 rb → 600 rb; pindah antar-tujuan tidak dihitung; pelengkap tidak dihitung;
+- target, realisasi, dan status tiap wadah (PYF, 6 Jars, Kakeibo, Zero-Based);
+- setoran bersih: setor 1 jt, tarik 400 rb, pindah antar-tujuan 300 rb → 600 rb; lebih banyak ditarik → negatif (pelengkap dibuang di query, tidak di fungsi);
 - pembelian dari tujuan tetap di luar;
 - Zero-Based belum dialokasikan positif, nol, dan negatif;
-- PYF "Bebas dipakai" hanya "lewat" bila melebihi penghasilan − target, tidak pernah "hampir".
+- PYF "Bebas dipakai" 97% tetap "aman", "lewat" bila melebihi jatahnya; persen bawaan 20.
 
-**`eval:tanya`.** Akun eval sekarang memasang 50/30/20 sekali di awal (`insert`), dan kasus 14 bergantung padanya. Datanya juga tidak punya setoran ke tujuan maupun pengeluaran Pendidikan, dan menambahkannya akan menggeser angka harapan 8 kasus lama. Jadi:
-- Tiap kasus mendapat isian opsional `metode` dan `siapkan` (data tambahan khusus kasus itu, dihapus setelahnya).
-  - Metode dipasang dengan `upsert`, menggantikan `insert`.
-  - Kasus berikutnya kembali ke 50/30/20 tanpa data tambahan.
-- Kasus "bagaimana toples 6 jars-ku?":
-  - `siapkan`: setor ke tujuan dari BCA, beli kursus (Pendidikan);
-  - harapan: angka toples Pendidikan dan Tabungan jangka panjang.
+**`eval:tanya`.** Akun eval memasang 50/30/20 sekali di awal (`upsert`), dan kasus 14 bergantung padanya.
+- Tiap kasus mendapat isian opsional `metode` (di-`upsert` di atas pengaturan awal) dan `siapkan` (data tambahan khusus kasus itu, dikembalikan sebagai fungsi pembersih).
+  - Sesudah kasus itu, metode kembali ke pengaturan awal tanpa data tambahan.
+- Kasus "bagaimana toples 6 jars-ku bulan ini?":
+  - `siapkan`: setor 600 rb ke Tabungan HP dari BCA, kursus 400 rb (Pendidikan, kelompok pengembangan);
+  - harapan: 400.000, 600.000, 800.000, menyebut "pendidikan".
 - Kasus "Refleksi Kakeibo {bulan}":
-  - `siapkan`: target tabungan;
-  - harapan: penghasilan, target, total belanja, dan sisa; tidak `ragu`.
+  - `metode`: Kakeibo dengan target tabungan 1 jt (tanpa `siapkan`);
+  - harapan: penghasilan 8 jt, target 1 jt, belanja 367 rb, sisa 6.633.000; tidak `ragu`.
 
-**E2E** (skrip ad-hoc di scratchpad sesi; suite `fase3` sudah menguji Profil → Budget, diperluas atau suite baru `metode`):
-- pilih tiap metode di Profil → Budget; PYF/Zero-Based/Kakeibo tidak tersimpan sebelum diisi;
-- pratinjau benar;
-- Analitik menampilkan wadahnya; Zero-Based menampilkan KartuBudget dan blok Zero-Based;
-- Beranda menampilkan "Belum disisihkan" untuk PYF dan hilang setelah sisihkan;
-- tombol refleksi muncul di bulan lalu dan mengirim nama bulan yang benar.
+**E2E (suite `e2e/metode.mjs`):**
+- PYF: isian & pratinjau tampil, belum tersimpan sebelum "Pakai"; tersimpan dengan `persen.tabungan` 20;
+- Beranda: "Belum disisihkan Rp 1.600.000"; Sisihkan mengisi nominal & tujuan; kartu hilang setelah disetor;
+- Zero-Based: pratinjau Ditargetkan/Tabungan/Belum dialokasikan; tersimpan bersama budget; Analitik menampilkan KartuBudget + "Metode Zero-Based" dengan Belum dialokasikan dan Tabungan;
+- 6 Jars: langsung tersimpan; Analitik menampilkan Pendidikan & Tabungan jangka panjang;
+- Kakeibo: tersimpan dengan target; pos "% dari belanja", Bisa dibelanjakan; tombol refleksi di bulan lalu mengirim "Refleksi Kakeibo {bulan}" yang benar.
 
 **Regresi:** semua `uji:*`, semua suite E2E, typecheck, `next build`, `eval:tanya`.
 

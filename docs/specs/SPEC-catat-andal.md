@@ -1,6 +1,6 @@
 # Spec: Catat yang lebih andal (Gemini dulu, gambar dikompres, deteksi duplikat)
 
-Status: **diterapkan** (24 Okt; duplikat = sama persis, tanpa jendela waktu) · 24 Oktober 2026 · branch `feat/catat-andal` (ditumpuk di atas `feat/navigasi`)
+Status: **diterapkan** · rilis 2.1.0 (25 Okt 2026) · 24 Oktober 2026 · branch `feat/catat-andal` (ditumpuk di atas `feat/navigasi`) · migrasi `20261103000000_catat_andal.sql` · disinkronkan dengan kode 1 Nov 2026
 
 ## Masalah
 
@@ -31,7 +31,7 @@ Ukuran file turun ± 80% (415 KB → 81 KB) pada 1080px.
 
 **`gemini-3.5-flash-lite`**, ditulis persis (tanpa alias `-latest`). Alias `-latest` bisa berganti model, dan bersama model ikut berganti kuota maupun perilakunya, tanpa pemberitahuan. Itu yang membuat fallback sekarang tiba-tiba hanya dapat 20/hari.
 
-Nama model bisa diganti lewat env `GEMINI_MODEL` di Vercel tanpa deploy ulang.
+Ditulis di `src/lib/gemini.ts` (`GEMINI_MODEL`). Nama model bisa diganti lewat env `GEMINI_MODEL` di Vercel tanpa mengubah kode. Model yang sama dipakai cadangan teks (SPEC-ai-kantong) dan, bawaannya, Tanya AI (`GEMINI_MODEL_CHAT`).
 
 **Rekomendasi: aktifkan billing (paid tier) di Google AI Studio.**
 
@@ -47,24 +47,27 @@ Kalau tetap memakai free tier, aplikasi tetap jalan. Begitu kuota Gemini habis, 
 
 ```
 Foto/gambar
-  → kompres: sisi lebar maks 1080px, JPEG q80, putar sesuai EXIF   (server, sharp)
-  → Gemini Flash-Lite (gambar)                                     ← utama
+  → kompres: lebar maks 1080px, JPEG q80 (mozjpeg), putar sesuai EXIF  (server, sharp: kompresGambar)
+  → Gemini Flash-Lite (gambar, skema JSON, prompt "struk")             ← utama
       gagal / kuota habis / hasil tidak valid
-  → Tesseract + Groq (alur lama)                                   ← cadangan
+  → Tesseract + Groq (alur lama, gambar asli)                          ← cadangan
+      teks OCR tak lolos gerbang kualitas → Groq dilewati
       gagal
-  → draft + ditanya di obrolan                                     (seperti sekarang)
+  → draft + ditanya di obrolan (hasil Gemini yang tidak valid dipakai lebih dulu daripada hasil Groq)
 ```
 
 - **Pengaman yang sudah ada tetap jalan di semua jalur:**
   - nominal dari baris promo ditolak;
   - tenor paylater dibaca dari teks;
   - nama penyedia diseragamkan.
-- **Kompres di HP.** Ini ditambahkan juga agar unggahan di data seluler lebih cepat. Foto kamera (± 3–5 MB) dikecilkan ke 1080px sebelum dikirim, lewat canvas yang sudah ada di `CameraCapture`. Gambar dari galeri dan "Bagikan" tetap dikompres di server, jadi semua jalur dijamin sama.
-- **Ketikan biasa tetap lewat Groq.** Teks kecil dan cepat, dan tidak butuh gambar.
+- **Kompres di HP.** Ini ditambahkan juga agar unggahan di data seluler lebih cepat. Foto kamera (± 3–5 MB) dikecilkan ke lebar 1080px (JPEG q92) sebelum dikirim, lewat canvas di `CameraCapture`. Gambar dari galeri dan "Bagikan" tetap dikompres di server, jadi semua jalur dijamin sama.
+- **Gemini bisa dimatikan** lewat env `DISABLE_VISION_FALLBACK=1` (mis. saat kuotanya habis): gambar langsung ke OCR + Groq.
+- **Coba ulang Gemini:** galat sesaat (429/5xx, "high demand") diulang hingga 3 kali (jeda 1,5 lalu 3 detik) sebelum turun ke OCR + Groq.
+- **Ketikan biasa lewat Groq**, dengan Gemini sebagai cadangan bila seluruh rantai Groq gagal (ditambahkan di 2.9.0, SPEC-ai-kantong).
 
 ### 2. Deteksi duplikat (keputusan tetap di tangan user)
 
-**Yang dianggap sama persis** (keputusan 24 Okt: tanpa jendela waktu). Sebelum transaksi dari foto/teks disimpan, aplikasi mencari transaksi yang sudah tercatat dengan isian berikut **sama persis**:
+**Yang dianggap sama persis** (keputusan 24 Okt: tanpa jendela waktu). Sebelum hasil AI (foto/teks) yang sudah lengkap disimpan, `simpanTransaksi` mencari transaksi **terkonfirmasi** yang bukan ikutan (biaya admin/cashback) dengan isian berikut **sama persis** (kosong dianggap sama dengan kosong):
 - nominal;
 - jenis;
 - tanggal;
@@ -73,29 +76,33 @@ Foto/gambar
 
 Merchant **tidak** ikut dibandingkan. AI membacanya berbeda-beda antar unggahan; contohnya bunga SeaBank yang sama terbaca "Tanpa nama" dan "SeaBank".
 
-Ketikan biasa mendapat jam saat dicatat, jadi "kopi 20rb" yang diketik dua kali di menit berbeda tidak dianggap duplikat.
+Ketikan bertanggal hari ini tanpa jam mendapat jam saat dicatat (`jamTransaksi`, SPEC-saldo-waktu), jadi "kopi 20rb" yang diketik dua kali di menit berbeda tidak dianggap duplikat. Ketikan bertanggal lain tanpa jam (jam kosong) atau dengan bagian hari ("tadi pagi" → jam perkiraan yang sama) bisa dianggap duplikat bila isian lainnya sama.
 
-**Penanda.** Draft yang dicurigai duplikat menyimpan id transaksi yang mirip di kolom baru `duplikat_dari`. Dengan begitu, pertanyaannya tetap muncul saat draft dibuka lagi dari "Belum selesai".
+Hasil AI yang sudah jadi draft karena hal lain (kantong, nominal, jam, dll.) tidak dicek.
+
+**Penanda.** Draft yang dicurigai duplikat menyimpan id transaksi yang mirip di kolom baru `duplikat_dari`. Dengan begitu, pertanyaannya tetap muncul saat draft dibuka lagi dari "Belum selesai" (label daftar: "Mungkin tercatat dua kali"). Pertanyaan duplikat diajukan paling akhir, setelah nominal, kantong, kantong tujuan, dan jam terjawab.
 
 **Kalau ketemu,** transaksinya disimpan sebagai **draft** (belum dihitung), lalu obrolan bertanya:
 
-> Sepertinya ini sudah tercatat:
-> **Bunga SeaBank · Rp 30 · 24 Okt 01.50 · SeaBank**
-> Catat lagi?
+> Sepertinya ini sudah tercatat: Bunga SeaBank · Rp 30 · 24 Okt 01.50 · SeaBank. Catat lagi?
 > **(Ya, catat lagi)** **(Bukan, buang)**
 
-- **Ya, catat lagi**: tersimpan seperti biasa, karena user memang bisa saja bayar dua kali.
-- **Bukan, buang**: draft dihapus, dan pesan penutupnya "Oke, tidak dicatat."
-- Kalau draft dibiarkan, ia menunggu di "Belum selesai" seperti draft lain.
+(Transaksi aslinya sudah terhapus atau tak terbaca → "Sepertinya ini sudah tercatat. Catat lagi?")
 
-**Batasan.** Isian manual (form) **tidak** dicek, karena user mengisinya sendiri dengan sadar. Pembayaran cicilan dan Lend & Borrow juga tidak dicek.
+- **Ya, catat lagi** (atau ketik "ya/iya/oke/catat/lanjut"): `duplikat_dari` dikosongkan lewat `/api/draft/[id]/jawab`, lalu tersimpan seperti biasa, karena user memang bisa saja bayar dua kali.
+- **Bukan, buang** (atau ketik "bukan/tidak/ga/nggak/jangan…"): draft dihapus, dan pesan penutupnya "Oke, tidak dicatat."
+- Jawaban lain → "Pilih “Ya, catat lagi” atau “Bukan, buang” ya."
+- Kalau draft dibiarkan, ia menunggu di "Belum selesai" seperti draft lain.
+- Struk dari "Bagikan" di latar yang dicurigai duplikat dikabari lewat push "Struk barusan sepertinya sudah tercatat".
+
+**Batasan.** Isian manual (`/api/catat-manual`) **tidak** dicek, karena user mengisinya sendiri dengan sadar. Ini termasuk form bayar cicilan dan form Utang & Piutang. Pinjaman dan bayar cicilan yang **diketik/difoto** tetap dicek seperti hasil AI lain. Belanja paylater yang langsung jadi rencana cicilan tidak dicek.
 
 ### 3. Biaya admin/cashback yang tidak cocok lagi ikut terhapus
 
-Ini aturan database: begitu jenis transaksi induk berubah, anak yang tidak cocok lagi dihapus.
+Ini aturan database (trigger `ikutan_sesuai_jenis`, `after update of type` pada `private.transaksi_data`, hanya untuk induk): begitu jenis transaksi induk berubah, anak yang tidak cocok lagi dihapus.
 
-- Induk bukan "Pindah kantong" lagi → **biaya admin** dihapus.
-- Induk bukan "Keluar" lagi → **cashback** dihapus.
+- Induk bukan "Pindah kantong" lagi → **biaya admin** (anak `expense` berkategori `fees`) dihapus.
+- Induk bukan "Keluar" lagi → **cashback** (anak `income` berkategori `refund`) dihapus.
 
 Aturan ini satu tempat untuk semua jalur: edit, koreksi obrolan, dan jawaban.
 
@@ -103,24 +110,23 @@ Aturan ini satu tempat untuk semua jalur: edit, koreksi obrolan, dan jawaban.
 
 ## Data
 
-Satu migrasi:
-- trigger penghapus anak yang tidak cocok;
+Satu migrasi (`20261103000000_catat_andal.sql`):
+- kolom baru `private.transaksi_data.duplikat_dari uuid references private.transaksi_data(id) on delete set null` (kosong lagi kalau transaksi itu dihapus), ikut ke view `public.transactions` dan trigger tulisnya;
+- trigger `ikutan_sesuai_jenis` penghapus anak yang tidak cocok;
 - pembersihan data lama.
 
-Kolom baru `transaksi_data.duplikat_dari` (id transaksi yang mirip; kosong lagi kalau transaksi itu dihapus), ikut ke view `transactions`.
+Belakangan: indeks `idx_transaksi_duplikat` (`20261107000000_normalisasi.sql`); rujukan `duplikat_dari` ke transaksi akun lain ditolak (`20261109000000_isolasi_rujukan.sql`).
 
 ## Pengujian
 
-- **Unit:**
-  - pertanyaan duplikat muncul untuk draft bertanda `duplikat_dari`;
-  - ukuran hasil kompres.
+- **Unit (`uji:draft`):** pertanyaan duplikat muncul untuk draft bertanda `duplikat_dari`, dan baru setelah nominal terjawab.
 - **AI sungguhan:**
   - kumpulan struk/bukti yang pernah bermasalah (byU, SPayLater diskon, BP lama, bunga SeaBank, Kopi Kenangan cashback) lewat Gemini terkompres;
-  - jatuh ke Groq saat Gemini dipaksa gagal.
+  - jatuh ke Groq saat Gemini dimatikan (`npm run test:receipt -- <folder> --no-vision`, yang memasang `DISABLE_VISION_FALLBACK=1`).
 - **Migrasi diuji kering:**
   - anak terhapus saat jenis induk berubah;
   - saldo kantong lain tidak berubah.
-- **E2E dengan akun uji sementara:**
+- **E2E dengan akun uji sementara** (dilakukan manual saat rilis; belum ada skrip di `e2e/`):
   - unggah bukti yang sama dua kali → ditanya;
   - "Ya" → tercatat 2;
   - "Bukan" → tetap 1.
@@ -132,9 +138,14 @@ Kolom baru `transaksi_data.duplikat_dari` (id transaksi yang mirip; kosong lagi 
   - kompres 1080px;
   - pertanyaan duplikat;
   - trigger penghapus anak.
-- **Tanya dulu:** mengganti model ke selain Flash-Lite, atau mengirim teks ketikan ke Gemini.
+- **Tanya dulu:** mengganti model ke selain Flash-Lite.
+- **Sudah diputuskan (SPEC-ai-kantong, 2.9.0):** teks ketikan dikirim ke Gemini sebagai cadangan saat rantai Groq gagal.
 - **Jangan:** memblokir transaksi yang mirip tanpa bertanya.
 
 ## Pertanyaan terbuka
 
 1. **Paid tier atau tetap free tier?** Rekomendasinya paid (≈ Rp 35/struk), karena privasi dan kuota. Kode tetap sama di keduanya; bedanya hanya pengaturan billing di AI Studio.
+
+## Belum diterapkan
+
+- Uji unit ukuran hasil kompres dan skrip E2E duplikat (di "Pengujian" di atas) belum ada sebagai skrip.

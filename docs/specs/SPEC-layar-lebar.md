@@ -1,6 +1,8 @@
 # Spec: Layar lebar — tablet, Fold, desktop (fase 5 SPEC-navigasi)
 
-Status: **diterapkan** · 25 Oktober 2026 · branch `feat/layar-lebar`
+Status: **diterapkan · rilis 2.2.0** (tempel gambar, a11y & margin 24px di 2.3.0) · disinkronkan dengan kode 1 Nov 2026 · branch awal `feat/layar-lebar`
+
+"Lend & Borrow" di spec ini sejak 2.5.0 bernama **Utang & Piutang** (alamat tetap `/pinjaman`).
 
 Keputusan user: Tanya AI jadi **panel samping** (grafik tetap terlihat), sidebar mulai **1200px**, dan **seret foto struk** ikut di fase ini.
 
@@ -21,7 +23,7 @@ Sekarang aplikasi selalu berupa kolom HP selebar 600px. Di tablet, layar dalam G
 | Ringkas: navigasi bawah. Sedang & lebar: **navigation rail**. Layar besar: **drawer yang selalu terlihat** | Ringkas: kapsul bawah seperti sekarang. Sedang & lebar: rail di kiri. ≥ 1200px: sidebar penuh |
 | Menu navigasi selalu terlihat di samping isi | Rail/sidebar tidak ikut tergulir |
 | Sedang: disarankan satu panel. Lebar: disarankan **dua panel** | Sedang: satu kolom. Lebar: Riwayat dan Profil jadi daftar + detail |
-| Rasio panel: **42 : 58** (600–959px), **38 : 62** (≥ 960px), Fold **50 : 50** | Dipakai untuk Riwayat dan Profil |
+| Rasio panel: **42 : 58** (600–959px), **38 : 62** (≥ 960px), Fold **50 : 50** | Dipakai untuk Riwayat dan Profil (dua panel baru mulai 840px, jadi 42 : 58 berlaku 840–959px) |
 | Jangan merentangkan satu panel selebar layar | Isi dibatasi lebarnya; Beranda dan Analitik jadi **grid dua kolom kartu** |
 | Grid diubah supaya lebih banyak informasi terlihat sekaligus | Sama seperti baris di atas |
 | Tugas singkat: **pop-up kecil** di atas layar sebelumnya, bukan layar penuh | Catat, Tanya AI, dan form lain jadi pop-up di tengah |
@@ -56,17 +58,18 @@ Tidak berubah. Kapsul navigasi bawah, satu kolom, lembar dari bawah. Semua tes E
 - Tombol **+ Catat** berupa tombol bulat di bagian atas rail, dengan titik oranye catatan yang belum selesai seperti sekarang.
 - Isi tetap satu kolom, maksimal 600px, di tengah ruang sebelah kanan rail. Panduan Samsung menyarankan satu panel untuk ukuran ini.
 - Karena navigasi bawah hilang, tombol kembali-ke-atas, snackbar, dan tombol AI turun ke 16px dari bawah.
+- Lebar rail ada di variabel CSS `--rail` (0 di HP, 80px mulai 600px, 240px mulai 1200px); `body` diberi padding kiri sebesar itu.
 
 ### Lebar (≥ 840px): tablet, laptop, PWA desktop
 
-Rail tetap dipakai sampai 1199px. Mulai **1200px**, rail melebar jadi **sidebar** 240px: ikon di samping label, tombol "+ Catat transaksi" di atas, dan **Lend & Borrow** jadi item sendiri (seperti yang dijanjikan SPEC-navigasi). Di HP, Lend & Borrow tetap dibuka dari Profil.
+Rail tetap dipakai sampai 1199px. Mulai **1200px**, rail melebar jadi **sidebar** 240px: ikon di samping label, tombol "+ Catat transaksi" di atas, dan **Utang & Piutang** jadi item sendiri antara Analitik dan Profil (penanda `sidebar: true`, seperti yang dijanjikan SPEC-navigasi). Saat item itu aktif, Profil tidak ikut menyala. Di HP dan rail, Utang & Piutang tetap dibuka dari Profil.
 
 Per halaman:
 
-- **Beranda: grid dua kolom.**
-  - Kiri: saldo, kantong, dan streak.
-  - Kanan: perlu dibayar, peringatan budget, dan 5 transaksi terakhir.
-  - Lebar isi maksimal 1200px.
+- **Beranda: dua kolom kartu.**
+  - Kartu mengalir berurutan ke dua kolom (CSS `columns: 2 340px`, kartu tidak terpotong), bukan kiri/kanan yang ditetapkan. Kalau ruangnya kurang dari 2 × 340px (mis. panel Tanya AI terbuka di 1024px), jadi satu kolom.
+  - 5 transaksi terakhir dan "Lihat semua riwayat" dibungkus satu blok supaya tidak terpisah kolom.
+  - Lebar isi maksimal 1200px (`--lebar-app` naik dari 600px ke 1200px pada halaman yang memakai kelas `.lebar`).
 - **Riwayat: dua panel, daftar + detail.**
 
   ```
@@ -83,43 +86,42 @@ Per halaman:
 
   - Mengetuk transaksi membuka detailnya di panel kanan, dan barisnya diberi tanda terpilih. Daftar dan filter tidak hilang.
   - Alamatnya menjadi `/riwayat?…filter…&id=<transaksi>`, jadi bisa di-bookmark dan tombol back browser bekerja.
-  - Sebelum ada yang dipilih, panel kanan berisi teks "Pilih transaksi untuk melihat detailnya".
-  - Mengubah atau menghapus transaksi dilakukan dari panel kanan. Setelah dihapus, panel kembali kosong.
+  - Sebelum ada yang dipilih, panel kanan berisi teks "Pilih transaksi untuk melihat detailnya." (`data-kosong`, ditampilkan CSS `::before`).
+  - Mengubah atau menghapus transaksi dilakukan dari panel kanan. Setelah dihapus, alamat kembali ke Riwayat dengan filternya (tanpa `id`) dan panel kosong.
+  - Panel kanan menempel (`position: sticky`) dan digulir sendiri.
   - `/transactions/[id]` tetap ada dan tetap dipakai di HP, termasuk tautan dari Beranda dan notifikasi.
-- **Analitik: grid dua kolom.**
-  - Kiri: ringkasan bulan, sorotan, dan komposisi kategori.
-  - Kanan: merchant teratas, tren, dan budget.
-  - Navigasi bulan tetap di atas, selebar isi.
+- **Analitik: dua kolom kartu**, dengan aturan alir yang sama seperti Beranda (urutan kartu mengikuti SPEC-analitik-insight).
+  - Pemilih bulan tetap di atas, selebar isi (`column-span: all`).
 - **Profil: dua panel, menu + halaman.**
-  - Kiri: kartu akun dan menu (Kantong, Kategori, Budget, Lend & Borrow, ekspor, dan lainnya).
+  - Kiri: kartu akun dan menu (Kantong, Kategori, Utang & Piutang, Tujuan tabungan, Budget, Notifikasi, Ekspor, Nama di rekening, Keluar). Baris halaman yang terbuka ditandai (`aria-current="page"`).
   - Kanan: halaman yang dipilih (`/profil/kantong`, `/profil/budget`, dan seterusnya), dengan alamat sama seperti di HP.
-  - Sebelum ada yang dipilih, panel kanan menampilkan Kantong.
-- **Lend & Borrow** (`/pinjaman`): satu kolom seperti sekarang (maks 600px). Isinya daftar orang dan cicilan, yang tidak cocok dipecah dua.
+  - Membuka `/profil` di layar lebar langsung diganti ke `/profil/kantong` (`router.replace`), jadi panel kanan tidak kosong. Teks cadangan panel kosong: "Pilih pengaturan di sebelah kiri."
+- **Utang & Piutang** (`/pinjaman`): satu kolom seperti sekarang (maks 600px). Isinya daftar orang dan cicilan, yang tidak cocok dipecah dua.
 
-Rasio dua panel (dari lebar isi di sebelah rail) mengikuti Samsung: **42 : 58** di bawah 960px, **38 : 62** mulai 960px. Jika layar hampir persegi (rasio lebar : tinggi ≤ 1,2), rasionya **50 : 50**.
+Rasio dua panel (dari lebar isi di sebelah rail) mengikuti Samsung: **42 : 58** di 840–959px, **38 : 62** mulai 960px. Jika layar hampir persegi (`max-aspect-ratio: 6/5`, lebar : tinggi ≤ 1,2), rasionya **50 : 50**.
 
 ### Lembar & pop-up (≥ 600px)
 
 Mengikuti panduan "pop-up kecil untuk tugas singkat":
 
 - **Lembar bawah** (pilih kantong, filter, konfirmasi) jadi **dialog di tengah**, maksimal 480px.
-- **Lembar layar penuh** (Catat, Tanya AI, form pinjaman/kantong/kategori, ubah transaksi, kamera) jadi **pop-up besar di tengah**: maksimal 640px × 90% tinggi layar, dengan sudut membulat. Halaman di belakangnya tetap terlihat redup.
-- Tombol **AI** tetap di kanan bawah Analitik, tetapi mengikuti tepi kanan isi, bukan tepi layar.
+- **Lembar layar penuh** (Catat, Tanya AI, form pinjaman/kantong/kategori, ubah transaksi, kamera) jadi **pop-up besar di tengah**: maksimal 640px × min(90% tinggi layar, 960px), dengan sudut membulat. Halaman di belakangnya tetap terlihat redup; ketuk di luar menutupnya.
+- Tombol **AI** tetap di kanan bawah (Analitik, dan Beranda sejak 2.4.0), tetapi mengikuti tepi kanan isi, bukan tepi layar.
 - **Tanya AI di layar lebar (≥ 840px): panel 400px yang menempel di kanan**, bukan pop-up. Panel ini non-modal: halaman Analitik di sebelahnya tetap bisa digulir dan dilihat, dan kartunya turun ke satu kolom kalau ruangnya tidak cukup untuk dua. Tombolnya × (tutup), dan Esc juga menutup. Di 600–839px Tanya AI tetap pop-up, di HP tetap layar penuh. Saat lebar berubah, dialog dibuka ulang dengan mode lain tanpa memasang ulang isinya, jadi obrolan dan ketikan tidak hilang.
 
 ### Seret foto struk
 
 Di kolom Catat, gambar juga bisa **ditempel** (Ctrl+V): tangkapan layar atau gambar yang disalin jadi lampiran, sama seperti memilih dari galeri. Lembar Catat di layar lebar selebar pop-up besar (640px).
 
-Foto struk bisa diseret dari File Explorer, Galeri (layar terpisah di tablet/Fold), atau aplikasi lain ke **mana saja** di aplikasi. Selama diseret, tampil lapisan "Lepas untuk mencatat struk". Fotonya diproses di latar persis seperti foto dari "Bagikan", lalu hasilnya dikabari lewat snackbar. Berkas yang bukan gambar ditolak dengan pesan singkat.
+Foto struk bisa diseret dari File Explorer, Galeri (layar terpisah di tablet/Fold), atau aplikasi lain ke **mana saja** di aplikasi (listener `drag*`/`drop` di `window`, `Catat.tsx`), di semua lebar. Selama diseret, tampil lapisan "Lepas untuk mencatat struk" (popover, jadi tampil juga di atas dialog yang terbuka). Fotonya masuk antrean dan diproses di latar persis seperti foto dari "Bagikan", lalu hasilnya dikabari lewat snackbar ("1 tercatat · 1 belum lengkap", dengan aksi Lengkapi bila perlu). Berkas yang bukan gambar ditolak: "Yang bisa dicatat cuma foto struk (gambar)."
 
 ### Tombol & app bar (dicek ulang ke One UI Design Guidelines, 25 Okt)
 
 - **App bar** (hlm. 16): tombol kembali paling kiri, judul di sebelahnya, tombol aksi di kanan (maks 3 termasuk judul), ⋮ paling kanan. Susunan ini sudah dipakai di semua lebar.
 - **App bar besar** (hlm. 19): tidak dipakai di HP mendatar; di layar lain hanya kalau tingginya ≥ 580dp. Di bawah tinggi itu, area judul jadi ringkas: tetap tampil karena di detail transaksi judulnya adalah nominal, tetapi tanpa ruang setinggi sepertiga layar. Rail juga dirapatkan supaya semua tab muat.
-- **Dua panel:** panel detail (Riwayat & Profil) tanpa tombol kembali, karena daftarnya terlihat di sebelah. Di layar sempit tombol kembali tetap ada.
+- **Dua panel:** panel detail (Riwayat & Profil) tanpa tombol kembali, karena daftarnya terlihat di sebelah (CSS menyembunyikan `a[aria-label="Kembali"]` di dalam `.duaPanel[data-tanpa-kembali] .panelDetail` mulai 840px). Di layar sempit tombol kembali tetap ada.
 - **Pop-up & panel samping:** tombol di kepala jadi × (tutup). Layar penuh di HP tetap ‹.
-- **Detail dari luar Riwayat** (Beranda, snackbar "Lihat", notifikasi, Fold dibuka) di layar lebar langsung membuka dua panel Riwayat (`/riwayat?id=`). `/transactions/[id]` tetap dipakai di HP.
+- **Detail dari luar Riwayat** di layar lebar langsung membuka dua panel Riwayat (`/riwayat?id=`): kartu transaksi di Beranda (klik biasa; Ctrl/⌘/Shift-klik tetap ke `/transactions/[id]`), dan halaman `/transactions/[id]` sendiri (snackbar "Lihat", notifikasi, Fold dibuka) yang mengganti alamatnya ke `/riwayat?id=` begitu lebarnya ≥ 840px. `/transactions/[id]` tetap dipakai di HP.
 
 ### Aksesibilitas (review UI/UX Pro Max, 25 Okt)
 
@@ -136,20 +138,20 @@ Foto struk bisa diseret dari File Explorer, Galeri (layar terpisah di tablet/Fol
 
 ## Cara kerja (ringkas)
 
-- **Media query CSS, bukan JavaScript.** Dengan begitu, saat Fold dibuka atau dilipat, React tidak memasang ulang halaman. Teks di Catat dan Tanya AI serta posisi gulir tetap ada. JavaScript (`matchMedia`) hanya dipakai di satu tempat: menentukan apakah ketukan transaksi di Riwayat membuka panel kanan atau halaman detail.
-- **`NAVIGASI` tetap satu daftar.** Kapsul bawah, rail, dan sidebar memakai komponen yang sama dengan CSS berbeda. Lend & Borrow ditambahkan dengan penanda `sidebar: true`, sehingga hanya tampil di sidebar.
+- **Tata letak lewat media query CSS, bukan JavaScript.** Dengan begitu, saat Fold dibuka atau dilipat, React tidak memasang ulang halaman. Teks di Catat dan Tanya AI serta posisi gulir tetap ada. JavaScript (`matchMedia(LAYAR_LEBAR)`, `LAYAR_LEBAR = "(min-width: 840px)"` di `navigasi.ts`, harus sama dengan CSS) hanya dipakai untuk **perilaku**, bukan tata letak:
+  - klik transaksi di Riwayat: panel kanan atau halaman detail (`RiwayatView`);
+  - klik transaksi di luar Riwayat → `/riwayat?id=` (`TransactionList`), dan `/transactions/[id]` → `/riwayat?id=` (`DetailView`);
+  - `/profil` → `/profil/kantong` (`ProfilView`);
+  - Tanya AI: `show()` (non-modal) atau `showModal()`, dibuka ulang saat lebar berubah (`Lembar` posisi `samping`); tautan di jawaban menutup lembar hanya di layar sempit;
+  - h1/h2 judul panel detail (`useLayarLebar`).
+- **`NAVIGASI` tetap satu daftar.** Kapsul bawah, rail, dan sidebar memakai komponen yang sama dengan CSS berbeda. Utang & Piutang ditambahkan dengan penanda `sidebar: true` (`data-sidebar`), sehingga hanya tampil di sidebar.
 - **Riwayat dua panel.**
-  - `riwayat/page.tsx` membaca `id`, lalu mengambil transaksinya dengan query yang sama seperti `/transactions/[id]` (dipindah ke satu fungsi bersama) dan menampilkan `DetailView` di panel kanan.
-  - Di layar ringkas, kalau alamat berisi `id` (misalnya Fold dilipat saat detail terbuka), detail tampil penuh dan tombol kembalinya membuang `id`. Dengan begitu pengguna tetap di tempat yang sama.
-  - Memilih transaksi hanya mengganti `?id=` lewat `history.pushState`, tanpa render ulang server. Detailnya diambil dari browser (`ambilDetail`, dipakai juga oleh `/transactions/[id]`), jadi daftar yang sudah "Muat lagi" dan posisi gulirnya tidak hilang.
-- **Profil dua panel** lewat `profil/layout.tsx`: menu di kiri dan `children` di kanan. Di layar ringkas, menu hanya tampil di `/profil` itu sendiri.
+  - `RiwayatView` membaca `id` dari alamat (`useSearchParams`) dan mengambil transaksinya di browser dengan `ambilDetail` (`src/lib/riwayat.ts`), fungsi yang sama yang dipakai server oleh `/transactions/[id]`, lalu menampilkan `DetailView` di panel kanan. `riwayat/page.tsx` tidak membaca `id`. Detail dimuat ulang juga setelah simpan/refresh.
+  - Di layar ringkas, kalau alamat berisi `id` (misalnya Fold dilipat saat detail terbuka), detail tampil penuh dan tombol kembalinya (alamat Riwayat dengan filternya) membuang `id`. Dengan begitu pengguna tetap di tempat yang sama.
+  - Memilih transaksi hanya mengganti `?id=` lewat `history.pushState`, tanpa render ulang server, jadi daftar yang sudah "Muat lagi" dan posisi gulirnya tidak hilang. Ctrl/⌘/Shift/Alt-klik tetap membuka halaman detail.
+- **Profil dua panel** lewat `profil/layout.tsx`: menu di kiri dan `children` di kanan (`profil/page.tsx` mengembalikan `null`, jadi panel kanannya `:empty`). Di layar ringkas, menu hanya tampil di `/profil` itu sendiri.
 - **Panel mana yang tampil di layar sempit** ditentukan CSS `:empty` / `:has()`: panel kanan yang kosong disembunyikan, dan kalau berisi, daftarnya yang disembunyikan.
 - **Tidak ada perubahan database dan tidak ada dependensi baru.**
-
-## Tidak dikerjakan
-
-- **Flex mode** (Fold setengah terlipat, konten di atas dan kontrol di bawah). Browser belum bisa mendeteksinya dengan andal: Viewport Segments API masih eksperimen. Aplikasi tetap tampil normal dalam posisi itu.
-- **Tema terang.** Tidak termasuk fase ini.
 
 ## Pengujian
 
@@ -171,7 +173,7 @@ Foto struk bisa diseret dari File Explorer, Galeri (layar terpisah di tablet/Fol
 - **Regresi:** E2E filter Riwayat dan kalender (360px) tetap lolos.
 - `uji:*`, typecheck, `next build`.
 
-Hasil 25 Okt: **semua cek lulus** (`e2e-lebar`: 25 kombinasi lebar × halaman + 20 cek perilaku).
+Hasil 25 Okt: **semua cek lulus** (25 kombinasi lebar × halaman + 20 cek perilaku). Suite permanennya `e2e/lebar.mjs` (`npm run e2e -- lebar`); aksesibilitas di `e2e/a11y.mjs`, tempel gambar di `e2e/tempel.mjs`.
 
 ## Boundaries
 
@@ -183,3 +185,8 @@ Hasil 25 Okt: **semua cek lulus** (`e2e-lebar`: 25 kombinasi lebar × halaman + 
 
 - **Galaxy Z Fold** dibuka lebarnya sekitar 700–830dp, jadi masuk ukuran **sedang**: rail + satu kolom, sesuai panduan Samsung untuk Fold.
 - **Tablet** tegak (≈ 800dp) memakai rail. Tablet mendatar (≈ 1280dp, mis. Galaxy Tab S) sudah melewati 1200px, jadi memakai sidebar. Ini sesuai Samsung (layar *expanded* boleh memakai drawer yang selalu terlihat) dan Material 3 (drawer untuk ≥ 1200dp).
+
+## Belum diterapkan
+
+- **Flex mode** (Fold setengah terlipat, konten di atas dan kontrol di bawah). Browser belum bisa mendeteksinya dengan andal: Viewport Segments API masih eksperimen. Aplikasi tetap tampil normal dalam posisi itu.
+- **Tema terang.** Aplikasi hanya bertema gelap; tidak ada `prefers-color-scheme`.

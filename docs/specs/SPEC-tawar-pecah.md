@@ -1,6 +1,6 @@
 # Spec: AI menawarkan pecah struk campuran
 
-Status: **disetujui** · 31 Oktober 2026, setelah cek silang dengan kode · modul `tawar-pecah` (PETA-fase4)
+Status: **diterapkan** · rilis 2.8.0 · 31 Oktober 2026 · modul `tawar-pecah` (PETA-fase4) · disinkronkan dengan kode 1 Nov 2026
 
 ## Masalah
 
@@ -48,13 +48,14 @@ Skema AI mendapat isian baru `usulan_pecah`. Isian ini **hanya dari struk**; tek
 **Fungsi murni baru** `usulanPecah(usulan, amount, kategori)` di `extract.ts`, berdampingan dengan `rincianAtauNull`.
 
 **Hanya dari struk:**
-- Kedua jalur struk sekarang adalah Gemini Vision (jalur pertama) dan OCR → Groq (cadangan, `extractWithGroq` dengan `diketik = false`) (`receipt.ts`).
-- Prompt Groq dipakai bersama oleh teks ketikan dan OCR, dan `normalize` tidak tahu asalnya. Karena itu `normalize` mendapat penanda `dariStruk`, yang diisi hanya oleh kedua jalur struk.
-- Jalur ketikan, koreksi, dan jawaban draft (`processReceiptText`) membuang `usulan_pecah`.
+- Kedua jalur struk adalah Gemini Vision (jalur pertama, `extractWithGeminiVision`) dan OCR → Groq (cadangan, `extractWithGroq` dengan `diketik = false`) (`processReceiptImage` di `receipt.ts`).
+- `normalize` mendapat penanda `dariStruk` (parameter ketiga). Yang mengisinya `true` hanya `extractWithGeminiVision` dan `extractWithGroq` saat `!diketik`.
+- Jalur ketikan, koreksi, dan jawaban draft (`processReceiptText`: Groq dengan `diketik = true`, lalu cadangan `extractTextWithGemini`) membuang `usulan_pecah`.
+- Pinjaman juga tidak pernah membawa usulan (`normalize`).
 
 **Skema:**
-- Prompt bersama (`buildSystemPrompt`) mendapat skema dan aturan `usulan_pecah`. Enum kelompoknya ikut daftar kelompok yang sah (lihat SPEC-kelompok-baru).
-- `geminiSchema` mendapat properti `usulan_pecah` (array objek, `kelompok` sebagai enum). Skema itu daftar tertutup; tanpa properti ini, isiannya tidak pernah keluar.
+- `buildSystemPrompt(tanggal, konteks, sumber)` dipisah per sumber (sejak 2.9.0, SPEC-ai-kantong): skema dan aturan `usulan_pecah` hanya ada di prompt `"struk"` (gambar/OCR); prompt `"ketik"` hanya memuat `rincian`. Aturannya: hanya struk belanja yang daftar barangnya terbaca dan masuk ≥ 2 kategori; bukti bayar e-wallet, barang sekategori, atau daftar tak terbaca → null. Enum kelompoknya ikut daftar kelompok yang sah (lihat SPEC-kelompok-baru).
+- `geminiSchema` mendapat properti `usulan_pecah` (array objek nullable; `category`, `subtotal`, `barang` wajib; `kelompok` enum nullable). Skema itu daftar tertutup; tanpa properti ini, isiannya tidak pernah keluar.
 - Groq memakai mode `json_object` biasa, jadi tidak perlu skema.
 
 **Diteruskan sampai simpan.** Bidangnya ditulis satu per satu, bukan diteruskan otomatis:
@@ -62,13 +63,13 @@ Skema AI mendapat isian baru `usulan_pecah`. Isian ini **hanya dari struk**; tek
 - `receipt.ts`: `TransactionRow`, `emptyDraft()`, dan `toTransactionRow` (di samping `rincian`).
 - `simpan-transaksi.ts`:
   - `usulan_pecah` dikeluarkan dari `input` di destrukturisasi awal (bersama `rincian`), supaya tidak ikut tersimpan lewat `...row` di cabang draft paylater;
-  - dipasang ke `row` tepat sebelum insert terakhir, hanya bila `row.type === "expense"`, bukan pinjaman, bukan cicilan, bukan paylater, dan tidak dipecah dari `rincian`.
+  - dipasang ke `row` (sebagai teks JSON) tepat sebelum insert terakhir, hanya bila dari AI, `row.type === "expense"`, bukan pinjaman, bukan cicilan, tidak dipecah dari `rincian`, dan Σ bagian = `row.amount`. Belanja paylater sudah keluar lebih awal lewat cabang paylater, jadi tidak pernah membawa usulan.
 
 ### 2. Penyimpanan
 
 **Kolom baru** `private.transaksi_data.usulan_pecah_enc bytea`, terenkripsi seperti `description` karena berisi nama barang:
 - Isinya JSON bagian yang sudah diskalakan: `[{amount, category, kelompok, description}]`.
-- View `public.transactions` (definisi terakhir di `20261107000000_normalisasi.sql`) mendapat `usulan_pecah` (teks JSON, didekripsi) di akhir, setelah `updated_at`, lewat `create or replace view`.
+- Migrasi `20261108000000_fase4.sql`: view `public.transactions` (dasar dari `20261107000000_normalisasi.sql`) mendapat `usulan_pecah` (teks JSON, didekripsi) di akhir, setelah `updated_at`, lewat `create or replace view`. Trigger tulisnya ditulis ulang lagi di `20261109000000_isolasi_rujukan.sql` (perilaku `usulan_pecah` sama).
 
 **Trigger `transactions_tulis`:**
 - **INSERT** menulis `usulan_pecah`. Urungkan hapus memasukkan kembali baris `select("*")` (`DeleteTransactionButton`), jadi tawarannya ikut kembali.
@@ -87,14 +88,16 @@ Skema AI mendapat isian baru `usulan_pecah`. Isian ini **hanya dari struk**; tek
 ### 3. Tampilan
 
 **Kartu hasil di obrolan Catat** (`kartu()` di `Obrolan.tsx`):
-- Satu baris di bawah transaksi: **"Isinya campur: Belanja harian Rp 74.000 · Makan Rp 13.500"**, nominal dengan `fmtIDR`, dan tombol **Pecah**.
-- Pecah membuka lembar "Pecah transaksi" yang sudah ada, **terisi usulan**. User memeriksa, boleh mengubah, lalu Simpan. Tidak ada yang tersimpan sebelum Simpan ditekan.
+- Satu baris di bawah transaksi: **"Isinya campur: Belanja harian Rp 74.000 · Makan Rp 13.500"** (`ringkasUsulan`, nominal dengan `fmtIDR`), dan tombol **Pecah** di baris aksi kartu (di samping Batalkan, Ubah). Tidak tampil pada kartu yang dibatalkan atau kartu perbaikan.
+- Pecah membuka lembar "Pecah transaksi" yang sudah ada, **terisi usulan** (`PecahTransaksi` dengan `hanyaLembar`). User memeriksa, boleh mengubah, lalu Simpan. Tidak ada yang tersimpan sebelum Simpan ditekan. Setelah dipecah (≥ 2 bagian), baris tawaran hilang dari kartu.
 - Struk selalu masuk obrolan besar (`catatFoto`/`lampirkan` memanggil `setBesar(true)`), jadi lembar ringkas tidak perlu tawaran.
 - Struk dari Bagikan (antrean `useAntreanStruk`) tidak punya kartu hasil. Tawarannya hanya muncul di halaman detail.
 
 **Halaman detail:**
-- Kartu tawaran **paling atas** (di tempat peringatan draft), supaya tidak tenggelam di bawah lipatan layar: "Isi struk ini campur", rincian singkat, tombol **Pecah** dan **Tutup**. Selama tawaran tampil, tombol "Pecah transaksi" di bawah tidak ditampilkan (tawaran sudah membuka lembar yang sama).
-- Tutup mengosongkan usulan, dan tawaran tidak muncul lagi.
+- Kartu tawaran **paling atas** (setelah tempat peringatan draft, sebelum rincian), supaya tidak tenggelam di bawah lipatan layar: `Pesan` info berjudul "Isi struk ini campur", isi "Belanja harian Rp 70.000 · Makan Rp 17.500. Pecah supaya tiap bagian masuk kategorinya sendiri?", tombol **Pecah** dan **Tutup**.
+- Tombol "Pecah transaksi" di bawah **tetap tampil** selama tawaran ada (`DetailView` merender `PecahTransaksi` kedua tanpa usulan); ia membuka lembar kosong biasa, bukan berisi usulan.
+- Tutup mengosongkan usulan (snackbar "Tawaran pecah ditutup"), dan tawaran tidak muncul lagi.
+- Tawaran hanya untuk pengeluaran yang belum terpecah.
 - Draft ("Belum selesai") tidak menampilkan tawaran, sama seperti "Pecah transaksi" yang disembunyikan untuk draft (`DetailView`). Lihat batas di §2.
 
 **Mengisi lembar dari usulan:** kategori yang sudah tidak ada (dihapus setelah usulan dibuat) diganti "Lainnya". Tanpa itu, bagian baru ditolak FK `transaksi_data_kategori_fkey`.
@@ -102,7 +105,8 @@ Skema AI mendapat isian baru `usulan_pecah`. Isian ini **hanya dari struk**; tek
 **Membatalkan:** sesudah dipecah, "Gabungkan lagi jadi satu" yang sudah ada mengembalikannya jadi satu. Tawarannya tidak muncul lagi karena usulannya sudah dikosongkan.
 
 **Kode:**
-- `PecahTransaksi` sekarang hanya punya state `buka` internal. Ia mendapat prop opsional `usulan` (isi awal lembar) dan cara dibuka dari luar (dari kartu Obrolan dan kartu tawaran detail).
+- `PecahTransaksi` mendapat prop opsional `usulan` (dengan usulan, yang dirender kartu tawaran, bukan tombol), `hanyaLembar` (langsung membuka lembar berisi usulan, dipakai kartu Obrolan) dan `onSelesai(disimpan)`.
+- Pembantu di `PecahTransaksi.tsx`: `bacaUsulan(tx)` (parse JSON; rusak atau < 2 bagian → null) dan `ringkasUsulan(usulan, kategori)`.
 - Tidak ada mekanisme pecah kedua.
 
 ### 4. Tanya AI & ekspor
@@ -116,21 +120,24 @@ Tidak berubah. Tanya AI memilih kolom secara eksplisit dan ekspor memakai `KOLOM
   - skala proporsional dengan diskon dan dengan PPN;
   - sisa pembulatan masuk ke bagian terbesar;
   - Σ = amount;
-  - dibuang bila satu kategori, menyimpang lebih dari 25%, kurang dari 2 bagian, atau lebih dari 10 bagian.
-- `normalize` tanpa `dariStruk` membuang `usulan_pecah`.
-- `rincianAtauNull` (belum pernah diuji): jumlah pas diterima, jumlah tidak pas dibuang, kategori asing jatuh ke Lainnya.
+  - dibuang bila satu kategori, menyimpang lebih dari 25% (tepat 25% masih diterima), kurang dari 2 bagian, lebih dari 10 bagian, atau ada subtotal 0;
+  - kategori asing jatuh ke Lainnya.
+- `normalize` tanpa `dariStruk` membuang `usulan_pecah`; pinjaman juga.
+- `rincianAtauNull` (lewat `normalize`, tidak diekspor): jumlah pas diterima, jumlah tidak pas dibuang, kategori asing jatuh ke Lainnya.
+- Prompt per sumber: `"ketik"` tanpa `usulan_pecah`, `"struk"` tanpa `rincian`.
 
 **Dry-run migrasi:**
 - mengubah `amount` lewat view mengosongkan `usulan_pecah`, sedangkan mengubah kolom lain tidak;
 - insert lewat view menyimpan `usulan_pecah` dan bisa dibaca kembali.
 
-**E2E.** Suite E2E bukan bagian repo: skrip ad-hoc Playwright di folder scratchpad sesi (`e2e-kepala2.mjs` + `e2e-ekor-<suite>.mjs`, dijalankan `jalankan-e2e.sh` terhadap dev server). Suite baru `pecah`, dengan usulan disuntik lewat insert langsung tanpa memanggil AI:
-- tawaran tampil di detail dan Pecah membuka lembar terisi;
+**E2E.** Suite `pecah` di repo (`e2e/pecah.mjs`, `npm run e2e -- pecah`; Edge headless lewat CDP terhadap dev server), dengan usulan disuntik lewat insert langsung tanpa memanggil AI:
+- tawaran tampil di detail dengan ringkasan per kategori, dan Pecah membuka lembar terisi (nominal & keterangan barang);
 - Simpan menghasilkan bagian yang benar dan tawaran hilang;
 - Tutup menghilangkan tawaran;
 - ubah nominal menghilangkan tawaran;
-- draft tidak menampilkan tawaran;
-- usulan berisi kategori yang sudah dihapus tetap bisa disimpan (jatuh ke Lainnya).
+- draft tidak menampilkan tawaran (usulan tetap tersimpan);
+- usulan berisi kategori yang sudah dihapus tetap bisa disimpan (jatuh ke Lainnya);
+- Urungkan hapus mengembalikan transaksi beserta usulannya.
 
 **Ekstraksi sungguhan:** satu struk contoh campuran dicoba manual lewat Catat. Hasilnya dilaporkan, tidak otomatis.
 
