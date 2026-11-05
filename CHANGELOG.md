@@ -24,13 +24,29 @@ docs/specs/SPEC-catat-tuntas.md (fase 1 & 2 selesai di 2.4.0, fase 3 di 2.5.0, f
 
 ## [Unreleased]
 
+### Ditambah
+- **Kantong orang, kartu kredit, dan tujuan tabungan bisa dihapus** (SPEC-perbaikan-temuan). Konfirmasinya menyebut dampaknya: transaksi yang tetap tercatat tanpa kantong itu, dan saldo yang ikut hilang dari Utang & Piutang atau Total aset. Saldo kantong lain tidak berubah.
+- **Kartu kredit bisa diubah dan punya "Jatuh tempo tiap tanggal"** (1–31). Pengingat tagihan kini benar-benar terkirim tiap bulan (3 hari dan sehari sebelumnya), hanya bila ada tagihan.
+
 ### Diperbaiki
 - **Bayar tagihan kartu kredit yang belum terdaftar tidak lagi jadi piutang palsu** (SPEC-tagihan-cicilan). "bayar tagihan cc Mandiri 200rb dari bca" padahal kartu Mandiri belum ada sebelumnya membuat kantong orang "Kartu kredit Mandiri" dan menambah Piutang Rp 200.000. Kini tidak ada kantong yang dibuat: catatannya masuk "Belum selesai" dan menanyakan "Pindah ke kantong mana?", dengan kartu kreditmu di pilihannya. Pinjaman ke orang baru ("minjemin budi 200rb") tetap membuat kantong orang seperti biasa.
 - **Nomor cicilan tidak lagi loncat karena catatan yang belum selesai.** Bayar cicilan yang masih menunggu jawaban "Pakai kantong apa?" sempat dihitung sudah dibayar: pembayaran berikutnya tercatat "Cicilan 3/3" padahal baru cicilan ke-2, dan rencananya tampil Lunas. Kini hanya pembayaran yang sudah tercatat yang dihitung (di Utang & Piutang, Beranda, Tanya AI, dan saat mencatat), dan nomor catatan yang belum selesai baru ditetapkan begitu catatannya selesai. Kalau rencananya keburu lunas, uangnya tetap tercatat sebagai pengeluaran dengan keterangan "Rencana cicilan “…” sudah lunas".
 - **"bayar cicilan spaylater sepatu" tertaut ke rencananya** walau nama barang dan penyedianya disebut sekaligus. Sebelumnya tersimpan sebagai pengeluaran Lainnya dengan keterangan "Rencana cicilan … belum dicatat".
+- **Bayar tagihan kartu kredit lebih dari tagihan di aplikasi** kini memperingatkan "Lebih Rp X dari tagihan di aplikasi" dan menawarkan **Catat selisihnya sebagai biaya kartu** (biasanya bunga, iuran, atau belanja kartu yang belum dicatat) atau **Simpan saja**. Kartu yang kelebihan bayar tampil "Kelebihan bayar Rp X", bukan Rp 0.
+- **Transaksi yang dipecah tampil benar di Riwayat yang disaring**: kartunya hanya berisi bagian yang cocok ("Bagian dari Rp 15.000 · Rp 10.000"), dan total hari/bulan sama dengan kartu yang tampil. "N transaksi" dan "Muat lagi" menghitung per transaksi, bukan per bagian; Beranda selalu menampilkan 5 transaksi terakhir, dengan total "Hari ini" yang sebenarnya.
+- **Pecah dan gabung transaksi tersimpan sekaligus.** Kalau gagal di tengah, tidak ada yang berubah, jadi jumlah bagian dan saldo tidak bisa bergeser.
+- **Tautan dari Analitik ke Riwayat menunjukkan angka yang sama.** Merchant disaring persis (chip "Merchant: X"), bukan pencarian kata, dan pembelian yang dibayar dari tujuan tabungan disembunyikan (chip "Tanpa dari tujuan tabungan", bisa dilepas).
+- **Analitik & metode budgeting:** proyeksi dibandingkan dengan jatah pengeluaran metode yang aktif, bukan budget per kategori; status "Hampir habis · sisa Rp X" mulai di 80% di kartu budget maupun metode, dengan ikon (bukan warna saja); bulan lampau memakai saran penghasilan bulan itu sendiri; Zero-Based tanpa penghasilan menampilkan "Atur penghasilan dulu".
+- **Tanya AI:** jawaban dari ringkasan bulan ikut tombol "Buka Analitik", dan pertanyaan isi satu tujuan tabungan (mis. dana darurat) dijawab dengan saldo tujuan itu saja, bukan jumlah semua tujuan.
+- **Tujuan tabungan tidak lagi muncul sebagai sumber uang** di Pinjamkan, Bayar tagihan, Bayar cicilan, dan Sisihkan (uangnya dipakai lewat "Pakai"). Total aset tetap menghitungnya.
+- **Nama kantong tidak boleh kembar beda huruf** ("bca" dan "BCA"), dan pesannya menyebut di mana nama itu dipakai ("… untuk Teman di Utang & Piutang").
+- **Isian tanggal:** tenggat tujuan baru paling cepat hari ini; jatuh tempo pinjaman tidak boleh sebelum tanggal pinjam; kartu kredit baru berlaku sejak jam sekarang, jadi belanja kartu sebelumnya di hari itu tidak terhitung dua kali.
+- **Catat:** ketikan yang tidak terbaca Groq (mis. nominal 0) dicoba sekali lagi lewat Gemini sebelum jadi catatan belum selesai; "↩ Batalkan perubahan" tidak muncul lagi untuk transaksi yang sudah dibatalkan; tanggal "Dihapus otomatis" memakai WIB; hitung mundur menulis "Menutup dalam 8 detik"; pembayaran cicilan tidak lagi dipakai untuk mengingat kategori merchant.
+- **Lain-lain:** Riwayat turun ke satu panel saat panel Tanya AI terbuka di layar yang tidak cukup lebar, dan kartu bagian pecahan yang dibuka ditandai terpilih; subjudul Budget di Profil mengikuti metode yang aktif; ekspor CSV menulis kategori pindah kantong "Pindah kantong".
 
 ### Diubah
 - **Dokumen spec pindah ke `docs/specs/`**, dengan indeks di `docs/specs/README.md`. Semua spec disinkronkan dengan kode 2.9.0 (1 Nov 2026); sejak itu spec yang jadi acuan, dan perubahan perilaku ditulis di spec dulu.
+- **Script balikan enkripsi dihapus** (`supabase/rollback/`): sudah tidak cocok dengan skema. Pemulihan memakai backup Supabase.
 
 ## [2.9.0] — 2026-10-31
 

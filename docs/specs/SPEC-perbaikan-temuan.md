@@ -1,6 +1,6 @@
 # Spec: Perbaikan semua temuan 2.9.0
 
-Status: **disetujui** (K3 tawarkan catat selisih, K4/K5 longgar + peringatan, lainnya usulan) · 5 November 2026 · branch `fix/temuan-2.9.0` (satu PR bersama [SPEC-tagihan-cicilan](SPEC-tagihan-cicilan.md))
+Status: **diterapkan, belum dirilis** (semua uji:* dan E2E lulus 5 Nov; K3 tawarkan catat selisih, K4/K5 longgar + peringatan, lainnya usulan) · 5 November 2026 · branch `fix/temuan-2.9.0` (satu PR bersama [SPEC-tagihan-cicilan](SPEC-tagihan-cicilan.md))
 
 Semua butir yang tersisa di bagian **Temuan** CHANGELOG (dari sinkronisasi spec dan uji langsung di produksi, 1 Nov 2026), kecuali tiga yang sudah ditangani SPEC-tagihan-cicilan. Tiap butir: masalah singkat → perilaku yang diharapkan. Butir yang butuh keputusan ditandai **K** dan dirangkum di tabel Keputusan. Spec fitur yang terdampak diperbarui di commit yang sama dengan kodenya (kolom "Spec").
 
@@ -84,15 +84,14 @@ K1, K2, K6, K7, K8, K9 memakai usulan.
 
 ## Migrasi
 
-Satu migrasi `20261110000000_perbaikan_temuan.sql`:
-- RPC `simpan_pecahan`, `gabung_pecahan` (A3), `security invoker`, memeriksa milik user;
-- unique index `user_accounts (user_id, lower(btrim(name)))` (C3);
-- kolom `user_accounts.jatuh_tempo_hari int check (1–31)`, hanya untuk `kredit` (C10), dan `data_notifikasi()` ikut mengembalikannya.
+Dua migrasi (dikerjakan paralel per kelompok), keduanya sudah diterapkan:
+- `20261110000000_pecahan_atomik.sql`: RPC `simpan_pecahan(p_id, p_bagian)`, `gabung_pecahan(p_id)` (A3), `security invoker`, menulis lewat view `public.transactions`, memeriksa milik user dan jumlah bagian = total;
+- `20261110000001_kantong_kartu.sql`: unique index `idx_user_accounts_nama` pada `(user_id, lower(btrim(name)))` (C3); kolom `user_accounts.jatuh_tempo_hari int check (1–31)`, hanya untuk `kredit` (C10); `data_notifikasi()` dibuat ulang dan ikut mengembalikannya.
 
 ## Pengujian
 
 - **Unit**: tiap fungsi murni yang berubah mendapat kasus baru (`uji:riwayat` A1/A2, `uji:metode` B3–B7, `uji:pinjaman` C1/C6/C10, `uji:notifikasi` C10, `uji:ingat` D4, `uji:validasi` C7/C8, `uji:ekspor` C12, `uji:tanya` B8/B9, `uji:draft` D3).
-- **E2E**: suite yang ada tetap lulus; suite baru `perbaikan-temuan` untuk A1–A3, B1/B2, C1, C2, C5, C6.
+- **E2E**: suite yang ada tetap lulus; suite baru per kelompok: `perbaikan-riwayat` (A1–A6, B1/B2 sisi Riwayat), `perbaikan-analitik` (B1–B7), `perbaikan-utang` (C1–C12). D diuji lewat suite yang ada (`fase1a`, `ingat`, `galat`, `perbaikan`, `tempel`) dan unit (`uji:draft` memakai AI palsu).
 - **Eval** (`eval:tanya`, AI sungguhan): kasus B9.
 - Sebelum PR: `npm run e2e` (semua suite), `tsc`, `eslint`, semua `uji:*`.
 
@@ -103,4 +102,12 @@ Satu migrasi `20261110000000_perbaikan_temuan.sql`:
 
 ## Belum diterapkan
 
-Seluruh spec ini (sedang dikerjakan).
+Tidak ada. Penyimpangan kecil dari tabel di atas, diputuskan saat dikerjakan:
+- A1: bila beberapa (bukan semua) bagian cocok, kartu menulis "k dari n bagian" dan tidak menampilkan keterangan (supaya keterangan satu bagian tidak tampak berlaku untuk semuanya).
+- A5: total "Hari ini" di Beranda ikut menghitung pembelian dari tujuan tabungan, sama dengan Riwayat.
+- A6: dalam mode satu panel, kartu tetap membuka `?id=` dengan detail selebar halaman (tombol Kembali), bukan `/transactions/[id]`; hasilnya sama.
+- B2: `tujuan=tanpa` hanya ditambahkan bila user punya tujuan tabungan, dan tidak pada tautan Masuk / Dari tujuan / setoran.
+- B8: tombol "Buka Analitik" hanya ditambahkan bila jawabannya memakai angka dari ringkasan bulan (jawaban penolakan tetap tanpa tautan).
+- C1: saat peringatan tampil, tombol Simpan biasa sama dengan "Simpan saja"; bila pengeluaran selisihnya gagal, pesannya "Pembayaran tersimpan, selisihnya belum: …".
+- C6: "Dari kantong" di Sisihkan juga tidak menawarkan kartu kredit (bukan kantong uang).
+- C10: pengingat kartu memakai jadwal yang sama dengan pengingat lain (H-3 dan H-1), bukan hanya H-1. "Ubah kartu" baru: nama, jatuh tempo, bunga (tagihan awal tidak).
