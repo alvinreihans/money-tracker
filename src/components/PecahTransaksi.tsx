@@ -142,33 +142,20 @@ export default function PecahTransaksi({
     if (isian.some((b) => !(Number(b.amount) > 0))) return setError("Tiap bagian harus punya nominal.");
     if (selisih !== 0) return setError(`Jumlah bagian harus ${fmtIDR(total)} (selisih ${fmtIDR(Math.abs(selisih))}).`);
     setLoading(true);
-    const db = createSupabaseBrowserClient();
-    const isi = (b: Bagian) => ({ amount: Number(b.amount), category: b.category, kelompok: b.kelompok || null, description: b.description.trim() || null });
-    const [asli, ...lain] = isian;
-    const tetap = new Set(lain.flatMap((b) => (b.id ? [b.id] : [])));
-    const hasil = await Promise.all([
-      // Usulan pecah selesai dipakai, apa pun hasil pecahannya.
-      db.from("transactions").update({ ...isi(asli), usulan_pecah: null }).eq("id", tx.id),
-      ...lain.filter((b) => b.id).map((b) => db.from("transactions").update(isi(b)).eq("id", b.id!)),
-      ...lain
-        .filter((b) => !b.id)
-        .map((b) =>
-          // Tanggal, jam, kantong, merchant, jenis, status disalin trigger dari aslinya.
-          db.from("transactions").insert({
-            ...isi(b),
-            user_id: tx.user_id,
-            type: tx.type,
-            status: tx.status,
-            source: tx.source,
-            transaction_date: tx.transaction_date,
-            kantong_id: tx.kantong_id,
-            pecahan_dari: tx.id,
-          }),
-        ),
-      ...bagian.filter((b) => !tetap.has(b.id)).map((b) => db.from("transactions").delete().eq("id", b.id)),
-    ]);
+    // Satu RPC: semua bagian tersimpan, atau tidak ada yang berubah (saldo
+    // tidak pernah bergeser karena gagal di tengah). Bagian pertama = transaksi
+    // asli; bagian lama membawa id-nya, yang tidak disebut lagi dihapus.
+    const { error: gagal } = await createSupabaseBrowserClient().rpc("simpan_pecahan", {
+      p_id: tx.id,
+      p_bagian: isian.map((b, i) => ({
+        id: i === 0 ? tx.id : b.id,
+        amount: Number(b.amount),
+        category: b.category,
+        kelompok: b.kelompok || null,
+        description: b.description.trim() || null,
+      })),
+    });
     setLoading(false);
-    const gagal = hasil.find((r) => r.error)?.error;
     if (gagal) return setError(dbErrorMessage(gagal));
     tutup(isian.length > 1);
     kabari(isian.length > 1 ? `Dipecah jadi ${isian.length} bagian` : "Pecahan digabung lagi");
@@ -177,11 +164,10 @@ export default function PecahTransaksi({
 
   async function gabung() {
     setLoading(true);
-    const db = createSupabaseBrowserClient();
-    const { error: e1 } = await db.from("transactions").delete().eq("pecahan_dari", tx.id);
-    const { error: e2 } = e1 ? { error: null } : await db.from("transactions").update({ amount: total }).eq("id", tx.id);
+    // Satu RPC: hapus bagian & kembalikan total sekaligus.
+    const { error: e } = await createSupabaseBrowserClient().rpc("gabung_pecahan", { p_id: tx.id });
     setLoading(false);
-    if (e1 || e2) return setError(dbErrorMessage((e1 ?? e2)!));
+    if (e) return setError(dbErrorMessage(e));
     setTanyaGabung(false);
     tutup();
     kabari("Digabung lagi jadi satu transaksi");

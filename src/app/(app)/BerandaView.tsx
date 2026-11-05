@@ -34,6 +34,7 @@ export default function BerandaView({
   metode,
   sisihkan,
   pecahan,
+  totalKelompok,
 }: {
   ringkasan: { keluar: number; keluarBulanLalu: number };
   draft: number;
@@ -48,6 +49,8 @@ export default function BerandaView({
   sisihkan: { kurang: number; tujuan: { id: string; nama: string }[] } | null;
   /** Transaksi yang dipecah: total per transaksi asli (SPEC-metode-budget). */
   pecahan: InfoPecahan;
+  /** Pengeluaran sebenarnya per kelompok waktu ("Hari ini", …) untuk header daftar. */
+  totalKelompok: Record<string, number>;
   /** ?catat=<id> dari push: buka percakapan catatan itu. */
   bukaCatat?: string;
 }) {
@@ -66,7 +69,7 @@ export default function BerandaView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bukaCatat]);
   const { keluar, keluarBulanLalu } = ringkasan;
-  // Budget yang perlu perhatian (> 80% terpakai); selengkapnya di Analitik.
+  // Budget yang perlu perhatian (≥ 80% terpakai); selengkapnya di Analitik.
   const budgetWaspada = budget.filter((b) => b.status !== "aman");
   const { awalBulanIni, awalBulanLalu } = rentangBulan();
   const persen = keluarBulanLalu > 0 ? Math.round(((keluar - keluarBulanLalu) / keluarBulanLalu) * 100) : 0;
@@ -159,6 +162,7 @@ export default function BerandaView({
               kembali="/"
               items={terbaru}
               pecahan={pecahan}
+              totalKelompok={totalKelompok}
               kaki={
                 <NextLink href="/riwayat" className={`${s.kartuTx} ${s.kartuKaki} ${s.tekan}`}>
                   Lihat semua riwayat

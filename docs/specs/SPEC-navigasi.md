@@ -68,7 +68,9 @@ Urutan isi dari atas ke bawah:
 1. **Judul besar** nominal "Rp X", subjudul "keluar di Oktober" dan, bila berubah, "↓ turun 12% dari September" (atau "↑ naik"). Judul dan subjudul bisa diketuk dan membuka **Analitik**. Pembelian dari tujuan tabungan tidak dihitung ([SPEC-analitik-tujuan](SPEC-analitik-tujuan.md)).
 2. **Catatan belum selesai** ("N catatan belum selesai · Ketuk untuk melengkapi"), hanya kalau ada. Membuka daftar Belum selesai di lembar Catat.
 3. **Belum disisihkan**, hanya untuk metode Pay Yourself First / Zero-Based setelah gajian ([SPEC-metode-lanjutan](SPEC-metode-lanjutan.md)).
-4. **5 transaksi terakhir** (hanya yang terkonfirmasi, urutan sama dengan Riwayat), lalu tautan "Lihat semua riwayat". Kosong → "Belum ada transaksi" dengan tombol "Catat transaksi".
+4. **5 transaksi terakhir** (hanya yang terkonfirmasi, urutan sama dengan Riwayat), lalu tautan "Lihat semua riwayat".
+   - Dihitung per **transaksi**: transaksi yang dipecah tetap satu kartu, jadi selalu 5 kartu (query mengambil 5 transaksi asli, `pecahan_dari is null`, lalu bagian-bagiannya).
+   - Header kelompok ("Hari ini", "Kemarin", "Minggu ini", bulan, tahun) menampilkan **pengeluaran sebenarnya** kelompok itu, dihitung server dari semua pengeluaran terkonfirmasi sejak awal kelompok kartu terlama (`awalKelompokWaktu`, `totalKelompokWaktu` di `src/lib/riwayat.ts`), bukan hanya dari kartu yang tampil. Angkanya sama dengan Riwayat (pembelian dari tujuan tabungan ikut, seperti di Riwayat). Kosong → "Belum ada transaksi" dengan tombol "Catat transaksi".
 5. **Kantong** (`KartuKantong`, judul "Total aset") berisi saldo dan Total aset.
 6. **Utang & Piutang** (`KartuPinjaman`): total piutang & utang, cicilan bulan ini yang belum dibayar, dan tenggat terdekat/telat. Tidak tampil bila tidak ada pinjaman maupun cicilan.
 7. **Budget hampir habis**: hanya kategori yang terpakai **di atas 80%** (status `waspada`/`lewat`), dengan bar dan "Sisa Rp X dari Rp Y" / "Lewat Rp X". Kalau tidak ada, kartunya tidak muncul. Bila metode budgeting aktif (selain Zero-Based), yang tampil kelompok metode yang ≥ 80% (`KartuMetode`, [SPEC-metode-budget](SPEC-metode-budget.md)).

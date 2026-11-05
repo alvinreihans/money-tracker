@@ -1631,6 +1631,17 @@ button.blok { background: var(--blok); }
   .duaPanel { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 }
 
+/* Riwayat saat panel Tanya AI (400px) terbuka: dua panel butuh 840px di
+   sebelah rail & panel, yaitu layar ≥ 1480px (rail 240px). Di bawah itu satu
+   panel seperti di HP: daftar, atau detail (dengan tombol kembali) bila ?id=. */
+@media (min-width: 840px) and (max-width: 1479.98px) {
+  :root:has(.dialogSamping[open]:not(:modal)) .duaPanelRiwayat { display: block; }
+  :root:has(.dialogSamping[open]:not(:modal)) .duaPanelRiwayat:has(> .panelDetail:not(:empty)) > .panelDaftar { display: none; }
+  :root:has(.dialogSamping[open]:not(:modal)) .duaPanelRiwayat > .panelDetail:empty { display: none; }
+  :root:has(.dialogSamping[open]:not(:modal)) .duaPanelRiwayat > .panelDetail { position: static; max-height: none; overflow-y: visible; }
+  :root:has(.dialogSamping[open]:not(:modal)) .duaPanelRiwayat[data-tanpa-kembali] .panelDetail a[aria-label="Kembali"] { display: inline-flex; }
+}
+
 @media (min-width: 1200px) {
   .nav { padding: 24px 12px calc(24px + env(safe-area-inset-bottom)); gap: 4px; }
 

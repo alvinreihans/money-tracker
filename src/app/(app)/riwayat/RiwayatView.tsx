@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { CalendarDays, ChevronDown, Inbox, PieChart, Search, SearchX, Shapes, Wallet, X } from "lucide-react";
+import { CalendarDays, ChevronDown, Inbox, PieChart, PiggyBank, Search, SearchX, Shapes, Store, Wallet, X } from "lucide-react";
 import DetailView from "@/app/(app)/transactions/[id]/DetailView";
 import { useCatat, useKategori } from "@/components/Catat";
 import { tandaKategori } from "@/components/kategori";
@@ -23,7 +23,9 @@ import {
   FILTER_KOSONG,
   PER_MUAT,
   PERIODE,
+  potongHalaman,
   queryRiwayat,
+  ringkasRiwayat,
   type FilterRiwayat,
   type InfoPecahan,
   type JenisRiwayat,
@@ -46,15 +48,15 @@ const JENIS: { id: JenisRiwayat; label: string }[] = [
  */
 export default function RiwayatView({
   filter,
-  total,
+  baris,
   ringkasan,
   daftar,
   pecahan,
 }: {
   filter: FilterRiwayat;
-  /** Jumlah transaksi sebenarnya untuk filter ini. */
-  total: number;
-  /** Total keluar & masuk seluruh hasil filter, juga per bulan. */
+  /** Jumlah baris (termasuk bagian pecahan) untuk filter ini: penentu "Muat lagi". */
+  baris: number;
+  /** Total keluar & masuk seluruh hasil filter, per bulan & hari, dan jumlah transaksinya. */
   ringkasan: RingkasanRiwayat;
   /** 100 pertama dari server. */
   daftar: Transaction[];
@@ -76,6 +78,9 @@ export default function RiwayatView({
   // sambungan lama dibuang.
   const tambahan = lanjutan.asal === daftar ? lanjutan.isi : [];
   const semua = tambahan.length ? [...daftar, ...tambahan] : daftar;
+  // Hitungan memakai transaksi, bukan baris: bagian pecahan dihitung satu.
+  const termuat = ringkasRiwayat(semua).jumlah;
+  const total = ringkasan.jumlah;
 
   async function muatLagi() {
     setMemuat(true);
@@ -86,8 +91,12 @@ export default function RiwayatView({
     );
     setMemuat(false);
     if (error) return setGagalMuat(true);
-    const baru = (data ?? []) as unknown as Transaction[];
-    setPecahanLanjutan(await infoPecahan(createSupabaseBrowserClient(), baru));
+    // Bagian pecahan tidak dipisah dari aslinya di batas halaman.
+    const halaman = (data ?? []) as unknown as Transaction[];
+    const info = await infoPecahan(createSupabaseBrowserClient(), halaman);
+    const baru = potongHalaman(halaman, PER_MUAT, info);
+    // Ditambahkan, bukan diganti: halaman sambungan sebelumnya tetap butuh infonya.
+    setPecahanLanjutan((lama) => ({ ...(tambahan.length ? lama : {}), ...info }));
     setLanjutan({ asal: daftar, isi: [...tambahan, ...baru] });
   }
   const [pecahanLanjutan, setPecahanLanjutan] = useState<InfoPecahan>({});
@@ -107,12 +116,15 @@ export default function RiwayatView({
       batal = true;
     };
   }, [idDetail, daftar]);
+  // Panel Tanya AI terbuka & ruangnya < 840px: CSS menampilkan satu panel
+  // saja, jadi detail (?id=) mengisi halaman dengan tombol kembali.
   function pilih(e: React.MouseEvent, t: Transaction) {
     // Di layar sempit, dan Ctrl/⌘-klik (tab baru), tetap ke halaman detail.
     if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey || !window.matchMedia(LAYAR_LEBAR).matches) return;
     e.preventDefault();
     const url = new URL(window.location.href);
-    url.searchParams.set("id", t.id);
+    // Bagian pecahan membuka transaksi aslinya; kartunya ditandai lewat id itu.
+    url.searchParams.set("id", t.pecahan_dari ?? t.id);
     window.history.pushState(null, "", url);
   }
 
@@ -198,7 +210,7 @@ export default function RiwayatView({
     <>
       {/* Layar lebar: daftar + detail berdampingan (SPEC-layar-lebar). Di layar
           sempit hanya satu yang tampil — detail kalau alamatnya membawa ?id=. */}
-      <div className={`${s.duaPanel} ${s.lebar}`} data-tanpa-kembali>
+      <div className={`${s.duaPanel} ${s.duaPanelRiwayat} ${s.lebar}`} data-tanpa-kembali>
         <div className={s.panelDaftar}>
           <AppBar
             judul="Riwayat"
@@ -258,6 +270,17 @@ export default function RiwayatView({
                   <PieChart size={16} aria-hidden /> {filter.kelompok.map((k) => NAMA_KELOMPOK[k]).join(" + ")} <X size={16} aria-hidden />
                 </button>
               )}
+              {/* Merchant persis & tanpa tujuan tabungan (dari tautan Analitik): ketuk untuk melepas. */}
+              {filter.merchant && (
+                <button type="button" className={s.chip} aria-pressed onClick={() => router.push(ke({ merchant: "" }))} aria-label={`Lepas filter merchant ${filter.merchant}`}>
+                  <Store size={16} aria-hidden /> Merchant: {filter.merchant} <X size={16} aria-hidden />
+                </button>
+              )}
+              {filter.tujuan && (
+                <button type="button" className={s.chip} aria-pressed onClick={() => router.push(ke({ tujuan: null }))} aria-label="Lepas filter tanpa dari tujuan tabungan">
+                  <PiggyBank size={16} aria-hidden /> Tanpa dari tujuan tabungan <X size={16} aria-hidden />
+                </button>
+              )}
               {aktif && (
                 <button type="button" className={s.chip} onClick={() => router.push(alamatRiwayat({ ...FILTER_KOSONG, jenis: filter.jenis, q }))}>
                   <X size={16} aria-hidden /> Reset
@@ -275,7 +298,7 @@ export default function RiwayatView({
                 perBulan={ringkasan.perBulan}
                 perHari={ringkasan.perHari}
                 kaki={
-                  semua.length < total && (
+                  semua.length < baris && (
                     <button
                       type="button"
                       className={`${s.kartuTx} ${s.kartuKaki} ${s.tekan}`}
@@ -288,7 +311,7 @@ export default function RiwayatView({
                       ) : gagalMuat ? (
                         "Gagal memuat. Ketuk untuk coba lagi"
                       ) : (
-                        `Muat lagi · ${total - semua.length} transaksi lebih lama`
+                        `Muat lagi · ${Math.max(total - termuat, 1)} transaksi lebih lama`
                       )}
                     </button>
                   )

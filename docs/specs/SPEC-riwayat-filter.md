@@ -38,7 +38,10 @@ September 2026 ········· −Rp 2,1 jt · +Rp 8 jt
   - "Makan +2".
 - **Lembar bawah.** Mengetuk chip membuka lembar bawah (`Lembar`) dengan tombol **Hapus** dan **Terapkan**. Pilihan di lembar baru berlaku saat Terapkan.
 - **Chip kelompok** (dari kartu metode di Analitik, [SPEC-metode-budget](SPEC-metode-budget.md)): tampil hanya bila `kelompok` aktif, mis. "Keinginan ✕"; diketuk untuk melepasnya.
-- **Chip Reset** muncul hanya kalau ada filter tanggal/kantong/kategori/kelompok aktif (`adaFilter`). Reset mempertahankan jenis dan teks cari.
+- **Chip merchant & tujuan** (dari tautan telusur Analitik, SPEC-perbaikan-temuan B1/B2): tampil hanya bila aktif, diketuk untuk melepasnya.
+  - "Merchant: Kopi Kenangan ✕" (`merchant=`): hanya transaksi dengan merchant **persis** itu, tanpa beda huruf besar-kecil dan spasi (spasi tepi diabaikan, spasi di antara kata berapa pun) — sama dengan penggabungan merchant di Analitik, jadi jumlah & totalnya sama. Bukan cari substring seperti `q`.
+  - "Tanpa dari tujuan tabungan ✕" (`tujuan=tanpa`): pengeluaran yang dibayar dari kantong tujuan tabungan disembunyikan, aturannya sama dengan `pisahTujuan` di Analitik (SPEC-analitik-tujuan): `type = 'expense'` dengan `kantong_id` kantong berjenis `tujuan`. Pemasukan & pindah kantong tetap tampil.
+- **Chip Reset** muncul hanya kalau ada filter tanggal/kantong/kategori/kelompok/merchant/tujuan aktif (`adaFilter`). Reset mempertahankan jenis dan teks cari.
 
 **Tanggal.** Pilihan tunggal:
 - Semua waktu (bawaan);
@@ -56,6 +59,8 @@ September 2026 ········· −Rp 2,1 jt · +Rp 8 jt
 
 **Ringkasan.**
 - **Subjudul AppBar** menampilkan ringkasan seluruh hasil filter: jumlah transaksi ("42 transaksi", atau "N hasil untuk “kopi”" saat mencari), total keluar, dan total masuk. Total yang nol tidak ditulis.
+- **Hitungan = jumlah transaksi**, bukan baris: bagian dari transaksi yang dipecah (SPEC-metode-budget) dihitung satu, di subjudul maupun "Muat lagi · N" (`ringkasRiwayat().jumlah`, per `pecahan_dari ?? id`).
+- **Transaksi yang dipecah** tampil satu kartu; saat disaring, kartu hanya berisi bagian yang cocok ("Bagian dari Rp 15.000", nominal = jumlah bagian yang cocok), jadi total hari/bulan = jumlah kartu yang tampil (rincian di SPEC-metode-budget).
 - **Header kelompok per bulan**, misalnya "Oktober 2026", dengan total keluar dan masuk **bulan itu untuk seluruh hasil filter**, bukan hanya baris yang sudah termuat.
 - **Subheader per hari** di dalam bulan ("Hari ini", "Kemarin", "Senin, 20 Okt"), juga dengan total keluar & masuk hari itu untuk seluruh hasil filter.
 - **Kartu transaksi** cukup menampilkan jam ("07.30", bila ada), lalu kategori dan kantong; tanggalnya sudah di subheader hari.
@@ -69,7 +74,7 @@ September 2026 ········· −Rp 2,1 jt · +Rp 8 jt
 
 **Cari.** Tombol 🔍 di AppBar membuka kotak cari; hasil diperbarui 300 ms setelah berhenti mengetik (`router.replace`). Yang dicari: merchant, keterangan, dan metode bayar (`ilike`). Esc atau ✕ menutup dan melepas cari.
 
-**Muat lagi.** Server memuat 100 pertama (`PER_MUAT`); "Muat lagi · N transaksi lebih lama" mengambil 100 berikutnya dari browser dan menyambungnya tanpa pindah halaman.
+**Muat lagi.** Server memuat 100 baris pertama (`PER_MUAT`); "Muat lagi · N transaksi lebih lama" mengambil 100 berikutnya dari browser dan menyambungnya tanpa pindah halaman. Halaman **tidak pernah memisahkan bagian pecahan dari aslinya** (`potongHalaman`): bila halaman yang penuh diakhiri transaksi yang dipecah, transaksi itu (semua barisnya) ditunda ke halaman berikutnya, kecuali seluruh halaman satu transaksi. Tombol tampil selama baris termuat < jumlah baris hasil filter.
 
 ### Alamat (prinsip SPEC-navigasi)
 
@@ -83,10 +88,12 @@ Semua filter disimpan di URL. Dengan begitu tampilan yang tersaring bisa di-book
 | `kantong` | id dipisah koma |
 | `kategori` | `<jenis>:<slug>` dipisah koma, mis. `expense:food,income:salary` (slug sama bisa ada di kedua jenis) |
 | `kelompok` | kelompok budgeting dipisah koma (`kebutuhan`, `keinginan`, …), dicocokkan ke `kelompok_efektif` |
+| `merchant` | nama merchant persis (tanpa beda huruf/spasi), dari tautan merchant Analitik |
+| `tujuan` | `tanpa`: sembunyikan pengeluaran dari tujuan tabungan (tautan telusur Analitik) |
 | `q` | teks cari |
 | `id` | transaksi yang dibuka di panel kanan (layar lebar, SPEC-layar-lebar) |
 
-- **Masukan URL dianggap tidak tepercaya** (`bacaFilter`). Tanggal harus tanggal sungguhan (`2026-02-30` dibuang); `dari` > `sampai` ditukar; id kantong dan kategori harus milik user; kelompok harus salah satu yang dikenal; nilai ganda dibuang dan dibatasi 50 per filter; `q` dibersihkan dari `, ( ) % * \ : "` dan dipotong 50 huruf (`bersihkanCari`).
+- **Masukan URL dianggap tidak tepercaya** (`bacaFilter`). Tanggal harus tanggal sungguhan (`2026-02-30` dibuang); `dari` > `sampai` ditukar; id kantong dan kategori harus milik user; kelompok harus salah satu yang dikenal; `tujuan` hanya `tanpa` (id kantong tujuannya diambil dari kantong user, `idTujuan`, tidak ditulis ke URL); `merchant` dibersihkan dari karakter kontrol, spasinya dirapikan, dan dipotong 100 huruf (`bersihkanMerchant`), lalu dicocokkan dengan regex Postgres `~*` yang karakter khususnya di-escape (`polaMerchant`); nilai ganda dibuang dan dibatasi 50 per filter; `q` dibersihkan dari `, ( ) % * \ : "` dan dipotong 50 huruf (`bersihkanCari`).
 - **Membuka tab Riwayat dari navigasi** selalu mulai **tanpa filter** (`href="/riwayat"`), karena filter tersembunyi bisa membuat data terlihat "hilang".
 - **Utang & Piutang** dan **Tujuan tabungan**: "Lihat riwayat" membuka `/riwayat?kantong=<id>`. Sebelumnya tautan ini mencari teks nama.
 
@@ -105,6 +112,7 @@ Tidak ada perubahan database.
   - alamat bolak-balik utuh;
   - rentang preset di batas bulan dan tahun, zona WIB;
   - total per bulan, dengan pindah kantong tidak dihitung;
+  - merchant persis (pola & escape), `tujuan=tanpa`, jumlah transaksi dengan bagian pecahan, `potongHalaman`, `susunKartu`, total kelompok Beranda;
   - grid & ketukan kalender rentang.
 - **E2E permanen** (`e2e/regresi-riwayat.mjs`, `e2e/regresi-kalender.mjs`; Edge 360px, akun uji sementara yang langsung dihapus):
   - lembar tanggal (termasuk kalender rentang & keyboard), kantong, kategori, dan Reset: URL dan isi;
@@ -112,6 +120,7 @@ Tidak ada perubahan database.
   - buka detail lalu kembali, filter tetap;
   - tab Riwayat dibuka ulang, filter kosong;
   - tidak ada error di console.
+- **E2E `e2e/perbaikan-riwayat.mjs`** (SPEC-perbaikan-temuan): kartu bagian saat disaring & total hari, hitungan per transaksi, "Muat lagi" tidak memotong transaksi yang dipecah, `merchant=` & `tujuan=tanpa` beserta chipnya, Beranda 5 kartu & header "Hari ini", RPC pecah/gabung atomik, kartu bagian terpilih, satu panel saat Tanya AI terbuka.
 - `uji:*`, typecheck, `next build`.
 
 ## Boundaries

@@ -84,7 +84,9 @@ Per halaman:
           38%                      62%
   ```
 
-  - Mengetuk transaksi membuka detailnya di panel kanan, dan barisnya diberi tanda terpilih. Daftar dan filter tidak hilang.
+  - Mengetuk transaksi membuka detailnya di panel kanan, dan barisnya diberi tanda terpilih (`aria-current`). Daftar dan filter tidak hilang.
+    - Kartu bagian transaksi yang dipecah (tampil sendiri karena filter) membuka transaksi aslinya (`?id=<asli>`) dan juga ditandai terpilih: kartu terpilih bila `id` yang terbuka = transaksi aslinya atau salah satu baris di kartu itu.
+  - **Panel Tanya AI terbuka** (400px di kanan): bila lebar yang tersisa untuk Riwayat < 840px, Riwayat memakai **satu panel** seperti di HP — daftar, atau detail yang mengisi halaman dengan tombol kembali bila ada `?id=`. Dengan rail 80px/sidebar 240px, artinya layar < 1480px (CSS `.duaPanelRiwayat` di bawah `:root:has(.dialogSamping[open]:not(:modal))`). Menutup Tanya AI mengembalikan dua panel tanpa memuat ulang. Profil tidak berubah.
   - Alamatnya menjadi `/riwayat?…filter…&id=<transaksi>`, jadi bisa di-bookmark dan tombol back browser bekerja.
   - Sebelum ada yang dipilih, panel kanan berisi teks "Pilih transaksi untuk melihat detailnya." (`data-kosong`, ditampilkan CSS `::before`).
   - Mengubah atau menghapus transaksi dilakukan dari panel kanan. Setelah dihapus, alamat kembali ke Riwayat dengan filternya (tanpa `id`) dan panel kosong.
@@ -169,6 +171,7 @@ Foto struk bisa diseret dari File Explorer, Galeri (layar terpisah di tablet/Fol
   - buka detail Riwayat di 1024px, ubah ke 360px → detail tampil penuh, dan kembali → daftar.
 - **Pop-up di 1024px:** Catat tampil di tengah, maksimal 640px.
 - **Tanya AI di 1024px:** panel non-modal 400px di kanan, isi bergeser, kartu jadi satu kolom, Esc menutup. Diubah ke 700px → jadi pop-up modal dan ketikan tetap ada.
+- **Riwayat + Tanya AI** (`e2e/perbaikan-riwayat.mjs`): 1300px → satu panel, detail mengisi halaman dengan tombol kembali, Tanya ditutup → dua panel lagi; 1500px → tetap dua panel. Kartu bagian pecahan yang dibuka di 1024px ber-`aria-current`.
 - **Seret foto:** lapisan tampil, struk dikirim ke antrean, snackbar "1 tercatat"; berkas teks ditolak.
 - **Regresi:** E2E filter Riwayat dan kalender (360px) tetap lolos.
 - `uji:*`, typecheck, `next build`.

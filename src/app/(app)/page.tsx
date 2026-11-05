@@ -1,7 +1,7 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { hitungStreak, pisahTujuan, progresBudget } from "@/lib/analitik";
 import { ambilPengaturanMetode, hitungMetode } from "@/lib/metode";
-import { infoPecahan } from "@/lib/riwayat";
+import { awalKelompokWaktu, infoPecahan, totalKelompokWaktu } from "@/lib/riwayat";
 import { isoLokal } from "@/lib/format";
 import { ambilKantong } from "@/lib/kantong";
 import { kantongUang, ringkasBeranda, type Cicilan } from "@/lib/pinjaman";
@@ -43,10 +43,12 @@ export default async function BerandaPage({ searchParams }: { searchParams: Prom
   ] = await Promise.all([
     // Beranda cuma 5 transaksi terakhir (urutan sama dengan Riwayat);
     // selebihnya di Riwayat. Yang belum selesai tidak di sini — ada di lembar Catat.
+    // Dihitung per transaksi: bagian pecahan diambil terpisah di bawah.
     supabase
       .from("transactions")
       .select("*")
       .eq("status", "confirmed")
+      .is("pecahan_dari", null)
       .order("transaction_date", { ascending: false })
       .order("waktu", { ascending: false, nullsFirst: false })
       .order("created_at", { ascending: false })
@@ -78,6 +80,34 @@ export default async function BerandaPage({ searchParams }: { searchParams: Prom
     ambilPengaturanMetode(supabase),
   ]);
 
+  // Bagian pecahan kelima transaksi itu (satu kartu per transaksi), dan total
+  // pengeluaran sebenarnya per kelompok waktu ("Hari ini", "Minggu ini", …)
+  // untuk header — bukan hanya dari kartu yang tampil (SPEC-navigasi).
+  const asli = (terbaru ?? []) as Transaction[];
+  const terlama = asli.at(-1)?.transaction_date;
+  const [{ data: bagian }, keluarKelompok] = await Promise.all([
+    asli.length
+      ? supabase.from("transactions").select("*").in("pecahan_dari", asli.map((t) => t.id))
+      : Promise.resolve({ data: [] as Transaction[] }),
+    (async () => {
+      const semua: { amount: number | string; transaction_date: string }[] = [];
+      if (!terlama) return semua;
+      for (let dari = 0; ; dari += 1000) {
+        const { data: d } = await supabase
+          .from("transactions")
+          .select("amount, transaction_date")
+          .eq("type", "expense")
+          .eq("status", "confirmed")
+          .gte("transaction_date", awalKelompokWaktu(terlama, sekarang))
+          .order("id")
+          .range(dari, dari + 999);
+        semua.push(...(d ?? []));
+        if (!d || d.length < 1000) return semua;
+      }
+    })(),
+  ]);
+  const terbaruLengkap = [...asli, ...((bagian ?? []) as Transaction[])];
+
   const dibayar: Record<string, number[]> = {};
   for (const b of (bayarCicilan ?? []) as { cicilan_id: string; cicilan_ke: number | null }[]) {
     if (b.cicilan_ke) (dibayar[b.cicilan_id] ??= []).push(b.cicilan_ke);
@@ -102,8 +132,9 @@ export default async function BerandaPage({ searchParams }: { searchParams: Prom
       }}
       draft={draft ?? 0}
       bukaCatat={catat}
-      terbaru={(terbaru ?? []) as Transaction[]}
-      pecahan={await infoPecahan(supabase, (terbaru ?? []) as Transaction[])}
+      terbaru={terbaruLengkap}
+      pecahan={await infoPecahan(supabase, asli)}
+      totalKelompok={totalKelompokWaktu(keluarKelompok, sekarang)}
       // Total aset hanya kantong uang (termasuk tujuan tabungan); orang & kartu kredit ada di Utang & Piutang.
       kantong={kantong.filter(kantongUang).map((k) => ({ id: k.id, name: k.name, kind: k.kind, emoji: k.emoji, saldo: saldo.get(k.id) ?? 0 }))}
       pinjaman={ringkasBeranda(
