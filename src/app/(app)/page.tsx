@@ -73,7 +73,7 @@ export default async function BerandaPage({ searchParams }: { searchParams: Prom
     supabase.from("budgets").select("category, amount"),
     ambilKantong(supabase),
     supabase.from("cicilan").select("id, nama, tenor, jatuh_tempo_awal, nominal"),
-    supabase.from("transactions").select("cicilan_id, cicilan_ke").not("cicilan_id", "is", null),
+    supabase.from("transactions").select("cicilan_id, cicilan_ke").not("cicilan_id", "is", null).eq("status", "confirmed"),
     // Metode budgeting (SPEC-metode-budget): peringatan per kelompok.
     ambilPengaturanMetode(supabase),
   ]);

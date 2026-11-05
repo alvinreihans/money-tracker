@@ -7,15 +7,19 @@ import {
   arahPindah,
   EMOJI_ORANG,
   kantongUang,
+  keteranganCicilan,
   pilihCicilan,
   rencanaPaylater,
+  statusCicilan,
   SALDO_PER_PINJAMAN,
+  tampakKartuKredit,
   type Cicilan,
   type InfoPaylater,
 } from "@/lib/pinjaman";
 import { barisIkutan } from "@/lib/transaksi-input";
 import { pertanyaanDraft, type JenisTanya } from "@/lib/draft";
 import { jamTransaksi, perluTanyaJam, saldoSejak, type PetunjukJam } from "@/lib/waktu";
+import type { Transaction } from "@/types/transaction";
 
 /**
  * Belanja paylater jadi rencana cicilan (SPEC-paylater): tidak ada pengeluaran
@@ -37,6 +41,29 @@ export async function jadikanCicilan(
   if (error) throw new Error(error.message);
   if (draftId) await supabase.from("transactions").delete().eq("id", draftId);
   return data as Cicilan;
+}
+
+/**
+ * Draft bayar cicilan yang selesai dijawab: nomornya ditetapkan sekarang —
+ * nomor terkecil yang belum dibayar — karena selama jadi draft cicilan lain
+ * bisa sudah tercatat. Rencana yang sudah lunas dilepas; uangnya tetap
+ * tercatat sebagai pengeluaran (SPEC-tagihan-cicilan).
+ */
+export async function tetapkanCicilan(
+  supabase: SupabaseClient,
+  cicilanId: string,
+  hariIni: string,
+): Promise<Pick<Transaction, "cicilan_id" | "cicilan_ke" | "description">> {
+  const [{ data: rencana }, { data: bayar }] = await Promise.all([
+    supabase.from("cicilan").select("nama, penyedia, tenor, jatuh_tempo_awal, nominal").eq("id", cicilanId).maybeSingle(),
+    supabase.from("transactions").select("cicilan_ke").eq("cicilan_id", cicilanId).eq("status", "confirmed"),
+  ]);
+  const r = rencana as Pick<Cicilan, "nama" | "penyedia" | "tenor" | "jatuh_tempo_awal" | "nominal"> | null;
+  if (!r) return { cicilan_id: null, cicilan_ke: null, description: null };
+  const ke = statusCicilan(r, ((bayar ?? []) as { cicilan_ke: number | null }[]).flatMap((b) => (b.cicilan_ke ? [b.cicilan_ke] : [])), hariIni).berikutnya?.ke;
+  return ke
+    ? { cicilan_id: cicilanId, cicilan_ke: ke, description: keteranganCicilan(r, ke) }
+    : { cicilan_id: null, cicilan_ke: null, description: `Rencana cicilan “${r.nama}” sudah lunas` };
 }
 
 /** Isian manual tanpa kantong padahal user sudah punya kantong. */
@@ -127,9 +154,11 @@ export async function simpanTransaksi(
   if (p && daftar.length > 0) {
     // Lend & Borrow dari AI ("minjemin budi 200rb dari bca"): pindah kantong
     // antara kantong uang dan kantong orang/kartu. Orang yang belum ada
-    // dibuatkan kantongnya — pinjaman ke orang baru itu wajar.
+    // dibuatkan kantongnya — pinjaman ke orang baru itu wajar. Kartu kredit
+    // yang belum terdaftar tidak (tagihannya tidak diketahui): sisi kartunya
+    // dikosongkan, jadi draft yang menanyakan kantongnya (SPEC-tagihan-cicilan).
     let pihak = cocokkanKantong(p.pihak, daftar.filter((k) => k.kind === "orang" || k.kind === "kredit"));
-    if (!pihak) {
+    if (!pihak && !tampakKartuKredit(p.pihak)) {
       const { data: baru } = await supabase
         .from("user_accounts")
         .insert({ user_id: userId, name: p.pihak, kind: "orang", emoji: EMOJI_ORANG, saldo_awal: 0, saldo_per: SALDO_PER_PINJAMAN })
@@ -138,7 +167,7 @@ export async function simpanTransaksi(
       pihak = (baru as (typeof daftar)[number] | null) ?? null;
     }
     const uang = cocokkanKantong(row.payment_method as string | null, daftar.filter(kantongUang));
-    const arah = uang && pihak ? arahPindah(p.arah, uang.id, pihak.id) : null;
+    const arah = uang ? arahPindah(p.arah, uang.id, pihak?.id ?? "") : null;
     const semua = [...daftar, ...(pihak ? [pihak] : [])];
     kantong = arah ? (semua.find((k) => k.id === arah.dari) ?? null) : null;
     tujuan = arah ? (semua.find((k) => k.id === arah.ke) ?? null) : null;
@@ -165,7 +194,8 @@ export async function simpanTransaksi(
   if (dariAi && typeof sebutanCicilan === "string" && row.type === "expense") {
     const [{ data: rencana }, { data: bayar }] = await Promise.all([
       supabase.from("cicilan").select("id, nama, penyedia, category, tenor, jatuh_tempo_awal, nominal"),
-      supabase.from("transactions").select("cicilan_id, cicilan_ke").not("cicilan_id", "is", null),
+      // Hanya yang sudah tercatat: draft belum membayar apa pun (SPEC-tagihan-cicilan).
+      supabase.from("transactions").select("cicilan_id, cicilan_ke").not("cicilan_id", "is", null).eq("status", "confirmed"),
     ]);
     const dibayar: Record<string, number[]> = {};
     for (const b of (bayar ?? []) as { cicilan_id: string; cicilan_ke: number | null }[]) {
@@ -177,7 +207,7 @@ export async function simpanTransaksi(
       row.cicilan_ke = pilih.ke;
       row.category = pilih.rencana.category;
       row.merchant = pilih.rencana.nama;
-      row.description = `Cicilan ${pilih.ke}/${pilih.rencana.tenor}${pilih.rencana.penyedia ? ` · ${pilih.rencana.penyedia}` : ""}`;
+      row.description = keteranganCicilan(pilih.rencana, pilih.ke);
     } else {
       row.description = [row.description, `Rencana cicilan “${sebutanCicilan}” belum dicatat`].filter(Boolean).join(" · ");
     }

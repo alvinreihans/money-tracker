@@ -24,6 +24,14 @@ docs/specs/SPEC-catat-tuntas.md (fase 1 & 2 selesai di 2.4.0, fase 3 di 2.5.0, f
 
 ## [Unreleased]
 
+### Diperbaiki
+- **Bayar tagihan kartu kredit yang belum terdaftar tidak lagi jadi piutang palsu** (SPEC-tagihan-cicilan). "bayar tagihan cc Mandiri 200rb dari bca" padahal kartu Mandiri belum ada sebelumnya membuat kantong orang "Kartu kredit Mandiri" dan menambah Piutang Rp 200.000. Kini tidak ada kantong yang dibuat: catatannya masuk "Belum selesai" dan menanyakan "Pindah ke kantong mana?", dengan kartu kreditmu di pilihannya. Pinjaman ke orang baru ("minjemin budi 200rb") tetap membuat kantong orang seperti biasa.
+- **Nomor cicilan tidak lagi loncat karena catatan yang belum selesai.** Bayar cicilan yang masih menunggu jawaban "Pakai kantong apa?" sempat dihitung sudah dibayar: pembayaran berikutnya tercatat "Cicilan 3/3" padahal baru cicilan ke-2, dan rencananya tampil Lunas. Kini hanya pembayaran yang sudah tercatat yang dihitung (di Utang & Piutang, Beranda, Tanya AI, dan saat mencatat), dan nomor catatan yang belum selesai baru ditetapkan begitu catatannya selesai. Kalau rencananya keburu lunas, uangnya tetap tercatat sebagai pengeluaran dengan keterangan "Rencana cicilan “…” sudah lunas".
+- **"bayar cicilan spaylater sepatu" tertaut ke rencananya** walau nama barang dan penyedianya disebut sekaligus. Sebelumnya tersimpan sebagai pengeluaran Lainnya dengan keterangan "Rencana cicilan … belum dicatat".
+
+### Diubah
+- **Dokumen spec pindah ke `docs/specs/`**, dengan indeks di `docs/specs/README.md`. Semua spec disinkronkan dengan kode 2.9.0 (1 Nov 2026); sejak itu spec yang jadi acuan, dan perubahan perilaku ditulis di spec dulu.
+
 ## [2.9.0] — 2026-10-31
 
 ### Diubah

@@ -11,7 +11,7 @@ import { dbErrorMessage } from "@/lib/errors";
 import { fmtIDR, fmtTanggal, fmtTanggalPendek, isianNominal, isoLokal } from "@/lib/format";
 import { emojiKantong, type Kantong } from "@/lib/kantong";
 import { kategoriJenis, LAINNYA } from "@/lib/kategori";
-import { bacaBunga, bagiRata, jadwalCicilan, kantongUang, statusCicilan, type Angsuran, type Cicilan } from "@/lib/pinjaman";
+import { bacaBunga, bagiRata, jadwalCicilan, kantongUang, keteranganCicilan, statusCicilan, type Angsuran, type Cicilan } from "@/lib/pinjaman";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { AturBunga, type SasaranBunga } from "./BagianStrategi";
 
@@ -245,7 +245,7 @@ function FormBayar({
           category,
           transaction_date: tanggal,
           merchant: rencana.nama,
-          description: `Cicilan ${a.ke}/${rencana.tenor}${rencana.penyedia ? ` · ${rencana.penyedia}` : ""}`,
+          description: keteranganCicilan(rencana, a.ke),
           kantong_id: kantongId,
           cicilan_id: rencana.id,
           cicilan_ke: a.ke,

@@ -4,7 +4,8 @@ import { ambilKonteksAI } from "@/lib/kategori-server";
 import { bacaNominal, bacaTenor, kantongDariJawaban, pertanyaanDraft, type JenisTanya } from "@/lib/draft";
 import type { InfoPaylater } from "@/lib/pinjaman";
 import { bacaArah, bacaBukti, gabungNama, isianArah, kantongBank, namaDariJawaban } from "@/lib/arah";
-import { jadikanCicilan, namaRekening } from "@/lib/simpan-transaksi";
+import { jadikanCicilan, namaRekening, tetapkanCicilan } from "@/lib/simpan-transaksi";
+import { isoLokal } from "@/lib/format";
 import { processReceiptText } from "@/lib/receipt";
 import { TEKS_MAKS } from "@/lib/transaksi-input";
 import type { Kantong } from "@/lib/kantong";
@@ -184,6 +185,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const sesudah = pertanyaanDraft({ ...tx, ...patch }, saldoDari);
   const selesai = sesudah === null || sesudah === "konfirmasi";
   if (selesai) Object.assign(patch, { status: "confirmed", raw_ocr_text: null });
+  // Bayar cicilan: nomornya baru ditetapkan sekarang (SPEC-tagihan-cicilan).
+  if (selesai && tx.cicilan_id) Object.assign(patch, await tetapkanCicilan(supabase, tx.cicilan_id, isoLokal(new Date())));
 
   const { data: baru, error } = await supabase.from("transactions").update(patch).eq("id", id).select().single();
   if (error) return NextResponse.json({ error: "Gagal menyimpan jawabannya." }, { status: 500 });

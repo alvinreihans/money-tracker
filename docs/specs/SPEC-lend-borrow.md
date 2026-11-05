@@ -53,7 +53,7 @@ Tabel **`cicilan`**: nama barang ("HP Samsung"), penyedia ("Shopee PayLater", "K
 
 - **Belanja dengan cicilan tidak dicatat sebagai pengeluaran** saat belanja — cukup membuat rencana cicilan (lewat **Cicilan baru**, atau otomatis dari belanja paylater: SPEC-paylater).
 - **Membayar cicilan ke-n** = transaksi **pengeluaran** biasa (kategori rencana — jatuh ke Lainnya bila kategorinya sudah dihapus; kantong pembayar; merchant = nama barang; keterangan "Cicilan n/tenor · penyedia") yang menempel ke rencananya (`cicilan_id`, `cicilan_ke`). Budget & laporan bulan itu ikut menghitungnya.
-- **Jadwal dihitung, tidak disimpan**: jatuh tempo ke-n = jatuh tempo pertama + (n−1) bulan, tanggal yang sama; bulan yang lebih pendek mundur ke hari terakhirnya (31 → 30 Apr, 28/29 Feb). Sudah dibayar = ada transaksi dengan `cicilan_ke = n`. Lunas = semua n terbayar. Cicilan berikutnya = nomor terkecil yang belum dibayar (bayar loncat tetap menyisakan yang terkecil).
+- **Jadwal dihitung, tidak disimpan**: jatuh tempo ke-n = jatuh tempo pertama + (n−1) bulan, tanggal yang sama; bulan yang lebih pendek mundur ke hari terakhirnya (31 → 30 Apr, 28/29 Feb). Sudah dibayar = ada transaksi **tercatat** (`confirmed`) dengan `cicilan_ke = n`; draft tidak dihitung, nomornya ditetapkan saat draft selesai (SPEC-tagihan-cicilan). Lunas = semua n terbayar. Cicilan berikutnya = nomor terkecil yang belum dibayar (bayar loncat tetap menyisakan yang terkecil).
 - Bunga/biaya sudah termasuk dalam "nominal per bulan" (yang memang ditagihkan penyedia).
 - Bisa dibayar beberapa sekaligus (SPEC-paylater).
 - **Hapus rencana**: cicilan yang sudah dibayar tetap tercatat sebagai pengeluaran (`cicilan_id` jadi null).
@@ -90,11 +90,12 @@ Tabel **`cicilan`**: nama barang ("HP Samsung"), penyedia ("Shopee PayLater", "K
 | "bayar utang ke ibu 500rb pake bri" | Pindah kantong BRI → Ibu |
 | "bayar cicilan spaylater 150rb pake bca" | Pembayaran cicilan berikutnya dari rencana yang cocok (penyedia/nama) |
 | "bayar tagihan kartu kredit bca 2jt dari bca" | Pindah kantong BCA → Kartu kredit BCA |
+| "bayar tagihan cc mandiri 200rb dari bca" (kartu Mandiri belum ada) | Draft "Belum selesai": "Pindah ke kantong mana?" (tidak membuat kantong) |
 
 - Isian AI: `pinjaman` { `arah`: `beri` / `terima_bayar` / `pinjam` / `bayar`, `pihak` } dan `cicilan` (nama barang/penyedia yang disebut, hanya untuk pengeluaran). Nama orang & kartu kredit user dan daftar rencana cicilan (nama — penyedia) ikut dikirim di prompt, seperti daftar kategori. Ada `pinjaman` → selalu pindah kantong, apa pun `type` tebakan model.
-- `pihak` dicocokkan ke kantong orang & kartu; tidak ketemu → kantong orang baru. Kantong uang dicocokkan dari `payment_method`.
+- `pihak` dicocokkan ke kantong orang & kartu; tidak ketemu → kantong orang baru, **kecuali** `pihak` tampak kartu kredit ("kartu kredit", "credit card", kata "cc"; `tampakKartuKredit`): sisi kartunya dikosongkan dan transaksinya jadi draft yang menanyakan kantongnya (SPEC-tagihan-cicilan). Kantong uang dicocokkan dari `payment_method`.
 - Kantong uang tidak cocok → draft **"Belum selesai"** yang menanyakan kantongnya (aturan yang sama dengan kantong).
-- Rencana cicilan dicocokkan persis (tanpa beda huruf/spasi) dengan nama barang atau penyedia; dari yang cocok & belum lunas, jatuh tempo berikutnya paling awal. Tidak ketemu → tetap dicatat sebagai pengeluaran biasa (uangnya memang keluar) dengan keterangan "Rencana cicilan “…” belum dicatat", bukan draft.
+- Rencana cicilan dicocokkan persis (tanpa beda huruf/spasi/tanda baca) dengan nama barang, penyedia, atau gabungan keduanya ("Uji — Shopee PayLater", format daftar di prompt); dari yang cocok & belum lunas, jatuh tempo berikutnya paling awal. Tidak ketemu → tetap dicatat sebagai pengeluaran biasa (uangnya memang keluar) dengan keterangan "Rencana cicilan “…” belum dicatat", bukan draft.
 - "kopi 25rb budi" bukan pinjaman: pengeluaran/pemasukan tidak pernah memakai kantong orang.
 
 ## Data (migrasi)

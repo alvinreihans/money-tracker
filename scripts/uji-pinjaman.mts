@@ -20,6 +20,7 @@ import {
   SALDO_PER_PINJAMAN,
   ringkasBeranda,
   statusCicilan,
+  tampakKartuKredit,
 } from "../src/lib/pinjaman.ts";
 
 // --- Jatuh tempo per bulan ---
@@ -117,6 +118,15 @@ assert.deepEqual(pilihCicilan("hp samsung", rencana, sudah, "2026-10-22"), { ren
 assert.deepEqual(pilihCicilan("KREDIVO", rencana, sudah, "2026-10-22"), { rencana: rencana[2], ke: 2 });
 assert.equal(pilihCicilan("Akulaku", rencana, sudah, "2026-10-22"), null);
 assert.equal(pilihCicilan("", rencana, sudah, "2026-10-22"), null);
+// Sebutan gabungan nama + penyedia, seperti format daftar di prompt (SPEC-tagihan-cicilan §3).
+const uji = [{ id: "uji", nama: "Uji", penyedia: "Shopee PayLater", tenor: 3, jatuh_tempo_awal: "2026-11-05", nominal: 100_000 }];
+assert.deepEqual(pilihCicilan("Uji — Shopee PayLater", uji, {}, "2026-11-01"), { rencana: uji[0], ke: 1 });
+assert.deepEqual(pilihCicilan("uji shopee paylater", uji, { uji: [1] }, "2026-11-01"), { rencana: uji[0], ke: 2 });
+assert.equal(pilihCicilan("spaylater", [{ ...uji[0], penyedia: "GoPayLater" }], {}, "2026-11-01"), null);
+
+// --- Pihak yang tampak kartu kredit (SPEC-tagihan-cicilan §1) ---
+for (const ya of ["Kartu kredit Mandiri", "CC BCA", "credit card bni", "kartu-kredit", "Mandiri cc"]) assert.equal(tampakKartuKredit(ya), true, ya);
+for (const tidak of ["Budi", "Ibu", "Acc kantor", "Bu Cece", "Kartu Budi", ""]) assert.equal(tampakKartuKredit(tidak), false, tidak);
 
 // Paylater → rencana cicilan (SPEC-paylater).
 const bensin = { amount: "15680.00", merchant: "BP Gunung Puteri", category: "transport", transaction_date: "2026-10-23" };
@@ -173,4 +183,4 @@ assert.deepEqual(bacaBunga("2.95"), { ok: true, nilai: 2.95 });
 assert.deepEqual(bacaBunga("10"), { ok: true, nilai: 10 });
 for (const salah of ["11", "1,755", "-1", "abc", "1,"]) assert.equal(bacaBunga(salah).ok, false, salah);
 
-console.log("✓ pinjaman: jatuh tempo, jadwal & status cicilan, arah pindah, ringkasan Lend & Borrow, kartu Beranda, paylater → cicilan, bayar beberapa sekaligus, strategi pelunasan Snowball/Avalanche, isian bunga");
+console.log("✓ pinjaman: jatuh tempo, jadwal & status cicilan, arah pindah, ringkasan Lend & Borrow, kartu Beranda, paylater → cicilan, bayar beberapa sekaligus, strategi pelunasan Snowball/Avalanche, isian bunga, pihak kartu kredit");

@@ -14,6 +14,13 @@ import { normal } from "@/lib/kantong";
 /** Kantong berisi uang sungguhan — yang dihitung di Total aset. */
 export const kantongUang = (k: { kind: string }) => k.kind !== "orang" && k.kind !== "kredit";
 
+/**
+ * Nama pihak dari AI yang jelas kartu kredit ("Kartu kredit Mandiri", "CC BCA"):
+ * yang belum terdaftar ditanyakan, bukan dibuatkan kantong orang
+ * (SPEC-tagihan-cicilan).
+ */
+export const tampakKartuKredit = (nama: string) => /\b(kartu[\s-]*kredit|credit[\s-]*card|cc)\b/i.test(nama);
+
 /** Emoji bawaan kantong orang & kartu kredit. */
 export const EMOJI_ORANG = "👤";
 export const EMOJI_KREDIT = "💳";
@@ -209,12 +216,17 @@ export function pilihCicilan<R extends Pick<Cicilan, "id" | "nama" | "penyedia" 
   const cari = normal(sebutan);
   if (!cari) return null;
   const kandidat = rencana
-    .filter((r) => [r.nama, r.penyedia].some((n) => n && normal(n) === cari))
+    // Gabungan nama + penyedia: model kadang menyalin format daftar di prompt ("Uji — Shopee PayLater").
+    .filter((r) => [r.nama, r.penyedia, r.penyedia && r.nama + r.penyedia].some((n) => n && normal(n) === cari))
     .map((r) => ({ r, berikutnya: statusCicilan(r, dibayar[r.id] ?? [], hariIni).berikutnya }))
     .filter((x) => x.berikutnya)
     .sort((a, b) => a.berikutnya!.jatuhTempo.localeCompare(b.berikutnya!.jatuhTempo));
   return kandidat[0] ? { rencana: kandidat[0].r, ke: kandidat[0].berikutnya!.ke } : null;
 }
+
+/** Keterangan transaksi pembayaran cicilan: "Cicilan 2/3 · Shopee PayLater". */
+export const keteranganCicilan = (r: Pick<Cicilan, "tenor" | "penyedia">, ke: number) =>
+  `Cicilan ${ke}/${r.tenor}${r.penyedia ? ` · ${r.penyedia}` : ""}`;
 
 /** Isian paylater yang terbaca dari struk/ketikan (SPEC-paylater). */
 export interface InfoPaylater {

@@ -310,7 +310,7 @@ export async function jalankanFungsi(
   const [{ kantong, saldo }, { data: cicilan }, { data: bayar }, { data: strategi }] = await Promise.all([
     ambilKantong(supabase),
     supabase.from("cicilan").select("*"),
-    supabase.from("transactions").select("cicilan_id, cicilan_ke").not("cicilan_id", "is", null),
+    supabase.from("transactions").select("cicilan_id, cicilan_ke").not("cicilan_id", "is", null).eq("status", "confirmed"),
     supabase.from("metode_budget").select("strategi_utang, ekstra_utang").maybeSingle(),
   ]);
   const kantongSaldo = kantong.map((k) => ({ ...k, saldo: saldo.get(k.id) ?? 0 }));

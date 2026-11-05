@@ -1,8 +1,8 @@
 # Spec: Perbaikan bayar tagihan kartu kredit & nomor cicilan
 
-Status: **disetujui** (K1 ditanya, K2 saat draft selesai, K3 ikut) · 5 November 2026 · branch `fix/cicilan-kartu` · dari bagian Temuan di CHANGELOG (dua butir "Tinggi" + satu butir "Sedang" yang berdekatan)
+Status: **diterapkan, belum dirilis** (K1 ditanya, K2 saat draft selesai, K3 ikut; E2E belum dijalankan) · 5 November 2026 · branch `fix/cicilan-kartu` · dari bagian Temuan di CHANGELOG (dua butir "Tinggi" + satu butir "Sedang" yang berdekatan)
 
-Mengubah perilaku yang sebelumnya tertulis di [SPEC-lend-borrow](SPEC-lend-borrow.md) §5 dan §2. Begitu disetujui, kedua bagian itu diperbarui di commit yang sama dengan kodenya.
+Mengubah perilaku yang sebelumnya tertulis di [SPEC-lend-borrow](SPEC-lend-borrow.md) §5 dan §2; kedua bagian itu sudah diperbarui.
 
 ## Masalah
 
@@ -44,12 +44,12 @@ Ketiganya direproduksi di produksi (2.9.0, akun demo, 1 Nov 2026).
 | K2 | Kapan nomor cicilan draft ditetapkan? | **Saat draft selesai** (lihat §2). | Draft tidak menempel ke rencana sama sekali; ditautkan ulang saat selesai lewat pencocokan sebutan. Lebih sederhana, tapi sebutan aslinya harus disimpan. |
 | K3 | Masalah 3 ikut di perbaikan ini? | **Ya** — kecil dan di fungsi yang sama. | Dipisah ke perbaikan berikutnya. |
 
-## Rencana kode
+## Kode
 
-- `src/lib/pinjaman.ts`: `tampakKartuKredit(nama)` (fungsi murni); `pilihCicilan` menerima gabungan nama + penyedia.
+- `src/lib/pinjaman.ts`: `tampakKartuKredit(nama)` (fungsi murni); `pilihCicilan` menerima gabungan nama + penyedia; `keteranganCicilan(rencana, ke)` dipakai bersama oleh AI, draft, dan form Bayar cicilan.
 - `src/lib/simpan-transaksi.ts`: kantong orang baru hanya bila `!tampakKartuKredit(p.pihak)`; selain itu tujuan kosong → draft. Kueri cicilan terbayar + `.eq("status", "confirmed")`.
 - `src/app/(app)/pinjaman/page.tsx`, `src/app/(app)/page.tsx`, `src/lib/tanya-server.ts`: kueri yang sama + `.eq("status", "confirmed")`.
-- `src/app/api/draft/[id]/jawab/route.ts`: saat draft ber-`cicilan_id` menjadi `confirmed`, hitung ulang `cicilan_ke` dan keterangannya (atau lepas bila sudah lunas).
+- `src/lib/simpan-transaksi.ts` `tetapkanCicilan()`, dipanggil `src/app/api/draft/[id]/jawab/route.ts` saat draft ber-`cicilan_id` menjadi `confirmed`: hitung ulang `cicilan_ke` dan keterangannya, atau lepas bila sudah lunas / rencananya terhapus.
 - Tidak ada migrasi.
 
 ## Pengujian
@@ -57,7 +57,7 @@ Ketiganya direproduksi di produksi (2.9.0, akun demo, 1 Nov 2026).
 - **Unit** (`npm run uji:pinjaman`):
   - `tampakKartuKredit`: "Kartu kredit Mandiri", "CC BCA", "credit card bni" → ya; "Budi", "Ibu", "Acc kantor", "Bu Cece" → tidak;
   - `pilihCicilan`: "Uji — Shopee PayLater", "uji shopee paylater" cocok dengan rencana Uji/Shopee PayLater; "spaylater" tidak cocok dengan GoPayLater.
-- **E2E** (`e2e/`, suite baru `tagihan-cicilan`): tiga skenario di bagian Masalah, dengan hasil yang diharapkan di atas; plus "minjemin Ujiwan 50rb" tetap membuat kantong orang.
+- **E2E** (`npm run e2e -- tagihan-cicilan`): §2 saja, karena deterministik (draft disuntik langsung, tanpa AI, seperti suite `pecah`): draft tidak dihitung di Utang & Piutang (1/3); draft yang selesai setelah cicilan 2 dibayar mendapat nomor 3; draft untuk rencana yang sudah lunas dilepas. §1 dan §3 bergantung pada AI, jadi diuji di unit (`tampakKartuKredit`, `pilihCicilan`).
 - `npm run uji:draft`, `uji:notifikasi`, `uji:tanya` tetap lulus.
 
 ## Boundaries
@@ -67,4 +67,4 @@ Ketiganya direproduksi di produksi (2.9.0, akun demo, 1 Nov 2026).
 
 ## Belum diterapkan
 
-Seluruh spec ini (sedang dikerjakan).
+Tidak ada. E2E `tagihan-cicilan` belum dijalankan (butuh `.env.local` dengan service role) dan perlu dijalankan sebelum rilis.
