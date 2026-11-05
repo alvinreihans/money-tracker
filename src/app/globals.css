@@ -60,6 +60,9 @@ html {
   :root { --rail: 240px; }
 }
 
+/* Halaman tanpa navigasi (masuk, mulai, 404): tanpa ruang rail, isi tepat di tengah. */
+body:has([data-tanpa-nav]) { --rail: 0px; }
+
 * { box-sizing: border-box; }
 
 html, body { margin: 0; }

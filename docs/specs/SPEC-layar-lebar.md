@@ -153,6 +153,7 @@ Foto struk bisa diseret dari File Explorer, Galeri (layar terpisah di tablet/Fol
   - Memilih transaksi hanya mengganti `?id=` lewat `history.pushState`, tanpa render ulang server, jadi daftar yang sudah "Muat lagi" dan posisi gulirnya tidak hilang. Ctrl/⌘/Shift/Alt-klik tetap membuka halaman detail.
 - **Profil dua panel** lewat `profil/layout.tsx`: menu di kiri dan `children` di kanan (`profil/page.tsx` mengembalikan `null`, jadi panel kanannya `:empty`). Di layar ringkas, menu hanya tampil di `/profil` itu sendiri.
 - **Panel mana yang tampil di layar sempit** ditentukan CSS `:empty` / `:has()`: panel kanan yang kosong disembunyikan, dan kalau berisi, daftarnya yang disembunyikan.
+- **Halaman tanpa navigasi** (masuk, reset password, mulai, 404) tidak menyisakan ruang rail/sidebar: `<main data-tanpa-nav>` membuat `--rail` jadi 0 lewat `body:has([data-tanpa-nav])` di `globals.css`, jadi isinya tepat di tengah layar pada semua lebar.
 - **Tidak ada perubahan database dan tidak ada dependensi baru.**
 
 ## Pengujian

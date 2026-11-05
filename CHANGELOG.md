@@ -42,6 +42,7 @@ docs/specs/SPEC-catat-tuntas.md (fase 1 & 2 selesai di 2.4.0, fase 3 di 2.5.0, f
 - **Nama kantong tidak boleh kembar beda huruf** ("bca" dan "BCA"), dan pesannya menyebut di mana nama itu dipakai ("… untuk Teman di Utang & Piutang").
 - **Isian tanggal:** tenggat tujuan baru paling cepat hari ini; jatuh tempo pinjaman tidak boleh sebelum tanggal pinjam; kartu kredit baru berlaku sejak jam sekarang, jadi belanja kartu sebelumnya di hari itu tidak terhitung dua kali.
 - **Catat:** ketikan yang tidak terbaca Groq (mis. nominal 0) dicoba sekali lagi lewat Gemini sebelum jadi catatan belum selesai; "↩ Batalkan perubahan" tidak muncul lagi untuk transaksi yang sudah dibatalkan; tanggal "Dihapus otomatis" memakai WIB; hitung mundur menulis "Menutup dalam 8 detik"; pembayaran cicilan tidak lagi dipakai untuk mengingat kategori merchant.
+- **Halaman masuk tepat di tengah di tablet dan desktop.** Halaman masuk, reset password, mulai, dan 404 sebelumnya bergeser ke kanan (40 px di tablet, 120 px di desktop) karena menyisakan ruang untuk navigasi samping yang tidak ada di halaman itu.
 - **Lain-lain:** Riwayat turun ke satu panel saat panel Tanya AI terbuka di layar yang tidak cukup lebar, dan kartu bagian pecahan yang dibuka ditandai terpilih; subjudul Budget di Profil mengikuti metode yang aktif; ekspor CSV menulis kategori pindah kantong "Pindah kantong".
 
 ### Diubah

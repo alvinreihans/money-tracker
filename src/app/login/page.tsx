@@ -112,7 +112,7 @@ export default function LoginPage() {
   const tautan = { background: "none", border: 0, padding: 0, color: "var(--primer)", fontWeight: 600, cursor: "pointer" };
 
   return (
-    <main className={s.app} style={{ paddingBottom: 32 }}>
+    <main className={s.app} data-tanpa-nav style={{ paddingBottom: 32 }}>
       <BrandMark judul={JUDUL[mode].judul} sub={JUDUL[mode].sub} />
 
       <div className={s.isi}>

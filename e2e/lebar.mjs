@@ -26,6 +26,16 @@ try {
     tx(60000, "food", "Solaria", "2026-09-15"),
   ]);
 
+  // --- 0. Halaman tanpa navigasi (belum masuk): isi tepat di tengah, tanpa ruang rail.
+  for (const w of [700, 900, 1300]) {
+    await ukur(w);
+    for (const hal of ["/login", "/reset-password"]) {
+      await buka(`${base}${hal}`, 3000);
+      const geser = await jalankan(`(() => { const r = document.querySelector('main').getBoundingClientRect(); return Math.round((r.left + r.right) / 2 - innerWidth / 2) })()`);
+      cek(`${hal} ${w}px: isi di tengah`, Math.abs(geser) <= 2, `geser ${geser}px`);
+    }
+  }
+
   const ref = new URL(U).hostname.split(".")[0];
   const isi = "base64-" + Buffer.from(JSON.stringify(sesi.session)).toString("base64url");
   const p = [];

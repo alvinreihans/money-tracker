@@ -68,7 +68,7 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <main className={s.app} style={{ paddingBottom: 32 }}>
+    <main className={s.app} data-tanpa-nav style={{ paddingBottom: 32 }}>
       <BrandMark judul="Password baru" sub="Bikin password baru, terus langsung masuk." />
 
       <div className={s.isi}>
