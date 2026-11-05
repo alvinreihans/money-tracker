@@ -29,6 +29,7 @@ AI menebak kategori dari nol di setiap unggahan. Contoh dari pemakaian nyata:
   - belanja yang dipecah dari rincian ketikan (`rincian` > 1 bagian).
 - **Tidak dipakai sebagai ingatan:**
   - bagian pecahan (`pecahan_dari`, kategorinya sengaja beda dari transaksi aslinya) dan transaksi ikutan (`induk_id`: cashback, biaya admin);
+  - pembayaran cicilan (`cicilan_id` terisi): kategorinya ditentukan rencananya, sama dengan `cariSerupa` (SPEC-perbaikan-temuan D4);
   - kategori lama yang sudah dihapus user: `hapus_kategori` memindahkan transaksinya ke Lainnya, dan Lainnya tidak diingat.
 - **Batas pencarian:** 300 transaksi terakhir dalam setahun (365 hari ke belakang), jenis yang sama (`ambilIngatan`, `BATAS_INGAT`).
   - Merchant disimpan terenkripsi, jadi pencocokan dilakukan di server setelah didekripsi lewat view; tidak ada daftar merchant polos yang disimpan.
@@ -106,7 +107,7 @@ User bisa menulis ke Tanya AI: "waitenjoy itu laundry, tolong betulkan" atau "tr
   - `ingatKategori(baris, merchant, type)`: fungsi murni; baris diurutkan dari yang terbaru;
   - `ambilIngatan(supabase, merchant, type)`: query riwayat untuk bagian A;
   - `cariSerupa(supabase, merchant, type, { kecuali, bukan })`: transaksi serupa untuk B, C, D.
-- **`simpanTransaksi`:** setelah validasi kategori & penautan cicilan, sebelum cek duplikat, `ambilIngatan` (satu query `merchant, category, kelompok, type`) lalu `ingatKategori`.
+- **`simpanTransaksi`:** setelah validasi kategori & penautan cicilan, sebelum cek duplikat, `ambilIngatan` (satu query `merchant, category, kelompok, type, cicilan_id`, tanpa pembayaran cicilan) lalu `ingatKategori`.
 - **`/api/kategori-merchant`:** `GET ?merchant&type&kategori&kecuali` → `{ jumlah, total }`; `POST { merchant, type, kategori | kategori_baru: { nama, kelompok }, kelompok?, kecuali? }` → `{ diubah, sebelum: [{ id, category, kelompok }], kategori }`.
 - **`src/components/TawaranSerupa.tsx`:** `useTawaranSerupa` (B & C), `ubahKategoriMerchant`, `kembalikanKategori` (Urungkan, update per id lewat browser).
 - **Ubah transaksi** (`EditTransactionForm`) & **koreksi obrolan** (`Obrolan`): setelah simpan berhasil dan kategorinya berubah, `serupa.tawarkan(...)`.
@@ -118,7 +119,8 @@ User bisa menulis ke Tanya AI: "waitenjoy itu laundry, tolong betulkan" atau "tr
   - cocok persis, terpotong, dan terlalu pendek (tidak cocok);
   - jenis berbeda tidak dipakai;
   - yang terbaru menang;
-  - "Lainnya" tidak diingat (kategori terhapus tercakup lewat ini).
+  - "Lainnya" tidak diingat (kategori terhapus tercakup lewat ini);
+  - pembayaran cicilan tidak diingat.
 - **E2E rancangan awal (akun sementara, AI sungguhan; yang benar-benar dijalankan ada di Hasil):**
   - catat "waitenjoy 16rb seabank" → kategori tebakan AI;
   - ubah jadi Laundry (kategori buatan user);

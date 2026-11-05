@@ -69,18 +69,17 @@ Akibatnya "sisihkan 200rb dari bca ke Liburan" kadang dibalas "Pindah ke kantong
 
 ### 2. Cadangan Gemini untuk teks
 
-Bila seluruh rantai Groq **melempar galat** (semua model 429/5xx/timeout), `processReceiptText` (`src/lib/receipt.ts`) membaca teks lewat Gemini (`extractTextWithGemini`):
+Bila seluruh rantai Groq **melempar galat** (semua model 429/5xx/timeout) **atau menjawab dengan hasil tidak valid** (mis. nominal 0; SPEC-perbaikan-temuan K7), `processReceiptText` (`src/lib/receipt.ts`) membaca teks lewat Gemini (`extractTextWithGemini`):
 - model sama dengan jalur gambar (`GEMINI_MODEL`), prompt `"ketik"` yang sama, `responseMimeType: application/json` tanpa skema (skema Gemini milik jalur struk dan tidak memuat `rincian`), `temperature: 0`;
 - coba ulang untuk galat sesaat dipakai bersama jalur gambar (`geminiDenganUlang`: 3 percobaan, jeda 1,5 lalu 3 detik, hanya untuk 429/500/502/503/504, "high demand", "overloaded", "timeout");
-- sumber hasilnya `gemini_text`; hasil tidak valid → draft bersumber `gemini_text`;
-- gagal juga → draft kosong (sumber `none`); teks ketikan tetap tersimpan di draft oleh route.
+- Gemini dicoba **sekali** per ketikan (di luar coba ulang galat sesaat di atas); sumber hasil yang sah `gemini_text`;
+- Gemini tidak sah atau gagal juga → draft. Isinya hasil Groq yang tidak sah bila ada (sumber `groq`); bila Groq tadi galat: hasil Gemini yang tidak sah (sumber `gemini_text`), atau draft kosong (sumber `none`) bila Gemini juga galat. Teks ketikan tetap tersimpan di draft oleh route.
+- Pemanggil AI bisa diganti (`AiTeks`, argumen ketiga) supaya keputusan ini diuji tanpa kuota (`uji:draft`).
 
-Groq yang **menjawab tapi hasilnya tidak valid** langsung jadi draft, tanpa mencoba Gemini.
-
-Kuota Gemini hanya terpakai saat Groq penuh.
+Kuota Gemini hanya terpakai saat Groq penuh atau hasilnya tidak sah.
 
 ## Boundaries
 
 - **Jangan:** mengirim saldo ke AI; mengubah cara `cocokkanKantong` mencocokkan.
 - **Jangan:** memangkas aturan yang dipakai teks ketikan tanpa mengukur ulang dengan `ukur:teks`.
-- **Keputusan:** teks ketikan dikirim ke Gemini hanya sebagai cadangan saat rantai Groq gagal. Ini menjawab "tanya dulu: mengirim teks ketikan ke Gemini" di SPEC-catat-andal.
+- **Keputusan:** teks ketikan dikirim ke Gemini hanya sebagai cadangan saat rantai Groq gagal atau hasilnya tidak sah (yang kedua sejak SPEC-perbaikan-temuan K7). Ini menjawab "tanya dulu: mengirim teks ketikan ke Gemini" di SPEC-catat-andal.

@@ -32,7 +32,9 @@ function ringkasBacaan(e: ExtractedReceipt): string {
 }
 
 /**
- * Orkestrasi pipeline ekstraksi struk sesuai FALLBACK.md.
+ * Orkestrasi pipeline ekstraksi (SPEC-catat-andal, SPEC-ai-kantong): gambar =
+ * Gemini dulu, lalu OCR + rantai Groq, lalu draft; teks = rantai Groq, lalu
+ * Gemini, lalu draft.
  *
  * Fungsi di file ini adalah SATU-SATUNYA jalur logika ekstraksi; route
  * upload struk dan catat-teks sama-sama memanggilnya.
@@ -136,7 +138,6 @@ export async function processReceiptImage(
   let ocr: OcrResult | null = null;
   let best: ExtractedReceipt | null = null;
 
-  // --- 1. OCR ---
   // Ukuran gambar ikut dicatat: foto kamera dan screenshot galeri bisa
   // berbeda jauh. Angka inilah yang membedakan "gambarnya sudah telanjur
   // kecil" dari "OCR-nya yang bermasalah".
@@ -163,7 +164,7 @@ export async function processReceiptImage(
     }
   }
 
-  // --- 2. Cadangan: OCR + rantai Groq ---
+  // --- 2. Cadangan: OCR (gambar asli) ---
   try {
     ocr = await runOcr(image);
     notes.push(
@@ -173,7 +174,7 @@ export async function processReceiptImage(
     notes.push(`OCR gagal: ${errMsg(err)}`);
   }
 
-  // --- 2. Gerbang kualitas + rantai Groq ---
+  // --- 3. Gerbang kualitas + rantai Groq ---
   // Teks yang tidak lolos gerbang sengaja TIDAK dikirim ke Groq: LLM teks tidak
   // bisa menyelamatkan teks rusak, dia hanya akan menebak dengan percaya diri.
   if (ocr && isOcrUsable(ocr)) {
@@ -200,44 +201,56 @@ export async function processReceiptImage(
     notes.push("Teks OCR tidak lolos gerbang kualitas, lewati Groq");
   }
 
-  // --- 3. Semua jalur gagal: simpan sebagai draft, jangan buang data user ---
+  // --- 4. Semua jalur gagal: simpan sebagai draft, jangan buang data user ---
   return done("needs_review", best ?? emptyDraft(), ocr, "none", notes);
 }
 
+/** Pemanggil AI untuk teks; bisa diganti di uji (scripts/uji-draft.mts) supaya tidak memakai kuota. */
+export interface AiTeks {
+  groq: (teks: string, konteks: KonteksAI) => Promise<{ extracted: ExtractedReceipt; model: string }>;
+  gemini: (teks: string, konteks: KonteksAI) => Promise<ExtractedReceipt>;
+}
+
+const AI_TEKS: AiTeks = { groq: (t, k) => extractWithGroq(t, k, true), gemini: extractTextWithGemini };
+
 /**
  * Pipeline untuk input TEKS (mis. "kopi 25rb gopay" di kolom Catat): rantai
- * Groq, lalu Gemini bila seluruh rantai gagal (batas laju paket gratis Groq,
- * SPEC-ai-kantong). Tidak ada OCR — tidak ada gambar untuk dibaca.
+ * Groq, lalu Gemini sekali bila rantainya gagal (batas laju paket gratis Groq,
+ * SPEC-ai-kantong) atau hasilnya tidak valid, mis. nominal 0 (SPEC-perbaikan-temuan
+ * K7). Tidak ada OCR — tidak ada gambar untuk dibaca.
  */
 export async function processReceiptText(
   text: string,
   konteks: KonteksAI = { kategori: KATEGORI_BAWAAN },
+  ai: AiTeks = AI_TEKS,
 ): Promise<ProcessedReceipt> {
   const notes: string[] = [];
+  // Hasil Groq yang tidak valid: tetap jadi isi draft bila Gemini juga tidak berhasil.
+  let groq: ExtractedReceipt | null = null;
 
   try {
-    const { extracted, model } = await extractWithGroq(text, konteks, true);
+    const { extracted, model } = await ai.groq(text, konteks);
     if (isValidExtraction(extracted, konteks.kategori)) {
       notes.push(`Ekstraksi berhasil via Groq (${model})`);
       return done("confirmed", extracted, null, "groq", notes, text);
     }
-    notes.push(`Groq (${model}) menghasilkan data tidak valid`);
-    return done("needs_review", extracted, null, "groq", notes, text);
+    groq = extracted;
+    notes.push(`Groq (${model}) menghasilkan data tidak valid — coba Gemini`);
   } catch (err) {
     notes.push(`Seluruh rantai Groq gagal: ${errMsg(err)} — coba Gemini`);
   }
 
   try {
-    const extracted = await extractTextWithGemini(text, konteks);
+    const extracted = await ai.gemini(text, konteks);
     if (isValidExtraction(extracted, konteks.kategori)) {
       notes.push(`Ekstraksi berhasil via Gemini (${GEMINI_MODEL})`);
       return done("confirmed", extracted, null, "gemini_text", notes, text);
     }
     notes.push(`Gemini (${GEMINI_MODEL}) menghasilkan data tidak valid`);
-    return done("needs_review", extracted, null, "gemini_text", notes, text);
+    return groq ? done("needs_review", groq, null, "groq", notes, text) : done("needs_review", extracted, null, "gemini_text", notes, text);
   } catch (err) {
     notes.push(`Gemini gagal: ${errMsg(err)}`);
-    return done("needs_review", emptyDraft(), null, "none", notes);
+    return groq ? done("needs_review", groq, null, "groq", notes, text) : done("needs_review", emptyDraft(), null, "none", notes);
   }
 }
 

@@ -4,7 +4,9 @@
  * Pemakaian: npm run uji:draft
  */
 import assert from "node:assert/strict";
-import { apakahKoreksi, bacaNominal, bacaTenor, kantongDariJawaban, mauHapus, pertanyaanDraft } from "../src/lib/draft.ts";
+import { processReceiptText, type AiTeks } from "../src/lib/receipt.ts";
+import { isoLokal } from "../src/lib/format.ts";
+import { apakahKoreksi, bacaNominal, bacaTenor, kantongDariJawaban, mauHapus, pertanyaanDraft, tanggalHapusDraft } from "../src/lib/draft.ts";
 
 const d = (t: Partial<Parameters<typeof pertanyaanDraft>[0]>) =>
   pertanyaanDraft({ status: "needs_review", amount: 0, type: "expense", category: "other", merchant: null, kantong_id: null, kantong_tujuan_id: null, ...t });
@@ -71,4 +73,51 @@ assert.equal(d({ amount: 30, kantong_id: "k1", duplikat_dari: "t1" }), "duplikat
 assert.equal(d({ amount: 30, kantong_id: "k1", duplikat_dari: null }), "konfirmasi");
 assert.equal(d({ amount: 0, merchant: "X", duplikat_dari: "t1" }), "nominal"); // yang kurang tetap ditanya dulu
 
-console.log("✓ draft: urutan pertanyaan, nominal ketikan (rb/jt/Rp/titik), kantong dari chip & kalimat, koreksi vs catatan baru, minta hapus, tenor paylater, duplikat");
+// Tanggal hapus otomatis dihitung dari hari WIB, bukan zona browser/server (SPEC-perbaikan-temuan D3).
+assert.equal(tanggalHapusDraft("2026-10-22T05:00:00Z"), "2026-11-21"); // 12.00 WIB
+assert.equal(tanggalHapusDraft("2026-10-22T18:30:00Z"), "2026-11-22"); // 01.30 WIB 23 Okt
+assert.equal(tanggalHapusDraft("2026-10-22T16:59:00Z"), "2026-11-21"); // 23.59 WIB 22 Okt
+
+// Ketikan: Groq tidak valid → Gemini sekali; galat Groq → Gemini; keduanya gagal → draft (SPEC-perbaikan-temuan K7).
+const hasil = (amount: number) =>
+  ({ amount, type: "expense", merchant: "Kopi", category: "food", transaction_date: isoLokal(new Date()), time: null, time_hint: null, description: null, payment_method: null, payment_target: null, fee: null, cashback: null, pinjaman: null, cicilan: null, paylater: null, document_type: "receipt" }) as Awaited<ReturnType<AiTeks["gemini"]>>;
+const ai = (groq: number | Error, gemini: number | Error) => {
+  const panggil = { groq: 0, gemini: 0 };
+  const a: AiTeks = {
+    groq: async () => (panggil.groq++, groq instanceof Error ? Promise.reject(groq) : { extracted: hasil(groq), model: "uji" }),
+    gemini: async () => (panggil.gemini++, gemini instanceof Error ? Promise.reject(gemini) : hasil(gemini)),
+  };
+  return { a, panggil };
+};
+{
+  const { a, panggil } = ai(25000, 30000);
+  const r = await processReceiptText("kopi 25rb", undefined, a);
+  assert.deepEqual([r.status, r.source, r.extracted?.amount, panggil.gemini], ["confirmed", "groq", 25000, 0], "Groq sah: Gemini tidak dipanggil");
+}
+{
+  const { a, panggil } = ai(0, 25000);
+  const r = await processReceiptText("kopi 25rb", undefined, a);
+  assert.deepEqual([r.status, r.source, r.extracted?.amount, panggil.gemini], ["confirmed", "gemini_text", 25000, 1], "Groq tidak sah: Gemini sekali");
+}
+{
+  const { a, panggil } = ai(0, 0);
+  const r = await processReceiptText("kopi", undefined, a);
+  assert.deepEqual([r.status, r.source, panggil.gemini], ["needs_review", "groq", 1], "keduanya tidak sah: draft dari hasil Groq");
+}
+{
+  const { a } = ai(0, new Error("429"));
+  const r = await processReceiptText("kopi", undefined, a);
+  assert.deepEqual([r.status, r.source], ["needs_review", "groq"], "Gemini galat: draft dari hasil Groq");
+}
+{
+  const { a } = ai(new Error("429"), 25000);
+  const r = await processReceiptText("kopi 25rb", undefined, a);
+  assert.deepEqual([r.status, r.source], ["confirmed", "gemini_text"], "Groq galat: Gemini");
+}
+{
+  const { a } = ai(new Error("429"), new Error("503"));
+  const r = await processReceiptText("kopi", undefined, a);
+  assert.deepEqual([r.status, r.source], ["needs_review", "none"], "semua galat: draft kosong");
+}
+
+console.log("✓ draft: urutan pertanyaan, nominal ketikan (rb/jt/Rp/titik), kantong dari chip & kalimat, koreksi vs catatan baru, minta hapus, tenor paylater, duplikat, tanggal hapus WIB, cadangan Gemini untuk ketikan");

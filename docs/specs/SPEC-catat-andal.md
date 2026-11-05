@@ -63,7 +63,7 @@ Foto/gambar
 - **Kompres di HP.** Ini ditambahkan juga agar unggahan di data seluler lebih cepat. Foto kamera (± 3–5 MB) dikecilkan ke lebar 1080px (JPEG q92) sebelum dikirim, lewat canvas di `CameraCapture`. Gambar dari galeri dan "Bagikan" tetap dikompres di server, jadi semua jalur dijamin sama.
 - **Gemini bisa dimatikan** lewat env `DISABLE_VISION_FALLBACK=1` (mis. saat kuotanya habis): gambar langsung ke OCR + Groq.
 - **Coba ulang Gemini:** galat sesaat (429/5xx, "high demand") diulang hingga 3 kali (jeda 1,5 lalu 3 detik) sebelum turun ke OCR + Groq.
-- **Ketikan biasa lewat Groq**, dengan Gemini sebagai cadangan bila seluruh rantai Groq gagal (ditambahkan di 2.9.0, SPEC-ai-kantong).
+- **Ketikan biasa lewat Groq**, dengan Gemini sebagai cadangan (sekali) bila seluruh rantai Groq gagal (ditambahkan di 2.9.0, SPEC-ai-kantong) atau hasilnya tidak sah, mis. nominal 0 (SPEC-perbaikan-temuan K7).
 
 ### 2. Deteksi duplikat (keputusan tetap di tangan user)
 
@@ -139,7 +139,7 @@ Belakangan: indeks `idx_transaksi_duplikat` (`20261107000000_normalisasi.sql`); 
   - pertanyaan duplikat;
   - trigger penghapus anak.
 - **Tanya dulu:** mengganti model ke selain Flash-Lite.
-- **Sudah diputuskan (SPEC-ai-kantong, 2.9.0):** teks ketikan dikirim ke Gemini sebagai cadangan saat rantai Groq gagal.
+- **Sudah diputuskan (SPEC-ai-kantong, 2.9.0; SPEC-perbaikan-temuan K7):** teks ketikan dikirim ke Gemini sebagai cadangan saat rantai Groq gagal atau hasilnya tidak sah.
 - **Jangan:** memblokir transaksi yang mirip tanpa bertanya.
 
 ## Pertanyaan terbuka

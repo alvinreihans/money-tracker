@@ -38,4 +38,19 @@ assert.deepEqual(ingatKategori(baris, "kantor", "income"), { category: "salary",
 assert.equal(ingatKategori(baris, "Laundry Baru", "expense"), null, "merchant baru: ikut tebakan AI");
 assert.equal(ingatKategori([{ merchant: "X Mart", category: "other", type: "expense" }], "X Mart", "expense"), null);
 
-console.log("✓ ingat kategori: normalisasi merchant, nama terpotong, awalan terlalu pendek, jenis sama, yang terbaru menang, Lainnya tidak diingat");
+// Pembayaran cicilan bukan sumber ingatan (SPEC-perbaikan-temuan D4): yang di bawahnya yang dipakai.
+assert.deepEqual(
+  ingatKategori(
+    [
+      { merchant: "Kredivo", category: "c-cicilan", type: "expense", cicilan_id: "c1" },
+      { merchant: "Kredivo", category: "shopping", type: "expense", cicilan_id: null },
+    ],
+    "Kredivo",
+    "expense",
+  ),
+  { category: "shopping", kelompok: null },
+  "cicilan dilewati",
+);
+assert.equal(ingatKategori([{ merchant: "Kredivo", category: "c-cicilan", type: "expense", cicilan_id: "c1" }], "Kredivo", "expense"), null);
+
+console.log("✓ ingat kategori: normalisasi merchant, nama terpotong, awalan terlalu pendek, jenis sama, yang terbaru menang, Lainnya tidak diingat, cicilan tidak diingat");

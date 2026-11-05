@@ -55,7 +55,7 @@ Pola yang sama (bytea `pgp_sym_encrypt` dengan `kunci_transaksi`, didekripsi di 
 
 | Risiko | Mitigasi |
 |---|---|
-| Hanya ada database produksi (tidak ada staging) | Migrasi dalam satu transaksi (gagal = batal semua). Disiapkan **skrip balik** (`supabase/rollback/20261027000000_enkripsi_rollback.sql`) yang mengembalikan teks polos dari data terenkripsi — **hanya berlaku untuk skema tepat sesudah migrasi ini**; lihat "Belum diterapkan". Langsung setelah migrasi: uji end-to-end otomatis dengan akunmu (catat, edit, hapus, cari, Lend & Borrow, cicilan, budget) seperti uji Fase 4. |
+| Hanya ada database produksi (tidak ada staging) | Migrasi dalam satu transaksi (gagal = batal semua). Pemulihan bila ada yang rusak memakai **backup Supabase** (Point-in-Time Recovery / backup harian), bukan script balikan: skrip balik yang dulu disiapkan (`supabase/rollback/…_enkripsi_rollback.sql`) tidak lagi cocok dengan skema (`draft_catat`, kolom `bukti_transfer_enc` & `usulan_pecah_enc`, fungsi yang merujuk `private.transaksi_data`) dan dihapus (SPEC-perbaikan-temuan K9). Langsung setelah migrasi: uji end-to-end otomatis dengan akunmu (catat, edit, hapus, cari, Lend & Borrow, cicilan, budget) seperti uji Fase 4. |
 | Kunci Vault hilang = teks tidak bisa dibaca lagi | Kunci dibuat & disimpan di Vault (ikut backup project Supabase). Disarankan kamu juga menyimpan salinan kunci di password manager: `select decrypted_secret from vault.decrypted_secrets where name = 'kunci_transaksi';` (catatan di kepala migrasi). |
 | Lebih lambat | Dekripsi per baris: daftar 100 transaksi ≈ puluhan ms. Pencarian mendekripsi semua baris yang cocok filter lain — untuk ribuan transaksi ±1 detik. Dicatat sebagai `ponytail:` dengan jalan keluarnya (indeks pencarian ter-hash) kalau terasa. |
 | Policy RLS di tabel tidak lagi jadi penjaga utama untuk transaksi | Diganti filter `auth.uid()` di view & trigger, **diuji** dengan dua sesi: akunmu tidak bisa membaca/mengubah transaksi akun lain (dicoba lewat API). |
@@ -77,5 +77,4 @@ Pola yang sama (bytea `pgp_sym_encrypt` dengan `kunci_transaksi`, didekripsi di 
 
 ## Belum diterapkan
 
-- **Skrip balik yang sesuai skema sekarang.** `supabase/rollback/20261027000000_enkripsi_rollback.sql` hanya mengembalikan `merchant`, `description`, `raw_ocr_text`, lalu `drop schema private`. Sejak itu `private` juga berisi `draft_catat`, beberapa fungsi trigger/RPC yang merujuk `private.transaksi_data`, serta kolom `bukti_transfer_enc` & `usulan_pecah_enc`; skripnya akan gagal atau meninggalkan kolom terenkripsi. Perlu ditulis ulang sebelum dipakai.
 - **Indeks pencarian ter-hash** (`ponytail:` di migrasi): belum perlu; pencarian Riwayat masih mendekripsi tiap baris yang lolos filter lain.

@@ -37,15 +37,18 @@ export interface BarisIngat {
   category: string;
   kelompok?: string | null;
   type: string;
+  /** Pembayaran cicilan: kategorinya ditentukan rencananya, bukan pilihan user. */
+  cicilan_id?: string | null;
 }
 
 /**
  * Kategori dari transaksi terakhir merchant yang sama dengan jenis sama
  * (`baris` terurut dari yang terbaru). "Lainnya" tidak diingat: tidak memberi
- * informasi, jadi tebakan AI yang spesifik lebih baik.
+ * informasi, jadi tebakan AI yang spesifik lebih baik. Pembayaran cicilan
+ * juga bukan sumber ingatan, sama dengan cariSerupa.
  */
 export function ingatKategori(baris: BarisIngat[], merchant: string, type: string): { category: string; kelompok: string | null } | null {
-  const t = baris.find((b) => b.type === type && b.category !== LAINNYA && merchantSama(b.merchant, merchant));
+  const t = baris.find((b) => b.type === type && !b.cicilan_id && b.category !== LAINNYA && merchantSama(b.merchant, merchant));
   return t ? { category: t.category, kelompok: t.kelompok ?? null } : null;
 }
 
@@ -56,11 +59,12 @@ const BATAS_INGAT = 300;
 export async function ambilIngatan(supabase: SupabaseClient, merchant: string, type: string) {
   const { data } = await supabase
     .from("transactions")
-    .select("merchant, category, kelompok, type")
+    .select("merchant, category, kelompok, type, cicilan_id")
     .eq("type", type)
     .eq("status", "confirmed")
     .is("pecahan_dari", null)
     .is("induk_id", null)
+    .is("cicilan_id", null)
     .gte("transaction_date", geserHari(isoLokal(new Date()), -365))
     .order("transaction_date", { ascending: false })
     .order("created_at", { ascending: false })

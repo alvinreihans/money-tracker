@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
     const keterangan = formData.get("keterangan");
     const catatan = typeof keterangan === "string" ? keterangan.trim().slice(0, TEKS_MAKS) : "";
 
-    // 3. Pipeline bersama: OCR -> Groq -> Gemini Vision (lihat FALLBACK.md).
+    // 3. Pipeline bersama: Gemini (gambar terkompres) -> OCR + Groq -> draft (SPEC-catat-andal).
     //    Tidak pernah melempar; kegagalan turun menjadi status needs_review.
     const image = Buffer.from(await file.arrayBuffer());
     const result = await processReceiptImage(image, file.type, await ambilKonteksAI(supabase), catatan);

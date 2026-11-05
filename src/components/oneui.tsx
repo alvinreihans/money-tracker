@@ -3,7 +3,7 @@
 import { createContext, Fragment, useContext, useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import NextLink from "next/link";
 import { useRouter } from "next/navigation";
-import { Check, ChevronDown, ChevronLeft, ChevronUp, CircleCheck, CircleX, EllipsisVertical, Info, TriangleAlert, X } from "lucide-react";
+import { Check, ChevronDown, ChevronLeft, ChevronUp, CircleCheck, CircleX, Info, TriangleAlert, X } from "lucide-react";
 import { LAYAR_LEBAR } from "@/components/navigasi";
 import s from "@/components/ui.module.css";
 import { angkaMentah, angkaRibuan } from "@/lib/format";
@@ -372,38 +372,6 @@ export function Konfirmasi({
         </div>
       )}
     </Lembar>
-  );
-}
-
-/**
- * Menu "lainnya" (⋮) di ujung kanan app bar — tempat One UI menaruh aksi dan
- * pengaturan tambahan. Memakai Popover API bawaan: buka/tutup, Esc, dan
- * ketuk di luar ditangani browser.
- */
-export function MenuLainnya({ children }: { children: React.ReactNode }) {
-  const id = useId();
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  // Tombolnya bisa di bawah judul besar atau di kapsul yang menempel di atas,
-  // jadi menu dibuka tepat di bawah tombol. Klik berjalan sebelum popover
-  // dibuka browser, jadi posisinya sudah benar saat muncul.
-  function letakkan(e: React.MouseEvent<HTMLButtonElement>) {
-    const r = e.currentTarget.getBoundingClientRect();
-    const m = menuRef.current;
-    if (!m) return;
-    m.style.top = `${r.bottom + 8}px`;
-    m.style.right = `${window.innerWidth - r.right}px`;
-  }
-
-  return (
-    <>
-      <button type="button" className={s.ikonTombol} popoverTarget={id} aria-label="Lainnya" onClick={letakkan}>
-        <EllipsisVertical size={22} />
-      </button>
-      <div ref={menuRef} id={id} popover="auto" className={s.popover}>
-        {children}
-      </div>
-    </>
   );
 }
 

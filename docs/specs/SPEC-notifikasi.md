@@ -94,7 +94,7 @@ Env di `.env.local` dan Vercel (Production), lihat `.env.example`:
 ## Boundaries
 
 - **Disetujui lewat spec ini:** tabel `push_langganan`, fungsi `data_notifikasi()`, dependensi `web-push`, cron harian di `vercel.json`.
-- **Jangan:** memasukkan merchant/keterangan ke isi notifikasi harian; mengirim lebih dari sekali sehari untuk hal yang sama.
+- **Jangan:** memasukkan merchant/keterangan ke isi pengingat harian (cron 19.00); mengirim lebih dari sekali sehari untuk hal yang sama. Push draft langsung (`kabariDraft`, SPEC-catat-chat) **boleh** menyebut merchant: dikirim tepat setelah user mencatat sendiri, ke perangkatnya sendiri (SPEC-perbaikan-temuan K8).
 
 ## Belum diterapkan
 

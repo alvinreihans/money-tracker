@@ -25,7 +25,17 @@ import { useCatat } from "@/components/Catat";
 import { useTawaranSerupa } from "@/components/TawaranSerupa";
 import { ACCEPT_STRUK } from "@/components/UploadReceiptForm";
 import { bacaBukti, kalimatArah, kantongBank, rapikanNama } from "@/lib/arah";
-import { apakahKoreksi, CERITA_ULANG, KALIMAT_TANYA, MAKS_CERITA, mauHapus, pertanyaanDraft, PILIHAN_TENOR, type JenisTanya } from "@/lib/draft";
+import {
+  apakahKoreksi,
+  CERITA_ULANG,
+  KALIMAT_TANYA,
+  MAKS_CERITA,
+  mauHapus,
+  pertanyaanDraft,
+  PILIHAN_TENOR,
+  tanggalHapusDraft,
+  type JenisTanya,
+} from "@/lib/draft";
 import { alamatDetail, angkaMentah, angkaRibuan, fmtIDR, fmtTanggalPendek } from "@/lib/format";
 import { namaKategori } from "@/lib/kategori";
 import { UMUR_DRAFT_HARI } from "@/lib/notifikasi";
@@ -59,7 +69,7 @@ type Pesan =
   | { t: "status"; teks: string }
   | { t: "tanya"; jenis: JenisTanya | "manual"; teks: string; selesai?: boolean }
   | { t: "kartu"; tx: Transaction; perbaikan: boolean; batal?: boolean }
-  | { t: "koreksi"; id: string; perubahan: string[]; sebelum: Partial<Transaction>; dibatalkan?: boolean }
+  | { t: "koreksi"; id: string; perubahan: string[]; sebelum: Partial<Transaction>; dibatalkan?: boolean; dihapus?: boolean }
   | { t: "cicilan"; c: Cicilan }
   | { t: "tutup"; lagi: number; teks?: string };
 
@@ -111,11 +121,8 @@ const KURANG: Record<JenisTanya, string> = {
   konfirmasi: "Tinggal dicek",
 };
 
-const tanggalHapus = (dibuat: string) => {
-  const d = new Date(dibuat);
-  d.setDate(d.getDate() + UMUR_DRAFT_HARI);
-  return d.toLocaleDateString("id-ID", { day: "numeric", month: "short" });
-};
+/** Dalam WIB seperti cron & pengingat H+7, bukan tanggal lokal browser. */
+const tanggalHapus = (dibuat: string) => fmtTanggalPendek(tanggalHapusDraft(dibuat));
 
 async function kirimJson(url: string, body: unknown) {
   try {
@@ -612,13 +619,18 @@ export default function LembarCatat({
     const p = pesan[i];
     if (p?.t !== "koreksi" || sibuk) return;
     setSibuk(true);
-    const { data } = await db.from("transactions").update(p.sebelum).eq("id", p.id).select().single();
+    // maybeSingle: transaksi yang sudah dihapus = 0 baris, bukan galat 406.
+    const { data, error } = await db.from("transactions").update(p.sebelum).eq("id", p.id).select().maybeSingle();
     // Biaya admin / cashback ikut kembali ke kantong semula.
-    if ("kantong_id" in p.sebelum) {
+    if (data && "kantong_id" in p.sebelum) {
       await db.from("transactions").update({ kantong_id: p.sebelum.kantong_id, payment_method: p.sebelum.payment_method }).eq("induk_id", p.id);
     }
     setSibuk(false);
-    if (!data) return tambah({ t: "app", teks: "Gagal membatalkan perubahannya." });
+    if (!data) {
+      if (error) return tambah({ t: "app", teks: "Gagal membatalkan perubahannya." });
+      setPesan((prev) => prev.map((x, j) => (j === i && x.t === "koreksi" ? { ...x, dihapus: true } : x)));
+      return tambah({ t: "app", teks: "Transaksinya sudah dihapus." });
+    }
     setPesan((prev) =>
       prev.map((x, j) =>
         j === i && x.t === "koreksi" ? { ...x, dibatalkan: true } : x.t === "kartu" && x.tx.id === p.id ? { ...x, tx: data as Transaction } : x,
@@ -765,12 +777,14 @@ export default function LembarCatat({
         );
       case "kartu":
         return kartu(p.tx, p.perbaikan, p.batal, i);
-      case "koreksi":
+      case "koreksi": {
+        // Transaksinya sudah dibatalkan (dihapus) dari kartunya → tidak ada lagi yang bisa dikembalikan.
+        const txBatal = p.dihapus || pesan.some((x) => x.t === "kartu" && x.tx.id === p.id && x.batal);
         return (
           <div key={i} className={`${s.bub} ${s.bubApp}`}>
             {p.dibatalkan ? "Perubahannya dibatalkan." : "Sudah diubah:"}
             {!p.dibatalkan && p.perubahan.map((x) => <small key={x}>{x}</small>)}
-            {!p.dibatalkan && (
+            {!p.dibatalkan && !txBatal && (
               <div className={s.pilihanJawab}>
                 <button type="button" disabled={sibuk} onClick={() => void batalkanKoreksi(i)}>
                   ↩ Batalkan perubahan
@@ -779,6 +793,7 @@ export default function LembarCatat({
             )}
           </div>
         );
+      }
       case "cicilan":
         return (
           <div key={i} className={s.kartuHasil}>
@@ -827,13 +842,13 @@ export default function LembarCatat({
           <div key={i} className={`${s.bub} ${s.bubApp}`}>
             {p.teks ?? "Makasih udah dilengkapi! 🙌 Transaksinya sudah tercatat. Kalau perlu diubah lagi, cek di Riwayat."}
             {/* Bilah sisa waktu yang sama dengan kartu di lembar ringkas, tanpa
-                teks: habis → ke daftar (kalau masih ada) atau Beranda. */}
+                teks: habis → ke daftar (kalau masih ada) atau lembar ditutup. */}
             {detik !== null && (
               <span
                 className={s.sisaWaktu}
                 style={{ animationDuration: `${TUTUP_DETIK}s`, margin: "10px 0 2px" }}
                 role="timer"
-                aria-label={p.lagi > 0 ? `Lanjut ke catatan berikutnya dalam ${TUTUP_DETIK} detik` : `Kembali ke Beranda dalam ${TUTUP_DETIK} detik`}
+                aria-label={p.lagi > 0 ? `Membuka catatan berikutnya dalam ${TUTUP_DETIK} detik` : `Menutup dalam ${TUTUP_DETIK} detik`}
               />
             )}
           </div>

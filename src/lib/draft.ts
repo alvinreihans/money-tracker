@@ -1,4 +1,6 @@
+import { geserHari, isoLokal } from "@/lib/format";
 import { cocokkanKantong, type Kantong } from "@/lib/kantong";
+import { UMUR_DRAFT_HARI } from "@/lib/notifikasi";
 import { perluTanyaJam, type SaldoSejak } from "@/lib/waktu";
 
 /**
@@ -149,3 +151,9 @@ export function kantongDariJawaban<K extends Pick<Kantong, "id" | "name" | "alia
   }
   return null;
 }
+
+/**
+ * Tanggal draft dihapus otomatis ("YYYY-MM-DD"): hari dibuat menurut WIB +
+ * UMUR_DRAFT_HARI, sama dengan cron & pengingat H+7 — bukan zona browser.
+ */
+export const tanggalHapusDraft = (dibuat: string | Date) => geserHari(isoLokal(new Date(dibuat)), UMUR_DRAFT_HARI);

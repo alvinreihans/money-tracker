@@ -105,7 +105,7 @@ Membesar sendiri saat ada pertanyaan, foto masuk, atau ditarik ke atas (> 40px; 
 **Perilakunya sama untuk setiap transaksi yang sempat ditanya, dari mana pun datangnya** — ketik, kamera, galeri, bagikan, atau dibuka dari daftar Belum selesai / kartu Beranda / push:
 
 1. Kartu hasil dengan tombol **Ubah | Selesai** (bukan Batalkan): **Ubah** menutup lembar dan membuka halaman detail transaksi itu; **Selesai** langsung menutup tanpa menunggu.
-2. Komposer disembunyikan; bubble penutup: *"Makasih udah dilengkapi! 🙌 Transaksinya sudah tercatat. Kalau perlu diubah lagi, cek di Riwayat."* dengan hitung mundur **8 detik** (`TUTUP_DETIK`) dan bilah sisa waktu tanpa teks.
+2. Komposer disembunyikan; bubble penutup: *"Makasih udah dilengkapi! 🙌 Transaksinya sudah tercatat. Kalau perlu diubah lagi, cek di Riwayat."* dengan hitung mundur **8 detik** (`TUTUP_DETIK`) dan bilah sisa waktu tanpa teks. Label pembaca layarnya "Menutup dalam 8 detik", atau "Membuka catatan berikutnya dalam 8 detik" bila masih ada draft lain.
 3. Habis hitungan: lembar ditutup (kembali ke halaman di belakangnya), atau ke daftar **Belum selesai** kalau masih ada draft lain.
 4. Ketuk Ubah / Kembali → hitung mundur batal (tidak menutup saat user sedang berbuat sesuatu).
 
@@ -165,7 +165,7 @@ Nominal & kantong ditanya satu per satu ("satu pilihan, satu tugas" — panduan 
 Cron Vercel `/api/cron/notifikasi`, `0 12 * * *` (UTC). Umur: `UMUR_DRAFT_HARI = 30` (`src/lib/notifikasi.ts`).
 
 - **H+1** dan **H+7** sejak draft dibuat (hari WIB): satu push per draft, judul "1 catatan belum selesai", isi "Struk 22 Okt — ketuk untuk melengkapi." ("Catatan 22 Okt" untuk teks ketikan) → membuka percakapannya (`/?catat=<id>`). H+7: "… — dihapus otomatis 21 Nov. Ketuk untuk melengkapi."
-- **H+30**: draft + foto dihapus otomatis (RPC `hapus_draft_kedaluwarsa()`, hanya `service_role`, dipanggil cron yang sama).
+- **H+30**: draft + foto dihapus otomatis (RPC `hapus_draft_kedaluwarsa()`, hanya `service_role`, dipanggil cron yang sama). Tanggal "Dihapus otomatis …" di daftar Belum selesai dihitung dalam WIB seperti cron & pengingat H+7 (`tanggalHapusDraft`, `src/lib/draft.ts`), bukan zona browser.
 
 ## Fase
 
@@ -179,7 +179,7 @@ Cron Vercel `/api/cron/notifikasi`, `0 12 * * *` (UTC). Umur: `UMUR_DRAFT_HARI =
 7. Pengingat H+1/H+7 & hapus H+30 di cron.
 
 ### B — Lanjutan
-1. **Perbaiki dengan mengetik** di obrolan: "eh yang tadi pakai BCA" (dikenali `apakahKoreksi`) → `/api/transaksi/[id]/koreksi` membaca ulang transaksi + koreksinya lewat AI dan menyimpan yang berubah saja (nominal, jenis, kategori, nama, keterangan, tanggal, jam, kantong, kantong tujuan). Daftar perubahan ("Nominal: Rp 20.000 → Rp 25.000") tampil dengan tombol **↩ Batalkan perubahan**. Tidak ada yang berubah → "Nggak ada yang berubah…" (422). "hapus aja" setelah kartu tersimpan → transaksinya dihapus.
+1. **Perbaiki dengan mengetik** di obrolan: "eh yang tadi pakai BCA" (dikenali `apakahKoreksi`) → `/api/transaksi/[id]/koreksi` membaca ulang transaksi + koreksinya lewat AI dan menyimpan yang berubah saja (nominal, jenis, kategori, nama, keterangan, tanggal, jam, kantong, kantong tujuan). Daftar perubahan ("Nominal: Rp 20.000 → Rp 25.000") tampil dengan tombol **↩ Batalkan perubahan**. Tombol itu hilang begitu kartu transaksinya berstatus Dibatalkan; bila transaksinya sudah tidak ada (mis. dihapus dari tempat lain), pesannya "Transaksinya sudah dihapus." tanpa galat. Tidak ada yang berubah → "Nggak ada yang berubah…" (422). "hapus aja" setelah kartu tersimpan → transaksinya dihapus.
 2. **Bagikan tetap jalan walau layar dimatikan**: service worker (`public/sw.js`, `unggahLatar`) mengunggah gambar ke `/api/upload-receipt` dengan `latar=1`, lalu mengalihkan ke `/bagikan?latar=n` ("n struk diproses di latar…"). Gagal diunggah → disimpan di Cache Storage dan `/bagikan?berkas=n` memasukkannya ke antrean halaman.
 3. **Push begitu struk dari latar belakang butuh dilengkapi** (`kabariDraft`): "Struk barusan belum lengkap" / "Struk barusan sepertinya sudah tercatat" (duplikat), isi "<merchant · nominal> — ketuk untuk …", ke `/?catat=<id>`.
 
@@ -187,7 +187,7 @@ Bukan cakupan: menjawab pertanyaan soal pengeluaran (Fase C), suara. Lihat "Belu
 
 ## Pengujian
 
-- Fungsi murni + `uji:*`: aturan pertanyaan (apa yang kurang → pertanyaan apa), pembaca jawaban, koreksi/hapus (`uji:draft`); umur draft (H+1/H+7, batas WIB; `uji:notifikasi`).
+- Fungsi murni + `uji:*`: aturan pertanyaan (apa yang kurang → pertanyaan apa), pembaca jawaban, koreksi/hapus, tanggal hapus WIB, cadangan Gemini untuk ketikan (`uji:draft`); umur draft (H+1/H+7, batas WIB; `uji:notifikasi`).
 - Migrasi diuji kering (rollback): trigger buat/hapus `draft_catat`, foto terenkripsi, isolasi antar-user, fungsi hapus hanya `service_role`.
 - End-to-end akun sungguhan: teks lengkap → kartu hasil; teks tanpa kantong → chip → tersimpan & percakapan hilang; foto tak terbaca → percakapan + thumbnail → isi nominal → tersimpan & foto terhapus; tutup di tengah → muncul di daftar & Beranda; Batalkan; Kembali bertingkat.
 - Di HP: lembar membesar, keyboard, gestur Kembali, bagikan + layar dimatikan (Fase B).
