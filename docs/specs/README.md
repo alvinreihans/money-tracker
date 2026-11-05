@@ -41,6 +41,7 @@ Bagian **Belum diterapkan** di akhir spec berisi rencana yang belum ada di kode.
 | [analitik-tujuan](SPEC-analitik-tujuan.md) | Pembelian dari tujuan tabungan dipisah di Analitik | diterapkan, 2.8.0 |
 | [ai-kantong](SPEC-ai-kantong.md) | AI tahu nama kantong, prompt ringkas, cadangan Gemini | diterapkan, 2.9.0 |
 | [tagihan-cicilan](SPEC-tagihan-cicilan.md) | Perbaikan: tagihan kartu kredit belum terdaftar, nomor cicilan draft | diterapkan, belum dirilis |
+| [perbaikan-temuan](SPEC-perbaikan-temuan.md) | Perbaikan semua temuan 2.9.0 (Riwayat, Analitik, Utang & Piutang, Catat) | disetujui |
 
 ## Spec baru
 
