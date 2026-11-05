@@ -68,7 +68,8 @@ export function tabelEkspor(
       t.transaction_date,
       t.waktu?.slice(0, 5) ?? "",
       JENIS[t.type] ?? t.type,
-      namaKategori.get(`${t.type}:${t.category}`) ?? t.category,
+      // Pindah kantong tidak berkategori (view mengisinya "other").
+      t.type === "transfer" ? "Pindah kantong" : (namaKategori.get(`${t.type}:${t.category}`) ?? t.category),
       t.kelompok_efektif ? (NAMA_KELOMPOK[t.kelompok_efektif as Kelompok] ?? t.kelompok_efektif) : "",
       Number(t.amount),
       t.merchant,

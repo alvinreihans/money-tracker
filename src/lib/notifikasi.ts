@@ -1,6 +1,6 @@
 import { fmtIDR } from "@/lib/format";
 import { hitungSaldo, type BarisSaldo, type Kantong } from "@/lib/kantong";
-import { jadwalCicilan, type Cicilan } from "@/lib/pinjaman";
+import { jadwalCicilan, jatuhTempoKartu, type Cicilan } from "@/lib/pinjaman";
 
 /**
  * Isi push notifikasi harian (docs/specs/SPEC-notifikasi.md). Fungsi murni — diuji di
@@ -18,7 +18,7 @@ export interface Notifikasi {
 
 /** Bentuk satu user dari RPC data_notifikasi(). */
 export interface DataNotifikasi {
-  kantong: (Pick<Kantong, "id" | "name" | "kind" | "saldo_awal" | "saldo_per" | "jatuh_tempo">)[];
+  kantong: (Pick<Kantong, "id" | "name" | "kind" | "saldo_awal" | "saldo_per" | "jatuh_tempo" | "jatuh_tempo_hari">)[];
   cicilan: Pick<Cicilan, "id" | "nama" | "nominal" | "tenor" | "jatuh_tempo_awal">[];
   transaksi: (BarisSaldo & { created_at: string; cicilan_id: string | null; cicilan_ke: number | null })[];
   /** Catatan yang belum selesai dilengkapi (docs/specs/SPEC-catat-chat.md). */
@@ -69,7 +69,9 @@ export function isiNotifikasi(d: DataNotifikasi, sekarang = new Date()): Notifik
   const saldo = new Map(hitungSaldo(d.kantong as Kantong[], d.transaksi).map((s) => [s.id, s.saldo]));
   for (const k of d.kantong) {
     const n = saldo.get(k.id) ?? 0;
-    const w = k.jatuh_tempo ? kapan(k.jatuh_tempo) : null;
+    // Kartu kredit: jatuh tempo tiap bulan (jatuh_tempo_hari); tanggal sekali tetap dihormati.
+    const tgl = k.kind === "kredit" && k.jatuh_tempo_hari ? jatuhTempoKartu(k.jatuh_tempo_hari, hariIni) : k.jatuh_tempo;
+    const w = tgl ? kapan(tgl) : null;
     if (!w || n === 0 || (k.kind === "kredit" && n > 0)) continue;
     hasil.push({
       judul: k.kind === "kredit" ? `Tagihan ${k.name} ${w}` : n > 0 ? `${k.name} bayar ${w}` : `Bayar ke ${k.name} ${w}`,

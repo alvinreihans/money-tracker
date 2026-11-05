@@ -11,7 +11,7 @@ import { dbErrorMessage } from "@/lib/errors";
 import { fmtIDR, fmtTanggal, fmtTanggalPendek, isianNominal, isoLokal } from "@/lib/format";
 import { emojiKantong, type Kantong } from "@/lib/kantong";
 import { kategoriJenis, LAINNYA } from "@/lib/kategori";
-import { bacaBunga, bagiRata, jadwalCicilan, kantongUang, keteranganCicilan, statusCicilan, type Angsuran, type Cicilan } from "@/lib/pinjaman";
+import { bacaBunga, bagiRata, jadwalCicilan, kantongSumber, keteranganCicilan, statusCicilan, type Angsuran, type Cicilan } from "@/lib/pinjaman";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { AturBunga, type SasaranBunga } from "./BagianStrategi";
 
@@ -52,7 +52,8 @@ export default function BagianCicilan({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Pembayar: kantong uang dan kartu kredit (untuk cicilan kartu).
-  const pembayar = kantong.filter((k) => kantongUang(k) || k.kind === "kredit");
+  // Tanpa tujuan tabungan: uang tujuan dipakai lewat "Pakai" (SPEC-perbaikan-temuan C6).
+  const pembayar = kantong.filter((k) => kantongSumber(k) || k.kind === "kredit");
 
   async function hapusRencana() {
     if (!hapus) return;

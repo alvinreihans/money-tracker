@@ -90,7 +90,7 @@ Fase 1 hanya memindahkan komponen yang sudah ada (ringkasan bulan, tren 6 bulan,
 - AppBar berjudul **"Profil"**, tanpa tombol kembali karena sekarang halaman ini sebuah tab.
 - Di atas ada **kartu akun**: lingkaran berisi huruf awal email, lalu email di sebelahnya. Mengikuti pola halaman akun Samsung.
 - Di bawahnya grup:
-  - **Keuangan**: Kantong, Kategori, Utang & Piutang, Tujuan tabungan, Budget (dengan keterangan jumlah kantong / kategori / budget);
+  - **Keuangan**: Kantong, Kategori, Utang & Piutang, Tujuan tabungan, Budget (dengan keterangan jumlah kantong / kategori; Budget mengikuti metode aktif: "Metode 50/30/20", "Zero-Based", …, atau tanpa metode "n kategori dibatasi" / "Batas pengeluaran per kategori");
   - **Notifikasi** (sakelar);
   - **Data**: Ekspor data (CSV);
   - **Akun**: Nama di rekening, lalu Keluar di blok terpisah;

@@ -60,9 +60,15 @@ Tabel **`cicilan`**: nama barang ("HP Samsung"), penyedia ("Shopee PayLater", "K
 
 ### 3. Kartu kredit → kantong berjenis `kredit`
 
-- Kartu kredit adalah kantong berjenis **`kredit`**; saldonya negatif = tagihan berjalan. Dibuat lewat **Tambah kartu kredit**: nama (bawaan "Kartu kredit"), tagihan sekarang (→ `saldo_awal` negatif), per tanggal, bunga per bulan opsional.
+- Kartu kredit adalah kantong berjenis **`kredit`**; saldonya negatif = tagihan berjalan. Dibuat lewat **Tambah kartu kredit**: nama (bawaan "Kartu kredit"), tagihan sekarang (→ `saldo_awal` negatif), per tanggal, **jatuh tempo tiap tanggal** (1–31, opsional; `jatuh_tempo_hari`), bunga per bulan opsional. Saldo berlaku sejak **jam sekarang** bila per hari ini, 00.00 bila tanggal lain (`saldo_sejak`, seperti kantong lain; SPEC-saldo-waktu).
+- **Ubah kartu** (lembar aksi kartu): nama, jatuh tempo tiap tanggal, bunga. Tagihan awal tidak diubah di sini.
+- **Jatuh tempo tagihan** dihitung tiap bulan dari `jatuh_tempo_hari`: tanggal itu di bulan ini bila belum lewat, kalau sudah lewat bulan depan; bulan yang lebih pendek mundur ke hari terakhirnya (31 → 30 Nov, 28/29 Feb) (`jatuhTempoKartu`). Dipakai di baris kartu ("Tagihan kartu kredit · jatuh tempo 25 Nov") dan pengingat "Tagihan … besok" (SPEC-notifikasi), hanya bila ada tagihan.
 - **Belanja biasa pakai kartu** = pengeluaran dari kantong kartu (dicatat saat belanja). Tagihan naik.
 - **Bayar tagihan** = pindah kantong BCA → Kartu kredit. Tagihan turun; bukan pengeluaran lagi.
+- **Bayar lebih dari tagihan di aplikasi** (`kelebihanBayar`; kartu tanpa tagihan = seluruh nominal): form menulis "Lebih Rp X dari tagihan di aplikasi. Biasanya ada bunga, iuran, atau belanja kartu yang belum dicatat." dengan dua tombol:
+  - **Catat selisihnya sebagai biaya kartu** — simpan pembayaran, lalu pengeluaran kategori Biaya admin (`fees`) Rp X dari kartu itu, tanggal sama, merchant = nama kartu, keterangan "Selisih tagihan kartu". Tagihan jadi Rp 0.
+  - **Simpan saja** (sama dengan tombol Simpan) — hanya pembayarannya; kartu bersaldo positif.
+- Kartu **bersaldo positif** tampil di bagian Utang sebagai **"Kelebihan bayar"** dengan nominalnya (bukan Rp 0), tetapi **tidak menambah** total Utang (`ringkasanPinjaman().lebihBayar`).
 - **Cicilan lewat kartu** (mis. cicilan 0% 6 bulan) = rencana cicilan dengan kantong pembayar = kartu itu. Saat cicilannya dibayar (tombol Bayar, tidak otomatis), pengeluarannya dari kantong kartu (masuk tagihan), lalu dibayar bersama tagihan.
 - Kantong `kredit` **muncul** di pilihan kantong pengeluaran dan pindah kantong (tidak di pemasukan), **tidak** dihitung di Total aset, dan tampil di bagian Utang.
 
@@ -70,13 +76,15 @@ Tabel **`cicilan`**: nama barang ("HP Samsung"), penyedia ("Shopee PayLater", "K
 
 - **Halaman "Utang & Piutang"** (`/pinjaman`; dari kartu Beranda, Profil, dan item sidebar di layar ≥ 1200px). App bar: "Utang Rp … · Piutang Rp …". Pintasan: **Pinjamkan**, **Pinjam**, **Kartu**, **Cicilan**.
   - *Piutang · total* — orang yang utang ke aku, sisa & jatuh tempo ("Jatuh tempo …" / merah "Telat sejak …"). Aksi: **Terima bayaran**, **Pinjamkan lagi**, **Lihat riwayat**.
-  - *Utang · total* — orang yang kuutangi (aksi **Bayar**, **Pinjam lagi**, **Atur bunga**, **Lihat riwayat**) dan kartu kredit ("Tagihan kartu kredit" / "Tidak ada tagihan"; aksi **Bayar tagihan**, **Atur bunga**, **Lihat riwayat**).
+  - *Utang · total* — orang yang kuutangi (aksi **Bayar**, **Pinjam lagi**, **Atur bunga**, **Lihat riwayat**) dan kartu kredit ("Tagihan kartu kredit[ · jatuh tempo …]" / "Kelebihan bayar" / "Tidak ada tagihan"; aksi **Bayar tagihan**, **Ubah kartu**, **Atur bunga**, **Lihat riwayat**).
+  - Lembar aksi tiap orang & kartu diakhiri **Hapus**. Konfirmasi ("Hapus “Budi”?" / "Hapus kartu “BCA Card”?") menyebut akibatnya (`dampakHapusPihak`): "n transaksi dengan X tetap tercatat, tanpa kantong X."; bila saldonya ≠ 0 "Piutang/Utang/Tagihan/Kelebihan bayar Rp Y ikut hilang dari Utang & Piutang."; bila ada, "m rencana cicilan kehilangan kantong pembayar bawaannya." Transaksinya tidak dihapus: kantongnya jadi kosong (FK `on delete set null`, nama disalin ke `payment_method` oleh trigger `kantong_dihapus`), jadi saldo kantong lain tidak berubah; pindah kantong kehilangan sisi orang/kartunya, seperti menghapus kantong biasa.
   - *Cicilan · sisa Rp …* — tiap rencana: "3/6 · berikutnya 23 Nov" (merah "telat sejak" bila ada yang lewat), nominal per bulan. Aksi: **Bayar cicilan ke-4 · Rp …**, **Lunasi n cicilan sisa · Rp …** (bila sisa > 1), **Lihat jadwal**, **Atur bunga**, **Hapus rencana**. Rencana lunas di *Cicilan lunas*.
   - *Strategi pelunasan* (SPEC-pelunasan), lalu *Sudah lunas* — orang bersaldo 0 (aksi **Pinjamkan**, **Pinjam**, **Lihat riwayat**).
   - **Lihat riwayat** membuka Riwayat tersaring ke kantong orang/kartu itu.
-- **Form pinjaman** (Pinjamkan uang / Pinjam uang / Terima bayaran dari … / Bayar ke … / Bayar tagihan …): nama (chip orang yang sudah ada) bila belum dipilih, nominal (terisi sisa untuk bayar/terima bayaran), "Dari kantong"/"Masuk ke" (kantong uang; bawaan Tunai), tanggal, jatuh tempo (hanya pinjamkan/pinjam ke orang), keterangan. Disimpan lewat `/api/catat-manual`.
-- **Cicilan baru**: nama barang, penyedia (chip Shopee PayLater, GoPayLater, Kredivo, Akulaku, Atome + nama kartu kredit), kategori (bawaan Belanja), cicilan per bulan, tenor, bunga per bulan, jatuh tempo pertama, "Biasanya dibayar pakai" (kantong uang & kartu), catatan.
-- **Bayar cicilan**: berapa cicilan, nominal (bisa diubah), "Bayar pakai" (bawaan kantong pembayar rencana), tanggal bayar.
+- **Form pinjaman** (Pinjamkan uang / Pinjam uang / Terima bayaran dari … / Bayar ke … / Bayar tagihan …): nama (chip orang yang sudah ada) bila belum dipilih, nominal (terisi sisa untuk bayar/terima bayaran), "Dari kantong"/"Masuk ke" (kantong uang **tanpa tujuan tabungan**, `kantongSumber`; bawaan Tunai), tanggal, jatuh tempo (hanya pinjamkan/pinjam ke orang; isian ber-`min` tanggal pinjam, sebelum itu ditolak "Jatuh tempo tidak boleh sebelum tanggal pinjam."), keterangan. Disimpan lewat `/api/catat-manual`. Nama orang baru yang sudah dipakai kantong lain (tanpa beda huruf) ditolak dengan pesan yang menyebut tempatnya ("Nama ini sudah dipakai untuk BCA di Kantong.").
+- **Cicilan baru**: nama barang, penyedia (chip Shopee PayLater, GoPayLater, Kredivo, Akulaku, Atome + nama kartu kredit), kategori (bawaan Belanja), cicilan per bulan, tenor, bunga per bulan, jatuh tempo pertama, "Biasanya dibayar pakai" (kantong uang tanpa tujuan tabungan & kartu), catatan.
+- **Bayar cicilan**: berapa cicilan, nominal (bisa diubah), "Bayar pakai" (kantong uang tanpa tujuan tabungan & kartu; bawaan kantong pembayar rencana), tanggal bayar.
+- Uang tujuan tabungan tidak ditawarkan sebagai sumber di form-form ini; dipakai lewat "Pakai" / "Dibayar dari tujuan tabungan" (SPEC-tujuan-tabungan). Total aset tetap menghitung tujuan (`kantongUang`).
 - **Beranda**: kartu **"Utang & Piutang"** — tenggat terdekat ("Terdekat: …" atau merah "… telat sejak …", dari jatuh tempo orang & cicilan berikutnya), Piutang (n orang utang ke kamu), Utang (ke orang & kartu kredit), Cicilan bulan ini (jumlah & total yang jatuh tempo sampai akhir bulan, termasuk yang telat), tautan "Lihat Utang & Piutang". Tidak tampil kalau tidak ada apa pun. Total aset tetap hanya kantong uang (termasuk tujuan tabungan).
 - **Profil → Kantong**: kantong `orang` dan `kredit` tidak dicampur dengan kantong uang (dikelola dari halaman Utang & Piutang).
 
@@ -109,6 +117,11 @@ alter table user_accounts add constraint user_accounts_kind_check
 alter table user_accounts add column jatuh_tempo date;            -- opsional
 -- 20261107000000: check (jatuh_tempo is null or kind in ('orang','kredit'))
 grant insert (kind, jatuh_tempo), update (jatuh_tempo) on user_accounts to authenticated;
+-- 20261110000001: jatuh tempo kartu tiap bulan
+alter table user_accounts add column jatuh_tempo_hari int
+  check (jatuh_tempo_hari is null or (jatuh_tempo_hari between 1 and 31 and kind = 'kredit'));
+-- 20261110000001: nama kantong unik tanpa beda huruf/spasi tepi
+create unique index idx_user_accounts_nama on user_accounts (user_id, lower(btrim(name)));
 
 create table cicilan (
   id uuid pk, user_id uuid fk auth.users on delete cascade default auth.uid(),
@@ -137,10 +150,10 @@ Tidak ada data lama yang diubah.
 
 ## Pengujian
 
-- Fungsi murni + `assert` (`scripts/uji-pinjaman.mts`, `npm run uji:pinjaman`): jatuh tempo per bulan (akhir bulan & ganti tahun), jadwal & status (terbayar, telat, lunas, bayar loncat), arah pindah, saldo kantong orang lewat rumus saldo yang sama + ringkasan Utang/Piutang, Total aset hanya kantong uang, ringkasan kartu Beranda, pencocokan sebutan cicilan.
+- Fungsi murni + `assert` (`scripts/uji-pinjaman.mts`, `npm run uji:pinjaman`): jatuh tempo per bulan (akhir bulan & ganti tahun), jadwal & status (terbayar, telat, lunas, bayar loncat), arah pindah, saldo kantong orang lewat rumus saldo yang sama + ringkasan Utang/Piutang, Total aset hanya kantong uang, ringkasan kartu Beranda, pencocokan sebutan cicilan, kelebihan bayar kartu (+ selisih sebagai biaya → tagihan 0), sumber uang tanpa tujuan, jatuh tempo kartu tiap bulan & isiannya, akibat hapus orang/kartu. `uji:validasi`: jatuh tempo tidak sebelum tanggal pinjam (`cekJatuhTempo`).
 - Saldo kantong tetap lolos `uji:kantong`.
 - `npm run test:teks -- "<kalimat>"` (AI sungguhan, kalimat sebagai argumen) untuk kalimat-kalimat di tabel bagian 5; contoh yang sama ada di prompt.
-- E2E: `e2e/galat.mjs` & `e2e/perbaikan.mjs` (form Pinjamkan, Kartu, Cicilan baru), `e2e/pelunasan.mjs`.
+- E2E: `e2e/galat.mjs` & `e2e/perbaikan.mjs` (form Pinjamkan, Kartu, Cicilan baru), `e2e/pelunasan.mjs`, `e2e/perbaikan-utang.mjs` (kelebihan bayar: catat selisih & simpan saja; tambah/ubah kartu dengan jatuh tempo & saldo sejak; hapus orang & kartu; sumber uang tanpa tujuan; jatuh tempo sebelum tanggal pinjam; nama kembar).
 
 ## Boundaries
 
@@ -150,4 +163,4 @@ Tidak ada data lama yang diubah.
 ## Belum diterapkan
 
 - Riwayat transaksi per **rencana cicilan** (yang ada: "Lihat jadwal"; riwayat tersaring hanya untuk orang/kartu).
-- Mengubah rencana cicilan atau kartu kredit (hanya **Atur bunga** dan **Hapus rencana**); jatuh tempo kartu kredit boleh di database tapi tidak bisa diisi dari aplikasi.
+- Mengubah rencana cicilan (hanya **Atur bunga** dan **Hapus rencana**) dan tagihan awal kartu kredit.

@@ -20,7 +20,7 @@ Fungsi murni `isiNotifikasi(data, sekarang = new Date())` di `src/lib/notifikasi
 |---|---|---|---|---|
 | Angsuran cicilan belum dibayar, jatuh tempo **3 hari lagi** / **besok** | Cicilan jatuh tempo 3 hari lagi / besok | Spaylater ke-2 · Rp 150.000 | `/pinjaman` (Utang & Piutang) | `cicilan-<id>-<ke>` |
 | Angsuran cicilan **telat** (sekali, sehari setelah jatuh tempo) | Cicilan lewat jatuh tempo | Spaylater ke-2 · Rp 150.000 | `/pinjaman` | `cicilan-<id>-<ke>` |
-| Kantong `orang` bersaldo ≠ 0, atau `kredit` bersaldo < 0, `jatuh_tempo` **3 hari lagi** / **besok** | Budi bayar besok (saldo > 0) / Bayar ke Budi besok (saldo < 0) / Tagihan BCA Card besok (kredit) | Rp 200.000 (nilai mutlak saldo) | `/pinjaman` | `pinjaman-<id>` |
+| Kantong `orang` bersaldo ≠ 0, atau `kredit` bersaldo < 0 (ada tagihan), jatuh tempo **3 hari lagi** / **besok** — kartu: dari `jatuh_tempo_hari` tiap bulan (`jatuhTempoKartu`, akhir bulan mundur ke hari terakhir), selain itu `jatuh_tempo` | Budi bayar besok (saldo > 0) / Bayar ke Budi besok (saldo < 0) / Tagihan BCA Card besok (kredit) | Rp 200.000 (nilai mutlak saldo) | `/pinjaman` | `pinjaman-<id>` |
 | Draft dibuat (WIB) **kemarin** (H+1) atau **7 hari lalu** (H+7) | 1 catatan belum selesai | H+1: "Struk 21 Okt — ketuk untuk melengkapi." · H+7: "Catatan 15 Okt — dihapus otomatis 14 Nov. Ketuk untuk melengkapi." ("Catatan" bila `source = 'text'`, selain itu "Struk") | `/?catat=<id>` (membuka percakapannya) | `draft-<id>` |
 | Tidak ada transaksi `confirmed` yang `created_at`-nya hari ini (WIB) | Belum nyatat hari ini | Ada pengeluaran hari ini? Catat sebelum lupa. | `/` (Beranda) | `catat` |
 
@@ -51,7 +51,7 @@ public/sw.js ─ event "push" → showNotification (judul, isi, tag, icon /logo.
 1. **Tabel `push_langganan`** (`20261028000000_notifikasi.sql`): `id`, `user_id` (default `auth.uid()`, cascade saat akun dihapus), `endpoint` (CHECK `https://…`), `p256dh`, `auth`, `created_at`. Unik per **(`user_id`, `endpoint`)**: satu HP yang dipakai dua akun menerima notifikasi keduanya. RLS `push_langganan_own` (`auth.uid() = user_id`); `authenticated` hanya SELECT/INSERT/DELETE (tanpa UPDATE: daftar ulang = insert yang mengabaikan duplikat); `service_role` SELECT/DELETE.
 2. **Fungsi `data_notifikasi()`** (security definer, `search_path = ''`, hanya `service_role`; definisi terbaru `20261031000000_saldo_waktu.sql`): untuk tiap user yang berlangganan, JSON berisi
    - `langganan`: endpoint & kunci;
-   - `kantong`: hanya `orang`/`kredit` (`id`, `name`, `kind`, `saldo_awal`, `saldo_per`, `saldo_sejak`, `jatuh_tempo`);
+   - `kantong`: hanya `orang`/`kredit` (`id`, `name`, `kind`, `saldo_awal`, `saldo_per`, `saldo_sejak`, `jatuh_tempo`, `jatuh_tempo_hari` — sejak `20261110000001_kantong_kartu`);
    - `cicilan`: `id`, `nama`, `nominal`, `tenor`, `jatuh_tempo_awal`;
    - `transaksi`: kolom non-teks (`amount`, `type`, `transaction_date`, `waktu`, `created_at`, `kantong_id`, `kantong_tujuan_id`, `cicilan_id`, `cicilan_ke`), hanya `status = 'confirmed'` dan hanya yang dibutuhkan: bercicilan, dicatat 2 hari terakhir, atau menyentuh kantong orang/kredit;
    - `draft`: `id`, `dibuat`, `source` dari `draft_catat`.
@@ -84,7 +84,7 @@ Env di `.env.local` dan Vercel (Production), lihat `.env.example`:
 
 ## Pengujian
 
-- `npm run uji:notifikasi` (`scripts/uji-notifikasi.mts`): `isiNotifikasi` — H-3/H-1/telat cicilan, telat lama tidak diulang, Lend vs Borrow vs kartu kredit, yang lunas & tanpa jatuh tempo tidak diingatkan, kartu kredit lebih bayar tidak diingatkan, pengingat catat, pergantian bulan, draft H+1/H+7 (H+2 & hari ini diam), batas hari WIB (transaksi 23.30 WIB kemarin bukan "hari ini").
+- `npm run uji:notifikasi` (`scripts/uji-notifikasi.mts`): `isiNotifikasi` — H-3/H-1/telat cicilan, telat lama tidak diulang, Lend vs Borrow vs kartu kredit, yang lunas & tanpa jatuh tempo tidak diingatkan, kartu kredit lebih bayar tidak diingatkan, tagihan kartu dari jatuh tempo tiap tanggal (H-1/H-3, tanpa tagihan diam, tanggal 31 di bulan 30 hari, ganti tahun), pengingat catat, pergantian bulan, draft H+1/H+7 (H+2 & hari ini diam), batas hari WIB (transaksi 23.30 WIB kemarin bukan "hari ini").
 - `npm run uji:isolasi`: akun lain & pengunjung tidak bisa membaca/mengubah/menghapus/menulis `push_langganan` milik orang lain.
 - Migrasi diuji kering dulu (transaksi yang di-rollback), termasuk: `data_notifikasi()` ditolak untuk `authenticated`/`anon`.
 - Route cron: tanpa/salah secret → 401; dengan secret → kirim ke langganan uji (manual).
@@ -98,5 +98,4 @@ Env di `.env.local` dan Vercel (Production), lihat `.env.example`:
 
 ## Belum diterapkan
 
-- **Pengingat tagihan kartu kredit** ada di `isiNotifikasi`, tapi tidak ada UI yang mengisi `jatuh_tempo` kantong `kredit` (`FormPinjaman` hanya mengisinya untuk `orang`), dan `jatuh_tempo` adalah satu tanggal, bukan tanggal bulanan. Dalam praktik notifikasi "Tagihan … besok" tidak pernah terkirim.
 - Pilihan per jenis notifikasi.

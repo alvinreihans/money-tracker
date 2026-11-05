@@ -66,6 +66,23 @@ assert.ok(!sudah.some((x) => x.tag === "catat"));
 const lebih = isiNotifikasi({ cicilan: [], transaksi: [tx({ created_at: SEKARANG.toISOString() })], kantong: [{ ...data.kantong[4], saldo_awal: 1000 }] }, SEKARANG);
 assert.deepEqual(lebih, []);
 
+// Kartu kredit dengan jatuh tempo tiap tanggal (C10): dihitung tiap bulan, hanya bila ada tagihan.
+const kartu = (id: string, hari: number, saldo_awal: number) => ({ id, name: id, kind: "kredit" as const, saldo_awal, saldo_per: PER, jatuh_tempo: null, jatuh_tempo_hari: hari });
+const tagihan = isiNotifikasi(
+  {
+    cicilan: [], transaksi: [tx({ created_at: SEKARANG.toISOString() })],
+    kantong: [kartu("Mandiri", 23, -750000), kartu("BNI", 25, -100000), kartu("Lunas", 23, 0), kartu("Lebih", 23, 5000), kartu("Nanti", 10, -1)],
+  },
+  SEKARANG,
+);
+assert.deepEqual(tagihan.map((x) => `${x.judul} | ${x.isi}`), [`Tagihan Mandiri besok | ${fmtIDR(750000)}`, `Tagihan BNI 3 hari lagi | ${fmtIDR(100000)}`]);
+// Tanggal 31 di bulan 30 hari: mundur ke 30 Nov, diingatkan 29 Nov.
+const akhir = isiNotifikasi({ cicilan: [], transaksi: [tx({ created_at: "2026-11-29T05:00:00Z" })], kantong: [kartu("BCA", 31, -1000)] }, new Date("2026-11-29T12:00:00Z"));
+assert.deepEqual(akhir.map((x) => x.judul), ["Tagihan BCA besok"]);
+// Tanggal 2 dilihat 31 Des: bulan depan, ganti tahun → H-3.
+const tahun = isiNotifikasi({ cicilan: [], transaksi: [tx({ created_at: "2026-12-30T05:00:00Z" })], kantong: [kartu("BCA", 2, -1000)] }, new Date("2026-12-30T12:00:00Z"));
+assert.deepEqual(tahun.map((x) => x.judul), ["Tagihan BCA 3 hari lagi"]);
+
 // Pergantian bulan: H-1 dari 1 Nov adalah 31 Okt.
 const akhirBulan = isiNotifikasi({ ...data, transaksi: [tx({ created_at: "2026-10-31T05:00:00Z" })], cicilan: [{ id: "F", nama: "X", nominal: 1, tenor: 1, jatuh_tempo_awal: "2026-11-01" }], kantong: [] }, new Date("2026-10-31T12:00:00Z"));
 assert.deepEqual(akhirBulan.map((x) => x.judul), ["Cicilan jatuh tempo besok"]);
@@ -87,4 +104,4 @@ assert.deepEqual(draft.map((x) => [x.tag, x.url]), [["draft-s1", "/?catat=s1"], 
 assert.match(draft[0].isi, /^Struk 21 Okt — ketuk/);
 assert.match(draft[1].isi, /^Catatan 15 Okt — dihapus otomatis 14 Nov/);
 
-console.log("✓ notifikasi: jatuh tempo cicilan & Lend/Borrow (H-3, H-1, telat), pengingat catat, catatan belum selesai H+1/H+7, batas hari WIB");
+console.log("✓ notifikasi: jatuh tempo cicilan & Lend/Borrow (H-3, H-1, telat), tagihan kartu tiap bulan, pengingat catat, catatan belum selesai H+1/H+7, batas hari WIB");

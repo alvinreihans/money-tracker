@@ -1,3 +1,4 @@
+import { fmtIDR } from "@/lib/format";
 import { normal } from "@/lib/kantong";
 
 /**
@@ -13,6 +14,14 @@ import { normal } from "@/lib/kantong";
 
 /** Kantong berisi uang sungguhan — yang dihitung di Total aset. */
 export const kantongUang = (k: { kind: string }) => k.kind !== "orang" && k.kind !== "kredit";
+
+/**
+ * Sumber uang di Pinjamkan, Bayar tagihan, Bayar cicilan, dan "Dari kantong"
+ * Sisihkan: kantong uang tanpa tujuan tabungan — uang tujuan dipakai lewat
+ * "Pakai" / "Dibayar dari tujuan" (SPEC-perbaikan-temuan C6). Total aset
+ * tetap memakai `kantongUang`.
+ */
+export const kantongSumber = (k: { kind: string }) => kantongUang(k) && k.kind !== "tujuan";
 
 /**
  * Nama pihak dari AI yang jelas kartu kredit ("Kartu kredit Mandiri", "CC BCA"):
@@ -115,7 +124,8 @@ export interface PosisiPinjaman<K> {
 /**
  * Ringkasan Lend & Borrow dari kantong orang & kredit beserta saldonya.
  * Lend: orang bersaldo positif. Borrow: orang bersaldo negatif dan kartu
- * kredit bertagihan. Lunas: orang bersaldo nol. Terbesar dulu.
+ * kredit bertagihan. Lunas: orang bersaldo nol. Terbesar dulu. Kartu
+ * bersaldo positif = kelebihan bayar: tampil di Utang, tidak menambah total.
  */
 export function ringkasanPinjaman<K extends { kind: string; saldo: number }>(daftar: K[]) {
   const urut = (a: PosisiPinjaman<K>, b: PosisiPinjaman<K>) => b.jumlah - a.jumlah;
@@ -129,6 +139,7 @@ export function ringkasanPinjaman<K extends { kind: string; saldo: number }>(daf
     borrow,
     lunas: daftar.filter((k) => k.kind === "orang" && k.saldo === 0),
     kartu: daftar.filter((k) => k.kind === "kredit"),
+    lebihBayar: daftar.filter((k) => k.kind === "kredit" && k.saldo > 0).map((k) => ({ kantong: k, jumlah: k.saldo })).sort(urut),
     totalLend: lend.reduce((t, x) => t + x.jumlah, 0),
     totalBorrow: borrow.reduce((t, x) => t + x.jumlah, 0),
   };
@@ -145,6 +156,49 @@ export type ArahPinjaman = "beri" | "terima_bayar" | "pinjam" | "bayar";
  */
 export function arahPindah(arah: ArahPinjaman, uang: string, pihak: string): { dari: string; ke: string } {
   return arah === "beri" || arah === "bayar" ? { dari: uang, ke: pihak } : { dari: pihak, ke: uang };
+}
+
+/**
+ * Bayar tagihan kartu: berapa nominalnya melebihi tagihan di aplikasi
+ * (saldo kartu negatif). 0 = tidak lebih. Kartu tanpa tagihan: seluruhnya.
+ */
+export const kelebihanBayar = (saldoKartu: number, nominal: number) => Math.max(0, nominal - Math.max(0, -saldoKartu));
+
+/** Keterangan pengeluaran "Catat selisihnya sebagai biaya kartu" (SPEC-perbaikan-temuan C1). */
+export const KET_SELISIH_KARTU = "Selisih tagihan kartu";
+
+/**
+ * Jatuh tempo tagihan kartu berikutnya (hari ini atau sesudahnya) dari
+ * tanggal tiap bulan (`jatuh_tempo_hari`, 1–31); bulan yang lebih pendek
+ * mundur ke hari terakhirnya.
+ */
+export function jatuhTempoKartu(hari: number, hariIni: string): string {
+  const ini = jatuhTempoKe(`${hariIni.slice(0, 7)}-${dua(hari)}`, 1);
+  return ini >= hariIni ? ini : jatuhTempoKe(`${hariIni.slice(0, 7)}-${dua(hari)}`, 2);
+}
+
+/** Isian "Jatuh tempo tiap tanggal": kosong = tanpa; 1–31. */
+export function bacaJatuhTempoHari(teks: string): { ok: true; nilai: number | null } | { ok: false; error: string } {
+  const t = teks.trim();
+  if (!t) return { ok: true, nilai: null };
+  if (!/^\d{1,2}$/.test(t) || Number(t) < 1 || Number(t) > 31) return { ok: false, error: "Tanggalnya 1–31." };
+  return { ok: true, nilai: Number(t) };
+}
+
+/**
+ * Akibat menghapus kantong orang/kartu (SPEC-perbaikan-temuan C2), untuk
+ * konfirmasi: transaksinya tetap, saldonya hilang dari Utang & Piutang,
+ * rencana cicilan kehilangan kantong pembayar bawaannya.
+ */
+export function dampakHapusPihak(k: { name: string; kind: string; saldo: number }, transaksi: number, rencana = 0): string[] {
+  const hasil: string[] = [];
+  if (transaksi > 0) hasil.push(`${transaksi} transaksi dengan ${k.name} tetap tercatat, tanpa kantong ${k.name}.`);
+  if (k.saldo !== 0) {
+    const apa = k.kind === "kredit" ? (k.saldo < 0 ? "Tagihan" : "Kelebihan bayar") : k.saldo > 0 ? "Piutang" : "Utang";
+    hasil.push(`${apa} ${fmtIDR(Math.abs(k.saldo))} ikut hilang dari Utang & Piutang.`);
+  }
+  if (rencana > 0) hasil.push(`${rencana} rencana cicilan kehilangan kantong pembayar bawaannya.`);
+  return hasil;
 }
 
 export interface RingkasBeranda {

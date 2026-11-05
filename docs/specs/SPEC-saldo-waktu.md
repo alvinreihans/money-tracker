@@ -59,7 +59,7 @@ Hari lain (kemarin, besok, dst.): tidak pernah ditanya — jam tidak memengaruhi
 ## Tampilan
 
 - **Onboarding**: saldo disimpan dengan jam sekarang.
-- **Profil → Kantong**: tanggal saldo hari ini → jam sekarang; tanggal lain → 00.00 WIB tanggal itu (`saldoSejakDari`); tidak diubah kalau tanggal & nominalnya tetap. Keterangan di isian tanggal: "Saldo per jam 14.00 di tanggal ini. …" / "Saldo saat ini (jam sekarang). …" / "Saldo di awal tanggal ini. …". Tujuan tabungan & "Dibayar dari tujuan tabungan" memakai aturan yang sama.
+- **Profil → Kantong**: tanggal saldo hari ini → jam sekarang; tanggal lain → 00.00 WIB tanggal itu (`saldoSejakDari`); tidak diubah kalau tanggal & nominalnya tetap. Keterangan di isian tanggal: "Saldo per jam 14.00 di tanggal ini. …" / "Saldo saat ini (jam sekarang). …" / "Saldo di awal tanggal ini. …". Tujuan tabungan, "Dibayar dari tujuan tabungan", dan **Tambah kartu kredit** (Utang & Piutang, sejak SPEC-perbaikan-temuan C9; dulu selalu 00.00) memakai aturan yang sama. Kantong orang tetap per 1 Jan 2000 00.00 (`SALDO_PER_PINJAMAN`).
 - Form Manual & Edit transaksi: kolom **Jam** opsional ("Opsional. Ubah kalau terjadinya lebih awal.").
 - Detail transaksi: subjudul "… · tanggal · jam" bila ada.
 - Riwayat & Beranda diurutkan tanggal, lalu jam (yang tanpa jam di bawah yang berjam pada hari itu), lalu waktu dicatat.

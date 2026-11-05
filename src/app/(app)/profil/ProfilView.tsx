@@ -10,6 +10,7 @@ import { AppBar } from "@/components/oneui";
 import NamaRekening from "@/components/NamaRekening";
 import SakelarNotifikasi from "@/components/SakelarNotifikasi";
 import s from "@/components/ui.module.css";
+import { LABEL_METODE, METODE, type Metode } from "@/lib/metode";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 /** Satu baris pengaturan yang membuka halaman lain, ala Pengaturan Samsung. */
@@ -43,6 +44,17 @@ export function BarisMenu({
 }
 
 /**
+ * Subjudul menu Budget: mengikuti metode yang aktif ("Metode 50/30/20",
+ * "Zero-Based"); per kategori → jumlah kategori yang dibatasi (SPEC-perbaikan-temuan C11).
+ */
+export function ketBudget(metode: string | null, jumlahBudget: number): string {
+  const m = (METODE as readonly string[]).includes(metode ?? "") ? (metode as Metode) : "kategori";
+  if (m === "zero-based") return LABEL_METODE[m].nama;
+  if (m !== "kategori") return `Metode ${LABEL_METODE[m].nama}`;
+  return jumlahBudget > 0 ? `${jumlahBudget} kategori dibatasi` : "Batas pengeluaran per kategori";
+}
+
+/**
  * Tab Profil (SPEC-navigasi): akun di atas, lalu pengaturan per grup ala
  * Pengaturan Samsung. Sub-halamannya di /profil/* (lihat layout.tsx).
  */
@@ -50,10 +62,13 @@ export default function ProfilView({
   email,
   jumlahKantong,
   jumlahBudget,
+  metode = null,
 }: {
   email: string | null;
   jumlahKantong: number;
   jumlahBudget: number;
+  /** Metode budgeting aktif (metode_budget.metode); null = per kategori. */
+  metode?: string | null;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -150,7 +165,7 @@ export default function ProfilView({
             ikon={Target}
             warna="#3e91ff"
             judul="Budget"
-            ket={jumlahBudget > 0 ? `${jumlahBudget} kategori dibatasi` : "Batas pengeluaran per kategori"}
+            ket={ketBudget(metode, jumlahBudget)}
           />
         </div>
 

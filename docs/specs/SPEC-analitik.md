@@ -67,10 +67,12 @@ alter table transactions  add column kantong_id uuid references user_accounts on
 - Teks dan struk yang dibaca AI ("kopi 25rb gopay"): `payment_method` hasil AI dicocokkan ke kantong bernama atau beralias sama (`cocokkanKantong`, `src/lib/kantong.ts`), tanpa membedakan huruf besar-kecil, spasi, dan tanda baca. Untuk pindah kantong, `payment_target` dicocokkan ke kantong tujuan.
 - Transaksi lama: dicocokkan dengan aturan yang sama saat migrasi (backfill sekali). Yang tidak cocok tetap tanpa kantong dan tidak ikut hitungan saldo.
 - Diatur di Profil → Kantong: tambah, ubah, atau hapus kantong, beserta nama, **emoji** (pengganti jenis Bank/E-wallet di form), saldo awal, dan tanggal + jam saldo. Tiap akun punya kantong **Tunai** bawaan yang tidak bisa dihapus (`20261024120000_kantong_tunai`).
+- **Nama kantong unik tanpa beda huruf besar-kecil & spasi tepi** (unique index `(user_id, lower(btrim(name)))`, `20261110000001_kantong_kartu`), untuk semua jenis (uang, orang, kartu, tujuan). Nama kembar ditolak dengan pesan yang menyebut di mana nama itu dipakai (`pesanNamaKembar`): "Nama ini sudah dipakai untuk Teman (contoh) di Utang & Piutang." / "… di Kantong." / "… di Tujuan tabungan."
+- **Ekspor CSV**: kolom Kategori pindah kantong ditulis **"Pindah kantong"** (bukan `other`).
 
 ## Testing
 
-- Fungsi murni + skrip `assert`: tren bulanan, streak (batas tengah malam WIB dan putus/sambung), dan progres budget di `uji:analitik`; saldo kantong (termasuk pindah kantong dan batas saldo) dan pencocokan metode bayar ke kantong di `uji:kantong`.
+- Fungsi murni + skrip `assert`: tren bulanan, streak (batas tengah malam WIB dan putus/sambung), dan progres budget di `uji:analitik`; saldo kantong (termasuk pindah kantong dan batas saldo), pencocokan metode bayar ke kantong, dan pesan nama kembar di `uji:kantong`; kategori pindah kantong di ekspor di `uji:ekspor`.
 - Migrasi diuji dengan `npm run db:status` sebelum `db:migrate`, dan bersifat idempoten.
 - Cek visual di 375px: Beranda, Profil, form dengan field kantong.
 

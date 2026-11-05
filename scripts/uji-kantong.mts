@@ -4,7 +4,9 @@
  * Pemakaian: npm run uji:kantong
  */
 import assert from "node:assert/strict";
-import { alasanDraft, ambilEmoji, cocokkanKantong, emojiKantong, hitungSaldo, type Kantong } from "../src/lib/kantong.ts";
+import { fmtIDR } from "../src/lib/format.ts";
+import { alasanDraft, ambilEmoji, cocokkanKantong, emojiKantong, hitungSaldo, pesanNamaKembar, type Kantong } from "../src/lib/kantong.ts";
+import { dampakHapusTujuan } from "../src/lib/tujuan.ts";
 
 const bca: Kantong = { id: "bca", name: "BCA", kind: "bank", aliases: [], saldo_awal: "1000000.00", saldo_per: "2026-10-01" };
 const gopay: Kantong = { id: "gopay", name: "GoPay", kind: "ewallet", aliases: null, saldo_awal: 50000, saldo_per: "2026-10-10" };
@@ -74,4 +76,25 @@ const [{ saldo: sBri }] = hitungSaldo([bri], [
 ]);
 assert.equal(sBri, 500000 - 3000);
 
-console.log("✓ kantong: pencocokan metode bayar, saldo (termasuk saldo per jam), alasan draft, emoji");
+// Nama kembar (C3/C4): tanpa beda huruf & spasi tepi; pesan menyebut di mana nama itu dipakai.
+const semua = [
+  { id: "bca", name: "BCA", kind: "bank" },
+  { id: "teman", name: "Teman (contoh)", kind: "orang" },
+  { id: "hp", name: "HP baru", kind: "tujuan" },
+  { id: "cc", name: "Kartu kredit", kind: "kredit" },
+] as const;
+assert.equal(pesanNamaKembar(" teman (CONTOH) ", [...semua]), "Nama ini sudah dipakai untuk Teman (contoh) di Utang & Piutang.");
+assert.equal(pesanNamaKembar("bca", [...semua]), "Nama ini sudah dipakai untuk BCA di Kantong.");
+assert.equal(pesanNamaKembar("hp BARU", [...semua]), "Nama ini sudah dipakai untuk HP baru di Tujuan tabungan.");
+assert.equal(pesanNamaKembar("kartu KREDIT", [...semua]), "Nama ini sudah dipakai untuk Kartu kredit di Utang & Piutang.");
+assert.equal(pesanNamaKembar("BCA", [...semua], "bca"), null); // kantong itu sendiri
+assert.equal(pesanNamaKembar("Mandiri", [...semua]), null);
+
+// Hapus tujuan (C5): saldo keluar dari Total aset; riwayat tetap tanpa tujuan.
+assert.deepEqual(dampakHapusTujuan(250000, 3), [
+  `${fmtIDR(250000)} di tujuan ini ikut hilang dari Total aset. Kalau uangnya masih ada, pakai Pakai dulu untuk memindahkannya.`,
+  "3 transaksi tetap tercatat, tanpa tujuan ini.",
+]);
+assert.deepEqual(dampakHapusTujuan(0, 0), []);
+
+console.log("✓ kantong: pencocokan metode bayar, saldo (termasuk saldo per jam), alasan draft, emoji, nama kembar, akibat hapus tujuan");

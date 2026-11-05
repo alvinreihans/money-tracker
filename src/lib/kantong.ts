@@ -45,6 +45,8 @@ export interface Kantong {
   jatuh_tempo?: string | null;
   /** Hanya orang & kartu kredit: bunga per bulan (%), untuk urutan Avalanche (SPEC-pelunasan). */
   bunga_persen?: number | string | null;
+  /** Hanya kartu kredit: jatuh tempo tagihan tiap tanggal (1–31), untuk pengingat (SPEC-perbaikan-temuan C10). */
+  jatuh_tempo_hari?: number | null;
   /** Hanya kantong tujuan tabungan (SPEC-tujuan-tabungan). */
   target?: number | string | null;
   tenggat?: string | null;
@@ -83,6 +85,32 @@ const ALIAS_BAWAAN: Record<string, string[]> = {
 
 /** "Shopee Pay" → "shopeepay": huruf kecil, tanpa spasi & tanda baca. */
 export const normal = (teks: string) => teks.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+/** Halaman tempat kantong jenis ini dikelola. */
+export const tempatKantong = (kind: string) =>
+  kind === "orang" || kind === "kredit" ? "Utang & Piutang" : kind === "tujuan" ? "Tujuan tabungan" : "Kantong";
+
+/**
+ * Nama kantong unik tanpa beda huruf besar-kecil & spasi tepi (unique index
+ * database, SPEC-perbaikan-temuan C3). Pesan bila `nama` sudah dipakai
+ * kantong lain, menyebut di mana — kantong orang tidak tampil di daftar
+ * Kantong (C4). Null kalau belum dipakai.
+ */
+export function pesanNamaKembar(nama: string, daftar: Pick<Kantong, "id" | "name" | "kind">[], kecuali?: string | null): string | null {
+  const cari = nama.trim().toLowerCase();
+  const k = daftar.find((x) => x.id !== kecuali && x.name.trim().toLowerCase() === cari);
+  return k ? `Nama ini sudah dipakai untuk ${k.name} di ${tempatKantong(k.kind)}.` : null;
+}
+
+/**
+ * Pesan galat simpan kantong: nama kembar (23505) → `pesanNamaKembar` dari
+ * daftar kantong terbaru; lainnya → `pesanLain`.
+ */
+export async function pesanGagalKantong(supabase: SupabaseClient, err: { code?: string }, nama: string, kecuali: string | null, pesanLain: string): Promise<string> {
+  if (err.code !== "23505") return pesanLain;
+  const { data } = await supabase.from("user_accounts").select("id, name, kind");
+  return pesanNamaKembar(nama, (data ?? []) as Pick<Kantong, "id" | "name" | "kind">[], kecuali) ?? pesanLain;
+}
 
 /**
  * Kantong yang dimaksud teks metode bayar ("gopay", "BRImo", "Tunai"), atau

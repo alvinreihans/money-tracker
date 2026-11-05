@@ -4,7 +4,20 @@
  * scripts/uji-metode.mts.
  */
 
+import { fmtIDR } from "@/lib/format";
+
 export const EMOJI_TUJUAN = "🎯";
+
+/**
+ * Akibat menghapus tujuan (SPEC-perbaikan-temuan C5), untuk konfirmasi:
+ * saldonya keluar dari Total aset, transaksinya tetap tanpa tujuan ini.
+ */
+export function dampakHapusTujuan(saldo: number, transaksi: number): string[] {
+  const hasil: string[] = [];
+  if (saldo > 0) hasil.push(`${fmtIDR(saldo)} di tujuan ini ikut hilang dari Total aset. Kalau uangnya masih ada, pakai Pakai dulu untuk memindahkannya.`);
+  if (transaksi > 0) hasil.push(`${transaksi} transaksi tetap tercatat, tanpa tujuan ini.`);
+  return hasil;
+}
 
 export const kantongTujuan = (k: { kind: string }) => k.kind === "tujuan";
 

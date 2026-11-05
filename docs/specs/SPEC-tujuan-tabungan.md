@@ -43,9 +43,10 @@ Mengikuti pola Utang & Piutang, yang mencatat orang sebagai kantong berjenis `or
   - tiap tujuan: emoji, nama, terkumpul, bilah progres, "dari Rp 10 jt", dan keterangan: "Sisihkan Rp 1 jt/bulan sampai Maret 2027" (ada tenggat; bulan ini ikut dihitung), "Kurang Rp …", "Lewat tenggat, kurang Rp …" (ikon peringatan), atau "Tercapai" (ikon + teks);
   - tujuan yang sudah dipakai habis (saldo ≤ 0 dan pernah dipakai) pindah ke bagian **Selesai** ("Sudah dipakai");
   - ketuk → lembar aksi: **Sisihkan**, **Pakai**, **Lihat riwayat** (Riwayat tersaring ke kantong itu), **Ubah**;
-  - form **Tujuan baru / Ubah tujuan**: nama, emoji (saran + ketik), target, tenggat (opsional, untuk tujuan baru tidak sebelum hari ini), "Sudah terkumpul" (saldo awal sebelum memakai aplikasi, berlaku sejak tujuan dibuat). **Hapus tujuan** ada di form Ubah, hanya untuk tujuan tanpa riwayat.
-- **Sisihkan** dan **Pakai** membuka isian manual Catat yang sudah terisi (pindah ke tujuan / bayar pakai tujuan).
-- **Kantong:** tujuan tidak tampil di daftar Profil → Kantong (seperti kantong orang); di sana cukup satu baris "Disisihkan ke tujuan · n tujuan tabungan" yang membuka halaman tujuan. Di pilihan kantong (Catat, edit transaksi) tujuan tampil di daftar yang sama dengan kantong lain (pengeluaran, pemasukan, pindah).
+  - form **Tujuan baru / Ubah tujuan**: nama, emoji (saran + ketik), target, tenggat (opsional; paling cepat hari ini — "Tenggatnya paling cepat hari ini." — kecuali tenggat lama tujuan yang sudah lewat dan tidak diubah), "Sudah terkumpul" (saldo awal sebelum memakai aplikasi, berlaku sejak tujuan dibuat). Nama yang sudah dipakai kantong lain (tanpa beda huruf) ditolak dengan menyebut tempatnya.
+  - **Hapus tujuan** ada di form Ubah, untuk tujuan mana pun (juga yang punya riwayat). Konfirmasi menyebut akibatnya (`dampakHapusTujuan`): bila bersaldo, "Rp X di tujuan ini ikut hilang dari Total aset. Kalau uangnya masih ada, pakai Pakai dulu untuk memindahkannya."; bila ada riwayat, "n transaksi tetap tercatat, tanpa tujuan ini." Transaksinya tidak dihapus, hanya lepas dari tujuan (pengeluaran dari tujuan itu masuk lagi ke hitungan bulanannya).
+- **Sisihkan** dan **Pakai** membuka isian manual Catat yang sudah terisi (pindah ke tujuan / bayar pakai tujuan). Pindah kantong **ke** tujuan tabungan: "Dari kantong" hanya kantong uang tanpa tujuan tabungan (`kantongSumber`; tujuan itu sendiri tidak ditawarkan).
+- **Kantong:** tujuan tidak tampil di daftar Profil → Kantong (seperti kantong orang); di sana cukup satu baris "Disisihkan ke tujuan · n tujuan tabungan" yang membuka halaman tujuan. Di pilihan kantong (Catat, edit transaksi) tujuan tampil di daftar yang sama dengan kantong lain (pengeluaran, pemasukan, pindah), kecuali "Dari kantong" saat menyisihkan ke tujuan. Sumber uang di Pinjamkan, Bayar tagihan, dan Bayar cicilan juga tanpa tujuan (SPEC-lend-borrow). Baris "Disisihkan ke tujuan" membungkus teksnya di panel sempit.
 - **Kartu metode (Analitik/Beranda):** baris "Disisihkan ke tujuan · Bulan ini" (setoran bersih; negatif → "Ditarik dari tujuan"), kecuali metodenya sudah punya wadah setoran sendiri; dan baris "Dibayar dari tujuan: HP baru · Di luar jatah bulan ini" per tujuan.
 - **Tanya AI:** `saldo_kantong` membawa tiap tujuan (terkumpul, target, tenggat); ringkasan bulan membawa `dibayar_dari_tujuan_tabungan` dan `disisihkan_ke_tujuan_tabungan`, jadi "kenapa boros?" bisa dijawab "beli HP baru Rp 10,3 jt dari tabungan HP".
 
@@ -84,7 +85,7 @@ Pembelian yang sudah tercatat dari BCA (seperti HP tadi):
 
 - **Jangan:** mengeluarkan tujuan dari total aset; mengubah saldo kantong asal saat "Dibayar dari tujuan tabungan" ke tujuan yang kosong.
 - **Tanya dulu:** mengubah arti "bulan" (periode gajian).
-- Tujuan yang punya riwayat tidak bisa dihapus (lihat Hasil); tujuan tanpa riwayat boleh dihapus walau punya saldo awal.
+- ~~Tujuan yang punya riwayat tidak bisa dihapus.~~ Sejak SPEC-perbaikan-temuan (C5): boleh dihapus kapan saja, konfirmasi menyebut saldo & transaksi yang terdampak.
 
 ## Hasil
 
@@ -92,7 +93,7 @@ Pembelian yang sudah tercatat dari BCA (seperti HP tadi):
   - Uji kering menangkap satu celah: tujuan tanpa target lolos, karena `null > 0` bernilai null dan constraint menganggap null lolos. Diperbaiki dengan `coalesce(target > 0, false)`.
 - **Berbeda dari rancangan:**
   - **Tidak ada item sidebar.** Halaman tujuan ada di dalam Profil, jadi di layar lebar sudah terbuka di panel kanan Profil.
-  - **Tujuan yang punya riwayat tidak bisa dihapus.** Menghapusnya melepas pengeluaran dari kantong tujuan, sehingga pembelian itu masuk lagi ke jatah bulan itu. Tujuan yang sudah dipakai habis pindah ke bagian **Selesai**.
+  - ~~**Tujuan yang punya riwayat tidak bisa dihapus.**~~ Diganti SPEC-perbaikan-temuan C5: boleh dihapus, dengan konfirmasi yang menyebut akibatnya (menghapusnya melepas pengeluaran dari kantong tujuan, sehingga pembelian itu masuk lagi ke jatah bulan itu). Tujuan yang sudah dipakai habis pindah ke bagian **Selesai**.
   - **"Sisihkan" dan "Pakai" membuka isian manual Catat** yang sudah terisi (pindah ke tujuan / bayar pakai tujuan), bukan form baru.
   - **"Batalkan" hanya muncul bila ada transfer pelengkap.** Bila saldo tujuan cukup (tanpa pelengkap), kantong asalnya tidak tercatat; pembatalan lewat snackbar "Urungkan" atau mengubah kantong di Ubah transaksi.
   - **Pilihan kantong tidak dikelompokkan**: tujuan tampil di daftar yang sama.
@@ -103,4 +104,3 @@ Pembelian yang sudah tercatat dari BCA (seperti HP tadi):
 
 - Pilihan kantong dikelompokkan dengan judul "Tujuan tabungan".
 - Opsi "tujuan ini disimpan di BCA" (saldo BCA menampilkan gabungannya) — menyusul bila tabungan di rekening yang sama terasa membingungkan.
-- Menghapus tujuan bersaldo dengan meminta saldonya dipindah dulu (kini hanya dicegah bila punya riwayat).

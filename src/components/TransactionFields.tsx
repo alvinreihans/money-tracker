@@ -9,7 +9,7 @@ import s from "@/components/ui.module.css";
 import { isianNominal, isoLokal } from "@/lib/format";
 import { jamWIB } from "@/lib/waktu";
 import { emojiKantong } from "@/lib/kantong";
-import { kantongUang } from "@/lib/pinjaman";
+import { kantongSumber, kantongUang } from "@/lib/pinjaman";
 import { kategoriJenis, LAINNYA } from "@/lib/kategori";
 import { KELOMPOK, NAMA_KELOMPOK, type Kelompok } from "@/lib/metode";
 import { TIPE_TRANSAKSI } from "@/lib/transaksi-input";
@@ -89,13 +89,19 @@ export default function TransactionFields({
   const pilihanKantong = kantong
     .filter((k) => (type === "transfer" ? true : type === "expense" ? k.kind !== "orang" : kantongUang(k)))
     .map((k) => ({ id: k.id, label: k.name, emoji: emojiKantong(k) }));
+  // Menyisihkan ke tujuan tabungan: "Dari kantong" = kantong uang tanpa tujuan
+  // tabungan, termasuk tujuan itu sendiri (SPEC-perbaikan-temuan C6).
+  const keTujuan = type === "transfer" && kantong.some((k) => k.id === nilai.kantong_tujuan_id && k.kind === "tujuan");
+  const pilihanDari = keTujuan
+    ? pilihanKantong.filter((p) => p.id === nilai.kantong_id || kantong.some((k) => k.id === p.id && kantongSumber(k)))
+    : pilihanKantong;
   const pilihKantong = (kolom: "kantong_id" | "kantong_tujuan_id", label: string, ikon: React.ElementType) => (
     <Pilih
       label={label}
       ikon={ikon}
       kolom={kolom}
       nilai={nilai[kolom]}
-      pilihan={pilihanKantong}
+      pilihan={kolom === "kantong_id" ? pilihanDari : pilihanKantong}
       kosong="Pilih kantong"
       onChange={(id) =>
         onChange(

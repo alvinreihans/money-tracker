@@ -8,13 +8,14 @@ import { AppBar, Field, GalatForm, InputNominal, Konfirmasi, Kosong, Lembar, Pes
 import s from "@/components/ui.module.css";
 import { dbErrorMessage } from "@/lib/errors";
 import { fmtIDR, fmtIDRRingkas, isianNominal, isoLokal } from "@/lib/format";
-import { ambilEmoji, type Kantong } from "@/lib/kantong";
+import { ambilEmoji, pesanGagalKantong, type Kantong } from "@/lib/kantong";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { validasiTujuan } from "@/lib/transaksi-input";
-import { EMOJI_TUJUAN, progresTujuan } from "@/lib/tujuan";
+import { dampakHapusTujuan, EMOJI_TUJUAN, progresTujuan } from "@/lib/tujuan";
 import { saldoSejakDari } from "@/lib/waktu";
 
-type Tujuan = Kantong & { saldo: number; dipakai: number; adaRiwayat: boolean };
+/** `transaksi`: jumlah transaksi yang menyentuh tujuan ini (untuk konfirmasi hapus). */
+type Tujuan = Kantong & { saldo: number; dipakai: number; transaksi: number };
 
 interface Isian {
   name: string;
@@ -42,8 +43,9 @@ function teksProgres(t: Tujuan, hariIni: string): { teks: string; ikon?: "capai"
  * Tujuan tabungan (SPEC-tujuan-tabungan): kantong berjenis "tujuan" dengan
  * target & tenggat. Menyisihkan = pindah kantong ke tujuan; memakai =
  * pengeluaran dari tujuan, yang tidak dihitung di jatah bulanan metode.
- * Tujuan yang sudah dipakai habis pindah ke "Selesai". Tujuan yang punya
- * riwayat tidak bisa dihapus, supaya pemakaiannya tetap di luar jatah.
+ * Tujuan yang sudah dipakai habis pindah ke "Selesai". Tujuan bisa dihapus
+ * kapan saja; konfirmasinya menyebut saldo yang keluar dari Total aset dan
+ * transaksi yang kehilangan tujuannya (SPEC-perbaikan-temuan C5).
  */
 export default function TujuanView({ userId, daftar }: { userId: string; daftar: Tujuan[] }) {
   const router = useRouter();
@@ -78,16 +80,19 @@ export default function TujuanView({ userId, daftar }: { userId: string; daftar:
     if (!edit) return;
     bersihkan();
     // Saldo awal = yang sudah terkumpul sebelum memakai aplikasi, berlaku sejak tujuan dibuat.
-    const cek = validasiTujuan({ ...edit.isian, saldo_per: edit.asal?.saldo_per ?? hariIni });
+    // Tenggat paling cepat hari ini; tenggat lama yang sudah lewat boleh tetap (C7).
+    const cek = validasiTujuan({ ...edit.isian, saldo_per: edit.asal?.saldo_per ?? hariIni, hari_ini: hariIni, tenggat_lama: edit.asal?.tenggat ?? null });
     if (!cek.ok) return gagal(cek.error, cek.kolom);
 
     setLoading(true);
-    const tabel = createSupabaseBrowserClient().from("user_accounts");
+    const db = createSupabaseBrowserClient();
+    const tabel = db.from("user_accounts");
     const { error: err } = edit.asal
       ? await tabel.update(cek.data).eq("id", edit.asal.id)
       : await tabel.insert({ ...cek.data, user_id: userId, kind: "tujuan", saldo_sejak: saldoSejakDari(cek.data.saldo_per) });
+    const pesan = err ? await pesanGagalKantong(db, err, cek.data.name, edit.asal?.id ?? null, dbErrorMessage(err, `Tujuan "${cek.data.name}"`)) : null;
     setLoading(false);
-    if (err) return gagal(dbErrorMessage(err, `Tujuan "${cek.data.name}"`));
+    if (err) return gagal(pesan!, err.code === "23505" ? "name" : undefined);
     setEdit(null);
     router.refresh();
   }
@@ -266,16 +271,11 @@ export default function TujuanView({ userId, daftar }: { userId: string; daftar:
 
             {galat && !galat.kolom && <Pesan jenis="bahaya">{galat.pesan}</Pesan>}
 
-            {edit.asal &&
-              (edit.asal.adaRiwayat ? (
-                <p className={s.redup} style={{ margin: "0 20px" }}>
-                  Tujuan yang sudah punya riwayat tidak bisa dihapus, supaya pemakaiannya tetap di luar jatah bulan itu. Setelah dipakai habis, tujuan pindah ke Selesai.
-                </p>
-              ) : (
-                <button type="button" className={`${s.flat} ${s.flatBahaya}`} onClick={() => setYakinHapus(true)}>
-                  Hapus tujuan
-                </button>
-              ))}
+            {edit.asal && (
+              <button type="button" className={`${s.flat} ${s.flatBahaya}`} onClick={() => setYakinHapus(true)}>
+                Hapus tujuan
+              </button>
+            )}
 
             <button type="submit" hidden />
           </form>
@@ -288,7 +288,9 @@ export default function TujuanView({ userId, daftar }: { userId: string; daftar:
               error={galat?.pesan}
               onBatal={() => setYakinHapus(false)}
               onYa={() => void hapus()}
-            />
+            >
+              {dampakHapusTujuan(edit.asal.saldo, edit.asal.transaksi).join(" ") || null}
+            </Konfirmasi>
           )}
         </Lembar>
       )}

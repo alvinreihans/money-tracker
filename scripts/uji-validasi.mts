@@ -5,7 +5,7 @@
  */
 import assert from "node:assert/strict";
 import { alamatDetail, alamatInternal, angkaMentah, angkaRibuan, isianNominal, tujuanKembali } from "../src/lib/format.ts";
-import { barisIkutan, bersihkanCari, rapikanBudget, validasiKantong, validasiTransaksi, validasiTujuan } from "../src/lib/transaksi-input.ts";
+import { barisIkutan, bersihkanCari, cekJatuhTempo, rapikanBudget, validasiKantong, validasiTransaksi, validasiTujuan } from "../src/lib/transaksi-input.ts";
 
 const sah = {
   amount: "25000",
@@ -199,6 +199,18 @@ for (const [salah, kolom] of [
   const h = validasiTujuan(salah);
   assert.ok(!h.ok && h.kolom === kolom, JSON.stringify(salah));
 }
+// C7: tenggat baru paling cepat hari ini; tujuan lama yang tenggatnya lewat tetap boleh diubah.
+const hariIni = { hari_ini: "2026-11-05" };
+assert.deepEqual(validasiTujuan({ ...tujuan, ...hariIni, tenggat: "2026-11-04" }), { ok: false, error: "Tenggatnya paling cepat hari ini.", kolom: "tenggat" });
+assert.equal(validasiTujuan({ ...tujuan, ...hariIni, tenggat: "2026-11-05" }).ok, true);
+assert.equal(validasiTujuan({ ...tujuan, ...hariIni, tenggat: "2026-10-01", tenggat_lama: "2026-10-01" }).ok, true);
+assert.equal(validasiTujuan({ ...tujuan, ...hariIni, tenggat: "2026-10-02", tenggat_lama: "2026-10-01" }).ok, false);
+
+// C8: jatuh tempo pinjaman tidak sebelum tanggal pinjam.
+assert.equal(cekJatuhTempo("2026-11-05", "2026-11-04"), "Jatuh tempo tidak boleh sebelum tanggal pinjam.");
+assert.equal(cekJatuhTempo("2026-11-05", "2026-11-05"), null);
+assert.equal(cekJatuhTempo("2026-11-05", ""), null);
+assert.equal(cekJatuhTempo("2026-11-05", null), null);
 
 // Halaman asal dari URL: hanya alamat di dalam aplikasi (cegah open redirect).
 assert.equal(tujuanKembali("/"), "/");
@@ -228,4 +240,4 @@ assert.equal(angkaMentah("-", true), "-");
 assert.equal(isianNominal("28000.00"), "28000");
 assert.equal(isianNominal(null), "");
 
-console.log(`✓ validasi transaksi: 1 sah + ${tolak.length} tolak; teks cari aman; budget; kantong; tujuan tabungan; alamat kembali aman; format nominal`);
+console.log(`✓ validasi transaksi: 1 sah + ${tolak.length} tolak; teks cari aman; budget; kantong; tujuan tabungan (tenggat ≥ hari ini); jatuh tempo pinjaman; alamat kembali aman; format nominal`);

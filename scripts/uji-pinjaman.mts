@@ -4,6 +4,7 @@
  * Pemakaian: npm run uji:pinjaman
  */
 import assert from "node:assert/strict";
+import { fmtIDR } from "../src/lib/format.ts";
 import { hitungSaldo, type Kantong } from "../src/lib/kantong.ts";
 import {
   arahPindah,
@@ -15,6 +16,11 @@ import {
   rencanaPaylater,
   jatuhTempoKe,
   kantongUang,
+  kantongSumber,
+  kelebihanBayar,
+  jatuhTempoKartu,
+  bacaJatuhTempoHari,
+  dampakHapusPihak,
   pilihCicilan,
   ringkasanPinjaman,
   SALDO_PER_PINJAMAN,
@@ -82,6 +88,52 @@ assert.equal(r.totalLend, 300_000);
 assert.equal(r.totalBorrow, 1_500_000);
 // Total aset hanya kantong uang.
 assert.deepEqual(denganSaldo.filter(kantongUang).map((x) => x.id), ["bca"]);
+assert.deepEqual(r.lebihBayar, []);
+
+// --- C1: kelebihan bayar kartu kredit ---
+// Tagihan 500 rb dibayar 600 rb → lebih 100 rb; tampil di Utang, tidak menambah total.
+assert.equal(kelebihanBayar(-500_000, 600_000), 100_000);
+assert.equal(kelebihanBayar(-500_000, 500_000), 0);
+assert.equal(kelebihanBayar(-500_000, 200_000), 0);
+assert.equal(kelebihanBayar(0, 50_000), 50_000); // tanpa tagihan: seluruhnya
+assert.equal(kelebihanBayar(20_000, 50_000), 50_000);
+const lebih = ringkasanPinjaman([...denganSaldo.filter((x) => x.id !== "cc"), { ...k("cc", "kredit"), saldo: 100_000 }]);
+assert.deepEqual(lebih.lebihBayar.map((x) => [x.kantong.id, x.jumlah]), [["cc", 100_000]]);
+assert.ok(!lebih.borrow.some((x) => x.kantong.id === "cc"));
+assert.equal(lebih.totalBorrow, 1_000_000);
+// Bayar 600 rb + catat selisih 100 rb sebagai biaya dari kartu → tagihan 0.
+const [selisih] = hitungSaldo([k("cc", "kredit", -500_000, "2026-10-01")], [tx(600_000, "transfer", "bca", "cc"), tx(100_000, "expense", "cc", null)]);
+assert.equal(selisih.saldo, 0);
+
+// --- C6: sumber uang tanpa tujuan tabungan; Total aset tetap menghitungnya ---
+const jenis = ["bank", "ewallet", "cash", "tujuan", "orang", "kredit"].map((kind) => ({ kind }));
+assert.deepEqual(jenis.filter(kantongSumber).map((x) => x.kind), ["bank", "ewallet", "cash"]);
+assert.deepEqual(jenis.filter(kantongUang).map((x) => x.kind), ["bank", "ewallet", "cash", "tujuan"]);
+
+// --- C10: jatuh tempo kartu tiap bulan ---
+assert.equal(jatuhTempoKartu(25, "2026-11-05"), "2026-11-25");
+assert.equal(jatuhTempoKartu(5, "2026-11-05"), "2026-11-05"); // hari ini
+assert.equal(jatuhTempoKartu(3, "2026-11-05"), "2026-12-03"); // sudah lewat → bulan depan
+assert.equal(jatuhTempoKartu(31, "2026-11-05"), "2026-11-30"); // akhir bulan mundur
+assert.equal(jatuhTempoKartu(31, "2027-02-27"), "2027-02-28");
+assert.equal(jatuhTempoKartu(10, "2026-12-20"), "2027-01-10"); // ganti tahun
+assert.equal(jatuhTempoKartu(30, "2027-01-31"), "2027-02-28"); // 30 Jan lewat → 28 Feb
+assert.deepEqual(bacaJatuhTempoHari(""), { ok: true, nilai: null });
+assert.deepEqual(bacaJatuhTempoHari(" 25 "), { ok: true, nilai: 25 });
+for (const salah of ["0", "32", "1,5", "abc", "-1"]) assert.equal(bacaJatuhTempoHari(salah).ok, false, salah);
+
+// --- C2: akibat menghapus orang/kartu ---
+assert.deepEqual(dampakHapusPihak({ name: "Budi", kind: "orang", saldo: 300_000 }, 3), [
+  "3 transaksi dengan Budi tetap tercatat, tanpa kantong Budi.",
+  `Piutang ${fmtIDR(300_000)} ikut hilang dari Utang & Piutang.`,
+]);
+assert.deepEqual(dampakHapusPihak({ name: "Ibu", kind: "orang", saldo: -1_000_000 }, 1)[1], `Utang ${fmtIDR(1_000_000)} ikut hilang dari Utang & Piutang.`);
+assert.deepEqual(dampakHapusPihak({ name: "CC", kind: "kredit", saldo: -500_000 }, 0, 2), [
+  `Tagihan ${fmtIDR(500_000)} ikut hilang dari Utang & Piutang.`,
+  "2 rencana cicilan kehilangan kantong pembayar bawaannya.",
+]);
+assert.deepEqual(dampakHapusPihak({ name: "CC", kind: "kredit", saldo: 100_000 }, 0), [`Kelebihan bayar ${fmtIDR(100_000)} ikut hilang dari Utang & Piutang.`]);
+assert.deepEqual(dampakHapusPihak({ name: "Andi", kind: "orang", saldo: 0 }, 0), []);
 
 // --- Ringkasan kartu Beranda ---
 const rb = ringkasBeranda(
@@ -183,4 +235,4 @@ assert.deepEqual(bacaBunga("2.95"), { ok: true, nilai: 2.95 });
 assert.deepEqual(bacaBunga("10"), { ok: true, nilai: 10 });
 for (const salah of ["11", "1,755", "-1", "abc", "1,"]) assert.equal(bacaBunga(salah).ok, false, salah);
 
-console.log("✓ pinjaman: jatuh tempo, jadwal & status cicilan, arah pindah, ringkasan Lend & Borrow, kartu Beranda, paylater → cicilan, bayar beberapa sekaligus, strategi pelunasan Snowball/Avalanche, isian bunga, pihak kartu kredit");
+console.log("✓ pinjaman: jatuh tempo, jadwal & status cicilan, arah pindah, ringkasan Lend & Borrow, kartu Beranda, paylater → cicilan, bayar beberapa sekaligus, strategi pelunasan Snowball/Avalanche, isian bunga, pihak kartu kredit, kelebihan bayar kartu, sumber uang tanpa tujuan, jatuh tempo kartu tiap bulan, akibat hapus orang/kartu");
