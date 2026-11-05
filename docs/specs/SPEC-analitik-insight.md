@@ -30,7 +30,7 @@ Analitik
 1. **Ringkasan bulan** (`RingkasanBulan`): Keluar, Masuk, dan Selisih ("Masih surplus" / "Lebih besar pasak"), plus perbandingan keluar dengan bulan sebelumnya ("↓ turun 12% dari September", tidak ditulis bila 0% atau bulan lalu kosong). Arah perubahan ditulis dengan teks, bukan hanya warna.
    - **Dari tujuan tabungan** (baris di bawah Keluar, hanya bila ada): pembelian dari kantong tujuan tabungan, di luar Keluar ([SPEC-analitik-tujuan](SPEC-analitik-tujuan.md)).
 2. **Sorotan**: maksimal 4 baris, hanya yang ada datanya.
-   - **Proyeksi** (hanya bulan berjalan, **mulai hari ke-3**, dan bila sudah ada pengeluaran): "Kalau begini terus, bulan ini keluar ± Rp 2,4 jt". Dihitung dari rata-rata per hari sejauh ini dikali jumlah hari di bulan itu. Kalau ada budget per kategori, dibandingkan dengan jumlah semua target: "Lewat Rp X dari total budget Rp Y" / "Masih di bawah total budget Rp Y"; tanpa budget: "Dari rata-rata pengeluaran per hari sejauh ini."
+   - **Proyeksi** (hanya bulan berjalan, **mulai hari ke-3**, dan bila sudah ada pengeluaran): "Kalau begini terus, bulan ini keluar ± Rp 2,4 jt". Dihitung dari rata-rata per hari sejauh ini dikali jumlah hari di bulan itu. Pembandingnya (`pembandingProyeksi`): metode budgeting aktif → **jatah pengeluaran metode** = penghasilan − jatah tabungan/setoran (wadah tabungan; Kakeibo & Zero-Based: target tabungan), "Lewat Rp X dari jatah pengeluaran 50/30/20 Rp Y" / "Masih di bawah jatah pengeluaran 50/30/20 Rp Y"; tanpa metode, ada budget per kategori → jumlah semua target, "… total budget Rp Y"; tanpa keduanya (atau penghasilan metode belum ada): "Dari rata-rata pengeluaran per hari sejauh ini."
    - **Hari paling boros**: "Paling boros: Selasa, 15 Sep" · "Rp 245.000". Seri → tanggal yang lebih akhir.
    - **Paling sering**: "Paling sering: Warteg Selera Bahari" · "12× · Rp 180.000". Dipilih dari 5 merchant teratas (menurut total), yang paling banyak transaksinya; tidak tampil bila hanya 1×.
    - **Kategori yang paling naik** (kenaikan rupiah terbesar, hanya yang naik): "Makan naik Rp 120 rb (+32%)" · "dari September"; kategori yang bulan lalu kosong: tanpa persen, "September belum ada".
@@ -51,15 +51,16 @@ Pembelian dari tujuan tabungan dikecualikan dari semua angka di atas kecuali bar
 
 ### Telusuri ke Riwayat
 
-Mengetuk sebuah baris membuka Riwayat yang sudah tersaring (memakai filter fase 2, `alamatRiwayat`). `<awal>`/`<akhir>` = tanggal pertama/terakhir bulan terpilih.
+Mengetuk sebuah baris membuka Riwayat yang sudah tersaring (`alamatTelusur` di `src/lib/analitik.ts`, di atas `alamatRiwayat`). `<awal>`/`<akhir>` = tanggal pertama/terakhir bulan terpilih. Supaya angka di Riwayat sama dengan Analitik, tautan pengeluaran membawa **`tujuan=tanpa`** (Riwayat menyembunyikan pengeluaran yang dibayar dari tujuan tabungan, chip "Tanpa dari tujuan tabungan" yang bisa dilepas; SPEC-analitik-tujuan), hanya bila user punya tujuan tabungan. Tautan Masuk dan "Dari tujuan tabungan" tidak membawanya. Merchant memakai filter **`merchant=`** (nama persis, tanpa beda huruf/spasi), bukan cari `q=`.
 
 | Baris | Membuka |
 |---|---|
-| Ringkasan Keluar / Masuk | `/riwayat?jenis=keluar\|masuk&dari=<awal>&sampai=<akhir>` |
+| Ringkasan Keluar / Masuk | `/riwayat?jenis=keluar&dari=<awal>&sampai=<akhir>&tujuan=tanpa` / `/riwayat?jenis=masuk&dari=<awal>&sampai=<akhir>` |
 | Dari tujuan tabungan | `/riwayat?jenis=keluar&dari=<awal>&sampai=<akhir>&kantong=<id tujuan,…>` |
-| Hari paling boros | `/riwayat?jenis=keluar&dari=<tgl>&sampai=<tgl>` |
-| Paling sering, Merchant | `/riwayat?jenis=keluar&dari=<awal>&sampai=<akhir>&q=<nama>` |
-| Kategori, Kategori paling naik | `/riwayat?jenis=keluar&dari=<awal>&sampai=<akhir>&kategori=expense:<slug>` |
+| Hari paling boros | `/riwayat?jenis=keluar&dari=<tgl>&sampai=<tgl>&tujuan=tanpa` |
+| Paling sering, Merchant | `/riwayat?jenis=keluar&dari=<awal>&sampai=<akhir>&merchant=<nama>&tujuan=tanpa` |
+| Kategori, Kategori paling naik | `/riwayat?jenis=keluar&dari=<awal>&sampai=<akhir>&kategori=expense:<slug>&tujuan=tanpa` |
+| Wadah metode (SPEC-metode-budget) | `/riwayat?jenis=keluar&dari=<awal>&sampai=<akhir>&kelompok=<…>&tujuan=tanpa` |
 
 Proyeksi dan Selisih tidak bisa diketuk.
 
@@ -71,7 +72,7 @@ Tidak ada perubahan database.
   - satu query baris 6 bulan (awal tren s.d. akhir bulan terpilih, jadi termasuk bulan terpilih dan sebelumnya): `amount, type, category, merchant, transaction_date, kelompok_efektif, kantong_id`, hanya `confirmed` dan `income`/`expense`, diambil per 1.000 baris;
   - `budgets`;
   - pengaturan metode budgeting & daftar tujuan tabungan (`ambilPengaturanMetode`).
-- **Perhitungan.** Fungsi murni `analisisBulan(ini, lalu, { bulan, hariIni })` di `src/lib/analitik.ts` menghasilkan ringkasan, proyeksi, hari boros, kategori, kategori naik, dan merchant. Total budget untuk proyeksi dijumlah di halaman. Pembelian dari tujuan dipisah dulu dengan `pisahTujuan`.
+- **Perhitungan.** Fungsi murni `analisisBulan(ini, lalu, { bulan, hariIni })` di `src/lib/analitik.ts` menghasilkan ringkasan, proyeksi, hari boros, kategori, kategori naik, dan merchant. Pembanding proyeksi dipilih `pembandingProyeksi` (`src/lib/metode.ts`) dari hasil metode dan total budget. Pembelian dari tujuan dipisah dulu dengan `pisahTujuan`.
   - Pindah kantong tidak dihitung, sama seperti di tempat lain.
   - Cashback ikut dihitung sebagai masuk.
 - **RPC `get_avg_monthly_expense_by_category`** tidak dipakai lagi di Analitik. Halaman Budget masih memakainya untuk saran nominal.

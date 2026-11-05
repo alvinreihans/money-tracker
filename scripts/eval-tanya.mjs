@@ -119,6 +119,18 @@ const KASUS = [
     harus: [],
     pola: /laptop/i,
   },
+  // Isi satu tujuan tabungan, bukan jumlah semua tujuan (SPEC-perbaikan-temuan B9):
+  // Dana Darurat 2.500.000 + Liburan 979.999 = 3.479.999 (yang dulu salah disebut).
+  {
+    tanya: "berapa isi dana darurat?",
+    siapkan: async ({ sb, uid }) => {
+      const tujuan = (name, saldo_awal, target) => ({ user_id: uid, name, kind: "tujuan", emoji: "🎯", saldo_awal, saldo_sejak: "2026-01-01T00:00:00+07:00", target });
+      const { data } = await sb.from("user_accounts").insert([tujuan("Dana Darurat", 2500000, 10000000), tujuan("Liburan", 979999, 5000000)]).select("id");
+      return () => sb.from("user_accounts").delete().in("id", data.map((k) => k.id));
+    },
+    harus: [2500000],
+    bukan: /3\.479\.999/,
+  },
 ];
 
 let uid;

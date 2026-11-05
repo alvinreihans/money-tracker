@@ -4,7 +4,7 @@
  * Pemakaian: npm run uji:analitik
  */
 import assert from "node:assert/strict";
-import { analisisBulan, hitungStreak, pisahTujuan, progresBudget, trenBulanan } from "../src/lib/analitik.ts";
+import { alamatTelusur, analisisBulan, hitungStreak, pisahTujuan, progresBudget, trenBulanan } from "../src/lib/analitik.ts";
 
 // 22 Okt 2026, 10.00 WIB.
 const sekarang = new Date("2026-10-22T03:00:00Z");
@@ -54,7 +54,7 @@ const budget = progresBudget(
   [
     { category: "food", amount: 600000, type: "expense" },
     { category: "food", amount: "250000", type: "expense" }, // 85% → waspada
-    { category: "transport", amount: 400000, type: "expense" }, // tepat 80% → aman
+    { category: "transport", amount: 400000, type: "expense" }, // tepat 80% → waspada (≥ 80%, sama dengan kartu metode)
     { category: "bills", amount: 250000, type: "expense" }, // 125% → lewat
     { category: "food", amount: 999999, type: "income" }, // bukan pengeluaran
     { category: "shopping", amount: 70000, type: "expense" }, // tanpa target, tidak tampil
@@ -63,12 +63,23 @@ const budget = progresBudget(
 assert.deepEqual(budget.map((b) => [b.kategori, b.status, b.persen]), [
   ["bills", "lewat", 125],
   ["food", "waspada", 85],
-  ["transport", "aman", 80],
+  ["transport", "waspada", 80],
   ["health", "aman", 0],
 ]);
 assert.equal(budget[0].sisa, -50000);
 assert.equal(budget[1].sisa, 150000);
 assert.deepEqual(progresBudget([], [{ category: "food", amount: 1 }]), []);
+assert.equal(progresBudget([{ category: "food", amount: 1000 }], [{ category: "food", amount: 799 }])[0].status, "aman");
+
+// --- Tautan telusur Analitik → Riwayat: merchant persis & tanpa pembelian dari tujuan tabungan
+assert.equal(
+  alamatTelusur({ jenis: "keluar", dari: "2026-10-01", sampai: "2026-10-31" }, { merchant: "Kopi Kenangan", tanpaTujuan: true }),
+  "/riwayat?jenis=keluar&dari=2026-10-01&sampai=2026-10-31&merchant=Kopi+Kenangan&tujuan=tanpa",
+);
+assert.equal(alamatTelusur({ jenis: "keluar", kategori: ["expense:food"] }, { tanpaTujuan: true }), "/riwayat?jenis=keluar&kategori=expense:food&tujuan=tanpa");
+assert.equal(alamatTelusur({ jenis: "pindah" }), "/riwayat?jenis=pindah");
+assert.equal(alamatTelusur({}, { tanpaTujuan: true }), "/riwayat?tujuan=tanpa");
+assert.ok(!alamatTelusur({ jenis: "keluar" }, { merchant: "Shopee" }).includes("q="), "merchant bukan cari q");
 
 // --- Analitik per bulan (SPEC-analitik-insight) ---
 const r = (amount: number, type: string, category: string, merchant: string | null, transaction_date: string) => ({ amount, type, category, merchant, transaction_date });
@@ -125,4 +136,4 @@ assert.deepEqual(pisah.biasa.map((r) => Number(r.amount)), [25000, 8000000, 3000
 assert.deepEqual(pisah.dariTujuan, [{ id: "hp", nama: "Tabungan HP", total: 10500000 }]);
 assert.deepEqual(pisahTujuan(campur, []).biasa.length, 5);
 
-console.log("✓ analitik: tren bulanan, streak, budget, analisis per bulan (sorotan, kategori, merchant, proyeksi), pisah tujuan tabungan");
+console.log("✓ analitik: tren bulanan, streak, budget, analisis per bulan (sorotan, kategori, merchant, proyeksi), pisah tujuan tabungan, tautan telusur (merchant=, tujuan=tanpa)");

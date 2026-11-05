@@ -3,6 +3,7 @@ import { geserHari } from "@/lib/format";
 import { geserBulan } from "@/lib/kalender";
 import { cocokkanKantong, type Kantong } from "@/lib/kantong";
 import { KELOMPOK } from "@/lib/metode";
+import { kantongUang } from "@/lib/pinjaman";
 import { alamatRiwayat, bacaFilter, type FilterRiwayat } from "@/lib/riwayat";
 
 /**
@@ -51,7 +52,8 @@ export const DEKLARASI_FUNGSI: FunctionDeclaration[] = [
   },
   {
     name: "saldo_kantong",
-    description: "Saldo tiap kantong (bank, e-wallet, tunai, orang, kartu kredit) dan total aset.",
+    description:
+      "Saldo tiap kantong (bank, e-wallet, tunai, orang, kartu kredit), isi tiap tujuan tabungan (mis. dana darurat) beserta targetnya, dan total aset.",
   },
   {
     name: "hitung",
@@ -179,6 +181,41 @@ export function rupiahTakTerverifikasi(jawaban: string, hasilFungsi: unknown[]):
   return rupiahDiJawaban(jawaban)
     .filter((r) => !data.some((d) => Math.abs(d - r.nilai) <= r.toleransi))
     .map((r) => r.nilai);
+}
+
+/**
+ * Tautan jawaban (SPEC-analitik-ai): tautan dari fungsi yang dipanggil, plus
+ * "Buka Analitik [bulan]" bila jawabannya memakai angka dari ringkasan bulan
+ * yang dihitung di depan — seperti saat model memanggil ringkasan_bulan.
+ */
+export function tautanJawaban(
+  dariFungsi: { label: string; href: string }[],
+  { jawaban, ringkasan, bulan }: { jawaban: string; ringkasan: unknown; bulan: string },
+  k: KonteksTanya,
+): { label: string; href: string }[] {
+  const ringkas = tautanDari("ringkasan_bulan", { bulan }, k)!;
+  const pakaiRingkasan = rupiahDiJawaban(jawaban).length > rupiahTakTerverifikasi(jawaban, [ringkasan]).length;
+  return pakaiRingkasan && !dariFungsi.some((t) => t.href === ringkas.href) ? [...dariFungsi, ringkas] : dariFungsi;
+}
+
+/**
+ * Hasil saldo_kantong: kantong biasa, lalu tujuan tabungan per tujuan.
+ * Jumlah semua tujuan diberi nama sendiri (`total_semua_tujuan`), supaya
+ * tidak dibaca sebagai isi satu tujuan (SPEC-perbaikan-temuan B9).
+ */
+export function ringkasSaldo(
+  kantong: { id: string; name: string; kind: string; target?: number | string | null; tenggat?: string | null }[],
+  saldo: Map<string, number>,
+) {
+  const tujuan = kantong.filter((k) => k.kind === "tujuan");
+  return {
+    kantong: kantong.filter((k) => k.kind !== "tujuan").map((k) => ({ nama: k.name, jenis: k.kind, saldo: saldo.get(k.id) ?? 0 })),
+    // Saldo tujuan = yang sudah terkumpul di tujuan itu saja.
+    tujuan_tabungan: tujuan.map((k) => ({ nama_tujuan: k.name, terkumpul: saldo.get(k.id) ?? 0, target: Number(k.target ?? 0), tenggat: k.tenggat ?? null })),
+    ...(tujuan.length ? { total_semua_tujuan: tujuan.reduce((n, k) => n + (saldo.get(k.id) ?? 0), 0) } : {}),
+    // Total aset hanya kantong uang (termasuk tujuan tabungan); orang & kartu kredit di Utang & Piutang.
+    total_aset: kantong.filter(kantongUang).reduce((n, k) => n + (saldo.get(k.id) ?? 0), 0),
+  };
 }
 
 /** Rentang satu bulan "YYYY-MM" → [awal, akhir]. */

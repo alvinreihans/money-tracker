@@ -8,7 +8,7 @@ import { geserBulan } from "@/lib/kalender";
 import { ambilKantong } from "@/lib/kantong";
 import { kategoriJenis, namaKategori, type Kategori } from "@/lib/kategori";
 import { cariSerupa } from "@/lib/ingat";
-import { daftarUtang, kantongUang, ringkasanPinjaman, statusCicilan, urutPelunasan, type Cicilan } from "@/lib/pinjaman";
+import { daftarUtang, ringkasanPinjaman, statusCicilan, urutPelunasan, type Cicilan } from "@/lib/pinjaman";
 import { queryRiwayat, ringkasRiwayat } from "@/lib/riwayat";
 import {
   angkaDiData,
@@ -21,7 +21,9 @@ import {
   rentangBulan,
   rupiahDiJawaban,
   rupiahTakTerverifikasi,
+  ringkasSaldo,
   tautanDari,
+  tautanJawaban,
   type KonteksTanya,
   type NamaFungsi,
 } from "@/lib/tanya";
@@ -292,18 +294,7 @@ export async function jalankanFungsi(
 
   if (nama === "saldo_kantong") {
     const { kantong, saldo } = await ambilKantong(supabase);
-    const daftar = kantong.map((k) => ({
-      nama: k.name,
-      jenis: k.kind,
-      saldo: saldo.get(k.id) ?? 0,
-      // Tujuan tabungan: saldo = yang sudah terkumpul.
-      ...(k.kind === "tujuan" ? { target: Number(k.target), tenggat: k.tenggat ?? null } : {}),
-    }));
-    return {
-      kantong: daftar,
-      // Total aset hanya kantong uang (termasuk tujuan tabungan); orang & kartu kredit di Utang & Piutang.
-      total_aset: kantong.filter(kantongUang).reduce((n, k) => n + (saldo.get(k.id) ?? 0), 0),
-    };
+    return ringkasSaldo(kantong, saldo);
   }
 
   // pinjaman_cicilan
@@ -411,6 +402,7 @@ Aturan:
 - "Kalau X tidak dihitung" / "tanpa X" / "selain X": pakai cari_transaksi dengan "kecuali" (atau "hitung" untuk mengurangkannya), lalu awali jawaban dengan asumsinya, mis. "Tanpa Laku6 (Rp 10.300.000), …".
 - "Di atas / di bawah N": pakai cari_transaksi dengan "minimal"/"maksimal".
 - "Bagaimana kondisi keuanganku": ambil pemasukan & pengeluaran periode itu (ringkasan_bulan atau cari_transaksi), total aset (saldo_kantong), dan utang/piutang (pinjaman_cicilan). Jawab: masuk vs keluar dan selisihnya (pakai "hitung"), total aset, utang kalau ada, lalu SATU kalimat kesimpulan beralasan (mis. "masih surplus Rp X, aman" atau "pengeluaran melebihi pemasukan, perlu hati-hati").
+- Isi satu tujuan tabungan (mis. "berapa isi dana darurat?"): panggil saldo_kantong dan sebut "terkumpul" tujuan itu saja dari "tujuan_tabungan". "total_semua_tujuan" hanya untuk pertanyaan tentang semua tujuan sekaligus.
 - "Utang mana dulu?" / strategi pelunasan: panggil pinjaman_cicilan. Kalau "strategi_pelunasan" terisi, jawab dengan urutan strategi itu dari "urutan_pelunasan" (yang pertama = fokus; "uang_ekstra_per_bulan" ke sana). Kalau null, jelaskan singkat Snowball (sisa terkecil dulu) dan Avalanche (bunga tertinggi dulu) beserta urutan teratas masing-masing. Bunga null = belum diisi pengguna.
 - Pengguna meminta membetulkan kategori transaksi dari suatu merchant ("waitenjoy itu laundry", "tolong ganti kategori X jadi Y"): panggil usul_ubah_kategori. Itu baru USULAN: kategori BELUM berubah sampai pengguna menekan tombol "Ubah" di kartu di bawah jawabanmu. JANGAN pernah bilang sudah diubah/diganti; jelaskan apa yang akan berubah (jumlah transaksi, totalnya, kategori sekarang → tujuan, dan kategori baru yang akan dibuat bila ada), lalu minta pengguna menekan Ubah. Pertanyaan biasa (mis. "berapa pengeluaran laundry?") BUKAN permintaan membetulkan.
 - Pertanyaan lanjutan merujuk ke percakapan sebelumnya (mis. "kalau dibanding pemasukan?").
@@ -489,5 +481,7 @@ Ringkasan bulan ${bulan} (DATA, sama dengan hasil fungsi ringkasan_bulan): ${JSO
     if (ulang) jawaban = ulang;
     asing = rupiahTakTerverifikasi(jawaban, hasilFungsi);
   }
-  return { jawaban: jawaban || "Hmm, aku belum bisa menjawab itu. Coba tanya lebih spesifik ya.", tautan: [...tautan.values()], ragu: asing.length > 0, ...(asing.length ? { nominal_ragu: asing } : {}), ...(usulan ? { usulan } : {}) };
+  // Jawaban dari ringkasan di depan juga mendapat "Buka Analitik [bulan]".
+  const semuaTautan = tautanJawaban([...tautan.values()], { jawaban, ringkasan, bulan }, konteks);
+  return { jawaban: jawaban || "Hmm, aku belum bisa menjawab itu. Coba tanya lebih spesifik ya.", tautan: semuaTautan, ragu: asing.length > 0, ...(asing.length ? { nominal_ragu: asing } : {}), ...(usulan ? { usulan } : {}) };
 }

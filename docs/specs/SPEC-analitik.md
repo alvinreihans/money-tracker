@@ -50,7 +50,7 @@ budgets (user_id uuid, category text, amount numeric(14,2) > 0, updated_at, prim
 -- 20261107000000_normalisasi: + type text = 'expense', FK (user_id, type, category) → categories, on delete cascade
 ```
 - Target berlaku sama setiap bulan. Belum ada target khusus per bulan.
-- Kartu Budget (`KartuBudget`, `progresBudget`): per kategori yang punya target, aktual/target bulan itu, bar progres, dan "Sisa Rp X" / "Lewat Rp X" "dari Rp Y". Bar memakai warna kategori, kuning **di atas 80%** (`waspada`), merah kalau lewat 100% (`lewat`). Urut dari yang paling terpakai. Kosong → baris "Pasang budget bulanan" ke `/profil/budget`.
+- Kartu Budget (`KartuBudget`, `progresBudget`): per kategori yang punya target, aktual/target bulan itu, bar progres, dan "Sisa Rp X" / "Lewat Rp X" "dari Rp Y". Bar memakai warna kategori, kuning **mulai 80%** (`waspada`, ≥ 80%, sama dengan kartu metode), merah kalau lewat 100% (`lewat`). Urut dari yang paling terpakai. Kosong → baris "Pasang budget bulanan" ke `/profil/budget`.
   - Versi lengkap di Analitik; Beranda hanya "Budget hampir habis" (SPEC-navigasi).
 - Diatur di Profil → Budget: nominal per kategori, dikosongkan untuk menghapus target. Saran nominal dari RPC `get_avg_monthly_expense_by_category` (rerata 3 bulan).
 

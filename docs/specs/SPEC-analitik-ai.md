@@ -24,7 +24,7 @@ Pemakai bisa bertanya dengan bahasa sehari-hari tentang keuangannya sendiri, lal
    |---|---|---|
    | `ringkasan_bulan(bulan)` | keluar, masuk, selisih, angka bulan lalu (keluar, masuk, per kategori), kategori, merchant teratas, hari paling boros, kategori paling naik, proyeksi, `pengeluaran_terbesar`, budget, `metode`, `dibayar_dari_tujuan_tabungan` | `analisisBulan`, `pisahTujuan`, `progresBudget`, `hitungMetode` |
    | `cari_transaksi(dari, sampai, jenis?, kategori?, kantong?, kata?, kecuali?, minimal?, maksimal?)` | jumlah transaksi, total keluar & masuk, total per kategori, 10 transaksi terbesar, `dikecualikan` | `queryRiwayat` + `ringkasRiwayat` (fase 2) |
-   | `saldo_kantong()` | saldo tiap kantong (tujuan tabungan + target & tenggat) + total aset (kantong uang saja) | `ambilKantong` |
+   | `saldo_kantong()` | `kantong` (saldo tiap kantong selain tujuan), `tujuan_tabungan` (per tujuan: `nama_tujuan`, `terkumpul`, `target`, `tenggat`), `total_semua_tujuan` (jumlah semua tujuan, terpisah supaya tidak dibaca sebagai isi satu tujuan), `total_aset` (kantong uang saja) | `ambilKantong`, `ringkasSaldo` |
    | `pinjaman_cicilan()` | siapa berutang ke siapa, kartu kredit, cicilan yang berjalan & jatuh tempo berikutnya, bunga, strategi & urutan pelunasan | `ringkasanPinjaman`, `statusCicilan`, `daftarUtang`, `urutPelunasan` |
    | `hitung(ekspresi, keterangan?)` | kalkulator (lihat di bawah) | `hitungEkspresi` |
    | `usul_ubah_kategori(merchant, kategori, kelompok?)` | usulan ubah kategori, tanpa mengubah (SPEC-ingat-kategori) | `cariSerupa` |
@@ -37,7 +37,7 @@ Pemakai bisa bertanya dengan bahasa sehari-hari tentang keuangannya sendiri, lal
 
 3. **Jawaban disertai tautan telusur** (`tautanDari`).
    - Setiap pemanggilan `cari_transaksi` menghasilkan tombol **Lihat di Riwayat**, berisi filter yang sama persis dengan yang dipakai AI (filter fase 2). Bila memakai `kecuali`/`minimal`/`maksimal` (Riwayat belum punya filter itu), labelnya **Lihat semua di Riwayat**.
-   - `ringkasan_bulan` menghasilkan tombol **Buka Analitik [bulan]**.
+   - `ringkasan_bulan` menghasilkan tombol **Buka Analitik [bulan]**. Ringkasan bulan yang dihitung di depan juga: bila jawabannya memakai nominal dari ringkasan itu, tombolnya ikut ditambahkan (`tautanJawaban`), walau model tidak memanggil fungsi.
    - `saldo_kantong` → **Lihat kantong** (`/profil/kantong`); `pinjaman_cicilan` → **Buka Utang & Piutang** (`/pinjaman`).
    - `hitung` dan `usul_ubah_kategori` tanpa tautan. Tautan yang sama hanya muncul sekali.
    - Dengan begitu, pemakai bisa mengecek sendiri angka yang dijawab.
@@ -107,7 +107,7 @@ Tidak ada perubahan database dan tidak ada tabel baru.
   - argumen fungsi dari AI dibersihkan (tanggal, kategori, dan kantong harus sah, sama seperti `bacaFilter`); bulan tidak sah/masa depan;
   - tautan Riwayat & Analitik; kalkulator tanpa tautan, pencarian berpengecualian → "Lihat semua";
   - kalkulator: urutan operasi, kurung, angka besar karangan ditolak.
-- **AI sungguhan (`eval:tanya`)**, diberi jeda karena kuota, akun uji dengan data yang diketahui: total & "kenapa boros", kopi, "tanpa Laku6", di atas/di bawah N, saldo, total aset, piutang, perbandingan & lanjutan, saham (ditolak sopan, tanpa tautan), metode budget, usulan kategori, strategi pelunasan.
+- **AI sungguhan (`eval:tanya`)**, diberi jeda karena kuota, akun uji dengan data yang diketahui: total & "kenapa boros", kopi, "tanpa Laku6", di atas/di bawah N, saldo, total aset, piutang, perbandingan & lanjutan, saham (ditolak sopan, tanpa tautan), metode budget, usulan kategori, strategi pelunasan, isi satu tujuan tabungan ("berapa isi dana darurat?" → saldo tujuan itu saja, bukan jumlah semua tujuan).
 - **E2E (`npm run e2e`, Edge headless):** suite `fase2` (jawaban AI ditiru): tombol di Beranda & Analitik, bulan acuan saran, tautan di 1024px & 360px.
 - `uji:*`, typecheck, `next build`.
 

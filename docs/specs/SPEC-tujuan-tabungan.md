@@ -21,7 +21,7 @@ Lanjutan SPEC-metode-budget.md. Pemicunya pemakaian nyata:
   - kategori pemasukan buatan user: **ya** (biasanya sumber penghasilan: kos-kosan, ojol);
   - **Profil → Kategori:** form kategori pemasukan mendapat sakelar **"Dihitung sebagai penghasilan"**.
 - **`metode_budget.penghasilan`** (rupiah, null = ikut saran).
-- **Saran** (`saranPenghasilan`): rerata penghasilan dari bulan penuh (3 terakhir) yang ada penghasilannya. Tidak ada → penghasilan bulan ini → 0.
+- **Saran** (`saranPenghasilan`), dihitung untuk bulan yang dilihat: rerata penghasilan dari 3 bulan penuh sebelum bulan itu yang ada penghasilannya. Tidak ada → penghasilan bulan itu → 0. Profil → Budget dan Beranda memakai bulan berjalan. Penghasilan yang diatur sendiri satu angka untuk semua bulan.
 - **Profil → Budget:** di kartu pratinjau, "Penghasilan per bulan Rp 8.000.000" dengan keterangan "Rerata N bulan terakhir" / "Penghasilan bulan ini" / "Belum ada penghasilan tercatat" / "Diatur sendiri", dan tombol **Ubah** (isian nominal + "Pakai saran (Rp …)").
 - **Basis metode** (Analitik, Beranda, Tanya AI) = penghasilan per bulan ini. Untuk metode persentase, Tabungan dari sisa: basis − pengeluaran selain tabungan (metode lain: SPEC-metode-lanjutan).
 

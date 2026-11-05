@@ -60,7 +60,8 @@ Pembelian dari kantong tujuan tetap di luar semua wadah (SPEC-analitik-tujuan).
 
 **Analitik:** **KartuBudget** (sama dengan Per kategori), lalu `KartuMetode` "Metode Zero-Based" (tidak bisa diketuk) berisi:
 - wadah **Tabungan**: setoran bersih + pengeluaran kelompok tabungan vs target tabungan, "Tercapai"/"Kurang Rp X"; target kosong → "Target belum diatur";
-- baris **Belum dialokasikan** (selalu tampil): positif kuning dengan "Atur target di Profil → Budget"; nol "Semua rupiah sudah punya tugas ✓"; negatif merah berjudul "Target melebihi penghasilan".
+- baris **Belum dialokasikan** (selalu tampil bila ada penghasilan): positif kuning dengan "Atur target di Profil → Budget"; nol "Semua rupiah sudah punya tugas ✓"; negatif merah berjudul "Target melebihi penghasilan";
+- penghasilan 0: tanpa baris Belum dialokasikan (sama dengan pratinjau Profil); gantinya baris **"Atur penghasilan dulu"** yang membuka Profil → Budget. `belumDialokasikan` tidak diisi.
 
 **Beranda:** KartuBudget "Budget hampir habis" seperti Per kategori, ditambah kartu "Belum disisihkan" seperti Pay Yourself First bila tabungan belum tercapai.
 

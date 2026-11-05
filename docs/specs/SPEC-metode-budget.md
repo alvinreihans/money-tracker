@@ -77,12 +77,13 @@ Empat kelompok, satu untuk tiap pengeluaran (sejak 2.8.0 ditambah Pengembangan d
 - **Hanya satu yang aktif.** Bawaannya **Per kategori** (tanpa baris `metode_budget`), jadi user lama tidak melihat perubahan sampai memilih metode lain.
 - Target per kategori yang sudah diisi tetap tersimpan; hanya disembunyikan selama metode lain aktif.
 - **Basis = penghasilan per bulan** (SPEC-tujuan-tabungan): diatur user di Profil → Budget, atau saran aplikasi.
-  - Saran = rerata 3 bulan penuh terakhir yang ada penghasilannya, hanya kategori pemasukan bertanda "Dihitung sebagai penghasilan".
-  - Belum ada riwayat sebulan penuh → penghasilan bulan ini. Tidak ada sama sekali → 0.
+  - Saran dihitung **untuk bulan yang dilihat** (Analitik, Tanya AI, refleksi Kakeibo): rerata 3 bulan penuh sebelum bulan itu yang ada penghasilannya, hanya kategori pemasukan bertanda "Dihitung sebagai penghasilan".
+  - Belum ada riwayatnya → penghasilan bulan itu sendiri. Tidak ada sama sekali → 0.
+  - Penghasilan yang **diatur sendiri** tetap satu angka untuk semua bulan (tidak ada riwayatnya).
   - Jatahnya tetap sepanjang bulan, kapan pun gajiannya.
 - Hanya pengeluaran berstatus confirmed yang dihitung. Pengeluaran dari kantong tujuan tabungan di luar semua wadah ("Dibayar dari tujuan: …", SPEC-tujuan-tabungan).
 - **Status wadah:** terpakai = realisasi ÷ target × 100.
-  - > 100% **lewat**, ≥ 80% **hampir**, selain itu **aman**.
+  - > 100% **lewat**, ≥ 80% **hampir**, selain itu **aman**. Ambang yang sama dipakai kartu Budget per kategori (SPEC-analitik).
   - Wadah tabungan: **tercapai** (realisasi ≥ target) atau **kurang**.
   - Target 0 dengan pengeluaran dianggap 100%.
 
@@ -104,7 +105,9 @@ Empat kelompok, satu untuk tiap pengeluaran (sejak 2.8.0 ditambah Pengembangan d
 - **Analitik:** kartu **"Metode 50/30/20"** menggantikan kartu Budget per kategori saat metode lain aktif.
   - Subjudul "Dari penghasilan Rp 8 jt per bulan." (atau "Atur penghasilan per bulan untuk membagi jatahnya."). Kaki **Atur metode** membuka Profil → Budget.
   - **Isi tiap baris:** ikon, nama wadah + persen, realisasi di kanan, bilah progres, lalu status dan "jatah Rp X".
-    - Aman/hampir: "Sisa Rp X"; hampir diwarnai peringatan.
+    - Aman: "Sisa Rp X".
+    - Hampir: ikon peringatan + "Hampir habis · sisa Rp X", diwarnai peringatan (tidak hanya warna).
+    - Bilah progres: `aria-valuenow` dibatasi 0–100; persen aslinya (mis. 133%) di `aria-valuetext`.
     - Lewat: ikon peringatan + "Lewat Rp X (N%)".
   - **Tabungan** dibaca terbalik: makin besar makin baik. Status "Tercapai" (ikon centang) atau "Kurang Rp X" (ikon peringatan), dan "target Rp X".
   - **Mengetuk baris** membuka Riwayat pengeluaran bulan itu, tersaring ke kelompok wadahnya.

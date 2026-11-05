@@ -14,9 +14,9 @@ import s from "@/components/ui.module.css";
 import { fmtIDR, fmtIDRRingkas, geserHari, isoLokal, namaBulan } from "@/lib/format";
 import { geserBulan } from "@/lib/kalender";
 import { namaKategori } from "@/lib/kategori";
-import { alamatRiwayat, FILTER_KOSONG, type FilterRiwayat } from "@/lib/riwayat";
-import type { AnalisisBulan, Bulan, ProgresBudget } from "@/lib/analitik";
-import type { HasilMetode } from "@/lib/metode";
+import type { FilterRiwayat } from "@/lib/riwayat";
+import { alamatTelusur, type AnalisisBulan, type Bulan, type ProgresBudget } from "@/lib/analitik";
+import { pembandingProyeksi, type HasilMetode } from "@/lib/metode";
 
 const Besar = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 const fmtHari = (iso: string) =>
@@ -84,7 +84,13 @@ export default function AnalitikView({
   const akhir = geserHari(`${geserBulan(bulan, 1)}-01`, -1);
   const label = `${Besar(namaBulan(awal))} ${bulan.slice(0, 4)}`;
   const bulanLalu = Besar(namaBulan(`${geserBulan(bulan, -1)}-01`));
-  const keRiwayat = (f: Partial<FilterRiwayat>) => alamatRiwayat({ ...FILTER_KOSONG, dari: awal, sampai: akhir, ...f });
+  // Telusur ke Riwayat dengan angka yang sama: pengeluaran dari tujuan tabungan
+  // tidak dihitung Analitik, jadi disembunyikan juga di sana (tujuan=tanpa).
+  const keRiwayat = (f: Partial<FilterRiwayat>, merchant?: string) =>
+    alamatTelusur({ dari: awal, sampai: akhir, ...f }, { merchant, tanpaTujuan: idTujuan.length > 0 && f.jenis !== "masuk" });
+  // Pembelian dari tujuan & setoran ke tujuan: justru yang disembunyikan di atas.
+  const keRiwayatTujuan = (f: Partial<FilterRiwayat>) => alamatTelusur({ dari: awal, sampai: akhir, ...f });
+  const pembanding = pembandingProyeksi(metode, totalBudget);
   const alamatBulan = (b: string) => (b === bulanIni ? "/analitik" : `/analitik?bulan=${b}`);
 
   const sering = [...a.merchant].sort((x, y) => y.kali - x.kali || y.total - x.total)[0];
@@ -96,10 +102,11 @@ export default function AnalitikView({
         warna="#3e91ff"
         judul={`Kalau begini terus, bulan ini keluar ± ${fmtIDRRingkas(a.proyeksi)}`}
         sub={
-          totalBudget > 0
-            ? a.proyeksi > totalBudget
-              ? `Lewat ${fmtIDRRingkas(a.proyeksi - totalBudget)} dari total budget ${fmtIDRRingkas(totalBudget)}`
-              : `Masih di bawah total budget ${fmtIDRRingkas(totalBudget)}`
+          // Metode aktif → jatah pengeluaran metode; tanpa metode → total budget per kategori.
+          pembanding
+            ? a.proyeksi > pembanding.nilai
+              ? `Lewat ${fmtIDRRingkas(a.proyeksi - pembanding.nilai)} dari ${pembanding.nama} ${fmtIDRRingkas(pembanding.nilai)}`
+              : `Masih di bawah ${pembanding.nama} ${fmtIDRRingkas(pembanding.nilai)}`
             : "Dari rata-rata pengeluaran per hari sejauh ini."
         }
       />
@@ -121,7 +128,7 @@ export default function AnalitikView({
         warna="#bf7af0"
         judul={`Paling sering: ${sering.nama}`}
         sub={`${sering.kali}× · ${fmtIDR(sering.total)}`}
-        href={keRiwayat({ jenis: "keluar", q: sering.nama })}
+        href={keRiwayat({ jenis: "keluar" }, sering.nama)}
       />
     ),
     a.kategoriNaik && (
@@ -173,7 +180,7 @@ export default function AnalitikView({
               ? {
                   total: dariTujuan.reduce((n, t) => n + t.total, 0),
                   nama: dariTujuan.map((t) => t.nama).join(", "),
-                  href: keRiwayat({ jenis: "keluar", kantong: dariTujuan.map((t) => t.id) }),
+                  href: keRiwayatTujuan({ jenis: "keluar", kantong: dariTujuan.map((t) => t.id) }),
                 }
               : null
           }
@@ -201,7 +208,7 @@ export default function AnalitikView({
               <h2 className={s.blokJudul}>Merchant teratas</h2>
             </div>
             {a.merchant.map((m) => (
-              <NextLink key={m.nama} href={keRiwayat({ jenis: "keluar", q: m.nama })} className={`${s.baris} ${s.tekan}`}>
+              <NextLink key={m.nama} href={keRiwayat({ jenis: "keluar" }, m.nama)} className={`${s.baris} ${s.tekan}`}>
                 <span className={s.barisTeks}>
                   <span className={s.barisJudul}>{m.nama}</span>
                   <span className={s.redup}>{m.kali}× transaksi</span>
@@ -220,7 +227,7 @@ export default function AnalitikView({
             // Setoran ke tujuan → pindah kantong tujuan; sisa & setoran + emas tidak punya satu daftar.
             href={(w) =>
               w.sumber === "setoran-tujuan"
-                ? keRiwayat({ jenis: "pindah", kantong: idTujuan })
+                ? keRiwayatTujuan({ jenis: "pindah", kantong: idTujuan })
                 : w.sumber === "sisa" || w.sumber === "setoran-total"
                   ? null
                   : keRiwayat({ jenis: "keluar", kelompok: w.kelompok })
