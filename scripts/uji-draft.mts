@@ -6,7 +6,7 @@
 import assert from "node:assert/strict";
 import { processReceiptText, type AiTeks } from "../src/lib/receipt.ts";
 import { isoLokal } from "../src/lib/format.ts";
-import { apakahKoreksi, bacaNominal, bacaTenor, kantongDariJawaban, mauHapus, pertanyaanDraft, tanggalHapusDraft } from "../src/lib/draft.ts";
+import { apakahKoreksi, bacaNominal, bacaTenor, kalimatKartu, kantongDariJawaban, mauHapus, pertanyaanDraft, tanggalHapusDraft } from "../src/lib/draft.ts";
 
 const d = (t: Partial<Parameters<typeof pertanyaanDraft>[0]>) =>
   pertanyaanDraft({ status: "needs_review", amount: 0, type: "expense", category: "other", merchant: null, kantong_id: null, kantong_tujuan_id: null, ...t });
@@ -18,6 +18,11 @@ assert.equal(d({ category: "transport" }), "nominal");
 assert.equal(d({ amount: 20000 }), "kantong");
 assert.equal(d({ amount: "20000.00", kantong_id: "k1" }), "konfirmasi");
 assert.equal(d({ amount: 50000, type: "transfer", kantong_id: "k1" }), "kantong_tujuan");
+// Tagihan kartu kredit yang belum terdaftar (SPEC-tagihan-cicilan §1): kantong asal dulu, lalu kartunya.
+assert.equal(d({ amount: 200000, type: "transfer", merchant: "Kartu kredit Mandiri" }), "kantong");
+assert.equal(d({ amount: 200000, type: "transfer", merchant: "Kartu kredit Mandiri", kantong_id: "k1" }), "kartu");
+assert.equal(d({ amount: 200000, type: "transfer", merchant: "Budi", kantong_id: "k1" }), "kantong_tujuan");
+assert.equal(kalimatKartu("Kartu kredit Mandiri"), "Kartu kredit Mandiri belum terdaftar. Bayar ke kartu yang mana?");
 assert.equal(d({ amount: 50000, type: "transfer", kantong_id: "k1", kantong_tujuan_id: "k2" }), "konfirmasi");
 assert.equal(d({ status: "confirmed" }), null);
 

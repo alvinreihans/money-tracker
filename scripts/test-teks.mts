@@ -19,7 +19,8 @@ for (const teks of process.argv.slice(2)) {
   const e = r.extracted;
   const pinjam = e?.pinjaman ? ` · pinjaman=${e.pinjaman.arah}:${e.pinjaman.pihak}` : "";
   const cicil = e?.cicilan ? ` · cicilan=${e.cicilan}` : "";
+  const lain = `${e?.description ? ` · ket=${e.description}` : ""}${e?.paylater ? ` · paylater=${e.paylater.penyedia}×${e.paylater.tenor ?? "?"}` : ""}`;
   console.log(
-    `${teks}\n  → ${e?.type} ${e?.amount} · ${e?.category} · merchant=${e?.merchant} · dari=${e?.payment_method} · ke=${e?.payment_target}${pinjam}${cicil}  [${r.status}; ${r.notes.at(-1)?.slice(0, 50)}]`,
+    `${teks}\n  → ${e?.type} ${e?.amount} · ${e?.category} · merchant=${e?.merchant} · dari=${e?.payment_method} · ke=${e?.payment_target}${pinjam}${cicil}${lain}  [${r.status}; ${r.notes.at(-1)?.slice(0, 50)}]`,
   );
 }

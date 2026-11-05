@@ -29,6 +29,7 @@ import {
   apakahKoreksi,
   CERITA_ULANG,
   KALIMAT_TANYA,
+  kalimatKartu,
   MAKS_CERITA,
   mauHapus,
   pertanyaanDraft,
@@ -115,6 +116,7 @@ const KURANG: Record<JenisTanya, string> = {
   arah: "Kirim atau terima belum jelas",
   kantong: "Kantong belum jelas",
   kantong_tujuan: "Kantong tujuan belum jelas",
+  kartu: "Kartu kreditnya belum terdaftar",
   waktu: "Jamnya belum jelas",
   tenor: "Berapa kali cicilannya belum jelas",
   duplikat: "Mungkin tercatat dua kali",
@@ -290,7 +292,9 @@ export default function LembarCatat({
             ? `Pakai ${tx.paylater} ya. ${KALIMAT_TANYA.tenor}`
             : jenis === "arah" && bacaBukti(tx.bukti_transfer)
               ? kalimatArah(bacaBukti(tx.bukti_transfer)!)
-              : KALIMAT_TANYA[jenis];
+              : jenis === "kartu" && tx.merchant
+                ? kalimatKartu(tx.merchant)
+                : KALIMAT_TANYA[jenis];
       tambah({ t: "tanya", jenis, teks });
     }
   }
@@ -868,6 +872,20 @@ export default function LembarCatat({
                 ))}
               </div>
             )}
+            {buka && p.jenis === "kartu" && aktif && (
+              <div className={s.pilihanJawab}>
+                {kantong
+                  .filter((k) => k.kind === "kredit")
+                  .map((k) => (
+                    <button key={k.id} type="button" onClick={() => void jawab(k.id, k.name)}>
+                      {k.emoji ? `${k.emoji} ` : ""}
+                      {k.name}
+                    </button>
+                  ))}
+                <button type="button" onClick={() => void jawab("tambah", `+ Tambah ${aktif.tx.merchant}`)}>+ Tambah {aktif.tx.merchant}</button>
+                <button type="button" onClick={() => void hapusDraft(aktif.tx, "Hapus catatan", "Oke, tidak dicatat.")}>Hapus catatan</button>
+              </div>
+            )}
             {buka && p.jenis === "duplikat" && aktif && (
               <div className={s.pilihanJawab}>
                 <button type="button" onClick={() => void jawab("ya", "Ya, catat lagi")}>Ya, catat lagi</button>
@@ -1090,6 +1108,8 @@ export default function LembarCatat({
                       ? "mis. 150.000"
                       : tanyaBuka === "kantong" || tanyaBuka === "kantong_tujuan"
                         ? "Ketik kantongnya"
+                        : tanyaBuka === "kartu"
+                        ? "Ketik nama kartunya"
                         : tanyaBuka === "waktu"
                           ? "mis. jam 10 atau 10.30"
                           : tanyaBuka === "tenor"

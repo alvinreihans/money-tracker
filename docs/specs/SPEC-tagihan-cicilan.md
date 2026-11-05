@@ -20,7 +20,12 @@ Ketiganya direproduksi di produksi (2.9.0, akun demo, 1 Nov 2026).
 ### 1. Tagihan kartu kredit yang belum terdaftar
 
 - `pihak` dari AI yang **tampak seperti kartu kredit** (mengandung "kartu kredit", "credit card", atau kata "cc"; tanpa beda huruf) dan tidak cocok dengan kantong orang/kartu mana pun **tidak** dibuatkan kantong orang.
-- Transaksinya menjadi draft **"Belum selesai"** berjenis pindah kantong tanpa tujuan, sehingga ditanya pertanyaan yang sudah ada: **"Pindah ke kantong mana?"**. Pilihannya sudah mencakup kartu kredit yang ada (semua kantong kecuali asal).
+- Transaksinya menjadi draft **"Belum selesai"** berjenis pindah kantong tanpa tujuan. Setelah kantong asalnya jelas, draft ditanya pertanyaan khusus (jenis `kartu`, bukan "Pindah ke kantong mana?"): **"Kartu kredit Mandiri belum terdaftar. Bayar ke kartu yang mana?"**, dengan pilihan:
+  - **kartu kredit yang sudah ada** (hanya kantong `kredit`) → jadi tujuan pindah kantongnya;
+  - **"+ Tambah Kartu kredit Mandiri"** → kartu kredit baru dengan nama itu dibuat, dengan tagihan awal = nominal pembayaran ini sejak awal tanggal transaksi (00.00 WIB), jadi sesudah pembayaran tagihannya Rp 0; lalu jadi tujuannya. Nama yang sudah dipakai kantong lain ditolak dengan pesan biasa;
+  - **"Hapus catatan"** → draft dibuang ("Oke, tidak dicatat.").
+  Jawaban ketikan dicocokkan ke kartu kredit saja. Di daftar Belum selesai, alasannya "Kartu kreditnya belum terdaftar".
+- Draft ini dikenali dari isinya, tanpa kolom baru: pindah kantong tanpa tujuan yang merchant-nya tampak kartu kredit (`tampakKartuKredit`).
 - Merchant draft = `pihak` apa adanya ("Kartu kredit Mandiri"), supaya user tahu kartu mana yang dimaksud.
 - `pihak` yang **bukan** kartu kredit tetap seperti sekarang: orang baru dibuatkan kantong orang ("minjemin budi 200rb" ke Budi yang belum ada).
 - Kartu yang namanya cocok tetap langsung jadi pindah kantong, tanpa ditanya.
@@ -37,6 +42,8 @@ Ketiganya direproduksi di produksi (2.9.0, akun demo, 1 Nov 2026).
 - Tidak ada pencocokan "mengandung": "spaylater" tetap tidak cocok dengan rencana yang penyedianya "GoPayLater".
 
 ## Keputusan (5 Nov 2026, semua memakai usulan)
+
+Revisi 5 Nov (uji user): "Pindah ke kantong mana?" menawarkan semua kantong, sehingga tagihan kartu bisa tercatat ke SeaBank. Diganti pertanyaan `kartu` di §1 (pilih kartu, tambah kartu, atau hapus).
 
 | # | Pertanyaan | Usulan | Alternatif |
 |---|---|---|---|
@@ -57,7 +64,7 @@ Ketiganya direproduksi di produksi (2.9.0, akun demo, 1 Nov 2026).
 - **Unit** (`npm run uji:pinjaman`):
   - `tampakKartuKredit`: "Kartu kredit Mandiri", "CC BCA", "credit card bni" → ya; "Budi", "Ibu", "Acc kantor", "Bu Cece" → tidak;
   - `pilihCicilan`: "Uji — Shopee PayLater", "uji shopee paylater" cocok dengan rencana Uji/Shopee PayLater; "spaylater" tidak cocok dengan GoPayLater.
-- **E2E** (`npm run e2e -- tagihan-cicilan`): §2 saja, karena deterministik (draft disuntik langsung, tanpa AI, seperti suite `pecah`): draft tidak dihitung di Utang & Piutang (1/3); draft yang selesai setelah cicilan 2 dibayar mendapat nomor 3; draft untuk rencana yang sudah lunas dilepas. §1 dan §3 bergantung pada AI, jadi diuji di unit (`tampakKartuKredit`, `pilihCicilan`).
+- **E2E** (`npm run e2e -- tagihan-cicilan`): §2 saja, karena deterministik (draft disuntik langsung, tanpa AI, seperti suite `pecah`): draft tidak dihitung di Utang & Piutang (1/3); draft yang selesai setelah cicilan 2 dibayar mendapat nomor 3; draft untuk rencana yang sudah lunas dilepas. §1 dan §3 bergantung pada AI, jadi diuji di unit (`tampakKartuKredit`, `pilihCicilan`, `pertanyaanDraft` → `kartu`); jawaban `kartu` (pilih kartu yang ada, "tambah" membuat kartu bertagihan = nominal, kantong bukan kartu ditolak) diuji E2E dengan draft yang disuntik.
 - `npm run uji:draft`, `uji:notifikasi`, `uji:tanya` tetap lulus.
 
 ## Boundaries

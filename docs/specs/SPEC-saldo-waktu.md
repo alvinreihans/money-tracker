@@ -49,7 +49,7 @@ AI mengembalikan dua isian: `time` ("HH:MM" | null) dan `time_hint` ("pagi" | "s
 ## Kapan bertanya
 
 Hanya untuk hasil AI, dan hanya kalau **semua** ini benar:
-1. tanggal transaksi = tanggal `saldo_sejak` kantongnya (atau kantong tujuan), dan
+1. tanggal transaksi = tanggal `saldo_sejak` kantongnya (atau kantong tujuan), dan jam saldonya **bukan 00.00** (saldo sejak 00.00 berarti semua jam hari itu ikut terhitung, mis. kartu kredit yang ditambah dari pertanyaan `kartu` — SPEC-tagihan-cicilan), dan
 2. jamnya tidak pasti: hanya "tadi"/lampau tanpa bagian hari, **atau** bagian hari yang **rentangnya mencakup jam saldo** — pagi 05–11, siang 11–15, sore 15–18, malam 18–24 (mis. "tadi siang" vs saldo 14.00 ditanya; "tadi sore" vs 14.00 jelas sesudah).
 
 Pertanyaan di obrolan: **"Tadi itu jam berapa?"** — dijawab di kolom ketik (`bacaJam`: "jam 10", "10.30", "10:30", "jam 2 siang" = 14.00, "jam 12 malam" = 00.00, "barusan"/"sekarang" = jam ini, "pagi"). Jawaban yang hanya bagian hari dan masih mencakup jam saldo → langsung ditolak dengan **"Kira-kira jam berapa? Mis. “jam 13” atau “13.30”."** (tidak dibaca AI, yang bisa mengarang jam pasti). Tidak terbaca → "Jamnya belum kebaca…", lalu jawabannya dibaca AI seperti cerita. Selama menunggu, catatan berstatus "Belum selesai" (`waktu` kosong) seperti pertanyaan lain (alur penutup sama: Ubah | Selesai).

@@ -264,6 +264,8 @@ ${daftarPrompt(kategori, "income")}
   berapa kali cicilan bila tertera/disebut ("3x", "cicilan 3 bulan"${struk ? `, "SPayLater - 3 Bulan" = 3;
   OCR bisa memecah "Bulan" ke baris berikutnya` : " = 3"}), "bayar bulan depan"/"30 hari"/"- 1 Bulan" = 1;
   per_cicilan & jatuh_tempo bila tertera. Yang tidak ada null. Selain itu paylater null.
+  Belanja paylater tanpa merchant: description = barang yang dibeli, singkat ("beli sepatu 300rb
+  pakai spaylater 3x" -> description "Sepatu") — jadi nama rencana cicilannya.
   Membayar tagihan/cicilan paylater = field cicilan, bukan paylater.${hanya(
     struk,
     `

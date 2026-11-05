@@ -97,7 +97,8 @@ export function perluTanyaJam(
   tx: { transaction_date: string; waktu: string | null; perkiraan?: boolean },
   saldo: SaldoSejak | undefined,
 ): boolean {
-  if (!saldo || tx.transaction_date !== saldo.tanggal) return false;
+  // Saldo sejak 00.00: semua jam hari itu ikut terhitung, jadi jam tidak menentukan apa-apa.
+  if (!saldo || tx.transaction_date !== saldo.tanggal || menit(saldo.jam) === 0) return false;
   if (!tx.waktu) return true;
   if (!tx.perkiraan) return false;
   const bagian = (Object.keys(PERKIRAAN) as BagianHari[]).find((b) => PERKIRAAN[b] === tx.waktu?.slice(0, 5));
