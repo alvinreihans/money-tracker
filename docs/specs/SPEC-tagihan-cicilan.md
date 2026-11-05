@@ -1,6 +1,6 @@
 # Spec: Perbaikan bayar tagihan kartu kredit & nomor cicilan
 
-Status: **diterapkan, belum dirilis** (K1 ditanya, K2 saat draft selesai, K3 ikut; E2E belum dijalankan) · 5 November 2026 · branch `fix/cicilan-kartu` · dari bagian Temuan di CHANGELOG (dua butir "Tinggi" + satu butir "Sedang" yang berdekatan)
+Status: **diterapkan, belum dirilis** (K1 ditanya, K2 saat draft selesai, K3 ikut; uji unit & E2E lulus 5 Nov) · 5 November 2026 · branch `fix/cicilan-kartu` · dari bagian Temuan di CHANGELOG (dua butir "Tinggi" + satu butir "Sedang" yang berdekatan)
 
 Mengubah perilaku yang sebelumnya tertulis di [SPEC-lend-borrow](SPEC-lend-borrow.md) §5 dan §2; kedua bagian itu sudah diperbarui.
 
@@ -67,4 +67,4 @@ Ketiganya direproduksi di produksi (2.9.0, akun demo, 1 Nov 2026).
 
 ## Belum diterapkan
 
-Tidak ada. E2E `tagihan-cicilan` belum dijalankan (butuh `.env.local` dengan service role) dan perlu dijalankan sebelum rilis.
+Tidak ada.
