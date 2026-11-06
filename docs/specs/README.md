@@ -42,7 +42,7 @@ Bagian **Belum diterapkan** di akhir spec berisi rencana yang belum ada di kode.
 | [ai-kantong](SPEC-ai-kantong.md) | AI tahu nama kantong, prompt ringkas, cadangan Gemini | diterapkan, 2.9.0 |
 | [tagihan-cicilan](SPEC-tagihan-cicilan.md) | Perbaikan: tagihan kartu kredit belum terdaftar, nomor cicilan draft | diterapkan, 2.10.0 |
 | [perbaikan-temuan](SPEC-perbaikan-temuan.md) | Perbaikan semua temuan 2.9.0 (Riwayat, Analitik, Utang & Piutang, Catat) | diterapkan, 2.10.0 |
-| [simpanan](SPEC-simpanan.md) | Simpanan (deposito & pocket) di dalam kantong, tujuan "disimpan di" | usulan |
+| [simpanan](SPEC-simpanan.md) | Simpanan (deposito & pocket) di dalam kantong, tujuan "disimpan di" | disetujui |
 
 ## Spec baru
 

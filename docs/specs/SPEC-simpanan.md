@@ -1,6 +1,6 @@
 # Spec: Simpanan (deposito & pocket) dan tujuan yang disimpan di kantong lain
 
-Status: **usulan, menunggu persetujuan** · 6 November 2026 · branch `feat/simpanan` (stacked di atas `fix/temuan-2.9.0`) · rencana rilis 2.11.0
+Status: **disetujui** (implementasi menunggu aba-aba user) · 6 November 2026 · branch `feat/simpanan` (stacked di atas `fix/temuan-2.9.0`) · rencana rilis 2.11.0
 
 Menuntaskan rencana di CHANGELOG: *Opsi "tujuan ini disimpan di BCA", kalau saldo BCA yang lebih kecil dari saldo asli di bank terasa membingungkan.*
 
@@ -65,14 +65,14 @@ Menuntaskan rencana di CHANGELOG: *Opsi "tujuan ini disimpan di BCA", kalau sald
 ### 5. Deposito: cair, jatuh tempo, evaluasi
 
 - **Jatuh tempo** (periode yang `jatuh_tempo` ≤ hari ini dan belum dievaluasi):
-  - push di hari itu (cron notifikasi harian): "Deposito SeaBank jatuh tempo hari ini. Cek bunganya.";
+  - push **hanya di hari itu** (cron notifikasi harian, tanpa H-3): "Deposito SeaBank jatuh tempo hari ini. Cek bunganya.";
   - kartu di Beranda **"Deposito jatuh tempo"**: estimasi bunga kotor, pajak, bersih, dan tombol **Sesuai** / **Isi yang diterima** (nominal bunga bersih). Kartu bertahan sampai dievaluasi.
 - **Saat dievaluasi** dengan bunga bersih diterima B:
-  - **sekali saja** → pemasukan B ke **induk** (kategori Bunga/Investasi, merchant = nama deposito, keterangan "Bunga deposito ke-n · kotor Rp X, pajak Rp Y"), lalu pindah kantong deposito → induk sebesar pokok. Deposito `selesai`, saldo 0, tampil "Sudah cair" sampai dihapus.
+  - **sekali saja** → pemasukan B ke **induk** (kategori Bunga/Investasi, merchant = nama deposito, keterangan "Bunga deposito ke-n · kotor Rp X, pajak Rp Y"), lalu pindah kantong deposito → induk sebesar pokok. Deposito `selesai`, saldo 0, dan **langsung hilang** dari Profil → Kantong, Beranda, dan pilihan kantong. Datanya tidak dihapus: transaksi bunga & pencairannya tetap menyebut namanya, dan riwayat periodenya tetap tersimpan.
   - **diperpanjang tanpa bunga** → pemasukan B ke induk; periode baru dengan pokok yang sama, mulai = jatuh tempo lama.
   - **diperpanjang dengan bunga** → pemasukan B ke **deposito** itu sendiri; periode baru dengan pokok + B.
   - Hasilnya menampilkan selisih: "Bank memberi Rp 7.350, beda −Rp 47 dari perhitungan." Riwayat periode bisa dilihat di detail deposito.
-- **Cairkan sekarang** (sebelum jatuh tempo, atau mengakhiri deposito yang diperpanjang): isian bunga yang diterima (bawaan Rp 0, karena pencairan awal biasanya tanpa bunga) → pemasukan bila > 0, pindah kantong deposito → induk sebesar saldonya, deposito `selesai`.
+- **Cairkan sekarang** (sebelum jatuh tempo, atau mengakhiri deposito yang diperpanjang): isian bunga yang diterima (bawaan Rp 0, karena pencairan awal biasanya tanpa bunga) → pemasukan bila > 0, pindah kantong deposito → induk sebesar saldonya, deposito `selesai` (hilang dari daftar seperti di atas).
 - Bunga deposito **bukan penghasilan** untuk metode budgeting (kategori Bunga/Investasi, sesuai SPEC-tujuan-tabungan).
 
 ### 6. Hapus
@@ -98,11 +98,11 @@ Menuntaskan rencana di CHANGELOG: *Opsi "tujuan ini disimpan di BCA", kalau sald
 - **E2E** (`simpanan` baru): buat deposito "sudah termasuk" → SeaBank tampil gabungan sama; jatuh tempo (periode disuntik bertanggal lampau) → kartu evaluasi → Sesuai / isi lain untuk ketiga perpanjangan; cairkan awal; hapus simpanan bersaldo (kembali ke induk); tujuan disimpan di BCA → gabungan; induk dengan simpanan tidak bisa dihapus.
 - `uji:isolasi` diperluas ke tabel baru; semua suite lama tetap lulus.
 
-## Pertanyaan terbuka (usulan)
+## Keputusan tambahan (6 Nov 2026)
 
-1. Deposito "sekali saja" yang sudah cair: **tetap tampil "Sudah cair" sampai dihapus user** (usulan), atau hilang otomatis?
-2. Push jatuh tempo: **hari itu saja** (usulan), atau juga H-3 seperti cicilan?
+1. Deposito yang sudah cair (sekali saja, atau dicairkan) **hilang otomatis** dari daftar; datanya tetap tersimpan untuk riwayat.
+2. Push jatuh tempo **hanya di hari itu**.
 
 ## Belum diterapkan
 
-Seluruh spec ini (menunggu persetujuan).
+Seluruh spec ini (implementasi menunggu aba-aba user).
