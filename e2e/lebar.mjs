@@ -191,8 +191,8 @@ try {
     await t(300);
     const lapis = document.querySelector('[class*=lapisSeret]').matches(':popover-open');
     window.dispatchEvent(new DragEvent('drop', { dataTransfer: dt, bubbles: true, cancelable: true }));
-    await sampai(() => /1 tercatat/.test(document.body.innerText), 20);
-    const hasil = { lapis, kirim, kabar: /1 tercatat/.test(document.body.innerText), lapisTutup: !document.querySelector('[class*=lapisSeret]').matches(':popover-open') };
+    await sampai(() => /1 struk: 1 dicatat baru/.test(document.body.innerText), 20);
+    const hasil = { lapis, kirim, kabar: /1 struk: 1 dicatat baru/.test(document.body.innerText), lapisTutup: !document.querySelector('[class*=lapisSeret]').matches(':popover-open') };
     const dt2 = new DataTransfer(); dt2.items.add(new File(['halo'], 'catatan.txt', { type: 'text/plain' }));
     window.dispatchEvent(new DragEvent('dragenter', { dataTransfer: dt2, bubbles: true }));
     window.dispatchEvent(new DragEvent('drop', { dataTransfer: dt2, bubbles: true, cancelable: true }));

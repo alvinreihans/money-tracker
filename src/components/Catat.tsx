@@ -10,7 +10,8 @@ import TransactionFields, { nilaiAwal, type NilaiTransaksi } from "@/components/
 import s from "@/components/ui.module.css";
 import type { Kantong } from "@/lib/kantong";
 import { namaKategori, type Kategori } from "@/lib/kategori";
-import { useAntreanStruk } from "@/components/UploadReceiptForm";
+import { MAKS_GAMBAR, useAntreanStruk, type ItemStruk } from "@/components/UploadReceiptForm";
+import RingkasanUnggah, { teksRingkasan } from "@/components/RingkasanUnggah";
 import { alamatDetail, fmtIDR } from "@/lib/format";
 import { validasiTransaksi } from "@/lib/transaksi-input";
 import type { Transaction } from "@/types/transaction";
@@ -29,6 +30,8 @@ import type { Transaction } from "@/types/transaction";
 interface Kabar {
   teks: string;
   aksi?: { label: string; jalankan: () => void };
+  /** Lama tampil (ms); bawaan 6 detik. */
+  lama?: number;
 }
 
 /** Kantong yang dipilih di form: cukup id, nama, dan jenisnya. */
@@ -43,7 +46,7 @@ const CatatContext = createContext<{
   bukaDaftar: () => void;
   /** Buka isian manual, opsional dengan isian awal (mis. Sisihkan/Pakai di tujuan tabungan). */
   bukaManual: (awal?: Partial<NilaiTransaksi>) => void;
-  /** Proses gambar dari "Bagikan" di latar, masing-masing jadi satu transaksi. */
+  /** Proses gambar di latar (galeri banyak, seret-lepas, Bagikan): baru atau melengkapi (SPEC-lengkapi §7). */
   tambahStruk: (berkas: File[]) => void;
   /** PDF rekening koran (Catat, seret-lepas, Bagikan): buka pratinjau impor (SPEC-impor-rekening). */
   tambahRekening: (berkas: File[]) => void;
@@ -106,6 +109,9 @@ export function CatatProvider({
   const [kabar, setKabar] = useState<Kabar | null>(null);
   // PDF rekening koran yang sedang dipratinjau; null = tertutup.
   const [rekening, setRekening] = useState<File[] | null>(null);
+  // Hasil unggah banyak terakhir (SPEC-lengkapi §7); lembarnya terbuka bila `lihatRingkasan`.
+  const [ringkasan, setRingkasan] = useState<ItemStruk[] | null>(null);
+  const [lihatRingkasan, setLihatRingkasan] = useState(false);
   const urut = useRef(0);
 
   const bukaLembar = (p: Omit<PerintahCatat, "id">) => setPerintah({ ...p, id: ++urut.current });
@@ -113,7 +119,7 @@ export function CatatProvider({
   // Snackbar hilang sendiri setelah beberapa detik.
   useEffect(() => {
     if (!kabar) return;
-    const t = setTimeout(() => setKabar(null), 6000);
+    const t = setTimeout(() => setKabar(null), kabar.lama ?? 6000);
     return () => clearTimeout(t);
   }, [kabar]);
 
@@ -126,13 +132,13 @@ export function CatatProvider({
     }
     if (!tadiJalan.current) return;
     tadiJalan.current = false;
-    const ok = antrean.items.filter((i) => i.status === "ok").length;
-    const kurang = antrean.items.filter((i) => i.status === "draft").length;
-    const gagal = antrean.items.filter((i) => i.status === "gagal").length;
-    const bagian = [ok && `${ok} tercatat`, kurang && `${kurang} belum lengkap`, gagal && `${gagal} gagal`].filter(Boolean);
+    // Ringkasan, bukan satu kartu per gambar (SPEC-lengkapi §7).
+    const hasil = antrean.items;
+    setRingkasan(hasil);
     setKabar({
-      teks: bagian.join(" · ") || "Selesai",
-      aksi: kurang ? { label: "Lengkapi", jalankan: () => bukaLembar({ besar: true, layar: "daftar" }) } : undefined,
+      teks: teksRingkasan(hasil),
+      aksi: { label: "Lihat", jalankan: () => setLihatRingkasan(true) },
+      lama: 20000,
     });
     antrean.bersihkan();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -162,7 +168,7 @@ export function CatatProvider({
       const semua = [...(e.dataTransfer?.files ?? [])];
       const gambar = semua.filter((f) => f.type.startsWith("image/"));
       const pdf = semua.filter(adalahPdf);
-      if (gambar.length) antrean.tambah(gambar);
+      if (gambar.length) tambahStruk(gambar);
       if (pdf.length) setRekening(pdf);
       if (!gambar.length && !pdf.length) setKabar({ teks: "Yang bisa dicatat cuma foto struk (gambar) atau PDF rekening koran." });
     };
@@ -186,6 +192,12 @@ export function CatatProvider({
     else if (el.matches(":popover-open")) el.hidePopover();
   }, [seret]);
 
+  /** Gambar ke antrean; yang lewat batas K3 dikabari. */
+  function tambahStruk(berkas: File[]) {
+    const lebih = antrean.tambah(berkas);
+    if (lebih) setKabar({ teks: `Maksimal ${MAKS_GAMBAR} gambar sekaligus — ${lebih} gambar belum diproses. Kirim lagi sesudah ini selesai.` });
+  }
+
   function tersimpan(tx: Transaction) {
     setManual(null);
     setKabar({
@@ -202,7 +214,7 @@ export function CatatProvider({
         bukaDraft: (id) => bukaLembar({ besar: true, layar: "obrolan", draft: id }),
         bukaDaftar: () => bukaLembar({ besar: true, layar: "daftar" }),
         bukaManual: (awal) => setManual(awal ?? {}),
-        tambahStruk: antrean.tambah,
+        tambahStruk,
         tambahRekening: (berkas) => {
           if (berkas.length) setRekening(berkas);
         },
@@ -256,6 +268,18 @@ export function CatatProvider({
             setPerintah(null);
             setManual({});
           }}
+        />
+      )}
+
+      {lihatRingkasan && ringkasan && (
+        <RingkasanUnggah
+          items={ringkasan}
+          onUbah={setRingkasan}
+          onCek={() => {
+            setLihatRingkasan(false);
+            bukaLembar({ besar: true, layar: "daftar" });
+          }}
+          onClose={() => setLihatRingkasan(false)}
         />
       )}
 
