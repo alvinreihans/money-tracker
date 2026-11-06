@@ -1,6 +1,6 @@
 # Spec: Lengkapi transaksi dari screenshot & struk, unggah banyak gambar
 
-Status: **usulan, menunggu persetujuan** · 6 November 2026 · branch `feat/impor-rekening` · pasangan [SPEC-impor-rekening](SPEC-impor-rekening.md)
+Status: **disetujui** (implementasi menunggu aba-aba user) · 6 November 2026 · branch `feat/impor-rekening` · pasangan [SPEC-impor-rekening](SPEC-impor-rekening.md)
 
 ## Masalah
 
@@ -68,7 +68,7 @@ Screenshot/struk yang tidak menemukan pasangan dicatat sebagai transaksi baru (s
 - Hasilnya **ringkasan**, bukan satu kartu per gambar: "38 struk: 34 melengkapi transaksi, 2 dicatat baru, 2 perlu dicek" → ketuk untuk membuka yang perlu dicek (kandidat ganda, tidak terbaca) satu per satu. Pencocokan 1 kandidat **dilengkapi otomatis** saat unggah banyak (**K1**); tetap bisa diurungkan dari ringkasan.
 - Batas per unggahan: **K3**.
 
-## Keputusan yang perlu diambil
+## Keputusan (6 Nov 2026: K1–K4 semua memakai usulan)
 
 | K | Pertanyaan | Usulan | Alternatif |
 |---|---|---|---|
@@ -91,4 +91,4 @@ Screenshot/struk yang tidak menemukan pasangan dicatat sebagai transaksi baru (s
 
 ## Belum diterapkan
 
-Seluruh spec ini (menunggu persetujuan).
+Seluruh spec ini (implementasi menunggu aba-aba user).

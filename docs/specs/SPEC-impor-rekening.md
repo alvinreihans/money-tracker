@@ -1,6 +1,6 @@
 # Spec: Impor rekening koran (SeaBank, Jago, BRI)
 
-Status: **usulan, menunggu persetujuan** · 6 November 2026 · branch `feat/impor-rekening` · pasangan [SPEC-lengkapi](SPEC-lengkapi.md)
+Status: **disetujui** (implementasi menunggu aba-aba user) · 6 November 2026 · branch `feat/impor-rekening` · pasangan [SPEC-lengkapi](SPEC-lengkapi.md)
 
 Rekening koran jadi **sumber kebenaran soal uang** (nominal & kantong yang benar-benar terpotong); screenshot e-wallet dan struk melengkapi detailnya (SPEC-lengkapi). Impor rekening koran pernah ada dan dihapus di 2.0.0 sebagai penyederhanaan tampilan (`89df77f`), bukan karena gagal.
 
@@ -84,7 +84,7 @@ Sesudah impor, saldo kantong menurut aplikasi dibandingkan dengan saldo akhir re
 - Bagian deposito SeaBank (nama, tenor, jatuh tempo, bunga, pokok) dicocokkan ke simpanan deposito di dalam kantong SeaBank; belum ada → ditawarkan **"Buat deposito Promo 3 bulan, 6%, Rp 5 jt?"**.
 - Kantong Jago selain Kantong Utama (Dana Daruratku, Deposito, GoPay Tabungan, …) dipetakan ke **simpanan di dalam Jago** (dibuat bila belum ada) (**K1**).
 
-## Keputusan yang perlu diambil
+## Keputusan (6 Nov 2026: K1–K5 semua memakai usulan)
 
 | K | Pertanyaan | Usulan | Alternatif |
 |---|---|---|---|
@@ -107,4 +107,4 @@ Sesudah impor, saldo kantong menurut aplikasi dibandingkan dengan saldo akhir re
 
 ## Belum diterapkan
 
-Seluruh spec ini (menunggu persetujuan).
+Seluruh spec ini (implementasi menunggu aba-aba user).
