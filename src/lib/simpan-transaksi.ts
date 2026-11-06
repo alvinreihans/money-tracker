@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { isoLokal } from "@/lib/format";
 import { isianArah, kantongBank, tentukanArah, type BuktiTransfer } from "@/lib/arah";
 import { ambilIngatan } from "@/lib/ingat";
-import { cocokkanKantong, type Kantong } from "@/lib/kantong";
+import { cocokkanKantong, kantongDeposito, type Kantong } from "@/lib/kantong";
 import {
   arahPindah,
   EMOJI_ORANG,
@@ -124,9 +124,12 @@ export async function simpanTransaksi(
 
   // Tautkan ke kantong. Form mengirim id-nya langsung (dicek memang milik
   // user); teks dan struk membawa nama ("gopay", "BRImo") yang dicocokkan.
-  const KOLOM = "id, name, kind, aliases, saldo_per, saldo_sejak";
+  const KOLOM = "id, name, kind, aliases, saldo_per, saldo_sejak, macam_simpanan";
   const { data } = await supabase.from("user_accounts").select(KOLOM).eq("user_id", userId);
-  const daftar = (data ?? []) as Pick<Kantong, "id" | "name" | "kind" | "aliases" | "saldo_per" | "saldo_sejak">[];
+  const daftar = (data ?? []) as Pick<Kantong, "id" | "name" | "kind" | "aliases" | "saldo_per" | "saldo_sejak" | "macam_simpanan">[];
+  // Nama yang ditulis/terbaca tidak pernah dicocokkan ke deposito: "pakai
+  // deposito" → ditanya kantongnya (SPEC-simpanan). Id dari form tetap berlaku.
+  const dicocokkan = daftar.filter((k) => !kantongDeposito(k));
 
   // Bukti transfer antar dua pihak dari AI (SPEC-catat-tuntas): arahnya
   // diputuskan di sini — nama user yang sudah dikenal, lalu kantongnya.
@@ -135,7 +138,7 @@ export async function simpanTransaksi(
   let target = payment_target as string | null;
   const bukti = dariAi ? ((bukti_transfer as BuktiTransfer | null) ?? null) : null;
   if (bukti) {
-    const uang = daftar.filter((k) => k.kind !== "orang");
+    const uang = dicocokkan.filter((k) => k.kind !== "orang");
     const arah = tentukanArah(bukti, await namaRekening(supabase), uang);
     if (arah) {
       const isi = isianArah(bukti, arah);
@@ -167,7 +170,7 @@ export async function simpanTransaksi(
         .single();
       pihak = (baru as (typeof daftar)[number] | null) ?? null;
     }
-    const uang = cocokkanKantong(row.payment_method as string | null, daftar.filter(kantongUang));
+    const uang = cocokkanKantong(row.payment_method as string | null, dicocokkan.filter(kantongUang));
     const arah = uang ? arahPindah(p.arah, uang.id, pihak?.id ?? "") : null;
     const semua = [...daftar, ...(pihak ? [pihak] : [])];
     kantong = arah ? (semua.find((k) => k.id === arah.dari) ?? null) : null;
@@ -179,12 +182,12 @@ export async function simpanTransaksi(
     kantong =
       daftar.find((k) => k.id === row.kantong_id) ??
       // Orang (Lend & Borrow) hanya lewat pindah kantong; "kopi 25rb budi" bukan pinjaman.
-      cocokkanKantong(row.payment_method as string | null, row.type === "transfer" ? daftar : daftar.filter((k) => k.kind !== "orang")) ??
+      cocokkanKantong(row.payment_method as string | null, row.type === "transfer" ? dicocokkan : dicocokkan.filter((k) => k.kind !== "orang")) ??
       // "pakai cc mandiri" → kartu "Kartu kredit Mandiri" (SPEC-perbaikan-temuan G4).
       (dariAi ? cocokkanKartu(row.payment_method as string | null, daftar) : null);
     tujuan =
       row.type === "transfer"
-        ? (daftar.find((k) => k.id === row.kantong_tujuan_id) ?? cocokkanKantong(target, daftar))
+        ? (daftar.find((k) => k.id === row.kantong_tujuan_id) ?? cocokkanKantong(target, dicocokkan))
         : null;
   }
   row.kantong_id = kantong?.id ?? null;

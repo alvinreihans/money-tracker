@@ -104,4 +104,24 @@ assert.deepEqual(draft.map((x) => [x.tag, x.url]), [["draft-s1", "/?catat=s1"], 
 assert.match(draft[0].isi, /^Struk 21 Okt — ketuk/);
 assert.match(draft[1].isi, /^Catatan 15 Okt — dihapus otomatis 14 Nov/);
 
-console.log("✓ notifikasi: jatuh tempo cicilan & Lend/Borrow (H-3, H-1, telat), tagihan kartu tiap bulan, pengingat catat, catatan belum selesai H+1/H+7, batas hari WIB");
+// Deposito (SPEC-simpanan): hanya di hari jatuh temponya, tanpa H-3/H-1; yang
+// lewat dan belum dicek tidak diingatkan lagi (kartunya tetap di Beranda).
+const deposito = isiNotifikasi(
+  {
+    cicilan: [], kantong: [], transaksi: [tx({ created_at: SEKARANG.toISOString() })],
+    deposito: [
+      { id: "d1", nama: "Deposito", induk: "SeaBank", jatuh_tempo: "2026-10-22", bunga_bersih: "7397.00" },
+      { id: "d2", nama: "Flash BCA", induk: "BCA", jatuh_tempo: "2026-10-22", bunga_bersih: 1000 },
+      { id: "d3", nama: "Besok", induk: "SeaBank", jatuh_tempo: "2026-10-23", bunga_bersih: 1 },
+      { id: "d4", nama: "H-3", induk: "SeaBank", jatuh_tempo: "2026-10-25", bunga_bersih: 1 },
+      { id: "d5", nama: "Kemarin", induk: "SeaBank", jatuh_tempo: "2026-10-21", bunga_bersih: 1 },
+    ],
+  },
+  SEKARANG,
+);
+assert.deepEqual(deposito.map((x) => `${x.judul} | ${x.isi} | ${x.url} | ${x.tag}`), [
+  `Deposito SeaBank jatuh tempo hari ini | Cek bunganya. Perkiraan bersih ${fmtIDR(7397)}. | / | deposito-d1`,
+  `Flash BCA jatuh tempo hari ini | Cek bunganya. Perkiraan bersih ${fmtIDR(1000)}. | / | deposito-d2`,
+]);
+
+console.log("✓ notifikasi: jatuh tempo cicilan & Lend/Borrow (H-3, H-1, telat), tagihan kartu tiap bulan, pengingat catat, catatan belum selesai H+1/H+7, deposito di hari jatuh tempo, batas hari WIB");

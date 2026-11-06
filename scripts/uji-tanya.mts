@@ -102,6 +102,7 @@ const saldo = ringkasSaldo(
 );
 assert.deepEqual(saldo.kantong.map((x) => x.nama), ["BCA", "Budi"]);
 assert.deepEqual(saldo.tujuan_tabungan[0], { nama_tujuan: "Dana Darurat", terkumpul: 2500000, target: 10000000, tenggat: null });
+assert.equal(saldo.tujuan_tabungan[1].tenggat, "30 Juni 2027", "tenggat untuk dibaca (SPEC-simpanan U2)");
 assert.equal(saldo.total_semua_tujuan, 3479999);
 assert.equal(saldo.total_aset, 4479999, "orang tidak masuk aset; tujuan masuk");
 assert.ok(!("total_semua_tujuan" in ringkasSaldo([{ id: "a", name: "BCA", kind: "bank" }], new Map())));

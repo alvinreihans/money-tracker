@@ -1,5 +1,5 @@
 import { fmtIDR } from "@/lib/format";
-import { normal } from "@/lib/kantong";
+import { kantongDeposito, normal } from "@/lib/kantong";
 
 /**
  * Lend & Borrow dan cicilan (docs/specs/SPEC-lend-borrow.md). Fungsi murni — diuji di
@@ -19,9 +19,9 @@ export const kantongUang = (k: { kind: string }) => k.kind !== "orang" && k.kind
  * Sumber uang di Pinjamkan, Bayar tagihan, Bayar cicilan, dan "Dari kantong"
  * Sisihkan: kantong uang tanpa tujuan tabungan — uang tujuan dipakai lewat
  * "Pakai" / "Dibayar dari tujuan" (SPEC-perbaikan-temuan C6). Total aset
- * tetap memakai `kantongUang`.
+ * tetap memakai `kantongUang`. Deposito juga tidak (SPEC-simpanan).
  */
-export const kantongSumber = (k: { kind: string }) => kantongUang(k) && k.kind !== "tujuan";
+export const kantongSumber = (k: { kind: string; macam_simpanan?: string | null }) => kantongUang(k) && k.kind !== "tujuan" && !kantongDeposito(k);
 
 /**
  * Nama pihak dari AI yang jelas kartu kredit ("Kartu kredit Mandiri", "CC BCA"):

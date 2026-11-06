@@ -22,6 +22,7 @@ Fungsi murni `isiNotifikasi(data, sekarang = new Date())` di `src/lib/notifikasi
 | Angsuran cicilan **telat** (sekali, sehari setelah jatuh tempo) | Cicilan lewat jatuh tempo | Spaylater ke-2 · Rp 150.000 | `/pinjaman` | `cicilan-<id>-<ke>` |
 | Kantong `orang` bersaldo ≠ 0, atau `kredit` bersaldo < 0 (ada tagihan), jatuh tempo **3 hari lagi** / **besok** — kartu: dari `jatuh_tempo_hari` tiap bulan (`jatuhTempoKartu`, akhir bulan mundur ke hari terakhir), selain itu `jatuh_tempo` | Budi bayar besok (saldo > 0) / Bayar ke Budi besok (saldo < 0) / Tagihan BCA Card besok (kredit) | Rp 200.000 (nilai mutlak saldo) | `/pinjaman` | `pinjaman-<id>` |
 | Draft dibuat (WIB) **kemarin** (H+1) atau **7 hari lalu** (H+7) | 1 catatan belum selesai | H+1: "Struk 21 Okt — ketuk untuk melengkapi." · H+7: "Catatan 15 Okt — dihapus otomatis 14 Nov. Ketuk untuk melengkapi." ("Catatan" bila `source = 'text'`, selain itu "Struk") | `/?catat=<id>` (membuka percakapannya) | `draft-<id>` |
+| Periode deposito yang belum dicek jatuh tempo **hari ini** (SPEC-simpanan; tanpa H-3/H-1, tidak diulang besoknya — kartunya bertahan di Beranda) | Deposito SeaBank jatuh tempo hari ini (nama deposito + induknya, kecuali namanya sudah menyebut induk) | Cek bunganya. Perkiraan bersih Rp 7.397. | `/` (Beranda, kartu "Deposito jatuh tempo") | `deposito-<id periode>` |
 | Tidak ada transaksi `confirmed` yang `created_at`-nya hari ini (WIB) | Belum nyatat hari ini | Ada pengeluaran hari ini? Catat sebelum lupa. | `/` (Beranda) | `catat` |
 
 - Jam 19.00 sengaja diingatkan **H-3 dan H-1**, bukan hari H: malam sebelumnya masih sempat bayar.
@@ -40,7 +41,7 @@ Profil ─ "Notifikasi" ─ sakelar "Pengingat harian" ─▶ izin browser + Pus
 
 Vercel cron "0 12 * * *" (12.00 UTC) ─▶ GET /api/cron/notifikasi (Authorization: Bearer CRON_SECRET)
    ├▶ RPC hapus_draft_kedaluwarsa() — draft > 30 hari dihapus dulu
-   ├▶ RPC data_notifikasi() (service role) — baris transaksi tanpa teks, cicilan, kantong, draft, langganan
+   ├▶ RPC data_notifikasi() (service role) — baris transaksi tanpa teks, cicilan, kantong, draft, periode deposito belum dicek (SPEC-simpanan), langganan
    ├▶ isiNotifikasi(data) per user — fungsi murni, pakai jadwalCicilan & hitungSaldo
    └▶ kirimPush (lib/push.ts, web-push) ke tiap langganan; langganan kedaluwarsa (404/410) dihapus
 
@@ -84,7 +85,7 @@ Env di `.env.local` dan Vercel (Production), lihat `.env.example`:
 
 ## Pengujian
 
-- `npm run uji:notifikasi` (`scripts/uji-notifikasi.mts`): `isiNotifikasi` — H-3/H-1/telat cicilan, telat lama tidak diulang, Lend vs Borrow vs kartu kredit, yang lunas & tanpa jatuh tempo tidak diingatkan, kartu kredit lebih bayar tidak diingatkan, tagihan kartu dari jatuh tempo tiap tanggal (H-1/H-3, tanpa tagihan diam, tanggal 31 di bulan 30 hari, ganti tahun), pengingat catat, pergantian bulan, draft H+1/H+7 (H+2 & hari ini diam), batas hari WIB (transaksi 23.30 WIB kemarin bukan "hari ini").
+- `npm run uji:notifikasi` (`scripts/uji-notifikasi.mts`): `isiNotifikasi` — H-3/H-1/telat cicilan, telat lama tidak diulang, Lend vs Borrow vs kartu kredit, yang lunas & tanpa jatuh tempo tidak diingatkan, kartu kredit lebih bayar tidak diingatkan, tagihan kartu dari jatuh tempo tiap tanggal (H-1/H-3, tanpa tagihan diam, tanggal 31 di bulan 30 hari, ganti tahun), pengingat catat, pergantian bulan, draft H+1/H+7 (H+2 & hari ini diam), deposito hanya di hari jatuh temponya (besok, H-3, dan yang sudah lewat diam), batas hari WIB (transaksi 23.30 WIB kemarin bukan "hari ini").
 - `npm run uji:isolasi`: akun lain & pengunjung tidak bisa membaca/mengubah/menghapus/menulis `push_langganan` milik orang lain.
 - Migrasi diuji kering dulu (transaksi yang di-rollback), termasuk: `data_notifikasi()` ditolak untuk `authenticated`/`anon`.
 - Route cron: tanpa/salah secret → 401; dengan secret → kirim ke langganan uji (manual).

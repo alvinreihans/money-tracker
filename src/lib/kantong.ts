@@ -10,7 +10,7 @@ import { ikutSaldo, saldoSejak } from "@/lib/waktu";
  * Jenis di database. "cash" hanya untuk kantong Tunai bawaan; kantong buatan
  * user tidak memilih jenis — cukup emoji sebagai penanda.
  */
-export type JenisKantong = "bank" | "ewallet" | "cash" | "orang" | "kredit" | "tujuan";
+export type JenisKantong = "bank" | "ewallet" | "cash" | "orang" | "kredit" | "tujuan" | "simpanan";
 
 /** Pilihan cepat emoji kantong; emoji lain bisa diketik dari keyboard. */
 export const SARAN_EMOJI_KANTONG = ["🏦", "💳", "📱", "👛", "💰", "🐷", "💼", "🪙", "🏧", "💵"];
@@ -50,7 +50,21 @@ export interface Kantong {
   /** Hanya kantong tujuan tabungan (SPEC-tujuan-tabungan). */
   target?: number | string | null;
   tenggat?: string | null;
+  /**
+   * Simpanan (wajib) & tujuan (opsional): kantong uang tempat ia berada
+   * (SPEC-simpanan). Saldonya tampil digabung ke induk ini.
+   */
+  induk_id?: string | null;
+  /** Hanya simpanan: tabungan/pocket atau deposito (terkunci). */
+  macam_simpanan?: "tabungan" | "deposito" | null;
 }
+
+/**
+ * Deposito (SPEC-simpanan): terkunci, tidak pernah jadi pilihan kantong
+ * (sumber bayar, tempat pemasukan, tujuan pindah kantong) — hanya lewat
+ * aksinya sendiri.
+ */
+export const kantongDeposito = (k: { kind: string; macam_simpanan?: string | null }) => k.kind === "simpanan" && k.macam_simpanan === "deposito";
 
 /**
  * Nama lain yang dipakai bank/dompet di aplikasinya dan yang biasa diketik

@@ -11,7 +11,7 @@ import { fileURLToPath } from "node:url";
 const SUITE = [
   "fase1a", "arah", "fase2", "galat", "perbaikan", "lebar", "tempel", "a11y", "regresi-riwayat", "regresi-kalender",
   "fase3", "pratinjau", "tujuan", "ingat", "kembali", "pecah", "metode", "pelunasan", "tagihan-cicilan",
-  "perbaikan-utang", "perbaikan-analitik", "perbaikan-riwayat",
+  "perbaikan-utang", "perbaikan-analitik", "perbaikan-riwayat", "simpanan",
 ];
 const dir = path.dirname(fileURLToPath(import.meta.url));
 const pilih = process.argv.slice(2);

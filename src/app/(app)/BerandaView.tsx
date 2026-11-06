@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { ChevronRight, ClipboardList, Inbox, PiggyBank } from "lucide-react";
 import BarisStreak from "@/components/BarisStreak";
 import { useCatat } from "@/components/Catat";
+import { KartuDeposito } from "@/components/Deposito";
 import KartuBudget from "@/components/KartuBudget";
 import KartuMetode from "@/components/KartuMetode";
 import KartuKantong from "@/components/KartuKantong";
@@ -20,6 +21,7 @@ import type { RingkasBeranda } from "@/lib/pinjaman";
 import type { ProgresBudget } from "@/lib/analitik";
 import type { HasilMetode } from "@/lib/metode";
 import type { InfoPecahan } from "@/lib/riwayat";
+import type { InfoDeposito } from "@/lib/simpanan";
 import type { Transaction } from "@/types/transaction";
 
 export default function BerandaView({
@@ -27,6 +29,7 @@ export default function BerandaView({
   draft,
   terbaru,
   kantong,
+  deposito,
   pinjaman,
   budget,
   streak,
@@ -40,6 +43,8 @@ export default function BerandaView({
   draft: number;
   terbaru: Transaction[];
   kantong: React.ComponentProps<typeof KartuKantong>["data"];
+  /** Deposito yang masih berjalan; yang jatuh tempo tampil sebagai kartu evaluasi (SPEC-simpanan). */
+  deposito: InfoDeposito[];
   pinjaman: RingkasBeranda;
   budget: ProgresBudget[];
   streak: { hari: number; hariIni: boolean };
@@ -116,6 +121,9 @@ export default function BerandaView({
             <ChevronRight size={20} color="var(--teks-2)" aria-hidden />
           </button>
         )}
+
+        {/* Bertahan sampai bunganya dicek, seperti catatan yang belum selesai. */}
+        <KartuDeposito data={deposito} />
 
         {/* Cuma 5 terakhir — Beranda untuk sekilas, riwayat lengkap di tab Riwayat. */}
         {/* Tepat setelah gajian paling berguna: di atas, bersama catatan yang belum selesai. */}

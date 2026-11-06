@@ -8,7 +8,7 @@ import { jadikanCicilan, namaRekening, tetapkanCicilan } from "@/lib/simpan-tran
 import { isoLokal } from "@/lib/format";
 import { processReceiptText } from "@/lib/receipt";
 import { TEKS_MAKS } from "@/lib/transaksi-input";
-import { pesanGagalKantong, type Kantong } from "@/lib/kantong";
+import { kantongDeposito, pesanGagalKantong, type Kantong } from "@/lib/kantong";
 import { bacaJam, jamTransaksi, perluTanyaJam, saldoSejak } from "@/lib/waktu";
 import type { Transaction } from "@/types/transaction";
 
@@ -43,8 +43,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const tx = data as Transaction | null;
   if (!tx) return NextResponse.json({ error: "Catatan ini sudah selesai atau sudah dihapus." }, { status: 404 });
 
-  const { data: daftarKantong } = await supabase.from("user_accounts").select("id, name, kind, aliases, saldo_per, saldo_sejak");
-  const semua = (daftarKantong ?? []) as Pick<Kantong, "id" | "name" | "kind" | "aliases" | "saldo_per" | "saldo_sejak">[];
+  const { data: daftarKantong } = await supabase.from("user_accounts").select("id, name, kind, aliases, saldo_per, saldo_sejak, macam_simpanan");
+  // Deposito bukan jawaban "kantong mana?" (SPEC-simpanan).
+  const semua = ((daftarKantong ?? []) as Pick<Kantong, "id" | "name" | "kind" | "aliases" | "saldo_per" | "saldo_sejak" | "macam_simpanan">[]).filter((k) => !kantongDeposito(k));
   const saldoDari = (id: string) => {
     const k = semua.find((x) => x.id === id);
     return k ? saldoSejak(k) : undefined;

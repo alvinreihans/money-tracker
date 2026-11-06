@@ -20,7 +20,7 @@ Akibatnya "sisihkan 200rb dari bca ke Liburan" kadang dibalas "Pindah ke kantong
 ## Rancangan
 
 **Konteks AI:**
-- `KonteksAI` (`src/lib/extract.ts`) mendapat isian `kantong`: nama semua kantong user yang bukan orang/kartu kredit (`kind` `bank`, `ewallet`, `cash`, `tujuan`).
+- `KonteksAI` (`src/lib/extract.ts`) mendapat isian `kantong`: nama semua kantong user yang bukan orang/kartu kredit (`kind` `bank`, `ewallet`, `cash`, `tujuan`, dan simpanan tabungan/pocket). **Deposito tidak** dikirim dan tidak pernah dicocokkan dari nama (`simpanTransaksi`, jawaban draft, koreksi): "pakai deposito" → ditanya kantongnya (SPEC-simpanan §8).
 - Orang & kartu kredit sudah ada di `pihak`.
 - Diambil oleh `ambilKonteksAI` (`src/lib/kategori-server.ts`), dalam query `user_accounts` yang sama dengan `pihak` (satu query, bukan dua).
 - `ambilKonteksAI` dipakai semua jalur Catat: teks (`/api/catat-teks`), struk (`/api/upload-receipt`), koreksi (`/api/transaksi/[id]/koreksi`), dan jawaban draft (`/api/draft/[id]/jawab`).

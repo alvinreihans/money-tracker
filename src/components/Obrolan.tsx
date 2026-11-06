@@ -38,6 +38,7 @@ import {
   type JenisTanya,
 } from "@/lib/draft";
 import { alamatDetail, angkaMentah, angkaRibuan, fmtIDR, fmtTanggalPendek } from "@/lib/format";
+import { kantongDeposito } from "@/lib/kantong";
 import { namaKategori } from "@/lib/kategori";
 import { UMUR_DRAFT_HARI } from "@/lib/notifikasi";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -684,9 +685,12 @@ export default function LembarCatat({
     router.refresh();
   }
 
+  // Deposito tidak pernah jadi jawaban "kantong mana?" (SPEC-simpanan).
   const pilihanKantong = (jenis: JenisTanya) =>
-    kantong.filter((k) =>
-      jenis === "kantong_tujuan" ? k.id !== aktif?.tx.kantong_id : aktif?.tx.type === "transfer" || k.kind !== "orang",
+    kantong.filter(
+      (k) =>
+        !kantongDeposito(k) &&
+        (jenis === "kantong_tujuan" ? k.id !== aktif?.tx.kantong_id : aktif?.tx.type === "transfer" || k.kind !== "orang"),
     );
 
   /** `hilang`: kartu di lembar ringkas — bilah sisa waktu sebelum hilang sendiri. */

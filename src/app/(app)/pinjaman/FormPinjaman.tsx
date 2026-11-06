@@ -8,6 +8,7 @@ import s from "@/components/ui.module.css";
 import { dbErrorMessage } from "@/lib/errors";
 import { fmtIDR, isoLokal } from "@/lib/format";
 import { emojiKantong, pesanGagalKantong, type Kantong } from "@/lib/kantong";
+import { labelKantong } from "@/lib/simpanan";
 import { arahPindah, EMOJI_ORANG, kelebihanBayar, KET_SELISIH_KARTU, SALDO_PER_PINJAMAN, type ArahPinjaman } from "@/lib/pinjaman";
 import { cekJatuhTempo } from "@/lib/transaksi-input";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -231,7 +232,7 @@ export default function FormPinjaman({
               kolom="kantong"
               nilai={kantongId}
               kosong="Pilih kantong"
-              pilihan={kantongUang.map((k) => ({ id: k.id, label: k.name, emoji: emojiKantong(k) }))}
+              pilihan={kantongUang.map((k) => ({ id: k.id, label: labelKantong(k, kantongUang), emoji: emojiKantong(k) }))}
               onChange={setKantongId}
             />
             <Field label="Tanggal" ikon={CalendarDays} kolom="tanggal">
