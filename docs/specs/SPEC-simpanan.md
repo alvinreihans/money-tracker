@@ -1,6 +1,6 @@
 # Spec: Simpanan (deposito & pocket) dan tujuan yang disimpan di kantong lain
 
-Status: **disetujui** (implementasi menunggu aba-aba user) · 6 November 2026 · branch `feat/simpanan` (stacked di atas `fix/temuan-2.9.0`) · rencana rilis 2.11.0
+Status: **diterapkan, belum dirilis** · 6 November 2026 · branch `feat/simpanan` (stacked di atas `fix/temuan-2.9.0`) · rencana rilis 2.11.0
 
 Menuntaskan rencana di CHANGELOG: *Opsi "tujuan ini disimpan di BCA", kalau saldo BCA yang lebih kecil dari saldo asli di bank terasa membingungkan.*
 
@@ -105,4 +105,23 @@ Menuntaskan rencana di CHANGELOG: *Opsi "tujuan ini disimpan di BCA", kalau sald
 
 ## Belum diterapkan
 
-Seluruh spec ini (implementasi menunggu aba-aba user).
+- Bunga tabungan/pocket otomatis (keputusan user: belum; dicatat manual sebagai pemasukan).
+
+## Keputusan saat implementasi
+
+Hal yang tidak diatur spec, dipilih yang paling kecil dan sejalan dengannya:
+
+1. **Data.** `induk_id` memakai FK biasa (NO ACTION), bukan RESTRICT: dicek di akhir pernyataan, jadi menghapus akun (cascade ke semua kantong sekaligus) tetap jalan; induk yang masih punya simpanan tetap tidak bisa dihapus. Pemeriksaan induk (kantong `bank`/`ewallet`/`cash` milik user yang sama) lewat trigger `kantong_induk_cek`. `deposito` & `deposito_periode` punya `user_id` untuk RLS; kolom milik & rujukan (`user_id`, `kantong_id`, `deposito_id`, `ke`) tidak bisa diubah sesudah dibuat. Batas: bunga ≤ 25 %/th (2 desimal), tenor ≤ 3.660 hari / 120 bulan.
+2. **Atomik.** Membuat simpanan, menutup periode (evaluasi / cair), dan menghapus simpanan masing-masing satu RPC (`buat_simpanan`, `tutup_periode_deposito`, `hapus_simpanan`, security invoker, lewat view transaksi), jadi tidak ada keadaan setengah jadi. Semua transaksinya bertanggal & berjam sekarang (WIB, dengan detik); saldo simpanan berlaku sejak awal menit itu, supaya pindah kantong awalnya ikut di kedua sisi.
+3. **Rincian induk.** Sampai dua isi disebut namanya ("Rp 500.000 + Deposito Rp 2.000.000 + Pocket Liburan Rp 300.000"); lebih dari dua diringkas "Rp 500.000 + 3 simpanan Rp …". "Isi" = simpanan dan tujuan yang disimpan di sana; deposito selesai tidak.
+4. **"Disisihkan ke tujuan"** di Profil → Kantong tetap menyebut jumlah semua tujuan, tapi nominalnya hanya tujuan yang terpisah (yang disimpan di kantong lain sudah ada di gabungan kantong itu, tidak dihitung dua kali).
+5. **Perpanjangan bulanan** memakai tanggal mulai periode ke-1 sebagai patokan: 31 Jan → 28 Feb → 31 Mar.
+6. **Cair** (sekali saja, Cairkan sekarang) memindah **seluruh saldo** deposito ke induk (sama dengan pokok kalau tidak ada transaksi lain), jadi deposito selalu berakhir Rp 0. Cairkan sekarang pada periode yang sudah jatuh tempo dihitung sebagai evaluasi biasa (`dicairkan_awal` hanya bila sebelum jatuh tempo); keterangan bunganya "Bunga deposito ke-n · dicairkan sebelum jatuh tempo" bila awal. Kategori bunga: Bunga/Investasi, atau Lainnya bila kategori itu sudah dihapus user.
+7. **Pajak %** bawaan mengikuti pokok **tiap periode** (`deposito.pajak_otomatis`, migrasi `20261111000001`): 0 % bila pokok ≤ Rp 7,5 jt, 20 % di atasnya — deposito yang diperpanjang dengan bunga dan pokok barunya melewati Rp 7,5 jt kena 20 % di periode berikutnya (dan kembali 0 % bila pokok turun lagi). Hanya pajak yang diubah user sendiri di form yang tetap (`pajak_otomatis = false`, `pajak_persen` dipakai apa adanya).
+8. **Ubah simpanan:** nama & emoji; deposito juga bunga, tenor & satuannya, pajak, perpanjangan, dan tanggal mulai (selama masih periode ke-1). Perkiraan periode berjalan dihitung ulang, pokoknya tetap. Saldo, induk, dan macam tidak diubah di form (saldo berubah lewat pindah kantong, jatuh tempo, atau Cairkan sekarang).
+9. **Hapus deposito yang masih berjalan** = Cairkan sekarang lalu hapus (§6): isian bunga bersih yang diterima (bawaan Rp 0); bila > 0 dicatat sebagai pemasukan ke induk, saldonya kembali ke induk, lalu deposito dihapus beserta riwayat periodenya — satu RPC (`hapus_simpanan(p_id, p_bunga, p_keterangan)`). Transaksi bunga & pencairannya tetap tercatat di induk.
+10. **Hapus induk.** Aplikasi menolak dengan pesan bila masih ada simpanan berjalan; database juga. Deposito yang sudah selesai (tersembunyi, saldo 0) ikut terhapus bersama induknya, dan tujuan yang disimpan di sana dilepas — keduanya oleh trigger `induk_dihapus` (dilewati saat seluruh akun dihapus).
+11. **Push** berjudul "<nama deposito> <induk> jatuh tempo hari ini" (induk tidak diulang bila namanya sudah menyebutnya), isi "Cek bunganya. Perkiraan bersih Rp X.", diketuk ke Beranda.
+12. **Kartu "Deposito jatuh tempo"** di Beranda tepat di bawah "catatan belum selesai". Hasil evaluasi (selisih + ke mana uangnya: "Rp 2.000.000 kembali ke SeaBank", "diperpanjang sampai …") tetap tampil di kartu sampai halaman ditinggalkan. Evaluasi yang sama juga ada di detail deposito (Profil → Kantong → ketuk deposito), bersama Cairkan sekarang, Ubah, dan Riwayat periode (perkiraan, yang diterima, selisihnya).
+13. **Pilihan kantong:** transaksi lama yang sudah memakai deposito (bunga yang diperpanjang, pencairan) tetap menampilkan deposito itu di form Ubah, supaya kantongnya tidak hilang. Pilihan jawaban "kantong mana?" di Catat memakai nama saja.
+14. **Form:** "Di dalam" hanya bank/e-wallet/tunai; pilihan "Sudah termasuk di saldo …?" berupa "Ya, sudah" / "Belum, uang baru"; emoji bawaan 🐷 pocket, 💰 deposito.

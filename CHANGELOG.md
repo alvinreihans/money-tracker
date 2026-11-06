@@ -15,14 +15,24 @@ bagiannya di sini.
 Belum dikerjakan; dicatat supaya tidak lupa. Urutan fase ada di
 docs/specs/SPEC-catat-tuntas.md (fase 1 & 2 selesai di 2.4.0, fase 3 di 2.5.0, fase 4 di 2.8.0).
 
-- **Opsi "tujuan ini disimpan di BCA"**, kalau saldo BCA yang lebih kecil dari
-  saldo asli di bank (karena sebagian disisihkan ke tujuan) terasa membingungkan.
-
 - **Caching data di server** (lanjutan), kalau setelah diukur di produksi
   halaman masih terasa lambat atau kuota Supabase/Vercel menipis: mis. data
   yang jarang berubah (kategori, kantong) disimpan sementara di server.
 
 ## [Unreleased]
+
+### Ditambah
+- **Simpanan: deposito & pocket di dalam rekening** (SPEC-simpanan). Profil → Kantong → Tambah → **Simpanan**: pilih tempatnya (mis. SeaBank), Tabungan/pocket atau Deposito, dan saldonya. "Sudah termasuk di saldo SeaBank?" (bawaan ya) mencatatnya sebagai pindah dari SeaBank, jadi saldo gabungannya tetap sama dengan aplikasi bank. SeaBank tampil **Rp 2.500.000** dengan rincian "Rp 500.000 + Deposito Rp 2.000.000", dan simpanannya menjorok di bawahnya.
+- **Deposito dengan bunga, pajak, dan jatuh tempo.** Isi bunga per tahun, tenor (14 hari, 1/3/6/12 bulan, atau angka sendiri dalam hari/bulan), tanggal mulai, pajak (bawaan 20%, 0% sampai pokok Rp 7,5 jt), dan apa yang terjadi saat jatuh tempo: sekali saja, diperpanjang tanpa bunga, atau diperpanjang dengan bunga. Pratinjaunya langsung: "Jatuh tempo 6 Des 2026 (30 hari) · bunga ± Rp 7.397 · pajak Rp 0 · bersih Rp 7.397".
+- **Kartu "Deposito jatuh tempo" di Beranda** dan push di hari jatuh temponya. Ketuk **Sesuai**, atau **Isi yang diterima** kalau bank memberi lain; baru setelah itu bunganya dicatat (Bunga/Investasi, bukan penghasilan), pokoknya kembali atau diperpanjang, dan selisihnya ditampilkan: "Bank memberi Rp 7.350, beda −Rp 47 dari perhitungan." Deposito yang sudah cair hilang dari daftar; riwayat periodenya tetap ada di detail deposito.
+- **Cairkan sekarang** untuk deposito yang diambil sebelum jatuh tempo (isian bunga, bawaan Rp 0): saldonya kembali ke rekeningnya.
+- **Tujuan tabungan "Disimpan di"** kantong lain (opsional). Dana darurat yang uangnya tetap di BCA kini ikut saldo gabungan BCA, jadi BCA tampil sama dengan m-banking; halaman Tujuan menulis "di BCA". Mengubahnya tidak memindahkan uang.
+
+### Diubah
+- **Pilihan kantong** (Catat, Ubah transaksi, Pinjamkan, Bayar cicilan) menulis pocket bersama tempatnya: "Pocket Liburan · di SeaBank". Deposito tidak pernah jadi pilihan — tidak sebagai sumber bayar, tempat pemasukan, maupun tujuan pindah kantong; ketikan "pakai deposito" ditanyakan kantongnya.
+- **Total aset di Beranda** menggabungkan simpanan dan tujuan yang disimpan di sebuah kantong ke baris kantong itu, dengan rinciannya. Totalnya tidak berubah.
+- **Menghapus simpanan** mengembalikan saldonya ke kantong tempatnya dulu ("Rp 300.000 kembali ke SeaBank, lalu simpanan ini dihapus."). Kantong yang masih berisi simpanan tidak bisa dihapus; tujuan yang disimpan di sana jadi terpisah.
+- **Tanya AI** tahu isi tiap kantong: simpanan dan tujuan di dalamnya, saldo gabungannya, serta bunga, jatuh tempo, dan perkiraan bunga bersih deposito.
 
 ## [2.10.0] — 2026-11-06
 

@@ -13,6 +13,7 @@ Lanjutan SPEC-metode-budget.md. Pemicunya pemakaian nyata:
 - **Penghasilan bawaan:** Gaji, Bonus/THR, Usaha/Jualan, Freelance/Proyek. Pemberian, Cashback/Refund, Bunga/Investasi, Lainnya = uang masuk biasa.
 - **Tujuan tabungan dibangun sekarang** (bukan sekadar tanda "dibayar dari tabungan").
 - **Tabungan di rekening yang sama** diterima untuk versi ini: kalau uang tujuan sebenarnya masih di BCA (tidak dipindah ke pocket), saldo BCA di aplikasi lebih kecil dari saldo asli di bank, karena sebagian "pindah" ke kantong tujuan. Total aset tetap benar; Profil → Kantong menampilkan baris "Disisihkan ke tujuan".
+  - **Terselesaikan oleh SPEC-simpanan §7:** tujuan bisa **"Disimpan di"** kantong uang lain (opsional). Saldo tujuan itu ikut saldo gabungan kantongnya ("BCA Rp 10 jt · Rp 7 jt + Dana darurat Rp 3 jt"), sama dengan m-banking; halaman Tujuan menulis "di BCA". Mengubahnya tidak memindahkan uang. Baris "Disisihkan ke tujuan" di Profil → Kantong hanya menjumlah tujuan yang terpisah.
 
 ## A. Penghasilan
 
@@ -103,4 +104,3 @@ Pembelian yang sudah tercatat dari BCA (seperti HP tadi):
 ## Belum diterapkan
 
 - Pilihan kantong dikelompokkan dengan judul "Tujuan tabungan".
-- Opsi "tujuan ini disimpan di BCA" (saldo BCA menampilkan gabungannya) — menyusul bila tabungan di rekening yang sama terasa membingungkan.
