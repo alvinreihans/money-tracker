@@ -24,7 +24,8 @@ export default function manifest(): MetadataRoute.Manifest {
         title: "title",
         text: "text",
         url: "url",
-        files: [{ name: "struk", accept: ["image/*"] }],
+        // PDF: rekening koran dari aplikasi bank (SPEC-impor-rekening).
+        files: [{ name: "struk", accept: ["image/*", "application/pdf", ".pdf"] }],
       },
     },
     // Tekan lama ikon aplikasi di Android (SPEC-navigasi).

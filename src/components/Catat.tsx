@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useRef, useState, type FormEvent 
 import { useRouter } from "next/navigation";
 import { ImagePlus, Plus } from "lucide-react";
 import LembarCatat, { type PerintahCatat } from "@/components/Obrolan";
+import ImporRekening from "@/components/ImporRekening";
 import { GalatForm, Lembar, Pesan, Spinner, useGalat } from "@/components/oneui";
 import TransactionFields, { nilaiAwal, type NilaiTransaksi } from "@/components/TransactionFields";
 import s from "@/components/ui.module.css";
@@ -44,6 +45,8 @@ const CatatContext = createContext<{
   bukaManual: (awal?: Partial<NilaiTransaksi>) => void;
   /** Proses gambar dari "Bagikan" di latar, masing-masing jadi satu transaksi. */
   tambahStruk: (berkas: File[]) => void;
+  /** PDF rekening koran (Catat, seret-lepas, Bagikan): buka pratinjau impor (SPEC-impor-rekening). */
+  tambahRekening: (berkas: File[]) => void;
   /** Snackbar singkat (mis. "2 struk diproses di latar"), opsional dengan satu aksi. */
   kabari: (teks: string, aksi?: Kabar["aksi"]) => void;
   kantong: PilihanKantong[];
@@ -101,6 +104,8 @@ export function CatatProvider({
   // Isian manual yang terbuka beserta isian awalnya; null = tertutup.
   const [manual, setManual] = useState<Partial<NilaiTransaksi> | null>(null);
   const [kabar, setKabar] = useState<Kabar | null>(null);
+  // PDF rekening koran yang sedang dipratinjau; null = tertutup.
+  const [rekening, setRekening] = useState<File[] | null>(null);
   const urut = useRef(0);
 
   const bukaLembar = (p: Omit<PerintahCatat, "id">) => setPerintah({ ...p, id: ++urut.current });
@@ -154,9 +159,12 @@ export function CatatProvider({
       e.preventDefault();
       masukKe = 0;
       setSeret(false);
-      const gambar = [...(e.dataTransfer?.files ?? [])].filter((f) => f.type.startsWith("image/"));
+      const semua = [...(e.dataTransfer?.files ?? [])];
+      const gambar = semua.filter((f) => f.type.startsWith("image/"));
+      const pdf = semua.filter(adalahPdf);
       if (gambar.length) antrean.tambah(gambar);
-      else setKabar({ teks: "Yang bisa dicatat cuma foto struk (gambar)." });
+      if (pdf.length) setRekening(pdf);
+      if (!gambar.length && !pdf.length) setKabar({ teks: "Yang bisa dicatat cuma foto struk (gambar) atau PDF rekening koran." });
     };
     window.addEventListener("dragenter", masuk);
     window.addEventListener("dragover", lewat);
@@ -195,6 +203,9 @@ export function CatatProvider({
         bukaDaftar: () => bukaLembar({ besar: true, layar: "daftar" }),
         bukaManual: (awal) => setManual(awal ?? {}),
         tambahStruk: antrean.tambah,
+        tambahRekening: (berkas) => {
+          if (berkas.length) setRekening(berkas);
+        },
         kabari: (teks, aksi) => setKabar({ teks, aksi }),
         kantong,
         kategori,
@@ -231,7 +242,7 @@ export function CatatProvider({
 
       <div ref={lapisSeret} popover="manual" className={s.lapisSeret} aria-hidden>
         <ImagePlus size={40} />
-        Lepas untuk mencatat struk
+        Lepas untuk mencatat struk atau rekening koran
       </div>
 
       {perintah && (
@@ -249,9 +260,23 @@ export function CatatProvider({
       )}
 
       {manual && <ManualDialog awal={manual} onClose={() => setManual(null)} onTersimpan={tersimpan} />}
+
+      {rekening && (
+        <ImporRekening
+          berkas={rekening}
+          onClose={() => setRekening(null)}
+          onSelesai={(teks) => {
+            setRekening(null);
+            setKabar({ teks, aksi: { label: "Riwayat", jalankan: () => router.push("/riwayat") } });
+          }}
+        />
+      )}
     </CatatContext.Provider>
   );
 }
+
+/** PDF menurut jenis atau nama berkasnya (sebagian aplikasi bank tidak mengisi jenisnya). */
+export const adalahPdf = (f: File) => f.type === "application/pdf" || /\.pdf$/i.test(f.name);
 
 async function kirimJson(url: string, body: unknown) {
   try {

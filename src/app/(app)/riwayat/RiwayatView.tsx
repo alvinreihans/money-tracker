@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { CalendarDays, ChevronDown, Inbox, PieChart, PiggyBank, Search, SearchX, Shapes, Store, Wallet, X } from "lucide-react";
+import { CalendarDays, ChevronDown, ClipboardPen, Inbox, PieChart, PiggyBank, Search, SearchX, Shapes, Store, Wallet, X } from "lucide-react";
 import DetailView from "@/app/(app)/transactions/[id]/DetailView";
 import { useCatat, useKategori } from "@/components/Catat";
 import { tandaKategori } from "@/components/kategori";
@@ -52,6 +52,7 @@ export default function RiwayatView({
   ringkasan,
   daftar,
   pecahan,
+  perluDilengkapi = 0,
 }: {
   filter: FilterRiwayat;
   /** Jumlah baris (termasuk bagian pecahan) untuk filter ini: penentu "Muat lagi". */
@@ -62,6 +63,8 @@ export default function RiwayatView({
   daftar: Transaction[];
   /** Info transaksi yang dipecah untuk halaman pertama (infoPecahan). */
   pecahan: InfoPecahan;
+  /** Jumlah transaksi bertanda "Perlu dilengkapi" (semua, tanpa filter lain). */
+  perluDilengkapi?: number;
 }) {
   const router = useRouter();
   const { kantong } = useCatat();
@@ -264,6 +267,11 @@ export default function RiwayatView({
               <button type="button" className={s.chip} aria-pressed={filter.kategori.length > 0} aria-haspopup="dialog" onClick={() => buka("kategori")}>
                 <Shapes size={16} aria-hidden /> {labelKategori} <ChevronDown size={16} aria-hidden />
               </button>
+              {(perluDilengkapi > 0 || filter.lengkapi) && (
+                <button type="button" className={s.chip} aria-pressed={filter.lengkapi} onClick={() => router.push(ke({ lengkapi: !filter.lengkapi }))}>
+                  <ClipboardPen size={16} aria-hidden /> Perlu dilengkapi{perluDilengkapi > 0 ? ` · ${perluDilengkapi}` : ""}
+                </button>
+              )}
               {/* Kelompok budgeting (dari kartu metode di Analitik): ketuk untuk melepas. */}
               {filter.kelompok.length > 0 && (
                 <button type="button" className={s.chip} aria-pressed onClick={() => router.push(ke({ kelompok: [] }))} aria-label={`Lepas filter ${filter.kelompok.map((k) => NAMA_KELOMPOK[k]).join(", ")}`}>

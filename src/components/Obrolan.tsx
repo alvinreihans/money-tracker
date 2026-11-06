@@ -21,7 +21,7 @@ import { tandaTransaksi } from "@/components/kategori";
 import { Spinner } from "@/components/oneui";
 import PecahTransaksi, { bacaUsulan, ringkasUsulan } from "@/components/PecahTransaksi";
 import s from "@/components/ui.module.css";
-import { useCatat } from "@/components/Catat";
+import { adalahPdf, useCatat } from "@/components/Catat";
 import { useTawaranSerupa } from "@/components/TawaranSerupa";
 import { ACCEPT_STRUK } from "@/components/UploadReceiptForm";
 import { bacaBukti, kalimatArah, kantongBank, rapikanNama } from "@/lib/arah";
@@ -151,7 +151,7 @@ export default function LembarCatat({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { kantong, kategori } = useCatat();
+  const { kantong, kategori, tambahRekening, tambahStruk } = useCatat();
   const serupa = useTawaranSerupa();
   // Struk campuran yang sedang dipecah dari kartu hasilnya (SPEC-tawar-pecah).
   const [pecah, setPecah] = useState<Transaction | null>(null);
@@ -1149,10 +1149,21 @@ export default function LembarCatat({
         <input
           ref={galeriRef}
           type="file"
-          accept={ACCEPT_STRUK}
+          accept={`${ACCEPT_STRUK},application/pdf`}
+          multiple
           hidden
           onChange={(e) => {
-            lampirkan(e.target.files?.[0]);
+            // PDF rekening koran → pratinjau impor (SPEC-impor-rekening); gambar
+            // pertama dilampirkan, sisanya diproses di latar seperti "Bagikan".
+            const semua = [...(e.target.files ?? [])];
+            const pdf = semua.filter(adalahPdf);
+            const gambar = semua.filter((f) => !adalahPdf(f));
+            if (pdf.length) {
+              tambahRekening(pdf);
+              if (!gambar.length) onClose();
+            }
+            lampirkan(gambar[0]);
+            if (gambar.length > 1) tambahStruk(gambar.slice(1));
             // Reset supaya memilih file yang sama dua kali tetap memicu onChange.
             e.target.value = "";
           }}

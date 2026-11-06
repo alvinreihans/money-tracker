@@ -95,6 +95,18 @@ if (bacaan.length) {
   console.log(`  bunga: ${r.ringkas.barisBunga} baris bunga/pajak → ${r.ringkas.bunga} transaksi bunga bulanan`);
   console.log(`  perlu dilengkapi: ${r.ringkas.perluDilengkapi}, biaya menempel ke transfer: ${r.ringkas.ikutan}`);
   console.log(`  per jenis: ${Object.entries(r.ringkas.perKategori).map(([k, v]) => `${k} ${v}`).join(", ")}`);
+  // Per bank: pasangan pindah kantong dua sisi (asal→tujuan) dan bunga yang digabung.
+  const bankRef = (ref: string | null) => (ref ? ref.split(":")[0].replace(/^sea$/, "seabank") : "-");
+  const pasangan: Record<string, number> = {};
+  for (const t of r.sisip) if (t.type === "transfer" && t.ref_bank && t.ref_bank_tujuan) pasangan[`${bankRef(t.ref_bank)}→${bankRef(t.ref_bank_tujuan)}`] = (pasangan[`${bankRef(t.ref_bank)}→${bankRef(t.ref_bank_tujuan)}`] ?? 0) + 1;
+  console.log(`  pasangan dua sisi per bank: ${Object.entries(pasangan).map(([k, v]) => `${k} ${v}`).join(", ") || "-"}`);
+  const bunga: Record<string, [number, number]> = {};
+  for (const x of r.rekening) {
+    const b = (bunga[x.bank] ??= [0, 0]);
+    b[0] += x.barisBunga;
+    b[1] += x.bunga;
+  }
+  console.log(`  bunga per bank (baris → transaksi bulanan): ${Object.entries(bunga).map(([k, [a, b]]) => `${k} ${a} → ${b}`).join(", ")}`);
   const dipetakan = r.rekening.filter((x) => x.saldoAplikasi !== null);
   console.log(`  saldo akhir kantong = rekening koran: ${dipetakan.filter((x) => Math.abs(x.saldoAplikasi! - x.saldoBank) < 0.005).length} dari ${dipetakan.length} rekening/kantong`);
 

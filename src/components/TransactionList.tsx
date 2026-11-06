@@ -104,6 +104,7 @@ function Kartu({
           <span className={s.barisJudul}>{judul}</span>
           <span className={s.redup}>{rincian}</span>
           {t.status === "needs_review" && <span className={`${s.lencana} ${s.lencanaBahaya}`}>Belum selesai</span>}
+          {t.status !== "needs_review" && t.perlu_dilengkapi && <span className={s.lencana}>Perlu dilengkapi</span>}
           {sebagian && <span className={s.redup}>Bagian dari {fmtIDR(pecahan!.total)}</span>}
         </span>
         <span className={`${s.nominal} ${kelasNominal(t)}`}>

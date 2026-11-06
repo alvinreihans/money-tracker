@@ -66,6 +66,8 @@ export default function EditTransactionForm({
       raw_ocr_text: null,
       // Bukti transfer yang belum dijawab: arahnya kini dipilih di form.
       bukti_transfer: null,
+      // Dari rekening koran: sudah dilihat & dilengkapi user (SPEC-impor-rekening).
+      perlu_dilengkapi: false,
     };
     const { error: err } = await db.from("transactions").update(baru).eq("id", tx.id);
     if (err) {

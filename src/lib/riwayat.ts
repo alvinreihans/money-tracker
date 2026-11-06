@@ -41,6 +41,8 @@ export interface FilterRiwayat {
   tujuan: "tanpa" | null;
   /** id kantong tujuan tabungan milik user (diisi bacaFilter; tidak ditulis ke URL). */
   idTujuan: string[];
+  /** Hanya yang bertanda "Perlu dilengkapi" (SPEC-impor-rekening, SPEC-lengkapi). */
+  lengkapi: boolean;
 }
 
 export const FILTER_KOSONG: FilterRiwayat = {
@@ -55,6 +57,7 @@ export const FILTER_KOSONG: FilterRiwayat = {
   merchant: "",
   tujuan: null,
   idTujuan: [],
+  lengkapi: false,
 };
 
 /** Merchant dari URL: spasi dirapikan seperti penggabungan merchant Analitik, maks 100 huruf. */
@@ -120,6 +123,7 @@ export function bacaFilter(
     merchant: bersihkanMerchant(satu(p.merchant)),
     tujuan,
     idTujuan: tujuan ? [...new Set(sah.tujuan ?? [])] : [],
+    lengkapi: satu(p.lengkapi) === "1",
   };
 }
 
@@ -149,7 +153,7 @@ export function rentangTanggal(f: Pick<FilterRiwayat, "periode" | "dari" | "samp
 
 /** Filter selain jenis & cari yang sedang aktif (untuk chip Reset). */
 export const adaFilter = (f: FilterRiwayat) =>
-  Boolean(f.periode || f.dari || f.sampai || f.kantong.length || f.kategori.length || f.kelompok.length || f.merchant || f.tujuan);
+  Boolean(f.periode || f.dari || f.sampai || f.kantong.length || f.kategori.length || f.kelompok.length || f.merchant || f.tujuan || f.lengkapi);
 
 /** Filter → alamat Riwayat. Tanpa filter = "/riwayat". */
 export function alamatRiwayat(f: FilterRiwayat): string {
@@ -163,6 +167,7 @@ export function alamatRiwayat(f: FilterRiwayat): string {
   if (f.kelompok.length) p.set("kelompok", f.kelompok.join(","));
   if (f.merchant) p.set("merchant", f.merchant);
   if (f.tujuan) p.set("tujuan", f.tujuan);
+  if (f.lengkapi) p.set("lengkapi", "1");
   if (f.q) p.set("q", f.q);
   const qs = p.toString().replaceAll("%2C", ",").replaceAll("%3A", ":");
   return qs ? `/riwayat?${qs}` : "/riwayat";
@@ -218,6 +223,8 @@ export function queryRiwayat(supabase: SupabaseClient, f: FilterRiwayat, hariIni
   // Pengeluaran dari tujuan tabungan disembunyikan, aturannya sama dengan pisahTujuan (Analitik).
   // id sudah divalidasi bacaFilter (kantong tujuan milik user).
   if (f.tujuan && f.idTujuan.length) query = query.or(`type.neq.expense,kantong_id.is.null,kantong_id.not.in.(${f.idTujuan.join(",")})`);
+
+  if (f.lengkapi) query = query.eq("perlu_dilengkapi", true);
 
   if (f.q) query = query.or(`merchant.ilike.%${f.q}%,description.ilike.%${f.q}%,payment_method.ilike.%${f.q}%`);
 

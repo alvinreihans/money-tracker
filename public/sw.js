@@ -91,13 +91,19 @@ self.addEventListener("fetch", (event) => {
   event.respondWith(
     (async () => {
       const data = await event.request.formData();
-      const berkas = data.getAll("struk").filter((f) => f instanceof File && f.size > 0);
+      const semua = data.getAll("struk").filter((f) => f instanceof File && f.size > 0);
+      // PDF rekening koran perlu pratinjau (SPEC-impor-rekening): diserahkan ke
+      // halaman lewat Cache Storage, tidak diunggah di latar.
+      const pdf = semua.filter((f) => f.type === "application/pdf" || /\.pdf$/i.test(f.name || ""));
+      const berkas = semua.filter((f) => !pdf.includes(f));
+      if (pdf.length) await simpanUntukHalaman(pdf);
       // Unggahan berjalan di latar; aplikasinya boleh langsung ditutup.
       if (berkas.length) event.waitUntil(unggahLatar(berkas));
 
       const teks = ["title", "text", "url"].map((k) => data.get(k)).filter((v) => typeof v === "string" && v.trim()).join(" ");
       const tujuan = new URL("/bagikan", self.location.origin);
       if (berkas.length) tujuan.searchParams.set("latar", String(berkas.length));
+      if (pdf.length) tujuan.searchParams.set("berkas", String(pdf.length));
       if (teks) tujuan.searchParams.set("teks", teks.slice(0, 500));
       return Response.redirect(tujuan.href, 303);
     })(),

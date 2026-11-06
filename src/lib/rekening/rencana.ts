@@ -166,7 +166,8 @@ export interface RingkasRekening {
 
 export interface Rencana {
   rekening: RingkasRekening[];
-  belumDipetakan: { kunci: string; nama: string; bank: Bank; nomorAkhir: string }[];
+  /** Rekening yang belum punya kantong; yang ditanyakan hanya `utama` (kantong Jago lain ikut Jago-nya). */
+  belumDipetakan: { kunci: string; nama: string; bank: Bank; nomorAkhir: string; utama: boolean }[];
   kantongBaru: KantongBaru[];
   nomorAkhir: { id: string; nomor_akhir: string }[];
   tawaranDeposito: TawaranDeposito[];
@@ -355,7 +356,7 @@ export function rencanakan(m: MasukanRencana): Rencana {
     } else if (id) {
       petaRek.set(r.kunci, id);
       if (cariKantong(id)?.nomor_akhir !== c.nomorAkhir) nomorAkhir.set(id, c.nomorAkhir);
-    } else belumDipetakan.push({ kunci: r.kunci, nama: namaRekening(c), bank: c.bank, nomorAkhir: c.nomorAkhir });
+    } else belumDipetakan.push({ kunci: r.kunci, nama: namaRekening(c), bank: c.bank, nomorAkhir: c.nomorAkhir, utama: c.utama });
   }
   const indukJago = rekJagoUtama ? (petaRek.get(rekJagoUtama.kunci) ?? null) : null;
   const simpananJago = (nama: string, nomor: string | null): RujukanKantong | null => {
@@ -368,7 +369,7 @@ export function rencanakan(m: MasukanRencana): Rencana {
   for (const r of daftarRek.filter((x) => !x.contoh.utama)) {
     const c = r.contoh;
     if (!indukJago) {
-      belumDipetakan.push({ kunci: r.kunci, nama: namaRekening(c), bank: c.bank, nomorAkhir: c.nomorAkhir });
+      belumDipetakan.push({ kunci: r.kunci, nama: namaRekening(c), bank: c.bank, nomorAkhir: c.nomorAkhir, utama: c.utama });
       continue;
     }
     const nama = c.saku ?? `Kantong …${c.nomorAkhir}`;
