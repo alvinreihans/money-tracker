@@ -1,5 +1,5 @@
 -- =============================================================
--- Migration: kategori buatan user (SPEC-analitik.md, modul kategori)
+-- Migration: kategori buatan user (docs/specs/SPEC-analitik.md, modul kategori)
 -- =============================================================
 -- Tiap user punya daftar kategori sendiri, diisi kategori bawaan saat daftar.
 -- transactions.category & budgets.category tetap menyimpan `slug` (teks),

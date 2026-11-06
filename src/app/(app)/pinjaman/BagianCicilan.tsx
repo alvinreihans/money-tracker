@@ -11,7 +11,7 @@ import { dbErrorMessage } from "@/lib/errors";
 import { fmtIDR, fmtTanggal, fmtTanggalPendek, isianNominal, isoLokal } from "@/lib/format";
 import { emojiKantong, type Kantong } from "@/lib/kantong";
 import { kategoriJenis, LAINNYA } from "@/lib/kategori";
-import { bacaBunga, bagiRata, jadwalCicilan, kantongUang, statusCicilan, type Angsuran, type Cicilan } from "@/lib/pinjaman";
+import { bacaBunga, bagiRata, jadwalCicilan, kantongSumber, keteranganCicilan, statusCicilan, type Angsuran, type Cicilan } from "@/lib/pinjaman";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { AturBunga, type SasaranBunga } from "./BagianStrategi";
 
@@ -22,7 +22,7 @@ const SARAN_PENYEDIA = ["Shopee PayLater", "GoPayLater", "Kredivo", "Akulaku", "
 /**
  * Cicilan (paylater & cicilan kartu kredit). Belanjanya tidak dihitung
  * pengeluaran; tiap cicilan yang dibayar menjadi pengeluaran biasa dengan
- * kategori rencananya (keputusan di SPEC-lend-borrow.md).
+ * kategori rencananya (keputusan di docs/specs/SPEC-lend-borrow.md).
  */
 export default function BagianCicilan({
   userId,
@@ -52,7 +52,8 @@ export default function BagianCicilan({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Pembayar: kantong uang dan kartu kredit (untuk cicilan kartu).
-  const pembayar = kantong.filter((k) => kantongUang(k) || k.kind === "kredit");
+  // Tanpa tujuan tabungan: uang tujuan dipakai lewat "Pakai" (SPEC-perbaikan-temuan C6).
+  const pembayar = kantong.filter((k) => kantongSumber(k) || k.kind === "kredit");
 
   async function hapusRencana() {
     if (!hapus) return;
@@ -245,7 +246,7 @@ function FormBayar({
           category,
           transaction_date: tanggal,
           merchant: rencana.nama,
-          description: `Cicilan ${a.ke}/${rencana.tenor}${rencana.penyedia ? ` · ${rencana.penyedia}` : ""}`,
+          description: keteranganCicilan(rencana, a.ke),
           kantong_id: kantongId,
           cicilan_id: rencana.id,
           cicilan_ke: a.ke,

@@ -1,7 +1,8 @@
+import { fmtIDR } from "@/lib/format";
 import { normal } from "@/lib/kantong";
 
 /**
- * Lend & Borrow dan cicilan (SPEC-lend-borrow.md). Fungsi murni — diuji di
+ * Lend & Borrow dan cicilan (docs/specs/SPEC-lend-borrow.md). Fungsi murni — diuji di
  * scripts/uji-pinjaman.mts.
  *
  * - Pinjaman ke/dari orang = kantong berjenis "orang"; saldonya positif berarti
@@ -13,6 +14,35 @@ import { normal } from "@/lib/kantong";
 
 /** Kantong berisi uang sungguhan — yang dihitung di Total aset. */
 export const kantongUang = (k: { kind: string }) => k.kind !== "orang" && k.kind !== "kredit";
+
+/**
+ * Sumber uang di Pinjamkan, Bayar tagihan, Bayar cicilan, dan "Dari kantong"
+ * Sisihkan: kantong uang tanpa tujuan tabungan — uang tujuan dipakai lewat
+ * "Pakai" / "Dibayar dari tujuan" (SPEC-perbaikan-temuan C6). Total aset
+ * tetap memakai `kantongUang`.
+ */
+export const kantongSumber = (k: { kind: string }) => kantongUang(k) && k.kind !== "tujuan";
+
+/**
+ * Nama pihak dari AI yang jelas kartu kredit ("Kartu kredit Mandiri", "CC BCA"):
+ * yang belum terdaftar ditanyakan, bukan dibuatkan kantong orang
+ * (SPEC-tagihan-cicilan).
+ */
+export const tampakKartuKredit = (nama: string) => /\b(kartu[\s-]*kredit|credit[\s-]*card|cc)\b/i.test(nama);
+
+/** Nama kartu tanpa "kartu kredit"/"credit card"/"cc": "Kartu kredit Mandiri" → "mandiri". */
+const intiKartu = (nama: string) => normal(nama.replace(/\b(kartu[\s-]*kredit|credit[\s-]*card|cc)\b/gi, ""));
+
+/**
+ * Kartu kredit yang dimaksud teks metode bayar ("CC Mandiri", "Mandiri") bila
+ * tidak ada kantong yang cocok persis: dicocokkan tanpa "kartu kredit"/"cc"
+ * di kedua sisi (SPEC-perbaikan-temuan G4). Kartu bernama "Kartu kredit" saja
+ * tidak pernah cocok lewat sini.
+ */
+export function cocokkanKartu<K extends { name: string; kind: string }>(teks: string | null, daftar: K[]): K | null {
+  const inti = teks ? intiKartu(teks) : "";
+  return inti ? (daftar.find((k) => k.kind === "kredit" && intiKartu(k.name) === inti) ?? null) : null;
+}
 
 /** Emoji bawaan kantong orang & kartu kredit. */
 export const EMOJI_ORANG = "👤";
@@ -108,7 +138,8 @@ export interface PosisiPinjaman<K> {
 /**
  * Ringkasan Lend & Borrow dari kantong orang & kredit beserta saldonya.
  * Lend: orang bersaldo positif. Borrow: orang bersaldo negatif dan kartu
- * kredit bertagihan. Lunas: orang bersaldo nol. Terbesar dulu.
+ * kredit bertagihan. Lunas: orang bersaldo nol. Terbesar dulu. Kartu
+ * bersaldo positif = kelebihan bayar: tampil di Utang, tidak menambah total.
  */
 export function ringkasanPinjaman<K extends { kind: string; saldo: number }>(daftar: K[]) {
   const urut = (a: PosisiPinjaman<K>, b: PosisiPinjaman<K>) => b.jumlah - a.jumlah;
@@ -122,6 +153,7 @@ export function ringkasanPinjaman<K extends { kind: string; saldo: number }>(daf
     borrow,
     lunas: daftar.filter((k) => k.kind === "orang" && k.saldo === 0),
     kartu: daftar.filter((k) => k.kind === "kredit"),
+    lebihBayar: daftar.filter((k) => k.kind === "kredit" && k.saldo > 0).map((k) => ({ kantong: k, jumlah: k.saldo })).sort(urut),
     totalLend: lend.reduce((t, x) => t + x.jumlah, 0),
     totalBorrow: borrow.reduce((t, x) => t + x.jumlah, 0),
   };
@@ -138,6 +170,49 @@ export type ArahPinjaman = "beri" | "terima_bayar" | "pinjam" | "bayar";
  */
 export function arahPindah(arah: ArahPinjaman, uang: string, pihak: string): { dari: string; ke: string } {
   return arah === "beri" || arah === "bayar" ? { dari: uang, ke: pihak } : { dari: pihak, ke: uang };
+}
+
+/**
+ * Bayar tagihan kartu: berapa nominalnya melebihi tagihan di aplikasi
+ * (saldo kartu negatif). 0 = tidak lebih. Kartu tanpa tagihan: seluruhnya.
+ */
+export const kelebihanBayar = (saldoKartu: number, nominal: number) => Math.max(0, nominal - Math.max(0, -saldoKartu));
+
+/** Keterangan pengeluaran "Catat selisihnya sebagai biaya kartu" (SPEC-perbaikan-temuan C1). */
+export const KET_SELISIH_KARTU = "Selisih tagihan kartu";
+
+/**
+ * Jatuh tempo tagihan kartu berikutnya (hari ini atau sesudahnya) dari
+ * tanggal tiap bulan (`jatuh_tempo_hari`, 1–31); bulan yang lebih pendek
+ * mundur ke hari terakhirnya.
+ */
+export function jatuhTempoKartu(hari: number, hariIni: string): string {
+  const ini = jatuhTempoKe(`${hariIni.slice(0, 7)}-${dua(hari)}`, 1);
+  return ini >= hariIni ? ini : jatuhTempoKe(`${hariIni.slice(0, 7)}-${dua(hari)}`, 2);
+}
+
+/** Isian "Jatuh tempo tiap tanggal": kosong = tanpa; 1–31. */
+export function bacaJatuhTempoHari(teks: string): { ok: true; nilai: number | null } | { ok: false; error: string } {
+  const t = teks.trim();
+  if (!t) return { ok: true, nilai: null };
+  if (!/^\d{1,2}$/.test(t) || Number(t) < 1 || Number(t) > 31) return { ok: false, error: "Tanggalnya 1–31." };
+  return { ok: true, nilai: Number(t) };
+}
+
+/**
+ * Akibat menghapus kantong orang/kartu (SPEC-perbaikan-temuan C2), untuk
+ * konfirmasi: transaksinya tetap, saldonya hilang dari Utang & Piutang,
+ * rencana cicilan kehilangan kantong pembayar bawaannya.
+ */
+export function dampakHapusPihak(k: { name: string; kind: string; saldo: number }, transaksi: number, rencana = 0): string[] {
+  const hasil: string[] = [];
+  if (transaksi > 0) hasil.push(`${transaksi} transaksi dengan ${k.name} tetap tercatat, tanpa kantong ${k.name}.`);
+  if (k.saldo !== 0) {
+    const apa = k.kind === "kredit" ? (k.saldo < 0 ? "Tagihan" : "Kelebihan bayar") : k.saldo > 0 ? "Piutang" : "Utang";
+    hasil.push(`${apa} ${fmtIDR(Math.abs(k.saldo))} ikut hilang dari Utang & Piutang.`);
+  }
+  if (rencana > 0) hasil.push(`${rencana} rencana cicilan kehilangan kantong pembayar bawaannya.`);
+  return hasil;
 }
 
 export interface RingkasBeranda {
@@ -209,12 +284,38 @@ export function pilihCicilan<R extends Pick<Cicilan, "id" | "nama" | "penyedia" 
   const cari = normal(sebutan);
   if (!cari) return null;
   const kandidat = rencana
-    .filter((r) => [r.nama, r.penyedia].some((n) => n && normal(n) === cari))
+    // Gabungan nama + penyedia: model kadang menyalin format daftar di prompt ("Uji — Shopee PayLater").
+    .filter((r) => [r.nama, r.penyedia, r.penyedia && r.nama + r.penyedia].some((n) => n && normal(n) === cari))
     .map((r) => ({ r, berikutnya: statusCicilan(r, dibayar[r.id] ?? [], hariIni).berikutnya }))
     .filter((x) => x.berikutnya)
     .sort((a, b) => a.berikutnya!.jatuhTempo.localeCompare(b.berikutnya!.jatuhTempo));
   return kandidat[0] ? { rencana: kandidat[0].r, ke: kandidat[0].berikutnya!.ke } : null;
 }
+
+/**
+ * Barang yang dibeli menurut ketikan ("beli sepatu 300rb pakai spaylater 3x"
+ * → "Sepatu"): kata sesudah beli/checkout/order/pesan sampai nominal atau
+ * di/ke/pakai/via. Null kalau polanya tidak ada (SPEC-paylater).
+ */
+export function barangKetikan(teks: string): string | null {
+  const m = /\b(?:beli|checkout|order|pesan)\s+(.+?)(?=\s+(?:rp\.?\s*)?\d|\s+(?:di|ke|dari|pakai|pake|via)\b|$)/i.exec(teks);
+  const barang = m?.[1].trim().split(/\s+/).slice(0, 4).join(" ");
+  return barang ? (barang[0].toUpperCase() + barang.slice(1)).slice(0, 60) : null;
+}
+
+/**
+ * Belanja paylater tanpa merchant: keterangan = barangnya, jadi nama rencana
+ * cicilan. Model tidak selalu patuh pada prompt (mengosongkan, atau menyalin
+ * seluruh ketikan), jadi diambil dari ketikan bila perlu.
+ */
+export function rapikanPaylater<E extends { paylater: InfoPaylater | null; merchant: string | null; description: string | null }>(e: E, teks: string): E {
+  if (!e.paylater || e.merchant || (e.description && normal(e.description) !== normal(teks))) return e;
+  return { ...e, description: barangKetikan(teks) };
+}
+
+/** Keterangan transaksi pembayaran cicilan: "Cicilan 2/3 · Shopee PayLater". */
+export const keteranganCicilan = (r: Pick<Cicilan, "tenor" | "penyedia">, ke: number) =>
+  `Cicilan ${ke}/${r.tenor}${r.penyedia ? ` · ${r.penyedia}` : ""}`;
 
 /** Isian paylater yang terbaca dari struk/ketikan (SPEC-paylater). */
 export interface InfoPaylater {

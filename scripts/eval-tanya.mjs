@@ -36,7 +36,8 @@ const KASUS = [
   { tanya: "berapa total pengeluaran bulan ini?", harus: [367000, 10300000], pola: /tabungan/i },
   { tanya: "kalau transaksi Laku6 tidak dihitung, pengeluaran bulan ini berapa?", harus: [367000] },
   { tanya: "jika transaksi Laku6 tidak dihitung, bagaimana kondisi keuangan saya bulan ini?", harus: [367000, 8000000] },
-  { tanya: "berapa total jajan kopi bulan ini?", harus: [47000] },
+  // Hasilnya hanya pengeluaran: tautannya ke tab Keluar (SPEC-perbaikan-temuan G6).
+  { tanya: "berapa total jajan kopi bulan ini?", harus: [47000], tautan: /jenis=keluar/ },
   { tanya: "transaksi di atas 1 juta bulan ini apa aja?", harus: [10300000], pola: /laku6/i },
   { tanya: "pengeluaran yang di bawah 50 ribu bulan ini totalnya berapa?", harus: [122000] },
   // Saldo sejak 1 Jan: BCA 20.000.000 + 8.000.000 - 300.000 (bulan lalu) + 8.000.000 - 10.300.000 - 500.000;
@@ -119,6 +120,20 @@ const KASUS = [
     harus: [],
     pola: /laptop/i,
   },
+  // Isi satu tujuan tabungan, bukan jumlah semua tujuan (SPEC-perbaikan-temuan B9):
+  // Dana Darurat 2.500.000 + Liburan 979.999 = 3.479.999 (yang dulu salah disebut).
+  {
+    tanya: "berapa isi dana darurat?",
+    siapkan: async ({ sb, uid }) => {
+      const tujuan = (name, saldo_awal, target) => ({ user_id: uid, name, kind: "tujuan", emoji: "🎯", saldo_awal, saldo_sejak: "2026-01-01T00:00:00+07:00", target });
+      const { data } = await sb.from("user_accounts").insert([tujuan("Dana Darurat", 2500000, 10000000), tujuan("Liburan", 979999, 5000000)]).select("id");
+      return () => sb.from("user_accounts").delete().in("id", data.map((k) => k.id));
+    },
+    harus: [2500000],
+    bukan: /3\.479\.999/,
+  },
+  // Satu merchant (SPEC-perbaikan-temuan F2): dicari persis, tautannya merchant=, bukan q=.
+  { tanya: "berapa total belanja di Kopi Kenangan bulan ini?", harus: [25000], tautan: /merchant=Kopi\+Kenangan/ },
 ];
 
 let uid;
@@ -186,6 +201,7 @@ try {
       (!k.pola || k.pola.test(teks)) &&
       (!k.bukan || !k.bukan.test(teks)) &&
       (!k.tanpaTautan || !(d.tautan ?? []).length) &&
+      (!k.tautan || (d.tautan ?? []).some((x) => k.tautan.test(x.href))) &&
       (!k.usulan || Boolean(d.usulan)) &&
       (!k.tanpaUsulan || !d.usulan);
     if (bersihkan) await bersihkan();

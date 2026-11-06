@@ -13,7 +13,7 @@ bagiannya di sini.
 ## Rencana
 
 Belum dikerjakan; dicatat supaya tidak lupa. Urutan fase ada di
-SPEC-catat-tuntas.md (fase 1 & 2 selesai di 2.4.0, fase 3 di 2.5.0, fase 4 di 2.8.0).
+docs/specs/SPEC-catat-tuntas.md (fase 1 & 2 selesai di 2.4.0, fase 3 di 2.5.0, fase 4 di 2.8.0).
 
 - **Opsi "tujuan ini disimpan di BCA"**, kalau saldo BCA yang lebih kecil dari
   saldo asli di bank (karena sebagian disisihkan ke tujuan) terasa membingungkan.
@@ -23,6 +23,43 @@ SPEC-catat-tuntas.md (fase 1 & 2 selesai di 2.4.0, fase 3 di 2.5.0, fase 4 di 2.
   yang jarang berubah (kategori, kantong) disimpan sementara di server.
 
 ## [Unreleased]
+
+## [2.10.0] — 2026-11-06
+
+### Ditambah
+- **Kantong orang, kartu kredit, dan tujuan tabungan bisa dihapus** (SPEC-perbaikan-temuan). Konfirmasinya menyebut dampaknya: transaksi yang tetap tercatat tanpa kantong itu, dan saldo yang ikut hilang dari Utang & Piutang atau Total aset. Saldo kantong lain tidak berubah.
+- **Kartu kredit bisa diubah dan punya "Jatuh tempo tiap tanggal"** (1–31). Pengingat tagihan kini benar-benar terkirim tiap bulan (3 hari dan sehari sebelumnya), hanya bila ada tagihan.
+
+### Diperbaiki
+- **Bayar tagihan kartu kredit yang belum terdaftar tidak lagi jadi piutang palsu** (SPEC-tagihan-cicilan). "bayar tagihan cc Mandiri 200rb dari bca" padahal kartu Mandiri belum ada sebelumnya membuat kantong orang "Kartu kredit Mandiri" dan menambah Piutang Rp 200.000. Kini tidak ada kantong yang dibuat diam-diam: catatannya masuk "Belum selesai" dan bertanya "Kartu kredit Mandiri belum terdaftar. Bayar ke kartu yang mana?", dengan pilihan kartu kreditmu yang sudah ada, **+ Tambah Kartu kredit Mandiri** (kartunya dibuat dan tagihannya langsung lunas oleh pembayaran ini), atau **Hapus catatan**. Pinjaman ke orang baru ("minjemin budi 200rb") tetap membuat kantong orang seperti biasa.
+- **Nomor cicilan tidak lagi loncat karena catatan yang belum selesai.** Bayar cicilan yang masih menunggu jawaban "Pakai kantong apa?" sempat dihitung sudah dibayar: pembayaran berikutnya tercatat "Cicilan 3/3" padahal baru cicilan ke-2, dan rencananya tampil Lunas. Kini hanya pembayaran yang sudah tercatat yang dihitung (di Utang & Piutang, Beranda, Tanya AI, dan saat mencatat), dan nomor catatan yang belum selesai baru ditetapkan begitu catatannya selesai. Kalau rencananya keburu lunas, uangnya tetap tercatat sebagai pengeluaran dengan keterangan "Rencana cicilan “…” sudah lunas".
+- **Rencana cicilan dari ketikan paylater memakai nama barangnya**: "beli sepatu 300rb pakai spaylater 3x" jadi rencana "Sepatu", bukan "Belanja Shopee PayLater".
+- **Jam tidak lagi ditanyakan untuk kantong yang saldonya berlaku sejak 00.00**, karena semua jam di hari itu memang ikut terhitung.
+- **"bayar cicilan spaylater sepatu" tertaut ke rencananya** walau nama barang dan penyedianya disebut sekaligus. Sebelumnya tersimpan sebagai pengeluaran Lainnya dengan keterangan "Rencana cicilan … belum dicatat".
+- **Bayar tagihan kartu kredit lebih dari tagihan di aplikasi** kini memperingatkan "Lebih Rp X dari tagihan di aplikasi" dan menawarkan **Catat selisihnya sebagai biaya kartu** (biasanya bunga, iuran, atau belanja kartu yang belum dicatat) atau **Simpan saja**. Kartu yang kelebihan bayar tampil "Kelebihan bayar Rp X", bukan Rp 0.
+- **Transaksi yang dipecah tampil benar di Riwayat yang disaring**: kartunya hanya berisi bagian yang cocok ("Bagian dari Rp 15.000 · Rp 10.000"), dan total hari/bulan sama dengan kartu yang tampil. "N transaksi" dan "Muat lagi" menghitung per transaksi, bukan per bagian; Beranda selalu menampilkan 5 transaksi terakhir, dengan total "Hari ini" yang sebenarnya.
+- **Pecah dan gabung transaksi tersimpan sekaligus.** Kalau gagal di tengah, tidak ada yang berubah, jadi jumlah bagian dan saldo tidak bisa bergeser.
+- **Tautan dari Analitik ke Riwayat menunjukkan angka yang sama.** Merchant disaring persis (chip "Merchant: X"), bukan pencarian kata, dan pembelian yang dibayar dari tujuan tabungan disembunyikan (chip "Tanpa dari tujuan tabungan", bisa dilepas).
+- **Analitik & metode budgeting:** proyeksi dibandingkan dengan jatah pengeluaran metode yang aktif, bukan budget per kategori; status "Hampir habis · sisa Rp X" mulai di 80% di kartu budget maupun metode, dengan ikon (bukan warna saja); bulan lampau memakai saran penghasilan bulan itu sendiri; Zero-Based tanpa penghasilan menampilkan "Atur penghasilan dulu".
+- **Tanya AI:** jawaban dari ringkasan bulan ikut tombol "Buka Analitik", dan pertanyaan isi satu tujuan tabungan (mis. dana darurat) dijawab dengan saldo tujuan itu saja, bukan jumlah semua tujuan.
+- **Tujuan tabungan tidak lagi muncul sebagai sumber uang** di Pinjamkan, Bayar tagihan, Bayar cicilan, dan Sisihkan (uangnya dipakai lewat "Pakai"). Total aset tetap menghitungnya.
+- **Nama kantong tidak boleh kembar beda huruf** ("bca" dan "BCA"), dan pesannya menyebut di mana nama itu dipakai ("… untuk Teman di Utang & Piutang").
+- **Isian tanggal:** tenggat tujuan baru paling cepat hari ini; jatuh tempo pinjaman tidak boleh sebelum tanggal pinjam; kartu kredit baru berlaku sejak jam sekarang, jadi belanja kartu sebelumnya di hari itu tidak terhitung dua kali.
+- **Catat:** ketikan yang tidak terbaca Groq (mis. nominal 0) dicoba sekali lagi lewat Gemini sebelum jadi catatan belum selesai; "↩ Batalkan perubahan" tidak muncul lagi untuk transaksi yang sudah dibatalkan; tanggal "Dihapus otomatis" memakai WIB; hitung mundur menulis "Menutup dalam 8 detik"; pembayaran cicilan tidak lagi dipakai untuk mengingat kategori merchant.
+- **Halaman masuk tepat di tengah di tablet dan desktop.** Halaman masuk, reset password, mulai, dan 404 sebelumnya bergeser ke kanan (40 px di tablet, 120 px di desktop) karena menyisakan ruang untuk navigasi samping yang tidak ada di halaman itu.
+- **Kartu kredit menampilkan jatuh temponya walau tanpa tagihan** ("Tidak ada tagihan · jatuh tempo 30 Nov"), supaya terlihat isiannya tersimpan.
+- **Tanya AI menghitung satu merchant secara persis.** "Berapa belanja di Kopi Kenangan?" tidak lagi ikut menghitung merchant yang namanya mirip, dan tombol "Lihat di Riwayat"-nya memakai saringan merchant yang sama.
+- **Transaksi tanpa merchant tidak lagi bertuliskan "Tanpa nama"** di Beranda, Riwayat, dan detail; judulnya nama kategori ("Makan"), atau "Pindah kantong".
+- **"pakai cc mandiri" langsung tercatat dari kartu "Kartu kredit Mandiri"**, tanpa ditanya kantongnya.
+- **"Dari kantong" di Pinjamkan dan Bayar tagihan bawaannya kantong yang saldonya terbesar**, bukan Tunai yang bisa Rp 0.
+- **Tombol "Lihat di Riwayat" dari Tanya AI untuk pertanyaan pengeluaran membuka tab Keluar.**
+- **Profil tetap terbaca saat panel Tanya AI terbuka di tablet/laptop** (turun ke satu panel seperti Riwayat), dan keterangan jatuh tempo/cicilan di Utang & Piutang tidak lagi terpotong di HP.
+- **Lain-lain:** Riwayat turun ke satu panel saat panel Tanya AI terbuka di layar yang tidak cukup lebar, dan kartu bagian pecahan yang dibuka ditandai terpilih; subjudul Budget di Profil mengikuti metode yang aktif; di tablet dan desktop chip filter membungkus ke baris berikutnya alih-alih terpotong, dan ring fokus tombol × tidak lagi menimpa judul; ekspor CSV menulis kategori pindah kantong "Pindah kantong".
+
+### Diubah
+- **Dokumen spec pindah ke `docs/specs/`**, dengan indeks di `docs/specs/README.md`. Semua spec disinkronkan dengan kode 2.9.0 (1 Nov 2026); sejak itu spec yang jadi acuan, dan perubahan perilaku ditulis di spec dulu.
+- **Skenario UAT** (uji penerimaan per perjalanan pengguna) disimpan di `docs/uat/`, beserta hasilnya; yang pertama untuk perbaikan ini.
+- **Script balikan enkripsi dihapus** (`supabase/rollback/`): sudah tidak cocok dengan skema. Pemulihan memakai backup Supabase.
 
 ## [2.9.0] — 2026-10-31
 

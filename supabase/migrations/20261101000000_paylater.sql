@@ -1,4 +1,4 @@
--- Paylater = cicilan (SPEC-paylater.md).
+-- Paylater = cicilan (docs/specs/SPEC-paylater.md).
 -- Belanja pakai paylater tidak dicatat sebagai pengeluaran; ia jadi rencana
 -- cicilan. Kalau berapa kali cicilannya belum diketahui, belanjanya menunggu
 -- sebagai draft berpenanda paylater (nama penyedianya) sampai ditanyakan.

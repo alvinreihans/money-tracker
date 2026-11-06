@@ -4,7 +4,7 @@
  * status, pengeluaran dari tujuan tabungan (SPEC-tujuan-tabungan).
  */
 import assert from "node:assert/strict";
-import { cekPersen, hitungMetode, KELOMPOK, KELOMPOK_KUSTOM, saranPenghasilan, setoranBersih, wadahMetode, type BarisMetode } from "../src/lib/metode.ts";
+import { cekPersen, hitungMetode, jatahPengeluaran, KELOMPOK, KELOMPOK_KUSTOM, pembandingProyeksi, saranPenghasilan, setoranBersih, wadahMetode, type BarisMetode } from "../src/lib/metode.ts";
 import { progresTujuan } from "../src/lib/tujuan.ts";
 
 // --- Wadah
@@ -42,6 +42,10 @@ assert.deepEqual(
 // User baru: belum ada sebulan penuh → bulan ini.
 assert.deepEqual(saranPenghasilan([{ category: "freelance", amount: 3000000, transaction_date: "2026-10-03" }], penghasilan, "2026-10"), { nilai: 3000000, sumber: "bulan-ini", bulan: 1 });
 assert.deepEqual(saranPenghasilan([{ category: "gift", amount: 3000000, transaction_date: "2026-10-03" }], penghasilan, "2026-10"), { nilai: 0, sumber: "kosong", bulan: 0 });
+// Bulan lampau: saran dihitung untuk bulan itu (3 bulan sebelum bulan itu), bukan saran bulan berjalan.
+assert.deepEqual(saranPenghasilan(masuk, penghasilan, "2026-09"), { nilai: 8000000, sumber: "rerata", bulan: 2 }, "September: rerata Juli & Agustus");
+assert.deepEqual(saranPenghasilan(masuk, penghasilan, "2026-07"), { nilai: 8000000, sumber: "bulan-ini", bulan: 1 }, "Juli: belum ada riwayat → pemasukan Juli");
+assert.deepEqual(saranPenghasilan(masuk, penghasilan, "2026-06"), { nilai: 0, sumber: "kosong", bulan: 0 });
 
 // --- Realisasi: hanya yang sudah selesai; pemasukan & transfer tidak dihitung
 const ini: BarisMetode[] = [
@@ -157,6 +161,23 @@ assert.equal(zb(5000000, 1500000).belumDialokasikan, 1500000);
 assert.equal(zb(6000000, 2000000).belumDialokasikan, 0);
 assert.equal(zb(7000000, 2000000).belumDialokasikan, -1000000);
 assert.deepEqual(zb(6000000, 2000000).wadah.map((w) => [w.id, w.target, w.realisasi, w.status]), [["tabungan", 2000000, 1600000, "kurang"]]);
+// Penghasilan 0: tidak ada "Belum dialokasikan" (kartu menulis "Atur penghasilan dulu"), sama dengan pratinjau Profil.
+assert.equal(hitungMetode({ metode: "zero-based", persen: null, penghasilan: 0, totalTarget: 5000000, targetTabungan: 1000000 }, ini)!.belumDialokasikan, undefined);
+
+// --- Pembanding proyeksi: metode aktif → penghasilan − jatah tabungan/setoran; tanpa metode → total budget
+assert.equal(jatahPengeluaran(h), 6400000, "50/30/20 dari 8 jt: 8 jt − 20%");
+assert.deepEqual(pembandingProyeksi(h, 3000000), { nilai: 6400000, nama: "jatah pengeluaran 50/30/20" }, "metode menang atas budget kategori");
+assert.equal(jatahPengeluaran(kak), 6500000, "Kakeibo: penghasilan − target tabungan");
+assert.equal(jatahPengeluaran(zb(5000000, 1500000)), 6500000, "Zero-Based: penghasilan − target tabungan");
+assert.equal(jatahPengeluaran(hitungMetode({ metode: "6-jars", persen: null, penghasilan: 10000000 }, [])!), 8000000, "6 Jars: dua toples tabungan 10% + 10%");
+assert.equal(jatahPengeluaran(hitungMetode({ metode: "pyf", persen: { tabungan: 30 }, penghasilan: 10000000 }, [])!), 7000000);
+assert.deepEqual(pembandingProyeksi(null, 3000000), { nilai: 3000000, nama: "total budget" });
+assert.equal(pembandingProyeksi(null, 0), null);
+assert.equal(pembandingProyeksi(hitungMetode({ metode: "50-30-20", persen: null, penghasilan: 0 }, [])!, 3000000), null, "metode tanpa penghasilan: tanpa pembanding");
+
+// --- Ambang "hampir": tepat 80% sudah hampir (sama dengan kartu budget per kategori)
+const pas = hitungMetode({ metode: "80-20", persen: null, penghasilan: 1000000 }, [{ type: "expense", category: "food", amount: 640000, kelompok_efektif: "kebutuhan" }])!;
+assert.deepEqual([pas.wadah[0].terpakai, pas.wadah[0].status], [80, "hampir"]);
 // Metode lama tidak punya isian metode lanjutan.
 assert.equal(h.belumDialokasikan, undefined);
 assert.equal(h.kakeibo, undefined);
@@ -171,4 +192,4 @@ const capai = progresTujuan({ target: 10000000, tenggat: "2026-09-30", saldo: 10
 assert.deepEqual([capai.tercapai, capai.persen, capai.sisa, capai.telat, capai.perBulan], [true, 100, 0, false, null]);
 assert.deepEqual(progresTujuan({ target: 5000000, saldo: -100 }, "2026-10-25").terkumpul, 0);
 
-console.log("✓ metode budgeting: wadah preset & kustom, persen 100%, saran penghasilan (gajian akhir bulan, uang masuk bukan penghasilan), realisasi per kelompok, tabungan dari sisa, status, pengeluaran dari tujuan tabungan, progres tujuan; kelompok baru; setoran bersih; PYF, 6 Jars, Kakeibo, Zero-Based");
+console.log("✓ metode budgeting: wadah preset & kustom, persen 100%, saran penghasilan (gajian akhir bulan, uang masuk bukan penghasilan), realisasi per kelompok, tabungan dari sisa, status, pengeluaran dari tujuan tabungan, progres tujuan; kelompok baru; setoran bersih; PYF, 6 Jars, Kakeibo, Zero-Based; saran per bulan, pembanding proyeksi, ambang 80%");

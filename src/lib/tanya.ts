@@ -3,6 +3,7 @@ import { geserHari } from "@/lib/format";
 import { geserBulan } from "@/lib/kalender";
 import { cocokkanKantong, type Kantong } from "@/lib/kantong";
 import { KELOMPOK } from "@/lib/metode";
+import { kantongUang } from "@/lib/pinjaman";
 import { alamatRiwayat, bacaFilter, type FilterRiwayat } from "@/lib/riwayat";
 
 /**
@@ -39,6 +40,7 @@ export const DEKLARASI_FUNGSI: FunctionDeclaration[] = [
         kategori: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING }, description: "Slug kategori milik pengguna" },
         kantong: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING }, description: "Nama kantong milik pengguna" },
         kata: { type: SchemaType.STRING, description: "Kata yang dicari di merchant/keterangan, mis. 'kopi'" },
+        merchant: { type: SchemaType.STRING, description: "Nama merchant persis bila pengguna menanyakan satu merchant, mis. 'Kopi Kenangan' (bukan untuk kata umum seperti 'kopi')" },
         kecuali: {
           type: SchemaType.ARRAY,
           items: { type: SchemaType.STRING },
@@ -51,7 +53,8 @@ export const DEKLARASI_FUNGSI: FunctionDeclaration[] = [
   },
   {
     name: "saldo_kantong",
-    description: "Saldo tiap kantong (bank, e-wallet, tunai, orang, kartu kredit) dan total aset.",
+    description:
+      "Saldo tiap kantong (bank, e-wallet, tunai, orang, kartu kredit), isi tiap tujuan tabungan (mis. dana darurat) beserta targetnya, dan total aset.",
   },
   {
     name: "hitung",
@@ -124,17 +127,31 @@ export function filterDariArgumen(args: Record<string, unknown>, k: KonteksTanya
       kantong: kantong.join(","),
       kategori: kategori.join(","),
       q: typeof args.kata === "string" ? args.kata : undefined,
+      merchant: typeof args.merchant === "string" ? args.merchant : undefined,
     },
     { kantong: k.kantong.map((x) => x.id), kategori: k.kategori.map((c) => `${c.type}:${c.slug}`) },
   );
 }
 
-/** Tombol telusur untuk satu pemanggilan fungsi (kalkulator tidak punya tujuan). */
-export function tautanDari(nama: NamaFungsi, args: Record<string, unknown>, k: KonteksTanya): { label: string; href: string } | null {
+/**
+ * Tombol telusur untuk satu pemanggilan fungsi (kalkulator tidak punya tujuan).
+ * `hasil` cari_transaksi: tanpa `jenis` tapi hanya berisi pengeluaran →
+ * tautannya ke tab Keluar, angkanya tetap sama (SPEC-perbaikan-temuan G6).
+ */
+export function tautanDari(
+  nama: NamaFungsi,
+  args: Record<string, unknown>,
+  k: KonteksTanya,
+  hasil?: unknown,
+): { label: string; href: string } | null {
   if (nama === "hitung" || nama === "usul_ubah_kategori") return null;
   // Riwayat belum bisa mengecualikan atau membatasi nominal: tautannya menampilkan sebelum dikecualikan.
   const disaring = (Array.isArray(args.kecuali) && args.kecuali.length > 0) || args.minimal != null || args.maksimal != null;
-  if (nama === "cari_transaksi") return { label: disaring ? "Lihat semua di Riwayat" : "Lihat di Riwayat", href: alamatRiwayat(filterDariArgumen(args, k)) };
+  if (nama === "cari_transaksi") {
+    const h = (hasil ?? {}) as { total_keluar?: number; total_masuk?: number };
+    const keluarSaja = args.jenis == null && h.total_masuk === 0 && Number(h.total_keluar) > 0;
+    return { label: disaring ? "Lihat semua di Riwayat" : "Lihat di Riwayat", href: alamatRiwayat(filterDariArgumen(keluarSaja ? { ...args, jenis: "keluar" } : args, k)) };
+  }
   if (nama === "ringkasan_bulan") {
     const bulan = bulanDariArgumen(args, k.hariIni);
     const nama = new Intl.DateTimeFormat("id-ID", { month: "long", timeZone: "UTC" }).format(new Date(`${bulan}-01T00:00:00Z`));
@@ -179,6 +196,41 @@ export function rupiahTakTerverifikasi(jawaban: string, hasilFungsi: unknown[]):
   return rupiahDiJawaban(jawaban)
     .filter((r) => !data.some((d) => Math.abs(d - r.nilai) <= r.toleransi))
     .map((r) => r.nilai);
+}
+
+/**
+ * Tautan jawaban (SPEC-analitik-ai): tautan dari fungsi yang dipanggil, plus
+ * "Buka Analitik [bulan]" bila jawabannya memakai angka dari ringkasan bulan
+ * yang dihitung di depan — seperti saat model memanggil ringkasan_bulan.
+ */
+export function tautanJawaban(
+  dariFungsi: { label: string; href: string }[],
+  { jawaban, ringkasan, bulan }: { jawaban: string; ringkasan: unknown; bulan: string },
+  k: KonteksTanya,
+): { label: string; href: string }[] {
+  const ringkas = tautanDari("ringkasan_bulan", { bulan }, k)!;
+  const pakaiRingkasan = rupiahDiJawaban(jawaban).length > rupiahTakTerverifikasi(jawaban, [ringkasan]).length;
+  return pakaiRingkasan && !dariFungsi.some((t) => t.href === ringkas.href) ? [...dariFungsi, ringkas] : dariFungsi;
+}
+
+/**
+ * Hasil saldo_kantong: kantong biasa, lalu tujuan tabungan per tujuan.
+ * Jumlah semua tujuan diberi nama sendiri (`total_semua_tujuan`), supaya
+ * tidak dibaca sebagai isi satu tujuan (SPEC-perbaikan-temuan B9).
+ */
+export function ringkasSaldo(
+  kantong: { id: string; name: string; kind: string; target?: number | string | null; tenggat?: string | null }[],
+  saldo: Map<string, number>,
+) {
+  const tujuan = kantong.filter((k) => k.kind === "tujuan");
+  return {
+    kantong: kantong.filter((k) => k.kind !== "tujuan").map((k) => ({ nama: k.name, jenis: k.kind, saldo: saldo.get(k.id) ?? 0 })),
+    // Saldo tujuan = yang sudah terkumpul di tujuan itu saja.
+    tujuan_tabungan: tujuan.map((k) => ({ nama_tujuan: k.name, terkumpul: saldo.get(k.id) ?? 0, target: Number(k.target ?? 0), tenggat: k.tenggat ?? null })),
+    ...(tujuan.length ? { total_semua_tujuan: tujuan.reduce((n, k) => n + (saldo.get(k.id) ?? 0), 0) } : {}),
+    // Total aset hanya kantong uang (termasuk tujuan tabungan); orang & kartu kredit di Utang & Piutang.
+    total_aset: kantong.filter(kantongUang).reduce((n, k) => n + (saldo.get(k.id) ?? 0), 0),
+  };
 }
 
 /** Rentang satu bulan "YYYY-MM" → [awal, akhir]. */

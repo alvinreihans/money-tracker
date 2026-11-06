@@ -1,5 +1,5 @@
 -- =============================================================
--- Migration: target budget bulanan per kategori (SPEC-analitik.md, modul budget)
+-- Migration: target budget bulanan per kategori (docs/specs/SPEC-analitik.md, modul budget)
 -- =============================================================
 -- Satu baris per kategori; targetnya sama tiap bulan. Menghapus target =
 -- menghapus barisnya, jadi amount selalu > 0.

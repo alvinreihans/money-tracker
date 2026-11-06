@@ -1,5 +1,5 @@
 -- =============================================================
--- Migration: catat sebagai obrolan (SPEC-catat-chat.md, disetujui 23 Okt 2026)
+-- Migration: catat sebagai obrolan (docs/specs/SPEC-catat-chat.md, disetujui 23 Okt 2026)
 --
 -- Draft (transaksi berstatus needs_review) kini jadi "percakapan" yang bisa
 -- dilanjutkan, beserta thumbnail struknya (terenkripsi). Selesai dilengkapi

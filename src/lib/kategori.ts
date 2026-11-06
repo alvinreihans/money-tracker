@@ -92,6 +92,20 @@ export function namaKategori(daftar: Kategori[], slug: string, type?: Transactio
   return cariKategori(daftar, slug, type)?.name ?? "Lainnya";
 }
 
+/**
+ * Judul transaksi di daftar & detail: merchant; tanpa merchant nama kategorinya
+ * (pindah kantong: "Pindah kantong"), bukan "Tanpa nama". `dariKategori`:
+ * kategorinya sudah jadi judul, jangan diulang di keterangan.
+ */
+export function judulTransaksi(
+  t: { merchant: string | null; type: TransactionType; category: string },
+  daftar: Kategori[],
+): { judul: string; dariKategori: boolean } {
+  if (t.merchant) return { judul: t.merchant, dariKategori: false };
+  if (t.type === "transfer") return { judul: "Pindah kantong", dariKategori: false };
+  return { judul: namaKategori(daftar, t.category, t.type), dariKategori: true };
+}
+
 /** Slug kategori buatan user: acak, supaya tetap sama walau namanya diganti. */
 export function slugBaru(acak: () => string = () => crypto.randomUUID()): string {
   return `c-${acak().replace(/-/g, "").slice(0, 10)}`;

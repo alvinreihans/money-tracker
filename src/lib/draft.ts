@@ -1,13 +1,16 @@
+import { geserHari, isoLokal } from "@/lib/format";
 import { cocokkanKantong, type Kantong } from "@/lib/kantong";
+import { UMUR_DRAFT_HARI } from "@/lib/notifikasi";
+import { tampakKartuKredit } from "@/lib/pinjaman";
 import { perluTanyaJam, type SaldoSejak } from "@/lib/waktu";
 
 /**
- * Catat sebagai obrolan (SPEC-catat-chat.md): apa yang masih kurang dari
+ * Catat sebagai obrolan (docs/specs/SPEC-catat-chat.md): apa yang masih kurang dari
  * sebuah draft, dan membaca jawaban user. Fungsi murni — diuji di
  * scripts/uji-draft.mts.
  */
 
-export type JenisTanya = "cerita" | "nominal" | "arah" | "kantong" | "kantong_tujuan" | "waktu" | "tenor" | "duplikat" | "konfirmasi";
+export type JenisTanya = "cerita" | "nominal" | "arah" | "kantong" | "kantong_tujuan" | "kartu" | "waktu" | "tenor" | "duplikat" | "konfirmasi";
 
 interface BarisDraft {
   status: string;
@@ -46,7 +49,8 @@ export function pertanyaanDraft(t: BarisDraft, saldoDari?: (id: string) => Saldo
   // Paylater tidak memakai kantong: begitu tenornya dijawab, jadi rencana cicilan.
   if (t.paylater) return "tenor";
   if (!t.kantong_id) return "kantong";
-  if (t.type === "transfer" && !t.kantong_tujuan_id) return "kantong_tujuan";
+  // Bayar tagihan kartu kredit yang belum terdaftar (SPEC-tagihan-cicilan): tujuannya hanya kartu.
+  if (t.type === "transfer" && !t.kantong_tujuan_id) return t.merchant && tampakKartuKredit(t.merchant) ? "kartu" : "kantong_tujuan";
   if (t.transaction_date && saldoDari && !t.waktu) {
     const tx = { transaction_date: t.transaction_date, waktu: null };
     if ([t.kantong_id, t.kantong_tujuan_id].some((id) => id && perluTanyaJam(tx, saldoDari(id)))) return "waktu";
@@ -62,11 +66,16 @@ export const KALIMAT_TANYA: Record<JenisTanya, string> = {
   arah: "Ini uang keluar atau masuk?",
   kantong: "Pakai kantong apa?",
   kantong_tujuan: "Pindah ke kantong mana?",
+  // Biasanya diganti kalimatKartu() yang menyebut nama kartunya.
+  kartu: "Bayar ke kartu kredit yang mana?",
   waktu: "Tadi itu jam berapa?",
   tenor: "Dicicil berapa kali?",
   duplikat: "Sepertinya ini sudah tercatat. Catat lagi?",
   konfirmasi: "Sudah benar begini?",
 };
+
+/** Pertanyaan `kartu`: "Kartu kredit Mandiri belum terdaftar. Bayar ke kartu yang mana?" */
+export const kalimatKartu = (merchant: string) => `${merchant} belum terdaftar. Bayar ke kartu yang mana?`;
 
 /** Setelah gagal menangkap cerita lagi. */
 export const CERITA_ULANG = "Hmm, masih belum jelas. Sebut nominal & kantongnya ya.";
@@ -149,3 +158,9 @@ export function kantongDariJawaban<K extends Pick<Kantong, "id" | "name" | "alia
   }
   return null;
 }
+
+/**
+ * Tanggal draft dihapus otomatis ("YYYY-MM-DD"): hari dibuat menurut WIB +
+ * UMUR_DRAFT_HARI, sama dengan cron & pengingat H+7 — bukan zona browser.
+ */
+export const tanggalHapusDraft = (dibuat: string | Date) => geserHari(isoLokal(new Date(dibuat)), UMUR_DRAFT_HARI);

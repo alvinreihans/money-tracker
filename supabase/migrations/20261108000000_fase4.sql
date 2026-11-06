@@ -1,4 +1,4 @@
--- Fase 4 (PETA-fase4.md): tawar pecah struk, kelompok baru, metode lanjutan,
+-- Fase 4 (docs/specs/PETA-fase4.md): tawar pecah struk, kelompok baru, metode lanjutan,
 -- strategi pelunasan. Satu migrasi untuk keempat modul.
 
 -- 1. Kelompok baru (SPEC-kelompok-baru): pengembangan diri & tak terduga.

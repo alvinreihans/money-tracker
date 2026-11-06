@@ -102,7 +102,7 @@ export default function MulaiView({ userId, kantong }: { userId: string; kantong
   const kembali = () => setLangkah((l) => Math.max(l - 1, 0));
 
   return (
-    <main className={s.app} style={{ paddingBottom: 120 }}>
+    <main className={s.app} data-tanpa-nav style={{ paddingBottom: 120 }}>
       <div className={s.mulaiAtas}>
         <span className={s.mulaiTitik} aria-label={`Langkah ${langkah + 1} dari ${LANGKAH}`} role="img">
           {Array.from({ length: LANGKAH }, (_, i) => (

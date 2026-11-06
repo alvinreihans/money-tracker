@@ -11,10 +11,10 @@ const WARNA_STATUS = { waspada: "var(--peringatan)", lewat: "var(--bahaya)" } as
 
 /**
  * Budget bulan ini per kategori: aktual/target, bar progres, dan sisa. Bar
- * memakai warna kategori selama aman, lalu kuning di atas 80% dan merah
+ * memakai warna kategori selama aman, lalu kuning mulai 80% dan merah
  * kalau lewat — dan statusnya juga ditulis, bukan warna saja.
  */
-/** `judul`: dipakai Beranda untuk "Budget hampir habis" (hanya yang > 80%), tanpa ringkasan total. */
+/** `judul`: dipakai Beranda untuk "Budget hampir habis" (hanya yang ≥ 80%), tanpa ringkasan total. */
 export default function KartuBudget({ data, bulan, judul }: { data: ProgresBudget[]; bulan: string; judul?: string }) {
   const kategori = useKategori();
   if (data.length === 0) {
@@ -64,7 +64,8 @@ export default function KartuBudget({ data, bulan, judul }: { data: ProgresBudge
                 className={s.progres}
                 role="progressbar"
                 aria-label={`${nama}: ${b.persen}% dari budget`}
-                aria-valuenow={b.persen}
+                aria-valuenow={Math.min(100, b.persen)}
+                aria-valuetext={`${b.persen}%`}
                 aria-valuemin={0}
                 aria-valuemax={100}
               >

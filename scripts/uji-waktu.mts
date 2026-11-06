@@ -49,6 +49,8 @@ assert.equal(tanya("16:00", true), false);       // "tadi sore" (15–18): jelas
 assert.equal(tanya("20:00", true), false);       // "tadi malam"
 assert.equal(tanya(null, false, "2026-10-22"), false); // hari lain: tidak pernah ditanya
 assert.equal(perluTanyaJam({ transaction_date: "2026-10-23", waktu: null }, undefined), false);
+// Saldo sejak 00.00: semua jam hari itu ikut terhitung, jadi tidak perlu ditanya.
+assert.equal(perluTanyaJam({ transaction_date: "2026-10-23", waktu: null }, { tanggal: "2026-10-23", jam: "00:00" }), false);
 
 // Ikut menggeser saldo?
 assert.equal(ikutSaldo({ transaction_date: "2026-10-23", waktu: "10:00:00" }, saldo), false);

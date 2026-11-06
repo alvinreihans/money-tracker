@@ -1,6 +1,6 @@
 -- =============================================================
 -- Migration: enkripsi merchant, keterangan & teks OCR transaksi
--- (SPEC-enkripsi.md, disetujui 22 Okt 2026)
+-- (docs/specs/SPEC-enkripsi.md, disetujui 22 Okt 2026)
 --
 --   app ──▶ VIEW public.transactions (teks polos, hanya baris milik auth.uid())
 --             │ trigger INSTEAD OF: enkripsi saat tulis

@@ -94,14 +94,15 @@ export function setoranBersih(
 }
 
 /**
- * Saran penghasilan per bulan: rerata bulan penuh (3 terakhir) yang ada
- * penghasilannya, jadi tanggal gajian tidak berpengaruh. Belum ada riwayat
- * sebulan penuh → penghasilan bulan ini.
+ * Saran penghasilan untuk `bulan` ("YYYY-MM"): rerata 3 bulan penuh sebelum
+ * bulan itu yang ada penghasilannya, jadi tanggal gajian tidak berpengaruh.
+ * Belum ada riwayatnya → penghasilan bulan itu sendiri. Bulan lampau memakai
+ * sarannya sendiri, bukan saran bulan berjalan (SPEC-perbaikan-temuan B5).
  */
 export function saranPenghasilan(
   baris: { amount: number | string; category: string; transaction_date: string }[],
   penghasilan: Set<string>,
-  bulanIni: string,
+  bulan: string,
 ): SaranPenghasilan {
   const per = new Map<string, number>();
   for (const t of baris) {
@@ -109,15 +110,17 @@ export function saranPenghasilan(
     const b = t.transaction_date.slice(0, 7);
     per.set(b, (per.get(b) ?? 0) + Number(t.amount));
   }
-  const penuh = [1, 2, 3].map((n) => per.get(geserBulan(bulanIni, -n)) ?? 0).filter((n) => n > 0);
+  const penuh = [1, 2, 3].map((n) => per.get(geserBulan(bulan, -n)) ?? 0).filter((n) => n > 0);
   if (penuh.length) return { nilai: Math.round(penuh.reduce((a, b) => a + b, 0) / penuh.length), sumber: "rerata", bulan: penuh.length };
-  const ini = per.get(bulanIni) ?? 0;
+  const ini = per.get(bulan) ?? 0;
   return ini > 0 ? { nilai: ini, sumber: "bulan-ini", bulan: 1 } : { nilai: 0, sumber: "kosong", bulan: 0 };
 }
 
 /**
  * Metode pilihan user (belum memilih = budget per kategori), penghasilan yang
- * dibagi, dan tujuan tabungan beserta setorannya di `bulan` ("YYYY-MM").
+ * dibagi, dan tujuan tabungan beserta setorannya di `bulan` ("YYYY-MM",
+ * bawaan bulan berjalan). Penghasilan yang diatur sendiri satu angka untuk
+ * semua bulan; sarannya dihitung untuk `bulan`.
  */
 export async function ambilPengaturanMetode(supabase: SupabaseClient, bulan?: string): Promise<PengaturanMetode> {
   const bulanIni = isoLokal(new Date()).slice(0, 7);
@@ -130,7 +133,8 @@ export async function ambilPengaturanMetode(supabase: SupabaseClient, bulan?: st
       .select("amount, category, transaction_date")
       .eq("type", "income")
       .eq("status", "confirmed")
-      .gte("transaction_date", `${geserBulan(bulanIni, -3)}-01`),
+      // 3 bulan sebelum `bulan` sampai bulan berjalan (penghasilanBulanIni).
+      .gte("transaction_date", `${geserBulan(bulan, -3)}-01`),
     supabase.from("user_accounts").select("id, name").eq("kind", "tujuan"),
     supabase
       .from("transactions")
@@ -145,7 +149,7 @@ export async function ambilPengaturanMetode(supabase: SupabaseClient, bulan?: st
   ]);
   const metode = (METODE as readonly string[]).includes(data?.metode) ? (data!.metode as Metode) : "kategori";
   const slugPenghasilan = new Set((kategori ?? []).map((k) => k.slug));
-  const saran = saranPenghasilan(masuk ?? [], slugPenghasilan, bulanIni);
+  const saran = saranPenghasilan(masuk ?? [], slugPenghasilan, bulan);
   const diatur = Number(data?.penghasilan) > 0 ? Number(data!.penghasilan) : null;
   const idTujuan = new Set((tujuan ?? []).map((k) => k.id));
   return {
@@ -296,7 +300,7 @@ export interface HasilMetode {
   dariTujuan: { nama: string; jumlah: number }[];
   /** Setoran bersih ke tujuan tabungan bulan itu (bisa negatif: lebih banyak ditarik). */
   keTujuan: number;
-  /** Zero-Based: penghasilan − Σ target kategori − target tabungan; 0 = semua rupiah punya tugas. */
+  /** Zero-Based: penghasilan − Σ target kategori − target tabungan; 0 = semua rupiah punya tugas. Tanpa penghasilan: tidak ada. */
   belumDialokasikan?: number;
   /** Kakeibo: penghasilan − target tabungan, dibanding yang dibelanjakan (tanpa kelompok tabungan). */
   kakeibo?: { bisaDibelanjakan: number; dibelanjakan: number; sisa: number };
@@ -357,7 +361,7 @@ export function hitungMetode(
     basis,
     dariTujuan: [...dariTujuan].map(([nama, jumlah]) => ({ nama, jumlah })),
     keTujuan,
-    ...(pengaturan.metode === "zero-based" ? { belumDialokasikan: basis - (pengaturan.totalTarget ?? 0) - targetTabungan } : {}),
+    ...(pengaturan.metode === "zero-based" && basis > 0 ? { belumDialokasikan: basis - (pengaturan.totalTarget ?? 0) - targetTabungan } : {}),
     ...(pengaturan.metode === "kakeibo"
       ? { kakeibo: { bisaDibelanjakan: basis - targetTabungan, dibelanjakan: bukanTabungan, sisa: basis - targetTabungan - bukanTabungan } }
       : {}),
@@ -382,4 +386,27 @@ export function hitungMetode(
       return { ...w, target, realisasi, terpakai, status, tabungan };
     }),
   };
+}
+
+/**
+ * Jatah pengeluaran sebulan dari metode: penghasilan dikurangi jatah
+ * tabungan/setoran (wadah tabungan). Kakeibo & Zero-Based: dikurangi target
+ * tabungannya. Null kalau penghasilannya belum ada.
+ */
+export function jatahPengeluaran(h: HasilMetode): number | null {
+  if (h.basis <= 0) return null;
+  return h.basis - h.wadah.filter((w) => w.tabungan && !w.tanpaJatah).reduce((n, w) => n + w.target, 0);
+}
+
+/**
+ * Pembanding proyeksi Analitik (SPEC-analitik-insight): metode aktif → jatah
+ * pengeluaran metode; tanpa metode → Σ budget per kategori; tanpa keduanya
+ * (atau penghasilan metode belum ada) → tanpa pembanding.
+ */
+export function pembandingProyeksi(metode: HasilMetode | null, totalBudget: number): { nilai: number; nama: string } | null {
+  if (metode) {
+    const jatah = jatahPengeluaran(metode);
+    return jatah != null && jatah > 0 ? { nilai: jatah, nama: `jatah pengeluaran ${LABEL_METODE[metode.metode].nama}` } : null;
+  }
+  return totalBudget > 0 ? { nilai: totalBudget, nama: "total budget" } : null;
 }

@@ -1,5 +1,5 @@
 -- =============================================================
--- Migration: saldo per jam & jam transaksi (SPEC-saldo-waktu.md,
+-- Migration: saldo per jam & jam transaksi (docs/specs/SPEC-saldo-waktu.md,
 -- disetujui 23 Okt 2026)
 --
 -- Saldo kantong berlaku sejak jam tertentu (saldo_sejak), bukan hanya

@@ -312,7 +312,8 @@ export type HasilTujuan =
 /**
  * Isian tambah/ubah tujuan tabungan (SPEC-tujuan-tabungan): seperti kantong,
  * ditambah target (wajib) dan tenggat (opsional). Saldo awal = yang sudah
- * terkumpul sebelum memakai aplikasi, tidak boleh minus.
+ * terkumpul sebelum memakai aplikasi, tidak boleh minus. `hari_ini` (opsional)
+ * menolak tenggat sebelum hari ini, kecuali sama dengan `tenggat_lama`.
  */
 export function validasiTujuan(input: Record<string, unknown>): HasilTujuan {
   const dasar = validasiKantong(input);
@@ -323,5 +324,14 @@ export function validasiTujuan(input: Record<string, unknown>): HasilTujuan {
   if (target >= NOMINAL_MAKS) return { ok: false, error: "Targetnya kebesaran.", kolom: "target" };
   const tenggat = input.tenggat === "" || input.tenggat == null ? null : input.tenggat;
   if (tenggat !== null && !tanggalSah(tenggat)) return { ok: false, error: "Tanggal tenggatnya nggak valid.", kolom: "tenggat" };
+  // Tenggat baru paling cepat hari ini; tenggat lama yang sudah lewat boleh tetap (SPEC-perbaikan-temuan C7).
+  if (tenggat !== null && typeof input.hari_ini === "string" && tenggat < input.hari_ini && tenggat !== input.tenggat_lama) {
+    return { ok: false, error: "Tenggatnya paling cepat hari ini.", kolom: "tenggat" };
+  }
   return { ok: true, data: { ...dasar.data, target: Math.round(target), tenggat } };
+}
+
+/** Jatuh tempo pinjaman (opsional) tidak boleh sebelum tanggal pinjam (SPEC-perbaikan-temuan C8). */
+export function cekJatuhTempo(tanggal: string, jatuhTempo: string | null | undefined): string | null {
+  return jatuhTempo && jatuhTempo < tanggal ? "Jatuh tempo tidak boleh sebelum tanggal pinjam." : null;
 }

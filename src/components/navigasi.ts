@@ -16,3 +16,10 @@ export const NAVIGASI = [
 
 /** Layar lebar: dua panel (Riwayat, Profil) dan Tanya AI di samping. Samakan dengan CSS. */
 export const LAYAR_LEBAR = "(min-width: 840px)";
+
+/**
+ * Dua panel (Riwayat, Profil) turun ke satu panel selama panel Tanya AI
+ * terbuka di samping dan layarnya < 1480px. Samakan dengan CSS .duaPanelLipat.
+ */
+export const satuPanelKarenaTanya = () =>
+  window.matchMedia("(max-width: 1479.98px)").matches && Boolean(document.querySelector("dialog[open]:not(:modal)"));

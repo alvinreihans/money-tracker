@@ -1,5 +1,5 @@
 import NextLink from "next/link";
-import { ChevronRight, CircleAlert, CircleCheck, GraduationCap, PiggyBank, ShoppingBag, HandHeart, TrendingUp, Wallet, Zap, type LucideIcon } from "lucide-react";
+import { ChevronRight, CircleAlert, TriangleAlert, CircleCheck, GraduationCap, PiggyBank, ShoppingBag, HandHeart, TrendingUp, Wallet, Zap, type LucideIcon } from "lucide-react";
 import s from "@/components/ui.module.css";
 import { fmtIDR, fmtIDRRingkas } from "@/lib/format";
 import { LABEL_METODE, type HasilMetode, type HasilWadah } from "@/lib/metode";
@@ -36,6 +36,7 @@ function teksStatus(w: HasilWadah): string {
   if (w.tabungan && w.target === 0) return "Target belum diatur";
   if (w.tabungan) return w.status === "tercapai" ? "Tercapai" : `Kurang ${fmtIDRRingkas(w.target - w.realisasi)}`;
   if (w.status === "lewat") return `Lewat ${fmtIDRRingkas(w.realisasi - w.target)} (${w.terpakai - 100}%)`;
+  if (w.status === "hampir") return `Hampir habis · sisa ${fmtIDRRingkas(w.target - w.realisasi)}`;
   return `Sisa ${fmtIDRRingkas(w.target - w.realisasi)}`;
 }
 
@@ -88,7 +89,9 @@ export default function KartuMetode({
                 className={s.progres}
                 role="progressbar"
                 aria-label={`${w.nama}: ${w.terpakai}% dari ${w.tanpaJatah ? "belanja" : w.tabungan ? "target" : "jatah"}`}
-                aria-valuenow={w.terpakai}
+                // Bisa lebih dari 100% (lewat); persen aslinya di valuetext.
+                aria-valuenow={Math.min(100, Math.max(0, w.terpakai))}
+                aria-valuetext={`${w.terpakai}%`}
                 aria-valuemin={0}
                 aria-valuemax={100}
               >
@@ -98,6 +101,7 @@ export default function KartuMetode({
                 <span style={w.status === "aman" || w.status === "tercapai" ? undefined : { color: warnaBar, display: "inline-flex", alignItems: "center", gap: 4 }}>
                   {w.status === "tercapai" && <CircleCheck size={14} aria-hidden style={{ verticalAlign: "-2px", marginRight: 4 }} />}
                   {(w.status === "lewat" || w.status === "kurang") && <CircleAlert size={14} aria-hidden />}
+                  {w.status === "hampir" && <TriangleAlert size={14} aria-hidden />}
                   {teksStatus(w)}
                 </span>
                 {!w.tanpaJatah && w.target > 0 && (
@@ -121,6 +125,16 @@ export default function KartuMetode({
         );
       })}
 
+      {/* Zero-Based tanpa penghasilan: belum ada yang bisa dialokasikan (sama dengan pratinjau Profil → Budget). */}
+      {!judul && hasil.metode === "zero-based" && hasil.basis <= 0 && (
+        <NextLink href="/profil/budget" className={`${s.baris} ${s.tekan}`} style={{ color: "inherit" }}>
+          <span className={s.barisTeks}>
+            <span className={s.barisJudul}>Atur penghasilan dulu</span>
+            <span className={s.redup}>Supaya kelihatan berapa yang belum dialokasikan.</span>
+          </span>
+          <ChevronRight size={18} color="var(--teks-2)" aria-hidden />
+        </NextLink>
+      )}
       {/* Zero-Based (SPEC-metode-lanjutan): sisa penghasilan yang belum diberi tugas. */}
       {!judul && hasil.belumDialokasikan != null && (
         <div className={s.statBaris}>

@@ -37,7 +37,7 @@ try {
   await buka(`${base}/riwayat`, 9000);
   await langkah("lembar tanggal → Pilih rentang", `${bukaTanggal} [...dialog().querySelectorAll('[role=radio]')].find(b => b.innerText.includes('Pilih rentang')).click(); await t(600); return dialog().innerText.includes('Pilih tanggal awal')`);
   await foto(`${L}-kal-1-kosong.png`);
-  await langkah("ke September, ketuk 10 lalu 20", `dialog().querySelector('[aria-label="Bulan sebelumnya"]').click(); await t(300); dialog().querySelector('[data-tgl="2026-09-10"]').click(); await t(200); dialog().querySelector('[data-tgl="2026-09-20"]').click(); await t(300); return 'ok'`);
+  await langkah("ke September, ketuk 10 lalu 20", `for (let i = 0; i < 24 && !dialog().querySelector('[data-tgl="2026-09-10"]'); i++) { dialog().querySelector('[aria-label="Bulan sebelumnya"]').click(); await t(300); } dialog().querySelector('[data-tgl="2026-09-10"]').click(); await t(200); dialog().querySelector('[data-tgl="2026-09-20"]').click(); await t(300); return 'ok'`);
   cek("judul rentang", (await judul()) === "10 Sep – 20 Sep 2026", await judul());
   cek("pita: 9 hari di antara, 2 ujung", await jalankan(`dialog().querySelectorAll('[data-antara="true"]').length === 9 && dialog().querySelectorAll('[data-ujung="true"]').length === 2`.replace("dialog()", "[...document.querySelectorAll('dialog[open]')].at(-1)").replace("dialog()", "[...document.querySelectorAll('dialog[open]')].at(-1)")));
   await foto(`${L}-kal-2-rentang.png`);

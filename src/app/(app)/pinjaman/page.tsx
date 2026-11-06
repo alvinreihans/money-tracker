@@ -13,7 +13,7 @@ export default async function PinjamanPage() {
     ambilKantong(supabase),
     supabase.from("cicilan").select("*").order("created_at"),
     // Cicilan yang sudah dibayar: cukup nomornya per rencana.
-    supabase.from("transactions").select("cicilan_id, cicilan_ke").not("cicilan_id", "is", null),
+    supabase.from("transactions").select("cicilan_id, cicilan_ke").not("cicilan_id", "is", null).eq("status", "confirmed"),
     // Strategi pelunasan (SPEC-pelunasan) tersimpan di baris metode_budget.
     supabase.from("metode_budget").select("strategi_utang, ekstra_utang").maybeSingle(),
   ]);

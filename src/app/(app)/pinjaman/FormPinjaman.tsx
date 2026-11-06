@@ -7,8 +7,9 @@ import { Field, GalatForm, InputNominal, Lembar, Pesan, Pilih, Spinner, useGalat
 import s from "@/components/ui.module.css";
 import { dbErrorMessage } from "@/lib/errors";
 import { fmtIDR, isoLokal } from "@/lib/format";
-import { emojiKantong, type Kantong } from "@/lib/kantong";
-import { arahPindah, EMOJI_ORANG, SALDO_PER_PINJAMAN, type ArahPinjaman } from "@/lib/pinjaman";
+import { emojiKantong, pesanGagalKantong, type Kantong } from "@/lib/kantong";
+import { arahPindah, EMOJI_ORANG, kelebihanBayar, KET_SELISIH_KARTU, SALDO_PER_PINJAMAN, type ArahPinjaman } from "@/lib/pinjaman";
+import { cekJatuhTempo } from "@/lib/transaksi-input";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 const JUDUL: Record<ArahPinjaman, string> = {
@@ -31,6 +32,9 @@ type KantongSaldo = Kantong & { saldo: number };
  * Satu catatan Lend & Borrow, disimpan sebagai pindah kantong antara kantong
  * uang dan kantong orang/kartu (arahPindah). Orang baru dibuatkan kantongnya.
  * `pihak` terisi bila dibuka dari baris orang/kartu (nama tidak perlu diisi).
+ * `kantongUang` = sumber uang tanpa tujuan tabungan (`kantongSumber`).
+ * Bayar tagihan kartu melebihi tagihan di aplikasi → tawarkan mencatat
+ * selisihnya sebagai biaya kartu (SPEC-perbaikan-temuan C1).
  */
 export default function FormPinjaman({
   userId,
@@ -54,15 +58,21 @@ export default function FormPinjaman({
   const [nominal, setNominal] = useState(
     (arah === "terima_bayar" || arah === "bayar") && sisa ? String(Math.round(sisa)) : "",
   );
-  const [kantongId, setKantongId] = useState(kantongUang.find((k) => k.bawaan)?.id ?? kantongUang[0]?.id ?? "");
+  // Uang keluar (Pinjamkan, Bayar): bawaannya kantong bersaldo terbesar, bukan Tunai yang bisa Rp 0;
+  // uang masuk (Pinjam, Terima bayaran): Tunai (SPEC-perbaikan-temuan G5).
+  const keluar = arah === "beri" || arah === "bayar";
+  const bawaan = keluar ? [...kantongUang].sort((a, b) => b.saldo - a.saldo)[0] : kantongUang.find((k) => k.bawaan);
+  const [kantongId, setKantongId] = useState(bawaan?.id ?? kantongUang[0]?.id ?? "");
   const [tanggal, setTanggal] = useState(isoLokal(new Date()));
   const [jatuhTempo, setJatuhTempo] = useState(pihak?.jatuh_tempo ?? "");
   const [keterangan, setKeterangan] = useState("");
   const [loading, setLoading] = useState(false);
-  const { galat, gagal, bersihkan } = useGalat({ nama, nominal, kantong: kantongId });
+  const { galat, gagal, bersihkan } = useGalat({ nama, nominal, kantong: kantongId, jatuh_tempo: jatuhTempo, tanggal });
   const pakaiJatuhTempo = (arah === "beri" || arah === "pinjam") && pihak?.kind !== "kredit";
+  // Bayar tagihan kartu lebih dari tagihan di aplikasi: biasanya bunga, iuran, atau belanja yang belum dicatat.
+  const lebih = pihak?.kind === "kredit" && arah === "bayar" ? kelebihanBayar(pihak.saldo, Number(nominal) || 0) : 0;
 
-  async function simpan(e?: FormEvent) {
+  async function simpan(e?: FormEvent, catatSelisih = false) {
     e?.preventDefault();
     bersihkan();
     const namaBersih = nama.trim().replace(/\s+/g, " ");
@@ -70,6 +80,8 @@ export default function FormPinjaman({
     if (namaBersih.length > 40) return gagal("Namanya kepanjangan, maksimal 40 huruf.", "nama");
     if (!(Number(nominal) > 0)) return gagal("Nominalnya harus lebih dari nol.", "nominal");
     if (!kantongId) return gagal("Pilih kantongnya dulu.", "kantong");
+    const tempo = pakaiJatuhTempo ? cekJatuhTempo(tanggal, jatuhTempo) : null;
+    if (tempo) return gagal(tempo, "jatuh_tempo");
 
     setLoading(true);
     try {
@@ -82,7 +94,7 @@ export default function FormPinjaman({
           .insert({ user_id: userId, name: namaBersih, kind: "orang", emoji: EMOJI_ORANG, saldo_awal: 0, saldo_per: SALDO_PER_PINJAMAN })
           .select()
           .single();
-        if (err) throw err;
+        if (err) throw new Error(await pesanGagalKantong(db, err, namaBersih, null, dbErrorMessage(err, `Kantong "${namaBersih}"`)));
         target = { ...(data as Kantong), saldo: 0 };
       }
 
@@ -103,6 +115,28 @@ export default function FormPinjaman({
       });
       const hasil = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) throw new Error(hasil.error ?? "Gagal nyimpen.");
+
+      // Selisihnya dicatat sebagai pengeluaran Biaya dari kartu itu: tagihan jadi Rp 0.
+      if (catatSelisih && lebih > 0) {
+        const res2 = await fetch("/api/catat-manual", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            amount: lebih,
+            type: "expense",
+            category: "fees",
+            transaction_date: tanggal,
+            merchant: target.name,
+            description: KET_SELISIH_KARTU,
+            kantong_id: target.id,
+          }),
+        });
+        const hasil2 = (await res2.json().catch(() => ({}))) as { error?: string };
+        if (!res2.ok) {
+          router.refresh();
+          throw new Error(`Pembayaran tersimpan, selisihnya belum: ${hasil2.error ?? "gagal nyimpen."}`);
+        }
+      }
 
       // Jatuh tempo: diisi saat meminjam/meminjamkan; dibuang begitu lunas.
       const lunas = (arah === "terima_bayar" || arah === "bayar") && Number(nominal) >= sisa;
@@ -172,6 +206,25 @@ export default function FormPinjaman({
             <Field label="Nominal (Rp)" ikon={Banknote} kolom="nominal">
               <InputNominal required value={nominal} onChange={setNominal} placeholder="Nominal (Rp)" />
             </Field>
+            {lebih > 0 && (
+              <div style={{ padding: "0 12px 8px" }}>
+                <Pesan
+                  jenis="peringatan"
+                  aksi={
+                    <span className={s.chipsBungkus}>
+                      <button type="button" className={`${s.chip} ${s.tekan}`} disabled={loading} onClick={() => void simpan(undefined, true)}>
+                        Catat selisihnya sebagai biaya kartu
+                      </button>
+                      <button type="button" className={`${s.chip} ${s.tekan}`} disabled={loading} onClick={() => void simpan()}>
+                        Simpan saja
+                      </button>
+                    </span>
+                  }
+                >
+                  Lebih {fmtIDR(lebih)} dari tagihan di aplikasi. Biasanya ada bunga, iuran, atau belanja kartu yang belum dicatat.
+                </Pesan>
+              </div>
+            )}
             <Pilih
               label={LABEL_KANTONG[arah]}
               ikon={Wallet}
@@ -181,12 +234,12 @@ export default function FormPinjaman({
               pilihan={kantongUang.map((k) => ({ id: k.id, label: k.name, emoji: emojiKantong(k) }))}
               onChange={setKantongId}
             />
-            <Field label="Tanggal" ikon={CalendarDays}>
+            <Field label="Tanggal" ikon={CalendarDays} kolom="tanggal">
               <input type="date" required value={tanggal} onChange={(e) => setTanggal(e.target.value)} />
             </Field>
             {pakaiJatuhTempo && (
-              <Field label="Jatuh tempo" ikon={CalendarClock} keterangan="Opsional. Untuk mengingatkan kapan dibayar.">
-                <input type="date" value={jatuhTempo} onChange={(e) => setJatuhTempo(e.target.value)} />
+              <Field label="Jatuh tempo" ikon={CalendarClock} keterangan="Opsional. Untuk mengingatkan kapan dibayar." kolom="jatuh_tempo">
+                <input type="date" value={jatuhTempo} min={tanggal} onChange={(e) => setJatuhTempo(e.target.value)} aria-label="Jatuh tempo" />
               </Field>
             )}
             <Field label="Keterangan" ikon={NotebookPen}>

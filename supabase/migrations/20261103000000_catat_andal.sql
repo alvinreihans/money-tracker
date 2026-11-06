@@ -1,4 +1,4 @@
--- Catat yang lebih andal (SPEC-catat-andal.md).
+-- Catat yang lebih andal (docs/specs/SPEC-catat-andal.md).
 
 -- 1. Penanda draft yang dicurigai duplikat: id transaksi yang sama persis
 --    (nominal, jenis, tanggal, jam, kantong). Kosong lagi kalau transaksi

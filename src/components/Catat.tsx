@@ -19,7 +19,7 @@ import type { Transaction } from "@/types/transaction";
  * (components/Obrolan.tsx): kolom ketik yang langsung siap diketik, dengan
  * kamera, galeri, dan form isian sebagai pintasan. Kalau ada yang kurang, AI
  * bertanya di tempat — catatan yang belum selesai menunggu di "Belum
- * selesai" (SPEC-catat-chat.md).
+ * selesai" (docs/specs/SPEC-catat-chat.md).
  *
  * Provider ini ditaruh di kerangka aplikasi, jadi antrean struk dari
  * "Bagikan" bertahan saat pindah halaman.

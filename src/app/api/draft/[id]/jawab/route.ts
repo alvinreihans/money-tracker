@@ -2,12 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { ambilUser, createSupabaseServerClient } from "@/lib/supabase/server";
 import { ambilKonteksAI } from "@/lib/kategori-server";
 import { bacaNominal, bacaTenor, kantongDariJawaban, pertanyaanDraft, type JenisTanya } from "@/lib/draft";
-import type { InfoPaylater } from "@/lib/pinjaman";
+import { EMOJI_KREDIT, type InfoPaylater } from "@/lib/pinjaman";
 import { bacaArah, bacaBukti, gabungNama, isianArah, kantongBank, namaDariJawaban } from "@/lib/arah";
-import { jadikanCicilan, namaRekening } from "@/lib/simpan-transaksi";
+import { jadikanCicilan, namaRekening, tetapkanCicilan } from "@/lib/simpan-transaksi";
+import { isoLokal } from "@/lib/format";
 import { processReceiptText } from "@/lib/receipt";
 import { TEKS_MAKS } from "@/lib/transaksi-input";
-import type { Kantong } from "@/lib/kantong";
+import { pesanGagalKantong, type Kantong } from "@/lib/kantong";
 import { bacaJam, jamTransaksi, perluTanyaJam, saldoSejak } from "@/lib/waktu";
 import type { Transaction } from "@/types/transaction";
 
@@ -16,7 +17,7 @@ export const dynamic = "force-dynamic";
 // "cerita" membaca ulang lewat rantai Groq.
 export const maxDuration = 30;
 
-const JENIS: JenisTanya[] = ["cerita", "nominal", "arah", "kantong", "kantong_tujuan", "waktu", "tenor", "duplikat", "konfirmasi"];
+const JENIS: JenisTanya[] = ["cerita", "nominal", "arah", "kantong", "kantong_tujuan", "kartu", "waktu", "tenor", "duplikat", "konfirmasi"];
 
 /**
  * Jawaban user untuk pertanyaan di percakapan sebuah draft (SPEC-catat-chat).
@@ -93,6 +94,31 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const k = kantongDariJawaban(nilai, semua);
     if (k && k.id !== tx.kantong_id) patch.kantong_tujuan_id = k.id;
     else gagal = "Pilih kantong tujuan yang lain ya.";
+  } else if (jenis === "kartu") {
+    // Tagihan kartu kredit yang belum terdaftar (SPEC-tagihan-cicilan): kartu
+    // yang sudah ada, atau kartu baru bertagihan = pembayaran ini sejak awal
+    // harinya, jadi sesudah dibayar tagihannya Rp 0.
+    if (nilai === "tambah" && tx.merchant) {
+      const { data: kartu, error } = await supabase
+        .from("user_accounts")
+        .insert({
+          user_id: user.id,
+          name: tx.merchant,
+          kind: "kredit",
+          emoji: EMOJI_KREDIT,
+          saldo_awal: -Number(tx.amount),
+          saldo_per: tx.transaction_date,
+          saldo_sejak: `${tx.transaction_date}T00:00:00+07:00`,
+        })
+        .select("id")
+        .single();
+      if (error) return tolak(await pesanGagalKantong(supabase, error, tx.merchant, null, "Gagal menambah kartunya."));
+      patch.kantong_tujuan_id = kartu.id;
+    } else {
+      const k = kantongDariJawaban(nilai, semua.filter((x) => x.kind === "kredit"));
+      if (k) patch.kantong_tujuan_id = k.id;
+      else gagal = "Pilih kartu kredit yang ada, atau tambah kartunya.";
+    }
   } else if (jenis === "duplikat") {
     // "Ya, catat lagi": penandanya dilepas, transaksinya tersimpan seperti biasa.
     // "Bukan" ditangani obrolan dengan menghapus draft-nya langsung.
@@ -184,6 +210,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const sesudah = pertanyaanDraft({ ...tx, ...patch }, saldoDari);
   const selesai = sesudah === null || sesudah === "konfirmasi";
   if (selesai) Object.assign(patch, { status: "confirmed", raw_ocr_text: null });
+  // Bayar cicilan: nomornya baru ditetapkan sekarang (SPEC-tagihan-cicilan).
+  if (selesai && tx.cicilan_id) Object.assign(patch, await tetapkanCicilan(supabase, tx.cicilan_id, isoLokal(new Date())));
 
   const { data: baru, error } = await supabase.from("transactions").update(patch).eq("id", id).select().single();
   if (error) return NextResponse.json({ error: "Gagal menyimpan jawabannya." }, { status: 500 });

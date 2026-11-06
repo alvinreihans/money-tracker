@@ -8,7 +8,7 @@ import { AppBar, Field, GalatForm, InputNominal, Konfirmasi, Kosong, Lembar, Pes
 import s from "@/components/ui.module.css";
 import { dbErrorMessage } from "@/lib/errors";
 import { fmtIDR, isianNominal, isoLokal } from "@/lib/format";
-import { ambilEmoji, emojiKantong, SARAN_EMOJI_KANTONG, type Kantong } from "@/lib/kantong";
+import { ambilEmoji, emojiKantong, pesanGagalKantong, SARAN_EMOJI_KANTONG, type Kantong } from "@/lib/kantong";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { validasiKantong } from "@/lib/transaksi-input";
 import { fmtJam, jamWIB, saldoSejakDari } from "@/lib/waktu";
@@ -92,13 +92,16 @@ export default function KantongView({
     const data = baruSaldo ? { ...cek.data, saldo_sejak: saldoSejakDari(cek.data.saldo_per) } : cek.data;
 
     setLoading(true);
-    const tabel = createSupabaseBrowserClient().from("user_accounts");
+    const db = createSupabaseBrowserClient();
+    const tabel = db.from("user_accounts");
     const { error: err } = edit.id
       ? await tabel.update(data).eq("id", edit.id)
       : await tabel.insert({ ...data, user_id: userId });
-    setLoading(false);
 
-    if (err) return gagal(dbErrorMessage(err, `Kantong "${cek.data.name}"`));
+    // Nama kembar (tanpa beda huruf): sebut di mana nama itu dipakai (SPEC-perbaikan-temuan C4).
+    const pesan = err ? await pesanGagalKantong(db, err, cek.data.name, edit.id, dbErrorMessage(err, `Kantong "${cek.data.name}"`)) : null;
+    setLoading(false);
+    if (err) return gagal(pesan!, err.code === "23505" ? "name" : undefined);
     setEdit(null);
     router.refresh();
   }
@@ -149,9 +152,14 @@ export default function KantongView({
                   <span className={s.barisEmoji} aria-hidden>
                     🎯
                   </span>
+                  {/* Dibungkus, tidak dipotong, di panel sempit (SPEC-perbaikan-temuan C11). */}
                   <span className={s.barisTeks}>
-                    <span className={s.barisJudul}>Disisihkan ke tujuan</span>
-                    <span className={s.redup}>{disisihkan.jumlah} tujuan tabungan</span>
+                    <span className={s.barisJudul} style={{ whiteSpace: "normal" }}>
+                      Disisihkan ke tujuan
+                    </span>
+                    <span className={s.redup} style={{ whiteSpace: "normal" }}>
+                      {disisihkan.jumlah} tujuan tabungan
+                    </span>
                   </span>
                   <span className={s.nominal}>{fmtIDR(disisihkan.total)}</span>
                 </NextLink>

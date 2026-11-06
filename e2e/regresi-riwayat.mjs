@@ -6,6 +6,8 @@ const U = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const admin = createClient(U, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 const EMAIL = "uji-riwayat-sementara@example.com", SANDI = "Uji12345#";
 const hariIni = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" });
+// Header bulan berjalan (uji tidak terikat pada bulan saat ditulis).
+const bulanIni = (() => { const b = new Intl.DateTimeFormat("id-ID", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${hariIni.slice(0, 7)}-01T00:00:00Z`)); return b[0].toUpperCase() + b.slice(1); })();
 const geser = (n) => { const d = new Date(`${hariIni}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 let uid, gagal = 0;
 const cek = (nama, ok, info = "") => { console.log(`${ok ? "✓" : "✗"} ${nama}${info ? " — " + info : ""}`); if (!ok) gagal++; };
@@ -54,7 +56,7 @@ try {
   await buka(`${base}/riwayat`, 9000);
   let k = await keadaan();
   cek("tanpa filter: 125 transaksi + total di subjudul", /^125 transaksi · keluar .*180.* · masuk .*5/.test(k.sub), k.sub);
-  cek("header per bulan", k.bulan.some((b) => /^Oktober 2026/.test(b)) && k.bulan.some((b) => /^September 2026/.test(b)), JSON.stringify(k.bulan));
+  cek("header per bulan", k.bulan.some((b) => b.startsWith(`${bulanIni} `)) && k.bulan.some((b) => /^September 2026/.test(b)), JSON.stringify(k.bulan));
   cek("total September 140 rb walau baru 100 baris termuat", k.kartu === 100 && k.bulan.some((b) => /September 2026.*140/.test(b)), `kartu=${k.kartu} | ${k.bulan.find((b) => b.startsWith("September"))}`);
   const hari = (await jalankan(`[...document.querySelectorAll("section h3")].map(h => h.innerText)`)).map((h) => h.split(/\s+/).join(" "));
   cek("subheader per hari di dalam bulan", hari.includes("Hari ini −Rp 25.000") && hari.some((h) => /^Kemarin −Rp 15.000/.test(h)), JSON.stringify(hari.slice(0, 5)));

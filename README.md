@@ -45,7 +45,7 @@ misalnya saat kuota Gemini habis.
 yang gagal dibaca disimpan sebagai draft beserta teks aslinya.
 
 [FALLBACK.md](FALLBACK.md) menjelaskan rancangan awal, dengan Gemini sebagai
-jaring pengaman terakhir. Urutannya dibalik di [SPEC-catat-andal.md](SPEC-catat-andal.md).
+jaring pengaman terakhir. Urutannya dibalik di [SPEC-catat-andal](docs/specs/SPEC-catat-andal.md).
 
 ## Stack
 
@@ -65,7 +65,8 @@ ikon lucide-react), tanpa pustaka UI atau pustaka grafik.
 | `supabase/migrations/` | Migrasi database berversi, dijalankan berurutan oleh `npm run db:migrate` |
 | `scripts/` | Runner migrasi dan skrip uji/diagnostik |
 | `e2e/` | Uji end-to-end di browser (Edge/Chrome headless lewat DevTools Protocol), satu file per suite |
-| `SPEC-*.md` | Spesifikasi tiap fitur, dengan keputusan dan pertanyaan terbuka |
+| `docs/specs/` | Spesifikasi tiap fitur (`SPEC-*.md`) dan peta fase 4, indeks di [docs/specs/README.md](docs/specs/README.md) |
+| `docs/uat/` | Skenario uji penerimaan (UAT) per rilis beserta hasilnya |
 
 ## Mulai
 

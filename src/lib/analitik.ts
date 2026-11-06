@@ -1,4 +1,5 @@
 import { geserHari, isoLokal, namaBulan } from "@/lib/format";
+import { alamatRiwayat, FILTER_KOSONG, type FilterRiwayat } from "@/lib/riwayat";
 
 /**
  * Perhitungan analitik (Beranda & tab Analitik). Fungsi murni — datanya diambil di halaman,
@@ -74,7 +75,7 @@ export interface ProgresBudget {
   sisa: number;
   /** Aktual ÷ target × 100, dibulatkan; bisa lebih dari 100. */
   persen: number;
-  /** aman ≤ 80%, waspada > 80%, lewat > 100%. */
+  /** aman < 80%, waspada ≥ 80% ("hampir habis", sama dengan kartu metode), lewat > 100%. */
   status: "aman" | "waspada" | "lewat";
 }
 
@@ -97,7 +98,7 @@ export function progresBudget(
       const t = Number(amount);
       const a = aktual.get(category) ?? 0;
       const persen = Math.round((a / t) * 100);
-      const status: ProgresBudget["status"] = a > t ? "lewat" : a > t * 0.8 ? "waspada" : "aman";
+      const status: ProgresBudget["status"] = a > t ? "lewat" : a >= t * 0.8 ? "waspada" : "aman";
       return { kategori: category, target: t, aktual: a, sisa: t - a, persen, status };
     })
     .sort((x, y) => y.aktual / y.target - x.aktual / x.target);
@@ -214,4 +215,19 @@ export function analisisBulan(ini: BarisAnalitik[], lalu: BarisAnalitik[], { bul
     kategoriNaik: naik ?? null,
     merchant,
   };
+}
+
+/**
+ * Tautan telusur Analitik → Riwayat yang angkanya sama dengan Analitik:
+ * `merchant` = nama merchant persis (bukan cari `q`), `tanpaTujuan` =
+ * sembunyikan pengeluaran yang dibayar dari tujuan tabungan (`tujuan=tanpa`),
+ * yang juga tidak dihitung Analitik (SPEC-analitik-tujuan).
+ */
+export function alamatTelusur(f: Partial<FilterRiwayat>, { merchant, tanpaTujuan }: { merchant?: string; tanpaTujuan?: boolean } = {}): string {
+  const dasar = alamatRiwayat({ ...FILTER_KOSONG, ...f });
+  const p = new URLSearchParams();
+  if (merchant) p.set("merchant", merchant);
+  if (tanpaTujuan) p.set("tujuan", "tanpa");
+  const qs = p.toString();
+  return qs ? `${dasar}${dasar.includes("?") ? "&" : "?"}${qs}` : dasar;
 }

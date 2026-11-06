@@ -1,5 +1,5 @@
 -- =============================================================
--- Migration: kantong — saldo awal & transaksi tertaut (SPEC-analitik.md, modul kantong)
+-- Migration: kantong — saldo awal & transaksi tertaut (docs/specs/SPEC-analitik.md, modul kantong)
 -- =============================================================
 -- Kantong memakai ulang tabel user_accounts. saldo_awal adalah saldo di AWAL
 -- tanggal saldo_per; transaksi bertanggal itu dan sesudahnya ikut dihitung.

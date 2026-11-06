@@ -105,7 +105,7 @@ self.addEventListener("fetch", (event) => {
 });
 
 /**
- * Push notifikasi harian (SPEC-notifikasi.md). Isi dari server:
+ * Push notifikasi harian (docs/specs/SPEC-notifikasi.md). Isi dari server:
  * { judul, isi, url, tag } — lihat src/lib/notifikasi.ts.
  */
 self.addEventListener("push", (event) => {
