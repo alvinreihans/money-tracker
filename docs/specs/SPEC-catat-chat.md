@@ -95,7 +95,7 @@ Membesar sendiri saat ada pertanyaan, foto masuk, atau ditarik ke atas (> 40px; 
 ### Kamera, galeri & bagikan
 
 - **Kamera**: layar penuh seperti sekarang, **sekali jepret** → kembali ke obrolan dengan foto terlampir di komposer (boleh ditambah keterangan, mis. "pakai BCA", supaya AI tidak perlu bertanya) → kirim.
-- **Galeri**: pilih **1 gambar** → terlampir → kirim. Komposer menampung maksimal 1 lampiran; memilih lagi menggantinya. Lampiran hilang bila lembar ditutup.
+- **Galeri**: pilih **1 gambar** → terlampir → kirim. Komposer menampung maksimal 1 lampiran; memilih lagi menggantinya. Lampiran hilang bila lembar ditutup. Sejak SPEC-impor-rekening galeri juga menerima **PDF rekening koran** dan beberapa berkas sekaligus: PDF membuka pratinjau impor rekening koran, gambar pertama terlampir, gambar lain masuk antrean di latar. Seret-lepas dan Bagikan juga menerima PDF (Bagikan menyerahkannya ke halaman lewat Cache Storage, tidak diunggah di latar).
 - **Bagikan** dari aplikasi lain: tanpa komposer, langsung diproses di latar oleh service worker (Fase B). Android bisa membagikan beberapa gambar sekaligus — **masing-masing diproses sendiri**: yang lengkap tersimpan, yang kurang menjadi percakapannya sendiri.
 - **Seret foto** ke aplikasi (desktop/tablet, SPEC-layar-lebar) dan gambar Bagikan yang gagal diunggah di latar masuk **antrean** di halaman: snackbar "Lagi proses struk · sisa n", lalu ringkasan "n tercatat · n belum lengkap · n gagal" dengan aksi "Lengkapi" (buka daftar Belum selesai).
 - Sheet "Struk" dihapus.

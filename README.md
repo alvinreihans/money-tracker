@@ -11,6 +11,7 @@ Aplikasi berjalan sebagai PWA di Vercel.
 **Mencatat**
 - Teks bebas, foto struk atau bukti bayar e-wallet (kamera atau unggah), dan form manual.
 - Bagikan struk atau teks langsung dari aplikasi lain (share target Android); gambarnya diunggah di latar.
+- Impor rekening koran PDF SeaBank, Jago, dan BRI (parser per bank, tanpa AI): pratinjau dulu, impor ulang tidak menggandakan, pindah antar rekening sendiri dipasangkan, saldo dicocokkan dengan bank.
 - Catat bergaya chat: draft, pertanyaan lanjutan, dan deteksi transaksi ganda.
 - Draft tetap tersimpan beserta teks mentahnya saat pembacaan gagal, jadi data tidak hilang.
 - Ingatan kategori per merchant, pencocokan nama yang toleran salah ketik, tawaran "ubah semua yang serupa", dan batalkan.
@@ -27,8 +28,9 @@ Aplikasi berjalan sebagai PWA di Vercel.
 - Login email dan password lewat Supabase Auth, termasuk reset password.
 - Data sensitif (merchant, deskripsi, teks OCR mentah) dienkripsi di database.
 
-Fitur Telegram dan impor rekening koran PDF pernah ada, tetapi sudah dihapus
-(lihat CHANGELOG).
+Fitur Telegram pernah ada, tetapi sudah dihapus (lihat CHANGELOG). Impor
+rekening koran PDF versi lama (dibaca AI) dihapus di 2.0.0 dan kembali dengan
+parser per bank (SPEC-impor-rekening).
 
 ## Cara kerja pembacaan struk
 
@@ -50,7 +52,7 @@ jaring pengaman terakhir. Urutannya dibalik di [SPEC-catat-andal](docs/specs/SPE
 ## Stack
 
 Next.js 16 (App Router) · React 19 · TypeScript · Supabase (PostgreSQL, Auth, Row Level Security) ·
-Tesseract.js · sharp · Groq · Gemini (membaca gambar & Tanya AI) · web-push · Vercel (termasuk Cron).
+Tesseract.js · sharp · pdfjs-dist (teks rekening koran) · Groq · Gemini (membaca gambar & Tanya AI) · web-push · Vercel (termasuk Cron).
 UI mengikuti [One UI](https://developer.samsung.com/one-ui) dan dibangun sendiri (CSS sendiri,
 ikon lucide-react), tanpa pustaka UI atau pustaka grafik.
 
@@ -60,7 +62,7 @@ ikon lucide-react), tanpa pustaka UI atau pustaka grafik.
 |---|---|
 | `src/app/` | Halaman (`(app)/` untuk yang butuh login) dan API route |
 | `src/components/` | Komponen UI |
-| `src/lib/` | Logika: pipeline gambar dan OCR, ekstraksi, analitik, budget, pinjaman, notifikasi, validasi |
+| `src/lib/` | Logika: pipeline gambar dan OCR, ekstraksi, analitik, budget, pinjaman, notifikasi, validasi; `rekening/` parser & rencana impor rekening koran |
 | `src/proxy.ts` | Penyegaran sesi Supabase dan perlindungan `/api/*` |
 | `supabase/migrations/` | Migrasi database berversi, dijalankan berurutan oleh `npm run db:migrate` |
 | `scripts/` | Runner migrasi dan skrip uji/diagnostik |
@@ -97,7 +99,8 @@ Langkah lengkap, termasuk jebakan koneksi Supabase, ada di [SETUP.md](SETUP.md).
 | `npm run test:teks` | Diagnostik jalur teks |
 | `npm run ukur:ocr` | Ukur kualitas OCR |
 | `npm run ukur:teks` | Ukur ketepatan AI membaca teks ketikan (18 kalimat, Groq sungguhan) |
-| `npm run uji:<nama>` | Skrip uji per area: `validasi`, `tanggal`, `saran`, `analitik`, `kantong`, `kategori`, `pinjaman`, `notifikasi`, `ekspor`, `draft`, `waktu`, `riwayat`, `tanya`, `arah`, `metode`, `ingat`, `bundle` |
+| `npm run uji:<nama>` | Skrip uji per area: `validasi`, `tanggal`, `saran`, `analitik`, `kantong`, `kategori`, `pinjaman`, `notifikasi`, `ekspor`, `draft`, `waktu`, `riwayat`, `tanya`, `arah`, `metode`, `ingat`, `simpanan`, `rekening`, `bundle` |
+| `npm run cek:rekening -- <folder/pdf>` | Diagnostik lokal impor rekening koran atas PDF di luar repo; hanya mencetak angka (baris, validasi saldo, pasangan, bunga) |
 | `npm run uji:isolasi` | Akun lain tidak bisa membaca, mengubah, atau merujuk data akun ini (lewat API sungguhan) |
 | `npm run eval:tanya` | Evaluasi jawaban Tanya AI |
 | `npm run e2e [-- suite …]` | Semua suite E2E, atau yang disebut; butuh `npm run dev` jalan |

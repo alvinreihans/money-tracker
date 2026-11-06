@@ -1,6 +1,6 @@
 # Spec: Impor rekening koran (SeaBank, Jago, BRI)
 
-Status: **disetujui** (implementasi menunggu aba-aba user) · 6 November 2026 · branch `feat/impor-rekening` · pasangan [SPEC-lengkapi](SPEC-lengkapi.md)
+Status: **diterapkan, belum dirilis** · 6 November 2026 (diterapkan 7 November 2026) · branch `feat/impor-rekening` · migrasi `20261112000000_impor_rekening.sql` · pasangan [SPEC-lengkapi](SPEC-lengkapi.md) (fase 2)
 
 Rekening koran jadi **sumber kebenaran soal uang** (nominal & kantong yang benar-benar terpotong); screenshot e-wallet dan struk melengkapi detailnya (SPEC-lengkapi). Impor rekening koran pernah ada dan dihapus di 2.0.0 sebagai penyederhanaan tampilan (`89df77f`), bukan karena gagal.
 
@@ -105,6 +105,46 @@ Sesudah impor, saldo kantong menurut aplikasi dibandingkan dengan saldo akhir re
 - Data asli user tidak pernah masuk repo, tes, atau log.
 - Tidak ada AI di jalur impor rekening koran.
 
+## Hasil uji data asli (lokal, 7 Nov 2026)
+
+`npm run cek:rekening -- <folder>` membaca PDF dari luar repo dan hanya mencetak angka. Data user (Mar–Okt 2026 + riwayat Jago sejak 2022):
+
+| | SeaBank | Jago | BRI |
+|---|---|---|---|
+| Berkas | 8 | 9 (8 bulanan, 1 riwayat) | 8 |
+| Rekening/kantong × berkas | 8 | 57 | 8 |
+| Baris | 775 | 741 | 65 |
+| Validasi saldo | 8/8 lolos | 9/9 lolos | 8/8 lolos |
+| Bunga & pajak → transaksi bunga bulanan | 246 → 8 | 127 → 65 | 0 |
+
+Semua berkas sekaligus (kantong rekaan): 1.452 baris unik (129 baris dobel antar-berkas dilewati, Jago riwayat vs bulanan); pasangan pindah kantong dua sisi Jago→SeaBank 7, Jago→BRI 5, SeaBank→Jago 2, BRI→SeaBank 1, antar kantong Jago 55; tidak ada pindah kantong satu sisi yang rekening koran lawannya ikut diunggah; saldo akhir 10/10 kantong = rekening koran; impor ulang semua berkas: 0 transaksi baru.
+
+## Keputusan saat implementasi
+
+Hal yang tidak diatur spec, dipilih yang paling kecil dan sejalan dengannya:
+
+1. **Satu lembar pratinjau per unggahan**, berisi satu kartu per rekening (kantong Jago masing-masing satu kartu; beberapa berkas rekening yang sama digabung, "· 2 berkas"), dan satu tombol Impor. Dengan begitu pasangan pindah kantong antar-berkas langsung terlihat.
+2. **Satu berkas gagal = seluruh unggahan ditolak** (§2): pesan per berkas, tanpa tombol Impor, tidak ada yang tersimpan. Sama untuk bank yang belum didukung (K5) dan berkas yang bukan PDF.
+3. **Pengenal baris (`ref_bank`)**: SeaBank tanggal + nominal bertanda + saldo sesudahnya; BRI tanggal & jam (detik) + nominal + saldo; **Jago bukan `ID#`**: di data asli transfer BI-Fast punya `ID#` berbeda di laporan bulanan dan riwayat, jadi dipakai nomor kantong + tanggal + jam + nominal + saldo (sama di kedua format). Pengenal kembar di satu rekening koran (transfer gagal, dikembalikan, lalu diulang di menit yang sama) diberi "#2". Pindah kantong menyimpan pengenal sisi asal di `ref_bank` dan sisi tujuan di `ref_bank_tujuan`; keduanya unik per user (bukan global, supaya tidak membocorkan baris akun lain).
+4. **Bunga (K2)**: satu **pemasukan bersih** (bunga − pajak) per bulan per rekening/kantong Jago, kategori Bunga/Investasi, tanggal & jam baris bunga terakhir bulan itu, keterangan "Bunga Sep 2026 (30 hari) · kotor Rp 480, pajak Rp 40" (seperti bunga deposito di SPEC-simpanan). Pajak tidak jadi transaksi terpisah: ikutan biaya hanya untuk pindah kantong (`ikutan_sesuai_jenis`). Rekening koran yang lebih lengkap untuk bulan yang sama memperbarui nominalnya bila lebih besar (pengenal `<bank>:<4 digit>:bunga:<bulan>`).
+5. **Biaya transfer** jadi ikutan pindah kantongnya: BRI (waktu & uraian sama, ≤ Rp 10.000 — biaya BI-Fast), SeaBank (baris "Fee" sesudah top up/transfer di hari yang sama), Jago ("Biaya Transfer Keluar" di menit yang sama). Bila transaksi induknya bukan pindah kantong, biaya dicatat sendiri sebagai Biaya admin.
+6. **Pindah kantong (§6) butuh tanda rekening sendiri**: 4 digit akhir nomor lawan = `nomor_akhir` kantong (dan nama bank lawan tidak menyebut kantong lain — nomor HP e-wallet bisa kebetulan sama), **atau** nama lawan = pemilik rekening (huruf tersamar "X" dan kata terakhir yang terpotong dianggap cocok) dan nama bank/e-wallet-nya cocok dengan nama/alias kantong. Dua sisi di unggahan yang sama dipasangkan bila nominal sama persis, tanggal ±1 hari, dan menit sama bila keduanya berjam. Tanpa tanda itu: Lainnya, Perlu dilengkapi.
+7. **Pemetaan**: hanya rekening utama yang ditanya; kantong Jago lain mengikuti kantong Jago-nya, dicocokkan ke simpanan di dalamnya lewat `nomor_akhir` (nomor kantong Jago) atau nama, selain itu dibuat sebagai simpanan **tabungan/pocket** (termasuk kantong "Deposito" Jago — bunga & tenornya tidak tertulis) bersaldo awal = saldo sebelumnya di periode pertama, sejak awal periode itu. Kantong Jago kosong (tanpa baris, saldo 0) tidak dibuat. Kantong lawan yang hanya disebut di riwayat → simpanan bersaldo 0 sejak saat impor; kantong yang sudah ditutup (tanpa nama, "Tarik Uang Kantong") → Lainnya, Perlu dilengkapi.
+8. **Buat kantong SeaBank**: nama bank (atau "SeaBank …1234" bila nama itu sudah dipakai), saldo awal = saldo awal rekening koran paling awal, berlaku sejak 00.00 tanggal awal periodenya, 4 digit akhir tersimpan.
+9. **Saldo (§7)**: saldo kantong menurut aplikasi di akhir periode terakhir (sesudah impor); bila saldo kantong diisi sesudah periode, dihitung mundur dari saldo itu. **Samakan** (kotak centang, bawaan tidak): `saldo_sejak` = 00.00 WIB tanggal awal periode paling awal, `saldo_awal` = saldo akhir bank − jumlah transaksi kantong itu dalam periode (sesudah impor), jadi akhir periodenya tepat sama dengan bank.
+10. **Deposito SeaBank (§8)**: dicocokkan dengan nama ke simpanan deposito di kantong SeaBank itu; tawaran berupa kotak centang (bawaan tidak). Dibuat lewat `buat_simpanan` sebagai uang baru (bukan "sudah termasuk", karena saldo tabungan di rekening koran SeaBank tidak memuatnya), mulai = jatuh tempo − tenor, pajak bawaan SPEC-simpanan, perpanjangan "sekali saja". Baris "Time Deposit" (Fund Placement) jadi pindah kantong SeaBank ↔ deposito itu; tanpa deposito: Lainnya, Perlu dilengkapi.
+11. **Sudah tercatat (§5)**: kandidat = transaksi tercatat di kantong yang sama (uang masuk lewat pindah kantong: sisi tujuannya), nominal sama, ±1 hari, sisinya belum tertaut; tanggal paling dekat dulu, lalu jam paling dekat; baris tanpa jam memakai urutan jam kandidat. **Ragu** hanya bila baris tanpa jam punya lebih banyak kandidat di hari itu daripada baris bernominal sama; pilihan bawaan kandidat berjam paling awal, bisa diganti atau "Bukan, catat sebagai baru".
+12. **Aturan kategori tambahan**: "Refund - …", Cashback Jago, dan pembatalan transaksi kartu/QRIS Jago ("…-R") → Cashback/Refund (tidak Perlu dilengkapi); Adjustment SeaBank → Lainnya (merchant SeaBank, tidak Perlu dilengkapi); Admin Fee/Monthly Fee ATM/Biaya → Biaya admin; baris lain yang tidak dikenali → Lainnya, Perlu dilengkapi. Merchant = nama pihak lawan, atau teks bank; keterangan = uraian bank (+ Catatan Jago), terenkripsi seperti keterangan lain. Kategori bawaan yang sudah dihapus user → Lainnya.
+13. **SPinjam / SPayLater**: hanya bagian kantongnya — pindah kantong ke/dari kantong orang/kartu yang namanya memuat SPinjam/SPayLater; rencana cicilan belum ditautkan (lihat Belum diterapkan).
+14. **Perlu dilengkapi**: lencana di daftar transaksi, keterangan di detail; hilang begitu user menyimpan Edit transaksi. Riwayat mendapat chip "Perlu dilengkapi · n" (alamat `?lengkapi=1`), tampil bila ada yang bertanda.
+15. **Unggah**: galeri Catat menerima PDF dan beberapa berkas (PDF → pratinjau; gambar pertama dilampirkan, sisanya diproses di latar seperti Bagikan); seret-lepas memisahkan gambar & PDF; Bagikan meneruskan PDF ke halaman lewat Cache Storage (tidak diunggah di latar, karena butuh pratinjau). Batas: 10 PDF, 4 MB per kiriman (batas permintaan Vercel), 200 halaman.
+16. **Server**: `pdfjs-dist` 6 build legacy, modul worker-nya dimuat di proses yang sama (tanpa worker thread), `serverExternalPackages` + `outputFileTracingIncludes`. Pratinjau dan Impor membaca ulang PDF yang sama (disimpan di memori browser) dan menyusun ulang rencana dengan pilihan yang sama, lalu Impor menulis lewat satu RPC `impor_rekening` (security invoker, lewat view & trigger tulis); bentrok pengenal → "Sebagian baris rekening koran ini sudah diimpor barusan."
+17. **Jam**: SeaBank tanpa jam (`waktu` kosong); pindah kantong memakai jam sisi yang punya jam.
+18. **Data untuk fase 2** disiapkan di migrasi yang sama: `ref_bukti` (Order SN / nomor bon) dan indeks `perlu_dilengkapi`.
+
 ## Belum diterapkan
 
-Seluruh spec ini (implementasi menunggu aba-aba user).
+- SPinjam / SPayLater ditautkan ke rencana cicilan (SPEC-lend-borrow / SPEC-paylater); sekarang hanya pindah kantong ke kantong orang/kartu bila ada.
+- Deposito SeaBank yang jatuh tempo: pencairan & bunganya di rekening koran belum dicocokkan dengan evaluasi jatuh tempo SPEC-simpanan (bisa tercatat dua kali bila keduanya dipakai).
+- Biaya transfer yang tertulis **sebelum** transaksi induknya tidak ditempelkan (dicatat sendiri sebagai Biaya admin).
+- Lengkapi dari screenshot & struk, dan hilangnya tanda lewat pelengkapan: [SPEC-lengkapi](SPEC-lengkapi.md) (fase 2).

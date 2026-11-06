@@ -21,6 +21,15 @@ docs/specs/SPEC-catat-tuntas.md (fase 1 & 2 selesai di 2.4.0, fase 3 di 2.5.0, f
 
 ## [Unreleased]
 
+### Ditambah
+- **Impor rekening koran PDF SeaBank, Jago, dan BRI** (SPEC-impor-rekening). Lampirkan PDF-nya di Catat (boleh beberapa sekaligus), seret ke aplikasi, atau Bagikan dari aplikasi bank. Bank & rekeningnya dikenali dari isi PDF; rekening yang belum dikenal ditanya sekali "Rekening SeaBank …1234 ini kantong yang mana?" (atau **Buat kantong SeaBank**), lalu 4 digit akhirnya diingat. Dibaca di server tanpa AI; PDF tidak disimpan. Bank lain: "Rekening koran dari bank ini belum bisa dibaca."
+- **Pratinjau sebelum menyimpan**, satu kartu per rekening: periode & jumlah baris, transaksi baru, yang sudah tercatat (ditautkan, tidak dibuat lagi), pindah kantong, bunga, yang perlu dilengkapi, dan saldo akhir menurut bank vs menurut aplikasi — dengan tawaran **"Samakan saldo awal BRI supaya akhir September = Rp 730.500"**. Saldo awal + semua baris harus sama dengan saldo akhir; kalau tidak, impornya ditolak dan tidak ada yang tersimpan.
+- **Impor ulang tidak menggandakan**: tiap baris bank menyimpan pengenalnya, jadi file yang sama atau periode yang tumpang tindih (riwayat Jago vs laporan bulanan) hanya tercatat sekali; transaksi yang sudah dicatat sendiri (nominal & kantong sama, ±1 hari) dipertahankan dan ditautkan.
+- **Pindah antar rekening sendiri** dikenali (nomor rekening lawan, atau nama sendiri ke e-wallet seperti "Top Up Shopee") dan dicatat sekali sebagai pindah kantong, juga bila rekening koran pasangannya baru diimpor belakangan; biaya BI-Fast menempel sebagai biaya admin transfernya.
+- **Bunga harian digabung** jadi satu pemasukan per bulan per rekening ("Bunga Sep 2026 (30 hari) · kotor Rp 480, pajak Rp 40").
+- **Kantong-kantong Jago jadi simpanan** di dalam kantong Jago (pindah antar kantong Jago = pindah antar simpanan), dan **deposito di rekening koran SeaBank** ditawarkan dibuat ("Buat deposito Promo 3 bulan, 6%, Rp 5 jt?").
+- **Tanda "Perlu dilengkapi"** untuk baris rekening koran yang belum jelas kategori/merchant-nya (pembayaran e-wallet/QRIS, transfer ke/dari orang): tetap tercatat dan ikut saldo sebagai Lainnya, bertanda di daftar & detail, dan bisa disaring di Riwayat (chip **Perlu dilengkapi**). Tanda hilang begitu transaksinya diedit.
+
 ## [2.11.0] — 2026-11-06
 
 ### Ditambah

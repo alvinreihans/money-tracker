@@ -121,6 +121,12 @@ Dari `docs/uat/UAT-simpanan-2.11.0.md`; semua disetujui user untuk dibetulkan se
 | U4 | Di 390 px pesan galat form kantong (mis. "SeaBank masih berisi 1 simpanan…") tertutup bilah Batal/Simpan. | Pesan galat form selalu terlihat penuh di atas bilah tombol (digulir ke pandangan / diberi ruang). |
 | U5 | Tombol "Cairkan sekarang" memperlihatkan garis fokus saat detail deposito dibuka. | Membuka lembar dengan sentuhan/klik tidak memperlihatkan garis fokus di tombol; dengan keyboard garis fokus tetap ada (aksesibilitas). |
 
+## Dari impor rekening koran (SPEC-impor-rekening)
+
+- Kantong Jago selain Kantong Utama jadi **simpanan tabungan/pocket** di dalam kantong Jago (dibuat saat impor bila belum ada, dikenali lewat nomor kantong Jago atau nama); pindah uang antar kantong Jago = pindah kantong antar simpanan.
+- Deposito di rekening koran SeaBank ditawarkan dibuat sebagai simpanan deposito di kantong SeaBank ("Buat deposito Promo 3 bulan, 6%, Rp 5 jt?"), lewat `buat_simpanan` sebagai uang baru; penempatannya di rekening koran jadi pindah kantong SeaBank → deposito.
+- Bunga pocket Jago yang ada di rekening koran tercatat sebagai bunga bulanan saat diimpor.
+
 ## Belum diterapkan
 
 - Bunga tabungan/pocket otomatis (keputusan user: belum; dicatat manual sebagai pemasukan).
