@@ -27,6 +27,7 @@ import {
   ringkasBeranda,
   statusCicilan,
   tampakKartuKredit,
+  cocokkanKartu,
   barangKetikan,
   rapikanPaylater,
 } from "../src/lib/pinjaman.ts";
@@ -191,6 +192,14 @@ assert.equal(rapikanPaylater({ ...pl, description: teksSepatu }, teksSepatu).des
 assert.equal(rapikanPaylater({ ...pl, description: "Kado ulang tahun" }, teksSepatu).description, "Kado ulang tahun");
 assert.equal(rapikanPaylater({ ...pl, merchant: "Tokopedia", description: null }, teksSepatu).description, null);
 assert.equal(rapikanPaylater({ ...pl, paylater: null, description: null }, teksSepatu).description, null);
+
+// --- Kartu kredit dari metode bayar (SPEC-perbaikan-temuan G4) ---
+const kartuKu = [{ name: "Kartu kredit Mandiri", kind: "kredit" }, { name: "Kartu kredit", kind: "kredit" }, { name: "SeaBank", kind: "bank" }];
+assert.equal(cocokkanKartu("CC Mandiri", kartuKu)?.name, "Kartu kredit Mandiri");
+assert.equal(cocokkanKartu("Mandiri", kartuKu)?.name, "Kartu kredit Mandiri");
+assert.equal(cocokkanKartu("kartu kredit", kartuKu), null);
+assert.equal(cocokkanKartu("SeaBank", kartuKu), null);
+assert.equal(cocokkanKartu(null, kartuKu), null);
 
 // --- Pihak yang tampak kartu kredit (SPEC-tagihan-cicilan §1) ---
 for (const ya of ["Kartu kredit Mandiri", "CC BCA", "credit card bni", "kartu-kredit", "Mandiri cc"]) assert.equal(tampakKartuKredit(ya), true, ya);

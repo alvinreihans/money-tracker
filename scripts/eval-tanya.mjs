@@ -36,7 +36,8 @@ const KASUS = [
   { tanya: "berapa total pengeluaran bulan ini?", harus: [367000, 10300000], pola: /tabungan/i },
   { tanya: "kalau transaksi Laku6 tidak dihitung, pengeluaran bulan ini berapa?", harus: [367000] },
   { tanya: "jika transaksi Laku6 tidak dihitung, bagaimana kondisi keuangan saya bulan ini?", harus: [367000, 8000000] },
-  { tanya: "berapa total jajan kopi bulan ini?", harus: [47000] },
+  // Hasilnya hanya pengeluaran: tautannya ke tab Keluar (SPEC-perbaikan-temuan G6).
+  { tanya: "berapa total jajan kopi bulan ini?", harus: [47000], tautan: /jenis=keluar/ },
   { tanya: "transaksi di atas 1 juta bulan ini apa aja?", harus: [10300000], pola: /laku6/i },
   { tanya: "pengeluaran yang di bawah 50 ribu bulan ini totalnya berapa?", harus: [122000] },
   // Saldo sejak 1 Jan: BCA 20.000.000 + 8.000.000 - 300.000 (bulan lalu) + 8.000.000 - 10.300.000 - 500.000;

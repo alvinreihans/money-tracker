@@ -129,6 +129,23 @@ try {
   const profHp2 = await langkah("Profil/kategori 360", `return { menu: getComputedStyle(document.querySelector('[class*=panelDaftar]')).display, kembali: !!document.querySelector('[class*=panelDetail] a[aria-label="Kembali"]') && getComputedStyle(document.querySelector('[class*=panelDetail] a[aria-label="Kembali"]')).display }`);
   cek("Profil/kategori 360: hanya halaman, dengan tombol kembali", profHp2.menu === "none" && profHp2.kembali !== "none" && profHp2.kembali !== false, JSON.stringify(profHp2));
 
+  // --- 5b. Profil saat panel Tanya AI terbuka (1024): satu panel — menu, atau halaman dengan tombol kembali (SPEC-perbaikan-temuan G1).
+  await ukur(1024);
+  await buka(`${base}/`, 6000);
+  const PROF_TANYA = `const kb = document.querySelector('[class*=panelDetail] a[aria-label="Kembali"]'); return { url: location.pathname, tanya: !!dialog() && !dialog().matches(':modal'), tampil: getComputedStyle(document.querySelector('[class*=duaPanel]')).display, menu: getComputedStyle(document.querySelector('[class*=panelDaftar]')).display, kanan: getComputedStyle(document.querySelector('[class*=panelDetail]')).display, isiKanan: document.querySelector('[class*=panelDetail]').innerText.split('\\n').filter(Boolean).slice(0, 2).join(' | '), kembali: kb ? getComputedStyle(kb).display : 'tidak ada', label: [...document.querySelectorAll('[class*=panelDaftar] a[href="/profil/kantong"] [class*=barisJudul]')].map(e => e.innerText).join(), potong: [...document.querySelectorAll('[class*=panelDaftar] [class*=barisJudul]')].filter(e => e.offsetWidth && e.scrollWidth > e.clientWidth + 1).map(e => e.innerText), samping: document.documentElement.scrollWidth - innerWidth }`;
+  const pt = await langkah("Profil + Tanya 1024", `document.querySelector('button[aria-label="Tanya AI soal keuanganmu"]').click(); await sampai(() => dialog()); await t(500); document.querySelector('nav a[href="/profil"]').click(); await sampai(() => location.pathname.startsWith('/profil')); await t(3500); ${PROF_TANYA}`);
+  cek("G1 Profil 1024 + Tanya: tetap /profil, menu satu panel, label utuh, tanpa gulir samping",
+    pt?.url === "/profil" && pt.tanya && pt.tampil === "block" && pt.menu !== "none" && pt.kanan === "none" && pt.label === "Kantong" && pt.potong?.length === 0 && pt.samping <= 0, JSON.stringify(pt));
+  await foto("1024-profil-tanya-menu.png");
+  const ptK = await langkah("Profil + Tanya: ketuk Kantong", `document.querySelector('[class*=panelDaftar] a[href="/profil/kantong"]').click(); await sampai(() => location.pathname === '/profil/kantong'); await t(3000); ${PROF_TANYA}`);
+  cek("G1 Profil 1024 + Tanya: Kantong saja dengan tombol Kembali, tanpa gulir samping",
+    ptK?.url === "/profil/kantong" && ptK.tanya && ptK.menu === "none" && ptK.kanan !== "none" && /Kantong/.test(ptK.isiKanan) && ptK.kembali !== "none" && ptK.kembali !== "tidak ada" && ptK.samping <= 0, JSON.stringify(ptK));
+  await foto("1024-profil-tanya-kantong.png");
+  const ptB = await langkah("Profil + Tanya: ketuk Kembali", `document.querySelector('[class*=panelDetail] a[aria-label="Kembali"]').click(); await sampai(() => location.pathname === '/profil'); await t(3500); ${PROF_TANYA}`);
+  cek("G1 Profil 1024 + Tanya: Kembali → menu /profil, tanpa redirect ke Kantong",
+    ptB?.url === "/profil" && ptB.tanya && ptB.menu !== "none" && ptB.kanan === "none" && ptB.samping <= 0, JSON.stringify(ptB));
+  await langkah("tutup Tanya", `dialog().querySelector('textarea').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); await t(600); return !!dialog()`);
+
   // --- 6. Catat: lembar penuh di HP, pop-up di layar lebar; ketikan bertahan saat lebar berubah.
   await buka(`${base}/`, 6000);
   await langkah("buka Catat 360", `document.querySelector('button[aria-label="Catat transaksi"]').click(); await sampai(() => dialog()); await t(500); isi(dialog().querySelector('textarea'), 'kopi 20rb gopay'); return 'ok'`);

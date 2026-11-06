@@ -13,7 +13,7 @@ import BayarDariTujuan from "@/components/BayarDariTujuan";
 import s from "@/components/ui.module.css";
 import { bacaBukti, rapikanNama } from "@/lib/arah";
 import { alasanDraft } from "@/lib/kantong";
-import { namaKategori } from "@/lib/kategori";
+import { judulTransaksi, namaKategori } from "@/lib/kategori";
 import { NAMA_KELOMPOK, type Kelompok } from "@/lib/metode";
 import { fmtIDR, fmtTanggal, fmtWaktu, JENIS, labelSumber } from "@/lib/format";
 import { fmtJam } from "@/lib/waktu";
@@ -50,8 +50,8 @@ export default function DetailView({
   const alasan = alasanDraft(t);
   const bukti = bacaBukti(t.bukti_transfer);
   const pihak = bukti && [bukti.pengirim.nama, bukti.penerima.nama].map(rapikanNama).filter(Boolean).join(" dan ");
-  const nama = t.merchant ?? "Tanpa nama";
   const kategori = useKategori();
+  const nama = judulTransaksi(t, kategori).judul;
   const { ikon: Ikon, warna } = tandaTransaksi(t, kategori);
   const { kantong } = useCatat();
   const pindah = t.type === "transfer";

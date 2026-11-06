@@ -456,7 +456,7 @@ Ringkasan bulan ${bulan} (DATA, sama dengan hasil fungsi ringkasan_bulan): ${JSO
         } else hasil = nama ? await jalankanFungsi(nama, args, { supabase, konteks, kategori }) : { error: "fungsi tidak dikenal" };
         catat?.(`fungsi ${p.name} ${JSON.stringify(args)} → ${JSON.stringify(hasil).slice(0, 300)}`);
         hasilFungsi.push(hasil);
-        const t = nama && tautanDari(nama, args, konteks);
+        const t = nama && tautanDari(nama, args, konteks, hasil);
         if (t) tautan.set(t.href, t);
         // id ikut dikembalikan supaya model tahu jawaban untuk panggilan yang mana.
         balasan.push({ functionResponse: { id: (p as { id?: string }).id, name: p.name, response: { hasil } } } as Part);

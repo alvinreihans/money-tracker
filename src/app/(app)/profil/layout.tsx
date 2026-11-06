@@ -21,7 +21,7 @@ export default async function ProfilLayout({ children }: { children: React.React
   ]);
 
   return (
-    <div className={`${s.duaPanel} ${s.lebar}`} data-tanpa-kembali>
+    <div className={`${s.duaPanel} ${s.duaPanelLipat} ${s.lebar}`} data-tanpa-kembali>
       <div className={s.panelDaftar}>
         <ProfilView
           email={user?.email ?? null}

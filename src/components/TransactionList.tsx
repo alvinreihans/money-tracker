@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCatat, useKategori } from "@/components/Catat";
 import { LAYAR_LEBAR } from "@/components/navigasi";
 import { tandaTransaksi } from "@/components/kategori";
-import { namaKategori } from "@/lib/kategori";
+import { judulTransaksi, namaKategori } from "@/lib/kategori";
 import s from "@/components/ui.module.css";
 import { alamatDetail, fmtIDR, fmtIDRRingkas, fmtTanggal, geserHari, isoLokal, kelompokWaktu, namaBulan } from "@/lib/format";
 import { fmtJam } from "@/lib/waktu";
@@ -71,9 +71,10 @@ function Kartu({
   // Hanya sebagian yang cocok filter: jumlah bagian itu saja, dengan tanda
   // "Bagian dari Rp X" — sama dengan yang dihitung total hari/bulan.
   const sebagian = Boolean(pecahan) && !penuh;
+  const { judul, dariKategori } = judulTransaksi(t, kategori);
   const rincian = [
     tanggal,
-    t.type === "transfer" ? null : penuh ? `${baris.length} bagian` : baris.length > 1 ? `${baris.length} dari ${pecahan?.jumlah ?? "?"} bagian` : namaKategori(kategori, t.category, t.type),
+    t.type === "transfer" ? null : penuh ? `${baris.length} bagian` : baris.length > 1 ? `${baris.length} dari ${pecahan?.jumlah ?? "?"} bagian` : dariKategori ? null : namaKategori(kategori, t.category, t.type),
     lewat,
   ]
     .filter(Boolean)
@@ -100,7 +101,7 @@ function Kartu({
           <Ikon size={20} />
         </span>
         <span className={s.barisTeks}>
-          <span className={s.barisJudul}>{t.merchant ?? "Tanpa nama"}</span>
+          <span className={s.barisJudul}>{judul}</span>
           <span className={s.redup}>{rincian}</span>
           {t.status === "needs_review" && <span className={`${s.lencana} ${s.lencanaBahaya}`}>Belum selesai</span>}
           {sebagian && <span className={s.redup}>Bagian dari {fmtIDR(pecahan!.total)}</span>}

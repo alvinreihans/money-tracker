@@ -37,6 +37,7 @@ Pemakai bisa bertanya dengan bahasa sehari-hari tentang keuangannya sendiri, lal
 
 3. **Jawaban disertai tautan telusur** (`tautanDari`).
    - Setiap pemanggilan `cari_transaksi` menghasilkan tombol **Lihat di Riwayat**, berisi filter yang sama persis dengan yang dipakai AI (filter fase 2). Bila memakai `kecuali`/`minimal`/`maksimal` (Riwayat belum punya filter itu), labelnya **Lihat semua di Riwayat**.
+   - Bila AI tidak mengisi `jenis` dan hasilnya hanya berisi pengeluaran (`total_masuk` 0), tautannya membuka tab Keluar (`jenis=keluar`); angkanya sama (SPEC-perbaikan-temuan G6).
    - `ringkasan_bulan` menghasilkan tombol **Buka Analitik [bulan]**. Ringkasan bulan yang dihitung di depan juga: bila jawabannya memakai nominal dari ringkasan itu, tombolnya ikut ditambahkan (`tautanJawaban`), walau model tidak memanggil fungsi.
    - `saldo_kantong` → **Lihat kantong** (`/profil/kantong`); `pinjaman_cicilan` → **Buka Utang & Piutang** (`/pinjaman`).
    - `hitung` dan `usul_ubah_kategori` tanpa tautan. Tautan yang sama hanya muncul sekali.

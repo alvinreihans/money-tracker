@@ -224,6 +224,8 @@ ${daftarPrompt(kategori, "income")}
   "kartu"/"debit"/"kredit"/"visa"=Kartu. Jika tidak disebut null.
   Kalau nama bank/dompet disebut, pakai NAMA itu, bukan "Transfer"/"Kartu":
   "tf mandiri" -> Mandiri; "masuk seabank" -> SeaBank; "debit bca" -> BCA.
+  Kartu kredit yang disebut tetap ditulis sebagai kartu: "pakai cc mandiri" -> "CC Mandiri",
+  "kartu kredit bca" -> "Kartu kredit BCA".
   Untuk "income", ini rekening/dompet tempat uang MASUK ("masuk bca", "ke bri" -> BRI).
   Untuk "transfer", ini rekening/dompet ASAL uangnya ("tarik tunai dari bca" -> BCA).${hanya(
     kantong.length > 0,

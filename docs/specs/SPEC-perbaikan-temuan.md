@@ -77,6 +77,19 @@ Disetujui user 6 Nov; diterapkan di PR yang sama (uji unit, E2E `tagihan-cicilan
 | F3 | Di 900 px dengan panel Tanya AI terbuka, baris chip filter Riwayat terpotong di tepi panel (baris geser tanpa scrollbar tidak terlihat bisa digeser). | Mulai 600 px, baris chip (`.chips`) membungkus ke baris berikutnya, tidak digeser dan tidak meluber ke tepi. Di HP (< 600 px) tetap baris geser. | layar-lebar |
 | F4 | Ring fokus tombol × panel Tanya AI menimpa judul. | Ring fokus tombol ikon (`.ikonTombol`) di dalam lingkarannya (`outline-offset` negatif). Fokus awal tetap di tombol pertama (kolom ketik sengaja tidak autofokus supaya keyboard HP tidak menutupi saran). | layar-lebar |
 
+## G. Temuan UAT (6 Nov 2026)
+
+Dari `docs/uat/UAT-perbaikan-2.9.0.md`; disetujui user 6 Nov, diterapkan di PR yang sama (uji unit; E2E `lebar`, `perbaikan-utang`, `perbaikan-riwayat`, `regresi-riwayat`, `kembali`; eval Tanya AI #4 & #22; UAT-08 langkah 5 diulang di 900 px).
+
+| # | Masalah | Perilaku yang diharapkan | Spec |
+|---|---|---|---|
+| G1 | Profil di 840–1479 px dengan panel Tanya AI terbuka tetap dua panel dan sesak (label "K.", nominal terpotong). | Sama dengan Riwayat (A6): selama panel Tanya AI terbuka dan lebarnya kurang, Profil memakai satu panel (halaman pengaturan yang terbuka, dengan tombol kembali ke menu). | layar-lebar |
+| G2 | Di HP, keterangan baris Utang & Piutang terpotong ("… jatuh tempo …", "berikutnya 6 Feb 20…"). | Keterangan baris di halaman Utang & Piutang boleh dua baris (membungkus), tidak dipotong. | lend-borrow |
+| G3 | Transaksi tanpa merchant tampil "Tanpa nama" di Beranda, Riwayat, dan detail. | Judulnya nama kategori ("Makan"), atau "Pindah kantong" untuk pindah kantong tanpa merchant; kategorinya tidak diulang di baris keterangan (`judulTransaksi`). | navigasi, riwayat-filter |
+| G4 | "pakai cc mandiri" tidak langsung cocok ke kantong "Kartu kredit Mandiri" (AI mengisi "Mandiri"), jadi ditanya. | Prompt: kartu kredit yang disebut tetap ditulis sebagai kartu ("cc mandiri" → "CC Mandiri"). Pencocokan kantong: setelah cocok persis gagal, kartu kredit dicocokkan tanpa awalan/akhiran "kartu kredit"/"credit card"/"cc" di kedua sisi (`cocokkanKartu`), hanya bila teksnya menyebut kartu atau tidak ada kantong lain bernama sama. | lend-borrow, ai-kantong |
+| G5 | "Dari kantong" di Pinjamkan / Bayar tagihan / Bayar ke … bawaannya Tunai walau saldonya Rp 0. | Untuk uang keluar (Pinjamkan, Bayar, Bayar tagihan), bawaannya kantong sumber dengan saldo terbesar; uang masuk (Pinjam, Terima bayaran) tetap Tunai. | lend-borrow |
+| G6 | "Lihat di Riwayat" dari Tanya AI tanpa `jenis` membuka "Semua" walau yang ditanyakan pengeluaran. | Bila AI tidak mengisi `jenis` dan hasil `cari_transaksi` tidak berisi pemasukan (`total_masuk` = 0) tapi ada pengeluaran, tautannya memakai `jenis=keluar`. Angkanya tetap sama. | analitik-ai |
+
 ## Keputusan (5 Nov 2026)
 
 K1, K2, K6, K7, K8, K9 memakai usulan.

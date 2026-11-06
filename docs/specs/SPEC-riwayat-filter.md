@@ -64,6 +64,7 @@ September 2026 ········· −Rp 2,1 jt · +Rp 8 jt
 - **Header kelompok per bulan**, misalnya "Oktober 2026", dengan total keluar dan masuk **bulan itu untuk seluruh hasil filter**, bukan hanya baris yang sudah termuat.
 - **Subheader per hari** di dalam bulan ("Hari ini", "Kemarin", "Senin, 20 Okt"), juga dengan total keluar & masuk hari itu untuk seluruh hasil filter.
 - **Kartu transaksi** cukup menampilkan jam ("07.30", bila ada), lalu kategori dan kantong; tanggalnya sudah di subheader hari.
+- **Judul kartu** = merchant; tanpa merchant: nama kategorinya (dan kategori tidak diulang di keterangan), atau "Pindah kantong" untuk pindah kantong — bukan "Tanpa nama". Sama di Beranda dan halaman detail (`judulTransaksi`, SPEC-perbaikan-temuan G3).
 - Pindah kantong tidak dihitung sebagai keluar maupun masuk, sama seperti di tempat lain.
 - Hanya transaksi terkonfirmasi yang tampil (yang belum selesai ada di lembar Catat).
 

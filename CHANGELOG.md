@@ -47,6 +47,11 @@ docs/specs/SPEC-catat-tuntas.md (fase 1 & 2 selesai di 2.4.0, fase 3 di 2.5.0, f
 - **Halaman masuk tepat di tengah di tablet dan desktop.** Halaman masuk, reset password, mulai, dan 404 sebelumnya bergeser ke kanan (40 px di tablet, 120 px di desktop) karena menyisakan ruang untuk navigasi samping yang tidak ada di halaman itu.
 - **Kartu kredit menampilkan jatuh temponya walau tanpa tagihan** ("Tidak ada tagihan · jatuh tempo 30 Nov"), supaya terlihat isiannya tersimpan.
 - **Tanya AI menghitung satu merchant secara persis.** "Berapa belanja di Kopi Kenangan?" tidak lagi ikut menghitung merchant yang namanya mirip, dan tombol "Lihat di Riwayat"-nya memakai saringan merchant yang sama.
+- **Transaksi tanpa merchant tidak lagi bertuliskan "Tanpa nama"** di Beranda, Riwayat, dan detail; judulnya nama kategori ("Makan"), atau "Pindah kantong".
+- **"pakai cc mandiri" langsung tercatat dari kartu "Kartu kredit Mandiri"**, tanpa ditanya kantongnya.
+- **"Dari kantong" di Pinjamkan dan Bayar tagihan bawaannya kantong yang saldonya terbesar**, bukan Tunai yang bisa Rp 0.
+- **Tombol "Lihat di Riwayat" dari Tanya AI untuk pertanyaan pengeluaran membuka tab Keluar.**
+- **Profil tetap terbaca saat panel Tanya AI terbuka di tablet/laptop** (turun ke satu panel seperti Riwayat), dan keterangan jatuh tempo/cicilan di Utang & Piutang tidak lagi terpotong di HP.
 - **Lain-lain:** Riwayat turun ke satu panel saat panel Tanya AI terbuka di layar yang tidak cukup lebar, dan kartu bagian pecahan yang dibuka ditandai terpilih; subjudul Budget di Profil mengikuti metode yang aktif; di tablet dan desktop chip filter membungkus ke baris berikutnya alih-alih terpotong, dan ring fokus tombol × tidak lagi menimpa judul; ekspor CSV menulis kategori pindah kantong "Pindah kantong".
 
 ### Diubah

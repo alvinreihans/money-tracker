@@ -133,12 +133,25 @@ export function filterDariArgumen(args: Record<string, unknown>, k: KonteksTanya
   );
 }
 
-/** Tombol telusur untuk satu pemanggilan fungsi (kalkulator tidak punya tujuan). */
-export function tautanDari(nama: NamaFungsi, args: Record<string, unknown>, k: KonteksTanya): { label: string; href: string } | null {
+/**
+ * Tombol telusur untuk satu pemanggilan fungsi (kalkulator tidak punya tujuan).
+ * `hasil` cari_transaksi: tanpa `jenis` tapi hanya berisi pengeluaran →
+ * tautannya ke tab Keluar, angkanya tetap sama (SPEC-perbaikan-temuan G6).
+ */
+export function tautanDari(
+  nama: NamaFungsi,
+  args: Record<string, unknown>,
+  k: KonteksTanya,
+  hasil?: unknown,
+): { label: string; href: string } | null {
   if (nama === "hitung" || nama === "usul_ubah_kategori") return null;
   // Riwayat belum bisa mengecualikan atau membatasi nominal: tautannya menampilkan sebelum dikecualikan.
   const disaring = (Array.isArray(args.kecuali) && args.kecuali.length > 0) || args.minimal != null || args.maksimal != null;
-  if (nama === "cari_transaksi") return { label: disaring ? "Lihat semua di Riwayat" : "Lihat di Riwayat", href: alamatRiwayat(filterDariArgumen(args, k)) };
+  if (nama === "cari_transaksi") {
+    const h = (hasil ?? {}) as { total_keluar?: number; total_masuk?: number };
+    const keluarSaja = args.jenis == null && h.total_masuk === 0 && Number(h.total_keluar) > 0;
+    return { label: disaring ? "Lihat semua di Riwayat" : "Lihat di Riwayat", href: alamatRiwayat(filterDariArgumen(keluarSaja ? { ...args, jenis: "keluar" } : args, k)) };
+  }
   if (nama === "ringkasan_bulan") {
     const bulan = bulanDariArgumen(args, k.hariIni);
     const nama = new Intl.DateTimeFormat("id-ID", { month: "long", timeZone: "UTC" }).format(new Date(`${bulan}-01T00:00:00Z`));

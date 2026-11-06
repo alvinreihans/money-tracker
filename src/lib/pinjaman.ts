@@ -30,6 +30,20 @@ export const kantongSumber = (k: { kind: string }) => kantongUang(k) && k.kind !
  */
 export const tampakKartuKredit = (nama: string) => /\b(kartu[\s-]*kredit|credit[\s-]*card|cc)\b/i.test(nama);
 
+/** Nama kartu tanpa "kartu kredit"/"credit card"/"cc": "Kartu kredit Mandiri" → "mandiri". */
+const intiKartu = (nama: string) => normal(nama.replace(/\b(kartu[\s-]*kredit|credit[\s-]*card|cc)\b/gi, ""));
+
+/**
+ * Kartu kredit yang dimaksud teks metode bayar ("CC Mandiri", "Mandiri") bila
+ * tidak ada kantong yang cocok persis: dicocokkan tanpa "kartu kredit"/"cc"
+ * di kedua sisi (SPEC-perbaikan-temuan G4). Kartu bernama "Kartu kredit" saja
+ * tidak pernah cocok lewat sini.
+ */
+export function cocokkanKartu<K extends { name: string; kind: string }>(teks: string | null, daftar: K[]): K | null {
+  const inti = teks ? intiKartu(teks) : "";
+  return inti ? (daftar.find((k) => k.kind === "kredit" && intiKartu(k.name) === inti) ?? null) : null;
+}
+
 /** Emoji bawaan kantong orang & kartu kredit. */
 export const EMOJI_ORANG = "👤";
 export const EMOJI_KREDIT = "💳";

@@ -86,7 +86,8 @@ Per halaman:
 
   - Mengetuk transaksi membuka detailnya di panel kanan, dan barisnya diberi tanda terpilih (`aria-current`). Daftar dan filter tidak hilang.
     - Kartu bagian transaksi yang dipecah (tampil sendiri karena filter) membuka transaksi aslinya (`?id=<asli>`) dan juga ditandai terpilih: kartu terpilih bila `id` yang terbuka = transaksi aslinya atau salah satu baris di kartu itu.
-  - **Panel Tanya AI terbuka** (400px di kanan): bila lebar yang tersisa untuk Riwayat < 840px, Riwayat memakai **satu panel** seperti di HP — daftar, atau detail yang mengisi halaman dengan tombol kembali bila ada `?id=`. Dengan rail 80px/sidebar 240px, artinya layar < 1480px (CSS `.duaPanelRiwayat` di bawah `:root:has(.dialogSamping[open]:not(:modal))`). Menutup Tanya AI mengembalikan dua panel tanpa memuat ulang. Profil tidak berubah.
+  - **Panel Tanya AI terbuka** (400px di kanan): bila lebar yang tersisa untuk Riwayat < 840px, Riwayat memakai **satu panel** seperti di HP — daftar, atau detail yang mengisi halaman dengan tombol kembali bila ada `?id=`. Dengan rail 80px/sidebar 240px, artinya layar < 1480px (CSS `.duaPanelLipat` di bawah `:root:has(.dialogSamping[open]:not(:modal))`). Menutup Tanya AI mengembalikan dua panel tanpa memuat ulang. Profil tidak berubah.
+  - Profil memakai aturan yang sama (`.duaPanelLipat`): selama satu panel karena Tanya AI, `/profil` menampilkan menunya (tidak dialihkan ke Kantong, `satuPanelKarenaTanya`), dan halaman pengaturan tampil penuh dengan tombol kembali ke menu (SPEC-perbaikan-temuan G1).
   - Alamatnya menjadi `/riwayat?…filter…&id=<transaksi>`, jadi bisa di-bookmark dan tombol back browser bekerja.
   - Sebelum ada yang dipilih, panel kanan berisi teks "Pilih transaksi untuk melihat detailnya." (`data-kosong`, ditampilkan CSS `::before`).
   - Mengubah atau menghapus transaksi dilakukan dari panel kanan. Setelah dihapus, alamat kembali ke Riwayat dengan filternya (tanpa `id`) dan panel kosong.

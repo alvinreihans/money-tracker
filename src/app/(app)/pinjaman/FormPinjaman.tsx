@@ -58,7 +58,11 @@ export default function FormPinjaman({
   const [nominal, setNominal] = useState(
     (arah === "terima_bayar" || arah === "bayar") && sisa ? String(Math.round(sisa)) : "",
   );
-  const [kantongId, setKantongId] = useState(kantongUang.find((k) => k.bawaan)?.id ?? kantongUang[0]?.id ?? "");
+  // Uang keluar (Pinjamkan, Bayar): bawaannya kantong bersaldo terbesar, bukan Tunai yang bisa Rp 0;
+  // uang masuk (Pinjam, Terima bayaran): Tunai (SPEC-perbaikan-temuan G5).
+  const keluar = arah === "beri" || arah === "bayar";
+  const bawaan = keluar ? [...kantongUang].sort((a, b) => b.saldo - a.saldo)[0] : kantongUang.find((k) => k.bawaan);
+  const [kantongId, setKantongId] = useState(bawaan?.id ?? kantongUang[0]?.id ?? "");
   const [tanggal, setTanggal] = useState(isoLokal(new Date()));
   const [jatuhTempo, setJatuhTempo] = useState(pihak?.jatuh_tempo ?? "");
   const [keterangan, setKeterangan] = useState("");

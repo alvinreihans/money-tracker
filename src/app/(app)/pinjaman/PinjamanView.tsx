@@ -129,7 +129,7 @@ export default function PinjamanView({
         kembali="/"
       />
 
-      <div className={s.isi}>
+      <div className={`${s.isi} ${s.ketBungkus}`}>
         <div className={s.pintasan} style={{ gridTemplateColumns: "repeat(4, 1fr)" }}>
           <Pintasan ikon={ArrowUpRight} warna="#5ecb7a" label="Pinjamkan" onClick={() => setForm({ arah: "beri", pihak: null })} />
           <Pintasan ikon={ArrowDownLeft} warna="#ff9f43" label="Pinjam" onClick={() => setForm({ arah: "pinjam", pihak: null })} />

@@ -97,6 +97,8 @@ Dijalankan 6 Nov 2026 lewat browser otomatis (Edge headless, `e2e/kepala.mjs`) d
 
 ### Temuan di luar "Diharapkan"
 
+Semua sudah diperbaiki di PR yang sama (SPEC-perbaikan-temuan G1–G6) dan diuji ulang: Profil di 900 px dengan Tanya AI terbuka kini satu panel dan terbaca; "Tanpa nama" diganti nama kategori; "pakai cc mandiri" langsung ke kartunya; "Dari kantong" bawaan kantong bersaldo terbesar; tautan Tanya AI ke tab Keluar; keterangan Utang & Piutang membungkus.
+
 1. Profil di 900 px dengan panel Tanya AI terbuka tetap dua panel dan sesak (label menu terpotong jadi "K.", nominal kantong terpotong). Perlakuan satu panel (A6) hanya untuk Riwayat.
 2. Tautan "Lihat di Riwayat" dari Tanya AI tidak membawa `jenis=keluar`, jadi Riwayat terbuka di "Semua" (totalnya tetap sama).
 3. Transaksi ketikan yang tidak punya merchant tampil "Tanpa nama" di Beranda & Riwayat, padahal kartu Catat menampilkan nama kategorinya.

@@ -35,6 +35,8 @@ try {
   const teman = await kantong("Teman (contoh)", "orang", 0);
   const kartuA = await kantong("Kartu A", "kredit", -500000);
   const kartuB = await kantong("Kartu B", "kredit", -300000);
+  // Tunai Rp 0; SeaBank bersaldo terbesar → bawaan "Dari kantong" uang keluar (G5).
+  await kantong("SeaBank", "bank", 2000000);
   const tx = (amount, type, kantong_id, kantong_tujuan_id, extra = {}) =>
     sb.from("transactions").insert({ user_id: uid, amount, type, category: type === "transfer" ? "other" : "food", transaction_date: hariIni, source: "text", status: "confirmed", kantong_id, kantong_tujuan_id, ...extra });
   await tx(100000, "transfer", bca.id, teman.id, { merchant: "Teman (contoh)" }); // piutang
@@ -54,6 +56,24 @@ try {
   // --- C3: database menolak nama kembar tanpa beda huruf/spasi tepi.
   const { error: kembar } = await sb.from("user_accounts").insert({ user_id: uid, name: "bca ", kind: "bank", saldo_awal: 0, saldo_sejak: sejak });
   cek("C3: 'bca ' ditolak database (23505)", kembar?.code === "23505", JSON.stringify(kembar));
+
+  // --- G2: keterangan baris Utang & Piutang membungkus, tidak dipotong.
+  await buka(`${base}/pinjaman`, 6000);
+  const ket = await langkah("keterangan baris", `const el = [...document.querySelectorAll('[class*=barisTeks] > [class*=redup]')].find(e => /Tagihan kartu kredit/.test(e.textContent)); return el ? { ws: getComputedStyle(el).whiteSpace, teks: el.textContent } : 'tidak ada'`);
+  cek("G2: keterangan baris di Utang & Piutang white-space normal", ket?.ws === "normal", JSON.stringify(ket));
+
+  // --- G5: "Dari kantong" bawaan — uang keluar = saldo terbesar (SeaBank), uang masuk = Tunai.
+  const bawaanKantong = async (nama, buka_) => {
+    await buka(`${base}/pinjaman`, 6000);
+    return langkah(`bawaan ${nama}`, `await sampai(() => document.querySelector('[class*=pintasan] button') && document.querySelector('button [class*=barisJudul]')); await t(300); ${buka_} await sampai(() => dialog()?.querySelector('[data-kolom="kantong"] button')); await t(400); return dialog().querySelector('[data-kolom="kantong"] button').innerText.replace(/\\s+/g, ' ').trim()`);
+  };
+  const bPinjamkan = await bawaanKantong("Pinjamkan", `${tekan("Pinjamkan")}.click();`);
+  const bTagihan = await bawaanKantong("Bayar tagihan", aksi("Kartu A", "Bayar tagihan"));
+  const bPinjam = await bawaanKantong("Pinjam", `${tekan("Pinjam")}.click();`);
+  const bTerima = await bawaanKantong("Terima bayaran", aksi("Teman (contoh)", "Terima bayaran"));
+  cek("G5: Pinjamkan & Bayar tagihan bawaannya SeaBank (saldo terbesar), bukan Tunai Rp 0",
+    /SeaBank/.test(bPinjamkan) && /SeaBank/.test(bTagihan), JSON.stringify({ bPinjamkan, bTagihan }));
+  cek("G5: Pinjam & Terima bayaran bawaannya tetap Tunai", /Tunai/.test(bPinjam) && /Tunai/.test(bTerima), JSON.stringify({ bPinjam, bTerima }));
 
   // --- C6 + C8: Pinjamkan — sumber tanpa tujuan; jatuh tempo sebelum tanggal pinjam ditolak.
   await buka(`${base}/pinjaman`, 6000);

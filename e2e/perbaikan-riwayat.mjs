@@ -151,6 +151,32 @@ try {
     }
   }
 
+  // --- G3: tanpa merchant → judulnya nama kategori ("Makan") / "Pindah kantong", bukan "Tanpa nama"; kategori tidak diulang.
+  await ukur(360);
+  const { data: tanpaNama, error: eTn } = await sb.from("transactions").insert([
+    tx({ amount: 7777, category: "food", merchant: null, payment_method: null, transaction_date: hariIni }),
+    tx({ amount: 3333, type: "transfer", category: "other", merchant: null, payment_method: null, kantong_tujuan_id: hp.id, transaction_date: hariIni }),
+  ]).select("id, type");
+  if (eTn) throw eTn;
+  const idMakan = tanpaNama.find((x) => x.type === "expense").id, idPindah = tanpaNama.find((x) => x.type === "transfer").id;
+  const kartuTanpaNama = (akar) => `const kotak = ${akar}; const ks = [...kotak.querySelectorAll('section a')].map(a => a.innerText.replace(/\\s+/g, ' ').trim()); return JSON.stringify({ makan: ks.find(x => x.includes('7.777')), pindah: ks.find(x => x.includes('3.333')), tanpaNama: ks.filter(x => x.includes('Tanpa nama')).length })`;
+  const g3 = (nama, hasil) => {
+    const h = JSON.parse(String(hasil).startsWith("{") ? hasil : "{}");
+    cek(`G3 ${nama}: judul "Makan", kategori tidak diulang`, /^Makan /.test(h.makan ?? "") && (h.makan.match(/Makan/g) ?? []).length === 1, h.makan);
+    cek(`G3 ${nama}: pindah kantong tanpa merchant "Pindah kantong"`, /^Pindah kantong /.test(h.pindah ?? ""), h.pindah);
+    cek(`G3 ${nama}: tidak ada "Tanpa nama"`, h.tanpaNama === 0, String(h.tanpaNama));
+  };
+  await buka(`${base}/riwayat`, 8000);
+  g3("Riwayat", await langkah("Riwayat tanpa merchant", kartuTanpaNama(`document.querySelector('[class*=panelDaftar]')`)));
+  await buka(`${base}/`, 8000);
+  g3("Beranda", await langkah("Beranda tanpa merchant", kartuTanpaNama(`[...document.querySelectorAll('a')].find(a => a.innerText.trim() === 'Lihat semua riwayat').parentElement`)));
+  for (const [id, judul] of [[idMakan, "Makan"], [idPindah, "Pindah kantong"]]) {
+    await buka(`${base}/transactions/${id}`, 6000);
+    const kepala = norm(await jalankan(`document.querySelector('header').innerText`));
+    cek(`G3 detail: judul "${judul}", bukan "Tanpa nama"`, kepala.includes(judul) && !/Tanpa nama/.test(kepala), kepala.slice(0, 120));
+  }
+  await foto("g3-detail-pindah.png");
+
   // --- A3 lewat UI: Gabungkan lagi jadi satu.
   await ukur(360);
   await buka(`${base}/transactions/${superindo}`, 6000);

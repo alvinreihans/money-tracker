@@ -13,6 +13,7 @@ import {
   statusCicilan,
   SALDO_PER_PINJAMAN,
   tampakKartuKredit,
+  cocokkanKartu,
   type Cicilan,
   type InfoPaylater,
 } from "@/lib/pinjaman";
@@ -178,7 +179,9 @@ export async function simpanTransaksi(
     kantong =
       daftar.find((k) => k.id === row.kantong_id) ??
       // Orang (Lend & Borrow) hanya lewat pindah kantong; "kopi 25rb budi" bukan pinjaman.
-      cocokkanKantong(row.payment_method as string | null, row.type === "transfer" ? daftar : daftar.filter((k) => k.kind !== "orang"));
+      cocokkanKantong(row.payment_method as string | null, row.type === "transfer" ? daftar : daftar.filter((k) => k.kind !== "orang")) ??
+      // "pakai cc mandiri" → kartu "Kartu kredit Mandiri" (SPEC-perbaikan-temuan G4).
+      (dariAi ? cocokkanKartu(row.payment_method as string | null, daftar) : null);
     tujuan =
       row.type === "transfer"
         ? (daftar.find((k) => k.id === row.kantong_tujuan_id) ?? cocokkanKantong(target, daftar))

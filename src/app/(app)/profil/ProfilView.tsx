@@ -5,7 +5,7 @@ import NextLink from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { ChevronRight, Download, HandCoins, LogOut, PiggyBank, Shapes, Target, Wallet } from "lucide-react";
 import { useCatat, useKategori } from "@/components/Catat";
-import { LAYAR_LEBAR } from "@/components/navigasi";
+import { LAYAR_LEBAR, satuPanelKarenaTanya } from "@/components/navigasi";
 import { AppBar } from "@/components/oneui";
 import NamaRekening from "@/components/NamaRekening";
 import SakelarNotifikasi from "@/components/SakelarNotifikasi";
@@ -75,9 +75,10 @@ export default function ProfilView({
   const { kabari } = useCatat();
 
   // Layar lebar: panel kanan langsung berisi halaman pertama, seperti
-  // Pengaturan Samsung di tablet, bukan kosong.
+  // Pengaturan Samsung di tablet, bukan kosong. Kecuali sedang satu panel
+  // karena Tanya AI terbuka: di situ /profil memang menampilkan menunya.
   useEffect(() => {
-    if (pathname === "/profil" && window.matchMedia(LAYAR_LEBAR).matches) router.replace("/profil/kantong");
+    if (pathname === "/profil" && window.matchMedia(LAYAR_LEBAR).matches && !satuPanelKarenaTanya()) router.replace("/profil/kantong");
   }, [pathname, router]);
   const [mengekspor, setMengekspor] = useState(false);
 

@@ -11,6 +11,7 @@ import {
   KATEGORI_BAWAAN,
   kategoriJenis,
   namaKategori,
+  judulTransaksi,
   slugBaru,
   validasiKategori,
   type Kategori,
@@ -35,6 +36,10 @@ assert.deepEqual(kategoriJenis(milikku, "transfer"), []);
 // --- "other" ada di dua jenis: yang dicari jenisnya sama ---
 assert.equal(cariKategori(milikku, "other", "income")?.type, "income");
 assert.equal(namaKategori(milikku, "c-kopi12345", "expense"), "Kopi");
+// Judul transaksi tanpa merchant (SPEC-perbaikan-temuan G3): nama kategori, atau "Pindah kantong".
+assert.deepEqual(judulTransaksi({ merchant: "Warteg", type: "expense", category: "food" }, milikku), { judul: "Warteg", dariKategori: false });
+assert.deepEqual(judulTransaksi({ merchant: null, type: "expense", category: "c-kopi12345" }, milikku), { judul: "Kopi", dariKategori: true });
+assert.deepEqual(judulTransaksi({ merchant: null, type: "transfer", category: "other" }, milikku), { judul: "Pindah kantong", dariKategori: false });
 assert.equal(namaKategori(milikku, "food", "expense"), "Lainnya"); // kategori yang sudah dihapus
 
 // --- Slug buatan user: acak, berawalan c- ---
