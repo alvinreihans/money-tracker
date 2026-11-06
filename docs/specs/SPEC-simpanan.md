@@ -19,7 +19,7 @@ Menuntaskan rencana di CHANGELOG: *Opsi "tujuan ini disimpan di BCA", kalau sald
 | Tampilan | Baris induk menampilkan **saldo gabungan + rincian** ("Rp 500.000 + Deposito Rp 2.000.000"), sama dengan aplikasi bank. |
 | Keluar dari simpanan | Uang simpanan **selalu kembali ke induk dulu** (cair, hapus). Tidak ada "hapus saja". |
 | Perpanjangan deposito | Tiga pilihan: **sekali saja**; **diperpanjang tanpa bunga** (pokok diperpanjang, bunga cair ke induk); **diperpanjang dengan bunga** (pokok + bunga diperpanjang). |
-| Tenor deposito | Dalam **bulan**, minimal 1 (1, 2, 3, 6, 12, …). |
+| Tenor deposito | **Angka + satuan hari atau bulan**, minimal 1 hari. Hari untuk program seperti deposito *flash sale* 14 hari; bulan untuk deposito biasa (jatuh tempo di tanggal yang sama, mengikuti kalender). Revisi 6 Nov: semula bulan saja. |
 | Bunga & pajak | Aplikasi menghitung **bunga kotor, pajak, bunga bersih**. Pajak bawaan **PPh final 20%**, **0%** bila pokok ≤ Rp 7.500.000; bisa diubah per deposito. |
 | Jatuh tempo | **Menunggu evaluasi user**: push + kartu berisi estimasi; user ketuk "Sesuai" atau isi bunga bersih yang benar-benar diterima, baru dicatat. Selisih dengan estimasi ditampilkan. |
 | Tujuan tabungan | Boleh **"Disimpan di"** kantong lain (opsional); tampil gabungan seperti simpanan. Tujuan tetap punya target & progres. |
@@ -32,14 +32,16 @@ Menuntaskan rencana di CHANGELOG: *Opsi "tujuan ini disimpan di BCA", kalau sald
 - **`user_accounts.kind`** bertambah `simpanan`.
 - **`user_accounts.induk_id`** (uuid, FK ke `user_accounts`, `on delete restrict`): **wajib** untuk `simpanan`, **opsional** untuk `tujuan`, selain itu null. Induk harus kantong uang milik user yang sama berjenis `bank`, `ewallet`, atau `cash` (dicek database). Induk tidak bisa dihapus selama masih punya simpanan; tujuan yang disimpan di sana dilepas dulu (lihat §6).
 - **`user_accounts.macam_simpanan`**: `tabungan` / `deposito`, wajib untuk `simpanan`.
-- **Tabel `deposito`** (satu baris per kantong simpanan berjenis deposito): `kantong_id` (PK, FK), `bunga_persen` (per tahun, > 0, ≤ 25), `tenor_bulan` (int ≥ 1), `pajak_persen` (0–100), `perpanjangan` (`sekali` / `pokok` / `pokok_bunga`), `selesai` (bool).
+- **Tabel `deposito`** (satu baris per kantong simpanan berjenis deposito): `kantong_id` (PK, FK), `bunga_persen` (per tahun, > 0, ≤ 25), `tenor` (int ≥ 1), `satuan_tenor` (`hari` / `bulan`), `pajak_persen` (0–100), `perpanjangan` (`sekali` / `pokok` / `pokok_bunga`), `selesai` (bool).
 - **Tabel `deposito_periode`**: `id`, `deposito_id`, `ke` (1, 2, …), `mulai`, `jatuh_tempo`, `pokok`, estimasi `bunga_kotor`, `pajak`, `bunga_bersih`, lalu dari evaluasi: `bunga_diterima` (null = belum dievaluasi), `dievaluasi_pada`, `dicairkan_awal` (bool).
 - RLS & grant kolom mengikuti pola tabel milik user lainnya (`uji:isolasi` diperluas).
 
 ### 2. Perhitungan deposito (`src/lib/simpanan.ts`, fungsi murni)
 
-- **Jatuh tempo** = mulai + tenor bulan, tanggal yang sama; bulan yang lebih pendek mundur ke hari terakhirnya (aturan yang sama dengan jatuh tempo cicilan).
-- **Bunga kotor** = pokok × bunga % ÷ 100 × jumlah hari (mulai → jatuh tempo) ÷ 365, dibulatkan ke rupiah.
+- **Jatuh tempo**:
+  - satuan **hari** → mulai + tenor hari (deposito 14 hari mulai 6 Nov → 20 Nov);
+  - satuan **bulan** → mulai + tenor bulan, tanggal yang sama; bulan yang lebih pendek mundur ke hari terakhirnya (aturan yang sama dengan jatuh tempo cicilan). Perpanjangan dihitung dari tanggal mulai periode itu, jadi tetap di tanggal kalender yang sama.
+- **Bunga kotor** = pokok × bunga % ÷ 100 × jumlah hari sebenarnya (mulai → jatuh tempo, untuk kedua satuan) ÷ 365, dibulatkan ke rupiah.
 - **Pajak** = bunga kotor × pajak % (bawaan 20%, 0% bila pokok ≤ Rp 7.500.000; isian bisa diubah), dibulatkan.
 - **Bunga bersih** = bunga kotor − pajak.
 - Bank bisa menghitung sedikit berbeda (pembulatan, basis hari); itulah gunanya evaluasi jatuh tempo.
@@ -50,7 +52,7 @@ Menuntaskan rencana di CHANGELOG: *Opsi "tujuan ini disimpan di BCA", kalau sald
 - **"Sudah termasuk di saldo SeaBank?"** (bawaan: ya):
   - **ya** → simpanan dibuat dengan saldo 0, lalu tercatat pindah kantong **induk → simpanan** sebesar saldonya, bertanggal sekarang (supaya selalu sesudah tanggal saldo induk). Saldo gabungan induk tetap.
   - **tidak** → saldo awal simpanan seperti kantong baru (uang baru, gabungan naik).
-- **Deposito** menambah isian: bunga % per tahun, tenor (chip 1, 3, 6, 12 bulan + isian bebas, minimal 1), tanggal mulai (bawaan hari ini), perpanjangan (3 pilihan), pajak % (bawaan sesuai §2). Pratinjau langsung: "Jatuh tempo 6 Des 2026 · bunga ± Rp 7.397 · pajak Rp 0 · bersih Rp 7.397".
+- **Deposito** menambah isian: bunga % per tahun, tenor (chip **14 hari · 1 bln · 3 bln · 6 bln · 12 bln**, atau isian angka + pilihan hari/bulan; minimal 1 hari), tanggal mulai (bawaan hari ini), perpanjangan (3 pilihan), pajak % (bawaan sesuai §2). Pratinjau langsung, mis. Rp 2 jt, 4,5%/th, 1 bulan dari 6 Nov: "Jatuh tempo 6 Des 2026 (30 hari) · bunga ± Rp 7.397 · pajak Rp 0 · bersih Rp 7.397".
 - Periode ke-1 dibuat dengan pokok = saldo deposito.
 
 ### 4. Tampilan
@@ -92,7 +94,7 @@ Menuntaskan rencana di CHANGELOG: *Opsi "tujuan ini disimpan di BCA", kalau sald
 
 ## Pengujian
 
-- **Unit** (`uji:simpanan` baru): jatuh tempo (akhir bulan), bunga kotor/pajak/bersih (pokok ≤ dan > Rp 7,5 jt), tiga jenis perpanjangan (pokok periode berikutnya, ke mana bunga masuk), saldo gabungan & rincian, pilihan kantong (deposito tidak tampil).
+- **Unit** (`uji:simpanan` baru): jatuh tempo satuan hari (14 hari) dan bulan (akhir bulan, perpanjangan tetap di tanggal kalender), bunga kotor/pajak/bersih (pokok ≤ dan > Rp 7,5 jt), tiga jenis perpanjangan (pokok periode berikutnya, ke mana bunga masuk), saldo gabungan & rincian, pilihan kantong (deposito tidak tampil).
 - **E2E** (`simpanan` baru): buat deposito "sudah termasuk" → SeaBank tampil gabungan sama; jatuh tempo (periode disuntik bertanggal lampau) → kartu evaluasi → Sesuai / isi lain untuk ketiga perpanjangan; cairkan awal; hapus simpanan bersaldo (kembali ke induk); tujuan disimpan di BCA → gabungan; induk dengan simpanan tidak bisa dihapus.
 - `uji:isolasi` diperluas ke tabel baru; semua suite lama tetap lulus.
 
