@@ -92,6 +92,12 @@ export interface TxBaru {
   ref_bank: string | null;
   ref_bank_tujuan: string | null;
   perlu_dilengkapi: boolean;
+  /**
+   * Posisi baris di rekening koran (urut tanggal, lalu urutan baris): jadi
+   * selisih created_at saat disimpan, supaya urutan baris tanpa jam (SeaBank)
+   * tetap diketahui untuk mencocokkan screenshot/struk (SPEC-lengkapi §1).
+   */
+  urut?: number;
 }
 
 export interface KantongBaru {
@@ -446,6 +452,9 @@ export function rencanakan(m: MasukanRencana): Rencana {
     });
   }
   for (const b of kerja) ringkas.get(b.kunciRek)!.baris++;
+  // Urutan baris rekening koran (SPEC-lengkapi §1): tanggal, lalu urutan di berkas.
+  const posisi = new Map([...kerja].sort((a, b) => a.tanggal.localeCompare(b.tanggal) || a.urut - b.urut).map((b, i) => [b, i]));
+  const urutDari = (b: BarisKerja | null | undefined) => (b ? posisi.get(b) : undefined);
 
   const kategoriAda = (type: string, slug: string) => !m.kategori || m.kategori.some((k) => k.type === type && k.slug === slug);
   const kat = (type: "income" | "expense", slug: string) => (kategoriAda(type, slug) ? slug : "other");
@@ -555,6 +564,7 @@ export function rencanakan(m: MasukanRencana): Rencana {
       ref_bank: ref,
       ref_bank_tujuan: null,
       perlu_dilengkapi: false,
+      urut: urutDari(terakhir),
     });
   }
 
@@ -576,6 +586,7 @@ export function rencanakan(m: MasukanRencana): Rencana {
       ref_bank: asal?.ref ?? null,
       ref_bank_tujuan: tujuan?.ref ?? null,
       perlu_dilengkapi: false,
+      urut: urutDari(asal ?? tujuan ?? contoh),
     };
     sisip.push(t);
     for (const b of [asal, tujuan]) {
@@ -729,6 +740,7 @@ export function rencanakan(m: MasukanRencana): Rencana {
       ref_bank: biaya.ref,
       ref_bank_tujuan: null,
       perlu_dilengkapi: false,
+      urut: urutDari(biaya),
     });
   }
 
@@ -801,6 +813,20 @@ export function rencanakan(m: MasukanRencana): Rencana {
   const namaDeposito = (ke: RujukanKantong) => namaKantong(ke) ?? depositoBaru.find((d) => d.kunci === ke)?.name ?? "deposito";
   for (const a of kerja) {
     if (a.selesai || a.gol !== "deposito") continue;
+    // Deposito yang dibuat manual dengan "Sudah termasuk" (SPEC-simpanan): pindah
+    // kantong induk → deposito saat dibuat sudah ada. Penempatannya ditautkan ke
+    // situ, tanggal berapa pun — bukan pindah kantong kedua (saldo induk dobel).
+    if (a.nominal < 0) {
+      const tujuan = depositoKantong.get(a.kantong!) ?? [];
+      const buatan = lama
+        .filter((t) => t.type === "transfer" && t.kantong_id === a.kantong && t.bebasAsal && t.kantong_tujuan_id && tujuan.includes(t.kantong_tujuan_id) && Math.abs(t.n + a.nominal) < 0.005)
+        .sort((x, y) => Math.abs(selisihHari(x.transaction_date, a.tanggal)) - Math.abs(selisihHari(y.transaction_date, a.tanggal)))[0];
+      if (buatan) {
+        pakaiAsal(buatan, a.ref);
+        tandaiTercatat(a);
+        continue;
+      }
+    }
     const ke = tujuanDeposito(a.kantong!, Math.abs(a.nominal));
     if (!ke) {
       a.gol = "lain";
@@ -921,6 +947,7 @@ export function rencanakan(m: MasukanRencana): Rencana {
       ref_bank: b.ref,
       ref_bank_tujuan: null,
       perlu_dilengkapi: perlu,
+      urut: urutDari(b),
     };
   }
 
