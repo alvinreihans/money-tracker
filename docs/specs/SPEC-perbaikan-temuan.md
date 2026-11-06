@@ -1,6 +1,6 @@
 # Spec: Perbaikan semua temuan 2.9.0
 
-Status: **diterapkan, belum dirilis** (semua uji:* dan E2E lulus 5 Nov; K3 tawarkan catat selisih, K4/K5 longgar + peringatan, lainnya usulan) · 5 November 2026 · branch `fix/temuan-2.9.0` (satu PR bersama [SPEC-tagihan-cicilan](SPEC-tagihan-cicilan.md))
+Status: **diterapkan · rilis 2.10.0** (semua uji:* dan E2E lulus 5 Nov; K3 tawarkan catat selisih, K4/K5 longgar + peringatan, lainnya usulan) · 5 November 2026 · branch `fix/temuan-2.9.0` (satu PR bersama [SPEC-tagihan-cicilan](SPEC-tagihan-cicilan.md))
 
 Semua butir yang tersisa di bagian **Temuan** CHANGELOG (dari sinkronisasi spec dan uji langsung di produksi, 1 Nov 2026), kecuali tiga yang sudah ditangani SPEC-tagihan-cicilan. Tiap butir: masalah singkat → perilaku yang diharapkan. Butir yang butuh keputusan ditandai **K** dan dirangkum di tabel Keputusan. Spec fitur yang terdampak diperbarui di commit yang sama dengan kodenya (kolom "Spec").
 

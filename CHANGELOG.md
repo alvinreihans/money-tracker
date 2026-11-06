@@ -24,6 +24,8 @@ docs/specs/SPEC-catat-tuntas.md (fase 1 & 2 selesai di 2.4.0, fase 3 di 2.5.0, f
 
 ## [Unreleased]
 
+## [2.10.0] — 2026-11-06
+
 ### Ditambah
 - **Kantong orang, kartu kredit, dan tujuan tabungan bisa dihapus** (SPEC-perbaikan-temuan). Konfirmasinya menyebut dampaknya: transaksi yang tetap tercatat tanpa kantong itu, dan saldo yang ikut hilang dari Utang & Piutang atau Total aset. Saldo kantong lain tidak berubah.
 - **Kartu kredit bisa diubah dan punya "Jatuh tempo tiap tanggal"** (1–31). Pengingat tagihan kini benar-benar terkirim tiap bulan (3 hari dan sehari sebelumnya), hanya bila ada tagihan.
