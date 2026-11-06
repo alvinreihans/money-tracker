@@ -123,6 +123,12 @@ export interface TawaranDeposito {
   bunga_bersih: number;
   /** "Buat deposito Promo 3 bulan, 6%, Rp 5 jt?" */
   teks: string;
+  /**
+   * Tanggal penempatan yang tercatat sebagai pindah kantong ke deposito ini
+   * (diisi bila diterima): deposito dibuat bersaldo 0 sejak tanggal itu dan
+   * diisi oleh pindah kantongnya. null = uang baru, saldo = pokok sejak saat impor.
+   */
+  didanai?: string | null;
 }
 
 export interface Ragu {
@@ -177,6 +183,8 @@ export interface Rencana {
   sisip: TxBaru[];
   tautkan: { id: string; ref_bank?: string; ref_bank_tujuan?: string }[];
   perbarui: { id: string; amount: number; description: string }[];
+  /** Pengeluaran penempatan deposito dari impor sebelumnya → pindah kantong ke depositonya. */
+  jadiPindah: { id: string; kantong_tujuan_id: RujukanKantong; merchant: string }[];
   ragu: Ragu[];
   ringkas: {
     baris: number;
@@ -767,15 +775,51 @@ export function rencanakan(m: MasukanRencana): Rencana {
     }
   }
   const depositoBaru = tawaranDeposito.filter((t) => pilihan.deposito?.includes(t.kunci));
+  // Deposito yang sudah ada di kantong itu juga tujuan penempatan, walau rekening
+  // koran ini (mis. bulan penempatannya) tidak memuat tabel deposito.
+  for (const k of kantong) {
+    if (k.kind !== "simpanan" || k.macam_simpanan !== "deposito" || !k.induk_id) continue;
+    const daftar = depositoKantong.get(k.induk_id) ?? [];
+    if (!daftar.includes(k.id)) depositoKantong.set(k.induk_id, [...daftar, k.id]);
+  }
+  /** Deposito tujuan penempatan sebesar `n`: pokok/saldo sama dulu, selain itu yang pertama. */
+  const tujuanDeposito = (induk: RujukanKantong, n: number): RujukanKantong | null => {
+    const daftar = depositoKantong.get(induk) ?? [];
+    const pokok = (id: RujukanKantong) => depositoBaru.find((d) => d.kunci === id)?.pokok ?? Number(cariKantong(id)?.saldo_awal ?? NaN);
+    return daftar.find((id) => Math.abs(pokok(id) - n) < 0.005) ?? daftar[0] ?? null;
+  };
+  /**
+   * Deposito baru yang penempatannya ada di rekening koran: saldo awalnya 0 sejak
+   * tanggal penempatan, dan pindah kantong penempatan itulah yang mengisinya
+   * (seperti "sudah termasuk" di SPEC-simpanan). Tanpa ini pokoknya terhitung dua
+   * kali bila penempatannya di hari impor (tanpa jam = dianggap sesudah saldo).
+   */
+  const didanai = (ke: RujukanKantong, tanggal: string) => {
+    const d = depositoBaru.find((x) => x.kunci === ke);
+    if (d && (!d.didanai || tanggal < d.didanai)) d.didanai = tanggal;
+  };
+  const namaDeposito = (ke: RujukanKantong) => namaKantong(ke) ?? depositoBaru.find((d) => d.kunci === ke)?.name ?? "deposito";
   for (const a of kerja) {
     if (a.selesai || a.gol !== "deposito") continue;
-    const ke = depositoKantong.get(a.kantong!)?.[0];
+    const ke = tujuanDeposito(a.kantong!, Math.abs(a.nominal));
     if (!ke) {
       a.gol = "lain";
       continue;
     }
-    if (a.nominal < 0) catatPindah(a, null, a.kantong!, ke, `Pindah ke ${namaKantong(ke) ?? depositoBaru.find((d) => d.kunci === ke)?.name ?? "deposito"}`);
-    else catatPindah(null, a, ke, a.kantong!, `Pencairan ${namaKantong(ke) ?? "deposito"}`);
+    if (a.nominal < 0) {
+      didanai(ke, a.tanggal);
+      catatPindah(a, null, a.kantong!, ke, `Pindah ke ${namaDeposito(ke)}`);
+    } else catatPindah(null, a, ke, a.kantong!, `Pencairan ${namaDeposito(ke)}`);
+  }
+  // Penempatan yang sudah terimpor sebagai pengeluaran (rekening koran bulan
+  // penempatan diimpor sebelum ada depositonya): diubah jadi pindah kantong.
+  const jadiPindah: Rencana["jadiPindah"] = [];
+  for (const t of lama) {
+    if (t.type !== "expense" || !t.kantong_id || !depositoKantong.has(t.kantong_id) || !t.ref_bank?.startsWith("sea:") || !/^Fund Placement$/i.test(t.merchant ?? "")) continue;
+    const ke = tujuanDeposito(t.kantong_id, t.n);
+    if (!ke) continue;
+    didanai(ke, t.transaction_date);
+    jadiPindah.push({ id: t.id, kantong_tujuan_id: ke, merchant: `Pindah ke ${namaDeposito(ke)}` });
   }
 
   // 8. Baris lain: sudah tercatat (§5), atau transaksi baru menurut aturan kategori.
@@ -941,6 +985,7 @@ export function rencanakan(m: MasukanRencana): Rencana {
     sisip,
     tautkan,
     perbarui,
+    jadiPindah,
     ragu,
     ringkas: {
       baris: kerja.length,

@@ -122,6 +122,17 @@ if (bacaan.length) {
   }
   console.log(`  pindah kantong satu sisi: ${satuSisi}, di antaranya rekening lawan ada & periodenya mencakup: ${lawanAda}`);
 
+  // Deposito SeaBank (tawaran diterima): saldo deposito = pokoknya, tidak dobel
+  // dengan baris penempatan, dan penempatan bukan pengeluaran.
+  const terima = rencanakan({ bacaan, kantong, transaksi: [], kategori: null, sudahAda: new Set(), pilihan: { deposito: r.tawaranDeposito.map((t) => t.kunci) } });
+  for (const d of terima.depositoBaru) {
+    const masuk = terima.sisip.filter((t) => t.type === "transfer" && t.kantong_tujuan_id === d.kunci && (!d.didanai || t.transaction_date >= d.didanai));
+    const keluar = terima.sisip.filter((t) => t.type === "transfer" && t.kantong_id === d.kunci && (!d.didanai || t.transaction_date >= d.didanai));
+    const saldo = (d.didanai ? 0 : d.pokok) + masuk.reduce((n, t) => n + t.amount, 0) - keluar.reduce((n, t) => n + t.amount, 0);
+    console.log(`  deposito SeaBank: ${d.didanai ? "didanai baris penempatan" : "uang baru (tanpa baris penempatan)"}, saldo = pokok: ${Math.abs(saldo - d.pokok) < 0.005 ? "ya" : "TIDAK"}`);
+  }
+  console.log(`  penempatan deposito tercatat sebagai pengeluaran: ${terima.sisip.filter((t) => t.type === "expense" && /^Fund Placement$/i.test(t.merchant ?? "")).length}`);
+
   // Impor ulang: semua ref sudah tersimpan → tidak ada yang baru.
   const sudahAda = new Set(r.sisip.flatMap((t) => [t.ref_bank, t.ref_bank_tujuan].filter((x): x is string => Boolean(x))));
   const lama = r.sisip.map((t, i) => ({ ...t, id: `x${i}`, kantong_id: t.kantong_id, kantong_tujuan_id: t.kantong_tujuan_id }));

@@ -13,7 +13,9 @@ import { GalatRekening, PESAN_BANK_LAIN, type BarisPdf } from "../src/lib/rekeni
 import { golongkan, rencanakan, ringkasRupiah, samaPemilik, type KantongRencana, type MasukanRencana, type TransaksiLama } from "../src/lib/rekening/rencana.ts";
 import { angkaID, angkaUS, susunBaris, tanggalTeks } from "../src/lib/rekening/teks.ts";
 import { pihakBri } from "../src/lib/rekening/bri.ts";
-import { bri as briContoh, Halaman, jagoBulanan, jagoRiwayat, seabank as seabankContoh } from "./contoh-rekening.mjs";
+import { bri as briContoh, Halaman, jagoBulanan, jagoRiwayat, seabank as seabankContoh, seabankBulan } from "./contoh-rekening.mjs";
+import { hitungSaldo, type Kantong } from "../src/lib/kantong.ts";
+import type { Rencana } from "../src/lib/rekening/rencana.ts";
 
 const pdf = (...hal: { items: { x: number; y: number; s: string }[] }[]): BarisPdf[] => susunBaris(hal);
 const seabank = (akhir?: string) => pdf(...seabankContoh(akhir));
@@ -305,6 +307,91 @@ const dasar = (m: Partial<MasukanRencana> = {}): MasukanRencana => ({ bacaan: [s
 {
   const r = rencanakan(dasar({ bacaan: [br], kategori: [{ type: "expense", slug: "other" }, { type: "income", slug: "other" }] }));
   assert.equal(r.sisip.find((x) => x.ref_bank === rb.baris[3].ref)!.category, "other");
+}
+
+
+// ------------------------------------------------------------ deposito SeaBank tidak dobel
+
+/**
+ * Database tiruan: menerapkan rencana seperti RPC impor_rekening (kantong baru,
+ * deposito via buat_simpanan, transaksi, tautan, ubah penempatan jadi pindah),
+ * lalu saldo dihitung dengan aturan aplikasi (hitungSaldo, SPEC-saldo-waktu).
+ */
+interface Db {
+  kantong: (Kantong & KantongRencana)[];
+  tx: (TransaksiLama & { category?: string | null; perlu_dilengkapi?: boolean })[];
+}
+const tanggalWIB = (iso: string) => new Date(iso).toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" });
+function terapkan(db: Db, r: Rencana, sekarang: string) {
+  const peta = new Map<string, string>();
+  const id = (v: string | null) => (v ? (peta.get(v) ?? v) : null);
+  const tambahKantong = (kunci: string, k: Omit<Kantong & KantongRencana, "id" | "saldo_per">) => {
+    const baru = { ...k, id: `k${db.kantong.length}`, saldo_per: tanggalWIB(k.saldo_sejak!) } as Kantong & KantongRencana;
+    db.kantong.push(baru);
+    peta.set(kunci, baru.id);
+  };
+  for (const k of [...r.kantongBaru].sort((a, b) => Number(a.kind === "simpanan") - Number(b.kind === "simpanan")))
+    tambahKantong(k.kunci, { name: k.name, kind: k.kind, aliases: null, induk_id: id(k.induk_id), macam_simpanan: k.macam_simpanan, saldo_awal: k.saldo_awal, saldo_sejak: k.saldo_sejak ?? sekarang, nomor_akhir: k.nomor_akhir || null });
+  for (const d of r.depositoBaru)
+    tambahKantong(d.kunci, { name: d.name, kind: "simpanan", aliases: null, induk_id: id(d.induk_id), macam_simpanan: "deposito", saldo_awal: d.didanai ? 0 : d.pokok, saldo_sejak: d.didanai ? `${d.didanai}T00:00:00+07:00` : sekarang });
+  for (const t of r.sisip) {
+    const baru = { ...t, id: `t${db.tx.length}`, kantong_id: id(t.kantong_id), kantong_tujuan_id: id(t.kantong_tujuan_id), induk_id: t.induk ? id(t.induk) : null };
+    db.tx.push(baru);
+    peta.set(t.kunci, baru.id);
+  }
+  for (const x of r.tautkan) Object.assign(db.tx.find((t) => t.id === x.id)!, x.ref_bank ? { ref_bank: x.ref_bank } : {}, x.ref_bank_tujuan ? { ref_bank_tujuan: x.ref_bank_tujuan } : {});
+  for (const x of r.jadiPindah) Object.assign(db.tx.find((t) => t.id === x.id)!, { type: "transfer", category: null, kantong_tujuan_id: id(x.kantong_tujuan_id), perlu_dilengkapi: false });
+}
+/** Impor dengan semua tawaran deposito diterima dan rekening baru → "Buat kantong". */
+function impor(db: Db, bacaan: ReturnType<typeof bacaRekening>[], sekarang: string) {
+  const sudahAda = new Set(db.tx.flatMap((t) => [t.ref_bank, t.ref_bank_tujuan].filter((v): v is string => Boolean(v))));
+  const masukan = { bacaan, kantong: db.kantong, transaksi: db.tx, kategori: null, sudahAda };
+  const peta = Object.fromEntries(rencanakan(masukan).belumDipetakan.map((b) => [b.kunci, "baru"]));
+  const tawaran = rencanakan({ ...masukan, pilihan: { peta } }).tawaranDeposito.map((t) => t.kunci);
+  const r = rencanakan({ ...masukan, pilihan: { peta, deposito: tawaran } });
+  terapkan(db, r, sekarang);
+  return r;
+}
+const saldoDb = (db: Db) => Object.fromEntries(hitungSaldo(db.kantong, db.tx).map((x) => [db.kantong.find((k) => k.id === x.id)!.name, x.saldo]));
+
+const PENEMPATAN = { tgl: "06 JUL", atas: ["Fund Placement"], n: -2_000_000, bawah: ["Time Deposit"] };
+const bunga = (tgl: string, n: number) => ({ tgl, atas: ["Savings Interest"], n, bawah: ["Interest"] });
+// Juli: bulan penempatan, tanpa tabel deposito. Agustus: tabel deposito.
+const juli = bacaRekening(pdf(...seabankBulan({ dari: "01 JUL 2026", sampai: "31 JUL 2026", awal: 2_500_000, baris: [PENEMPATAN, bunga("31 JUL", 50)] })));
+const agustus = bacaRekening(pdf(...seabankBulan({ dari: "01 AUG 2026", sampai: "31 AUG 2026", awal: 2_500_050 - 2_000_000, baris: [bunga("31 AUG", 40)], deposito: { nama: "Deposito Uji", pokok: 2_000_000 } })));
+const SEKARANG = "2026-11-07T10:00:00+07:00";
+for (const [nama, urutan] of [
+  ["sekaligus", [[juli, agustus]]],
+  ["Juli lalu Agustus", [[juli], [agustus]]],
+  ["Agustus lalu Juli", [[agustus], [juli]]],
+] as const) {
+  const db: Db = { kantong: [], tx: [] };
+  for (const b of urutan) impor(db, [...b], SEKARANG);
+  const saldo = saldoDb(db);
+  assert.equal(saldo["Deposito Uji"], 2_000_000, `${nama}: deposito = pokok`);
+  assert.equal(saldo.SeaBank, 500_090, `${nama}: SeaBank = saldo akhir rekening koran`);
+  assert.equal(Object.values(saldo).reduce((a, b) => a + b, 0), 2_500_090, `${nama}: total aset`);
+  assert.equal(db.tx.filter((t) => t.type === "expense" && Number(t.amount) === 2_000_000).length, 0, `${nama}: penempatan bukan pengeluaran`);
+  const pindah = db.tx.filter((t) => t.type === "transfer");
+  assert.equal(pindah.length, 1, `${nama}: satu pindah kantong SeaBank → deposito`);
+  assert.equal(db.kantong.find((k) => k.id === pindah[0].kantong_tujuan_id)?.name, "Deposito Uji", nama);
+}
+// Penempatan di hari impor (tanpa jam = dianggap sesudah saldo): deposito tetap = pokok,
+// karena didanai pindah kantongnya, bukan uang baru + pindah kantong.
+{
+  const db: Db = { kantong: [], tx: [] };
+  const hariIni = bacaRekening(pdf(...seabankBulan({ dari: "01 JUL 2026", sampai: "31 JUL 2026", awal: 2_500_000, baris: [PENEMPATAN], deposito: { nama: "Deposito Uji", pokok: 2_000_000 } })));
+  const r = impor(db, [hariIni], "2026-07-06T15:00:00+07:00");
+  assert.equal(r.depositoBaru[0].didanai, "2026-07-06");
+  const saldo = saldoDb(db);
+  assert.deepEqual([saldo["Deposito Uji"], saldo.SeaBank], [2_000_000, 500_000]);
+}
+// Tanpa baris penempatan (deposito lama): uang baru sejak saat impor.
+{
+  const db: Db = { kantong: [], tx: [] };
+  const r = impor(db, [agustus], SEKARANG);
+  assert.equal(r.depositoBaru[0].didanai ?? null, null);
+  assert.equal(saldoDb(db)["Deposito Uji"], 2_000_000);
 }
 
 console.log("uji:rekening lulus");

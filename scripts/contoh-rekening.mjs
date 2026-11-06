@@ -154,3 +154,34 @@ export function bri(akhir = "730,500.00") {
   h2.baris(41, [576, "Created By BRIMO"]);
   return [h, h2];
 }
+
+/** "1234567" → "1.234.567" */
+const ribuan = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+
+/**
+ * SeaBank satu bulan dengan saldo dihitung sendiri (uji deposito): `baris`
+ * berisi { tgl: "06 JUL", atas, bawah, n (positif = masuk) }, `deposito`
+ * opsional { nama, pokok } untuk tabel TIME DEPOSIT.
+ */
+export function seabankBulan({ dari, sampai, awal, baris, deposito = null }) {
+  const h = new Halaman();
+  kepalaSea(h, 1);
+  h.baris(682, [38, "BUDI SANTOSO"]).baris(664, [38, "SEABANK ACCOUNT: 901000001234"]);
+  let saldo = awal;
+  const akhir = awal + baris.reduce((s, b) => s + b.n, 0);
+  const keluar = -baris.filter((b) => b.n < 0).reduce((s, b) => s + b.n, 0);
+  const masuk = baris.filter((b) => b.n > 0).reduce((s, b) => s + b.n, 0);
+  h.baris(541, [221, `${dari} to ${sampai}`]);
+  h.baris(483, [46, "SAVINGS"], [189, ribuan(awal)], [285, ribuan(keluar)], [389, ribuan(masuk)], [487, ribuan(akhir)]);
+  if (deposito) {
+    h.baris(406, [46, "TIME DEPOSIT"], [198, "TENURE"], [266, "MATURITY DATE"], [365, "INTEREST RATE"], [436, "PLACEMENT AMOUNT"]);
+    h.baris(376, [46, deposito.nama], [184, "6 MONTHS"], [274, "06 JAN 2027"], [379, "6.00% P.A."], [475, ribuan(deposito.pokok)]);
+    h.baris(336, [445, `TOTAL: ${ribuan(deposito.pokok)}`]);
+  }
+  h.baris(242, [176, "SAVINGS - TRANSACTION DETAILS"]).baris(213, ...judulSea);
+  baris.forEach((b, i) => {
+    saldo += b.n;
+    barisSea(h, 181 - i * 42, { atas: b.atas, tgl: b.tgl, n: ribuan(Math.abs(b.n)), x: b.n < 0 ? 297 : 393, saldo: ribuan(saldo), bawah: b.bawah });
+  });
+  return [h];
+}

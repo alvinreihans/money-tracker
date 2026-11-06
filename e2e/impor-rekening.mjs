@@ -136,7 +136,8 @@ try {
   cek("Kantong SeaBank dibuat dengan 4 digit akhir, saldo awal periode", JSON.stringify(akun.SeaBank) === JSON.stringify(["SeaBank", "bank", "1234", null, null, 3000000, "2026-09-01"]), JSON.stringify(akun.SeaBank));
   cek("4 digit akhir Jago diingat", akun.Jago?.[2] === "5678", JSON.stringify(akun.Jago));
   cek("Simpanan Dana Darurat di dalam Jago (K1)", JSON.stringify(akun["Dana Darurat"]?.slice(1, 5)) === JSON.stringify(["simpanan", "3928", "Jago", "tabungan"]), JSON.stringify(akun["Dana Darurat"]));
-  cek("Deposito Contoh di dalam SeaBank", JSON.stringify(akun["Deposito Contoh"]?.slice(1, 5)) === JSON.stringify(["simpanan", null, "SeaBank", "deposito"]), JSON.stringify(akun["Deposito Contoh"]));
+  // Penempatannya ada di rekening koran: saldo 0 sejak tanggal penempatan, diisi pindah kantongnya (tidak dobel).
+  cek("Deposito Contoh di dalam SeaBank, didanai baris penempatan", JSON.stringify(akun["Deposito Contoh"]?.slice(1)) === JSON.stringify(["simpanan", null, "SeaBank", "deposito", 0, "2026-09-06"]), JSON.stringify(akun["Deposito Contoh"]));
   cek("Saldo awal BRI disamakan (sebelum periode)", akun.BRI?.[5] === 1000000 && akun.BRI?.[6] === "2026-09-01", JSON.stringify(akun.BRI));
   cek("Semua baris bertanda pengenal bank", db.jumlah > 10 && db.tanpaRef === 0, JSON.stringify(db));
   cek("Ada yang perlu dilengkapi (K3) & biaya BI-Fast menempel", db.perlu > 0 && db.ikutan === 1, JSON.stringify(db));

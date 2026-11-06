@@ -78,6 +78,20 @@ export async function susunRencana(supabase: SupabaseClient, bacaan: HasilBaca[]
       if (!data || data.length < 1000) break;
     }
   }
+  // Penempatan deposito SeaBank yang dulu terimpor sebagai pengeluaran (bulan
+  // penempatan diimpor sebelum ada depositonya), di tanggal berapa pun.
+  if (bacaan.some((h) => h.bank === "seabank")) {
+    const { data, error } = await supabase
+      .from("transactions")
+      .select("id, amount, type, category, merchant, kantong_id, kantong_tujuan_id, transaction_date, waktu, ref_bank, ref_bank_tujuan, induk_id, created_at")
+      .eq("status", "confirmed")
+      .eq("type", "expense")
+      .eq("source", "statement")
+      .eq("merchant", "Fund Placement")
+      .limit(200);
+    if (error) throw new Error(`penempatan deposito: ${error.message}`);
+    for (const t of (data ?? []) as TransaksiLama[]) if (!transaksi.some((x) => x.id === t.id)) transaksi.push(t);
+  }
   const rencana = rencanakan({ bacaan, kantong, transaksi, kategori: (kategori ?? []) as { type: string; slug: string }[], sudahAda, pilihan });
   return { rencana, kantong };
 }

@@ -38,6 +38,7 @@ export async function POST(req: NextRequest) {
         sisip: rencana.sisip,
         tautkan: rencana.tautkan,
         perbarui: rencana.perbarui,
+        jadi_pindah: rencana.jadiPindah,
       },
     });
     if (error) {

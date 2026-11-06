@@ -16,6 +16,7 @@ import path from "node:path";
 import fs from "node:fs";
 import os from "node:os";
 import { createRequire } from "node:module";
+import { pathToFileURL } from "node:url";
 
 const ASAL = path.join(process.cwd(), ".next", "standalone");
 const BATAS_MS = 45_000;
@@ -84,8 +85,27 @@ try {
     );
   }
 
-  clearTimeout(menyerah);
   await worker.terminate();
+
+  // Rekening koran (SPEC-impor-rekening): pdfjs-dist dari bundle, dimuat seperti
+  // src/lib/rekening/pdf.ts (modul worker di proses yang sama), membaca PDF buatan.
+  const pdfLib = createRequire(import.meta.url)("pdf-lib");
+  const doc = await pdfLib.PDFDocument.create();
+  const hal = doc.addPage([600, 400]);
+  const font = await doc.embedFont(pdfLib.StandardFonts.Helvetica);
+  hal.drawText("LAPORAN TRANSAKSI FINANSIAL", { x: 40, y: 300, size: 10, font });
+  hal.drawText("6,143,500.00", { x: 400, y: 280, size: 10, font });
+  const dasar = path.join(BUNDLE, "node_modules", "pdfjs-dist", "legacy", "build");
+  globalThis.pdfjsWorker = await import(pathToFileURL(path.join(dasar, "pdf.worker.mjs")).href);
+  const pdfjs = await import(pathToFileURL(path.join(dasar, "pdf.mjs")).href);
+  const tugas = pdfjs.getDocument({ data: await doc.save(), verbosity: 0, disableFontFace: true, useSystemFonts: false });
+  const isi = await (await (await tugas.promise).getPage(1)).getTextContent();
+  await tugas.destroy();
+  const teks = isi.items.map((i) => i.str).join(" ");
+  if (!teks.includes("LAPORAN TRANSAKSI FINANSIAL") || !teks.includes("6,143,500.00")) throw new Error(`pdfjs: teks tidak terbaca (${teks})`);
+  console.log("  pdfjs-dist membaca PDF rekening koran.");
+
+  clearTimeout(menyerah);
   console.log("  Bundle lengkap.");
   process.exit(0);
 } catch (err) {
