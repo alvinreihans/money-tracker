@@ -51,6 +51,7 @@ docs/specs/SPEC-catat-tuntas.md (fase 1 & 2 selesai di 2.4.0, fase 3 di 2.5.0, f
 
 ### Diubah
 - **Dokumen spec pindah ke `docs/specs/`**, dengan indeks di `docs/specs/README.md`. Semua spec disinkronkan dengan kode 2.9.0 (1 Nov 2026); sejak itu spec yang jadi acuan, dan perubahan perilaku ditulis di spec dulu.
+- **Skenario UAT** (uji penerimaan per perjalanan pengguna) disimpan di `docs/uat/`, beserta hasilnya; yang pertama untuk perbaikan ini.
 - **Script balikan enkripsi dihapus** (`supabase/rollback/`): sudah tidak cocok dengan skema. Pemulihan memakai backup Supabase.
 
 ## [2.9.0] — 2026-10-31

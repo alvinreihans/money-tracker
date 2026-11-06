@@ -66,6 +66,7 @@ ikon lucide-react), tanpa pustaka UI atau pustaka grafik.
 | `scripts/` | Runner migrasi dan skrip uji/diagnostik |
 | `e2e/` | Uji end-to-end di browser (Edge/Chrome headless lewat DevTools Protocol), satu file per suite |
 | `docs/specs/` | Spesifikasi tiap fitur (`SPEC-*.md`) dan peta fase 4, indeks di [docs/specs/README.md](docs/specs/README.md) |
+| `docs/uat/` | Skenario uji penerimaan (UAT) per rilis beserta hasilnya |
 
 ## Mulai
 
