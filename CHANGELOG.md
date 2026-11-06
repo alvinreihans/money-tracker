@@ -21,6 +21,8 @@ docs/specs/SPEC-catat-tuntas.md (fase 1 & 2 selesai di 2.4.0, fase 3 di 2.5.0, f
 
 ## [Unreleased]
 
+## [2.11.0] — 2026-11-06
+
 ### Ditambah
 - **Simpanan: deposito & pocket di dalam rekening** (SPEC-simpanan). Profil → Kantong → Tambah → **Simpanan**: pilih tempatnya (mis. SeaBank), Tabungan/pocket atau Deposito, dan saldonya. "Sudah termasuk di saldo SeaBank?" (bawaan ya) mencatatnya sebagai pindah dari SeaBank, jadi saldo gabungannya tetap sama dengan aplikasi bank. SeaBank tampil **Rp 2.500.000** dengan rincian "Rp 500.000 + Deposito Rp 2.000.000", dan simpanannya menjorok di bawahnya.
 - **Deposito dengan bunga, pajak, dan jatuh tempo.** Isi bunga per tahun, tenor (14 hari, 1/3/6/12 bulan, atau angka sendiri dalam hari/bulan), tanggal mulai, pajak (bawaan 20%, 0% sampai pokok Rp 7,5 jt), dan apa yang terjadi saat jatuh tempo: sekali saja, diperpanjang tanpa bunga, atau diperpanjang dengan bunga. Pratinjaunya langsung: "Jatuh tempo 6 Des 2026 (30 hari) · bunga ± Rp 7.397 · pajak Rp 0 · bersih Rp 7.397".

@@ -1,6 +1,6 @@
 # Spec: Simpanan (deposito & pocket) dan tujuan yang disimpan di kantong lain
 
-Status: **diterapkan, belum dirilis** · 6 November 2026 · branch `feat/simpanan` (stacked di atas `fix/temuan-2.9.0`) · rencana rilis 2.11.0
+Status: **diterapkan · rilis 2.11.0** · 6 November 2026 · branch `feat/simpanan` (stacked di atas `fix/temuan-2.9.0`) · rencana rilis 2.11.0
 
 Menuntaskan rencana di CHANGELOG: *Opsi "tujuan ini disimpan di BCA", kalau saldo BCA yang lebih kecil dari saldo asli di bank terasa membingungkan.*
 
