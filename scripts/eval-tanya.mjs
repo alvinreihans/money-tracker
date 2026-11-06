@@ -131,6 +131,8 @@ const KASUS = [
     harus: [2500000],
     bukan: /3\.479\.999/,
   },
+  // Satu merchant (SPEC-perbaikan-temuan F2): dicari persis, tautannya merchant=, bukan q=.
+  { tanya: "berapa total belanja di Kopi Kenangan bulan ini?", harus: [25000], tautan: /merchant=Kopi\+Kenangan/ },
 ];
 
 let uid;
@@ -198,6 +200,7 @@ try {
       (!k.pola || k.pola.test(teks)) &&
       (!k.bukan || !k.bukan.test(teks)) &&
       (!k.tanpaTautan || !(d.tautan ?? []).length) &&
+      (!k.tautan || (d.tautan ?? []).some((x) => k.tautan.test(x.href))) &&
       (!k.usulan || Boolean(d.usulan)) &&
       (!k.tanpaUsulan || !d.usulan);
     if (bersihkan) await bersihkan();

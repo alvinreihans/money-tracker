@@ -23,7 +23,7 @@ Pemakai bisa bertanya dengan bahasa sehari-hari tentang keuangannya sendiri, lal
    | Fungsi | Isi | Memakai |
    |---|---|---|
    | `ringkasan_bulan(bulan)` | keluar, masuk, selisih, angka bulan lalu (keluar, masuk, per kategori), kategori, merchant teratas, hari paling boros, kategori paling naik, proyeksi, `pengeluaran_terbesar`, budget, `metode`, `dibayar_dari_tujuan_tabungan` | `analisisBulan`, `pisahTujuan`, `progresBudget`, `hitungMetode` |
-   | `cari_transaksi(dari, sampai, jenis?, kategori?, kantong?, kata?, kecuali?, minimal?, maksimal?)` | jumlah transaksi, total keluar & masuk, total per kategori, 10 transaksi terbesar, `dikecualikan` | `queryRiwayat` + `ringkasRiwayat` (fase 2) |
+   | `cari_transaksi(dari, sampai, jenis?, kategori?, kantong?, kata?, merchant?, kecuali?, minimal?, maksimal?)` | jumlah transaksi, total keluar & masuk, total per kategori, 10 transaksi terbesar, `dikecualikan` | `queryRiwayat` + `ringkasRiwayat` (fase 2) |
    | `saldo_kantong()` | `kantong` (saldo tiap kantong selain tujuan), `tujuan_tabungan` (per tujuan: `nama_tujuan`, `terkumpul`, `target`, `tenggat`), `total_semua_tujuan` (jumlah semua tujuan, terpisah supaya tidak dibaca sebagai isi satu tujuan), `total_aset` (kantong uang saja) | `ambilKantong`, `ringkasSaldo` |
    | `pinjaman_cicilan()` | siapa berutang ke siapa, kartu kredit, cicilan yang berjalan & jatuh tempo berikutnya, bunga, strategi & urutan pelunasan | `ringkasanPinjaman`, `statusCicilan`, `daftarUtang`, `urutPelunasan` |
    | `hitung(ekspresi, keterangan?)` | kalkulator (lihat di bawah) | `hitungEkspresi` |
@@ -47,7 +47,7 @@ Pemakai bisa bertanya dengan bahasa sehari-hari tentang keuangannya sendiri, lal
 Pemicunya: "kalau Laku6 tidak dihitung, bagaimana kondisi keuanganku?" ditolak karena AI dilarang berhitung.
 
 - **Kalkulator `hitung(ekspresi)`.** Aritmetika (+ − × ÷, kurung, maks 200 karakter) diurai sendiri, tanpa `eval`. Angka ≥ 1.000 harus sudah ada di hasil fungsi atau percakapan, jadi kalkulator tidak bisa dipakai untuk angka karangan. Hasil dibulatkan 2 desimal dan ikut diperiksa seperti hasil fungsi lain.
-- **`cari_transaksi` diperluas** dengan `kecuali` (merchant/keterangan) dan `minimal` / `maksimal` nominal. Bagian yang dikecualikan dilaporkan supaya bisa disebut di jawaban.
+- **`cari_transaksi` diperluas** dengan `merchant` (nama merchant persis, aturan yang sama dengan filter Riwayat `merchant=`; dipakai bila ditanya satu merchant, sedangkan `kata` untuk kata umum seperti "kopi"), `kecuali` (merchant/keterangan) dan `minimal` / `maksimal` nominal. Bagian yang dikecualikan dilaporkan supaya bisa disebut di jawaban.
 - **Periode bawaan.** `cari_transaksi` tanpa tanggal memakai bulan yang sedang dilihat, bukan semua waktu (`lengkapiArgumen`). Sebelumnya "bulan ini" yang lupa diberi tanggal ikut menjumlah bulan lain. Bulan yang tidak sah atau di masa depan jatuh ke bulan berjalan.
 - **Prompt.**
   - "Kondisi keuangan" = masuk vs keluar + selisih + total aset + utang, lalu satu kalimat kesimpulan.

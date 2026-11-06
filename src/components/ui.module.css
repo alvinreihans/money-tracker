@@ -114,6 +114,8 @@
 }
 
 .ikonTombol:active { background: var(--blok-2); }
+/* Ring fokus di dalam lingkaran, supaya tidak menimpa judul di sebelahnya. */
+.ikonTombol:focus-visible { outline-offset: -3px; }
 
 .tombol {
   min-height: 48px;
@@ -185,6 +187,12 @@
 }
 
 .chipsBungkus { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* Layar lebar: chip membungkus, tidak digeser — baris geser tanpa scrollbar
+   terpotong di tepi panel tanpa tanda bisa digeser (SPEC-layar-lebar). */
+@media (min-width: 600px) {
+  .chips { flex-wrap: wrap; overflow-x: visible; margin: 0; padding: 0; }
+}
 
 /* Pilihan tersegmen (jenis transaksi). */
 .segmen {

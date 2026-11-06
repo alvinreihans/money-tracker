@@ -77,6 +77,10 @@ try {
   cek("Tambah kartu: kartu kredit dibuat bertagihan = pembayaran, jadi tujuan", j3.status === "confirmed" && kartu?.kind === "kredit" && Number(kartu?.saldo_awal) === -200000 && j3.kantong_tujuan_id === kartu?.id, JSON.stringify({ j3: j3.kantong_tujuan_id, kartu }));
   await buka(`${base}/pinjaman`, 6000);
   cek("Kartu baru tanpa tagihan sesudah dibayar", /Kartu kredit Mandiri[^]*?Tidak ada tagihan/.test(await langkah("pinjaman 2", `return teksHalaman()`)));
+  // Jatuh tempo tetap tampil walau tanpa tagihan (SPEC-perbaikan-temuan F1).
+  await sb.from("user_accounts").update({ jatuh_tempo_hari: 31 }).eq("id", kartu.id);
+  await buka(`${base}/pinjaman`, 6000);
+  cek("Kartu tanpa tagihan tetap menampilkan jatuh tempo", /Tidak ada tagihan · jatuh tempo \d{1,2} \w+/.test(await langkah("pinjaman 3", `return teksHalaman()`)));
   const { data: t2 } = await tagihan();
   const j4 = JSON.parse(await langkah("jawab kartu ada", `const r = await fetch("/api/draft/${t2.id}/jawab", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jenis: "kartu", nilai: "${kartu?.id}" }) }); return JSON.stringify(await r.json())`)).transaction ?? {};
   cek("Pilih kartu yang sudah ada: jadi tujuan", j4.status === "confirmed" && j4.kantong_tujuan_id === kartu?.id, JSON.stringify(j4.kantong_tujuan_id));

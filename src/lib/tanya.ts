@@ -40,6 +40,7 @@ export const DEKLARASI_FUNGSI: FunctionDeclaration[] = [
         kategori: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING }, description: "Slug kategori milik pengguna" },
         kantong: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING }, description: "Nama kantong milik pengguna" },
         kata: { type: SchemaType.STRING, description: "Kata yang dicari di merchant/keterangan, mis. 'kopi'" },
+        merchant: { type: SchemaType.STRING, description: "Nama merchant persis bila pengguna menanyakan satu merchant, mis. 'Kopi Kenangan' (bukan untuk kata umum seperti 'kopi')" },
         kecuali: {
           type: SchemaType.ARRAY,
           items: { type: SchemaType.STRING },
@@ -126,6 +127,7 @@ export function filterDariArgumen(args: Record<string, unknown>, k: KonteksTanya
       kantong: kantong.join(","),
       kategori: kategori.join(","),
       q: typeof args.kata === "string" ? args.kata : undefined,
+      merchant: typeof args.merchant === "string" ? args.merchant : undefined,
     },
     { kantong: k.kantong.map((x) => x.id), kategori: k.kategori.map((c) => `${c.type}:${c.slug}`) },
   );

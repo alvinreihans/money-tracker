@@ -154,6 +154,8 @@ Foto struk bisa diseret dari File Explorer, Galeri (layar terpisah di tablet/Fol
 - **Profil dua panel** lewat `profil/layout.tsx`: menu di kiri dan `children` di kanan (`profil/page.tsx` mengembalikan `null`, jadi panel kanannya `:empty`). Di layar ringkas, menu hanya tampil di `/profil` itu sendiri.
 - **Panel mana yang tampil di layar sempit** ditentukan CSS `:empty` / `:has()`: panel kanan yang kosong disembunyikan, dan kalau berisi, daftarnya yang disembunyikan.
 - **Halaman tanpa navigasi** (masuk, reset password, mulai, 404) tidak menyisakan ruang rail/sidebar: `<main data-tanpa-nav>` membuat `--rail` jadi 0 lewat `body:has([data-tanpa-nav])` di `globals.css`, jadi isinya tepat di tengah layar pada semua lebar.
+- **Baris chip** (`.chips`) di HP adalah baris geser yang meluber ke tepi; mulai 600 px membungkus ke baris berikutnya, supaya chip tidak terpotong di tepi panel (mis. saat panel Tanya AI terbuka).
+- **Ring fokus tombol ikon** (`.ikonTombol`) berada di dalam lingkarannya, supaya tidak menimpa judul di sebelahnya.
 - **Tidak ada perubahan database dan tidak ada dependensi baru.**
 
 ## Pengujian

@@ -274,6 +274,7 @@ export async function jalankanFungsi(
         jenis: filter.jenis,
         kategori: filter.kategori,
         kata: filter.q || null,
+        merchant: filter.merchant || null,
         jumlah_kantong: filter.kantong.length,
         kecuali: kecuali.length ? kecuali : null,
         minimal,

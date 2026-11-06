@@ -90,10 +90,11 @@ export default function PinjamanView({
     router.refresh();
   }
 
-  /** Keterangan kartu kredit bertagihan: jatuh tempo berikutnya bila diisi. */
-  const ketKartu = (k: KantongSaldo) => (
+  /** Keterangan baris kartu kredit + jatuh tempo berikutnya bila diisi (juga tanpa tagihan). */
+  const ketKartu = (k: KantongSaldo, teks = "Tagihan kartu kredit") => (
     <span className={s.redup}>
-      Tagihan kartu kredit{k.jatuh_tempo_hari ? ` · jatuh tempo ${fmtTanggalPendek(jatuhTempoKartu(k.jatuh_tempo_hari, hariIni))}` : ""}
+      {teks}
+      {k.jatuh_tempo_hari ? ` · jatuh tempo ${fmtTanggalPendek(jatuhTempoKartu(k.jatuh_tempo_hari, hariIni))}` : ""}
     </span>
   );
 
@@ -163,10 +164,10 @@ export default function PinjamanView({
             <div className={s.blok}>
               {r.borrow.map((x) => baris(x.kantong, x.jumlah, x.kantong.kind === "kredit" ? ketKartu(x.kantong) : tempo(x.kantong)))}
               {/* Kelebihan bayar: tampil di sini, tidak menambah total Utang (SPEC-perbaikan-temuan C1). */}
-              {r.lebihBayar.map((x) => baris(x.kantong, x.jumlah, <span className={s.redup}>Kelebihan bayar</span>, s.masuk))}
+              {r.lebihBayar.map((x) => baris(x.kantong, x.jumlah, ketKartu(x.kantong, "Kelebihan bayar"), s.masuk))}
               {r.kartu
                 .filter((k) => k.saldo === 0)
-                .map((k) => baris(k, 0, <span className={s.redup}>Tidak ada tagihan</span>))}
+                .map((k) => baris(k, 0, ketKartu(k, "Tidak ada tagihan")))}
             </div>
           </>
         )}

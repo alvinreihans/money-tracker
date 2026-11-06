@@ -43,6 +43,10 @@ assert.deepEqual(f, { ...FILTER_KOSONG, jenis: "keluar", q: "kopi", dari: "2026-
 assert.deepEqual(filterDariArgumen({ jenis: "masuk", kategori: ["other"] }, k).kategori, ["income:other"]);
 assert.equal(filterDariArgumen({ dari: "2026-02-30", jenis: "aneh" }, k).dari, null);
 assert.equal(filterDariArgumen({ jenis: "aneh" }, k).jenis, "semua");
+// Satu merchant: nama persis (SPEC-perbaikan-temuan F2), tautannya merchant=, bukan q=.
+assert.equal(filterDariArgumen({ merchant: "  Kopi   Kenangan " }, k).merchant, "Kopi Kenangan");
+assert.ok(tautanDari("cari_transaksi", { dari: "2026-10-01", sampai: "2026-10-31", merchant: "Kopi Kenangan" }, k)?.href.includes("merchant=Kopi+Kenangan"));
+assert.doesNotMatch(tautanDari("cari_transaksi", { dari: "2026-10-01", sampai: "2026-10-31", merchant: "Kopi Kenangan" }, k)?.href ?? "", /[?&]q=/);
 
 // Bulan: yang tidak sah atau di masa depan jatuh ke bulan berjalan.
 assert.equal(bulanDariArgumen({ bulan: "2026-09" }, k.hariIni), "2026-09");

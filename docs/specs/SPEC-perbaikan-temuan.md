@@ -66,6 +66,17 @@ Satu PR untuk semua (hemat build Vercel); dikerjakan per kelompok, satu commit l
 | E1 | Script rollback enkripsi tidak cocok dengan skema sekarang. **K9** | Script **dihapus**; SPEC-enkripsi menulis bahwa pemulihan memakai backup Supabase (Point-in-Time/backup harian), bukan script balikan. | enkripsi |
 | E2 | Komentar urutan pipeline usang (`upload-receipt/route.ts`, `receipt.ts`); `MenuLainnya` tidak dipakai. | Komentar mengikuti urutan sekarang (Gemini dulu); `MenuLainnya` dihapus. | — |
 
+## F. Temuan uji QA lewat browser (6 Nov 2026)
+
+Disetujui user 6 Nov; diterapkan di PR yang sama (uji unit, E2E `tagihan-cicilan` & `lebar`, eval Tanya AI #22 lulus).
+
+| # | Masalah | Perilaku yang diharapkan | Spec |
+|---|---|---|---|
+| F1 | "Jatuh tempo tiap tanggal" tersimpan, tapi kartu tanpa tagihan / kelebihan bayar tidak menampilkannya. | Semua baris kartu kredit yang jatuh temponya diisi menulis "· jatuh tempo 30 Nov" (jatuh tempo berikutnya), juga "Tidak ada tagihan · jatuh tempo …" dan "Kelebihan bayar · jatuh tempo …". Pengingat tetap hanya bila ada tagihan. | lend-borrow |
+| F2 | Tautan "Lihat di Riwayat" dari Tanya AI untuk pertanyaan satu merchant memakai `q=` (cari kata), jadi "Kopi Kenangan Mantan" ikut terhitung. | `cari_transaksi` punya argumen baru `merchant` (nama merchant persis, tanpa beda huruf/spasi — aturan yang sama dengan filter Riwayat `merchant=`). Dipakai AI bila ditanya satu merchant; hitungannya dan tautannya (`merchant=`) sama. Kata umum ("kopi") tetap `kata` / `q=`. | analitik-ai |
+| F3 | Di 900 px dengan panel Tanya AI terbuka, baris chip filter Riwayat terpotong di tepi panel (baris geser tanpa scrollbar tidak terlihat bisa digeser). | Mulai 600 px, baris chip (`.chips`) membungkus ke baris berikutnya, tidak digeser dan tidak meluber ke tepi. Di HP (< 600 px) tetap baris geser. | layar-lebar |
+| F4 | Ring fokus tombol × panel Tanya AI menimpa judul. | Ring fokus tombol ikon (`.ikonTombol`) di dalam lingkarannya (`outline-offset` negatif). Fokus awal tetap di tombol pertama (kolom ketik sengaja tidak autofokus supaya keyboard HP tidak menutupi saran). | layar-lebar |
+
 ## Keputusan (5 Nov 2026)
 
 K1, K2, K6, K7, K8, K9 memakai usulan.
