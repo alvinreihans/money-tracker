@@ -278,6 +278,27 @@ export function pilihCicilan<R extends Pick<Cicilan, "id" | "nama" | "penyedia" 
   return kandidat[0] ? { rencana: kandidat[0].r, ke: kandidat[0].berikutnya!.ke } : null;
 }
 
+/**
+ * Barang yang dibeli menurut ketikan ("beli sepatu 300rb pakai spaylater 3x"
+ * → "Sepatu"): kata sesudah beli/checkout/order/pesan sampai nominal atau
+ * di/ke/pakai/via. Null kalau polanya tidak ada (SPEC-paylater).
+ */
+export function barangKetikan(teks: string): string | null {
+  const m = /\b(?:beli|checkout|order|pesan)\s+(.+?)(?=\s+(?:rp\.?\s*)?\d|\s+(?:di|ke|dari|pakai|pake|via)\b|$)/i.exec(teks);
+  const barang = m?.[1].trim().split(/\s+/).slice(0, 4).join(" ");
+  return barang ? (barang[0].toUpperCase() + barang.slice(1)).slice(0, 60) : null;
+}
+
+/**
+ * Belanja paylater tanpa merchant: keterangan = barangnya, jadi nama rencana
+ * cicilan. Model tidak selalu patuh pada prompt (mengosongkan, atau menyalin
+ * seluruh ketikan), jadi diambil dari ketikan bila perlu.
+ */
+export function rapikanPaylater<E extends { paylater: InfoPaylater | null; merchant: string | null; description: string | null }>(e: E, teks: string): E {
+  if (!e.paylater || e.merchant || (e.description && normal(e.description) !== normal(teks))) return e;
+  return { ...e, description: barangKetikan(teks) };
+}
+
 /** Keterangan transaksi pembayaran cicilan: "Cicilan 2/3 · Shopee PayLater". */
 export const keteranganCicilan = (r: Pick<Cicilan, "tenor" | "penyedia">, ke: number) =>
   `Cicilan ${ke}/${r.tenor}${r.penyedia ? ` · ${r.penyedia}` : ""}`;

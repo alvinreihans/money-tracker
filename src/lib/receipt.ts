@@ -12,6 +12,7 @@ import { isoLokal } from "@/lib/format";
 import { kompresGambar } from "@/lib/gambar";
 import { GEMINI_MODEL } from "@/lib/gemini";
 import { KATEGORI_BAWAAN } from "@/lib/kategori";
+import { rapikanPaylater } from "@/lib/pinjaman";
 import type { ExtractedReceipt } from "@/types/transaction";
 
 /**
@@ -229,7 +230,8 @@ export async function processReceiptText(
   let groq: ExtractedReceipt | null = null;
 
   try {
-    const { extracted, model } = await ai.groq(text, konteks);
+    const { extracted: mentah, model } = await ai.groq(text, konteks);
+    const extracted = rapikanPaylater(mentah, text);
     if (isValidExtraction(extracted, konteks.kategori)) {
       notes.push(`Ekstraksi berhasil via Groq (${model})`);
       return done("confirmed", extracted, null, "groq", notes, text);
@@ -241,7 +243,7 @@ export async function processReceiptText(
   }
 
   try {
-    const extracted = await ai.gemini(text, konteks);
+    const extracted = rapikanPaylater(await ai.gemini(text, konteks), text);
     if (isValidExtraction(extracted, konteks.kategori)) {
       notes.push(`Ekstraksi berhasil via Gemini (${GEMINI_MODEL})`);
       return done("confirmed", extracted, null, "gemini_text", notes, text);

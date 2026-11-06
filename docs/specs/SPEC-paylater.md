@@ -29,7 +29,7 @@ Tenor 1× ditulis "bayar 23 Nov". Nominal belum terbaca → ditanya nominal dulu
 
 | Isian rencana | Dari |
 |---|---|
-| Nama barang | merchant; tanpa merchant: keterangan dari AI — untuk belanja paylater tanpa merchant, AI mengisi keterangan dengan barang yang dibeli ("beli sepatu 300rb pakai spaylater 3x" → "Sepatu"); tanpa keduanya: "Belanja {penyedia}" (maks 60 huruf) |
+| Nama barang | merchant; tanpa merchant: keterangan dari AI — untuk belanja paylater tanpa merchant, AI diminta mengisi keterangan dengan barang yang dibeli ("beli sepatu 300rb pakai spaylater 3x" → "Sepatu"). Model tidak selalu patuh (ada yang mengosongkan, ada yang menyalin seluruh ketikan), jadi bila keterangan kosong atau sama dengan seluruh ketikan, aplikasi mengambil barangnya sendiri dari ketikan: kata sesudah "beli"/"checkout"/"order"/"pesan" sampai sebelum nominal atau "di/ke/pakai/via" (`barangKetikan`), huruf pertama besar; tidak ketemu → keterangan kosong. Tanpa keduanya: "Belanja {penyedia}" (maks 60 huruf) |
 | Penyedia | nama paylater yang terbaca, diseragamkan ("SPayLater"/"ShopeePay" → "Shopee PayLater", "gopaylater" → "GoPayLater") |
 | Kategori | kategori dari AI |
 | Tenor | tertera, atau jawaban "Dicicil berapa kali?" (1–120) |

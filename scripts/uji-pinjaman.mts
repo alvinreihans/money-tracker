@@ -27,6 +27,8 @@ import {
   ringkasBeranda,
   statusCicilan,
   tampakKartuKredit,
+  barangKetikan,
+  rapikanPaylater,
 } from "../src/lib/pinjaman.ts";
 
 // --- Jatuh tempo per bulan ---
@@ -175,6 +177,20 @@ const uji = [{ id: "uji", nama: "Uji", penyedia: "Shopee PayLater", tenor: 3, ja
 assert.deepEqual(pilihCicilan("Uji — Shopee PayLater", uji, {}, "2026-11-01"), { rencana: uji[0], ke: 1 });
 assert.deepEqual(pilihCicilan("uji shopee paylater", uji, { uji: [1] }, "2026-11-01"), { rencana: uji[0], ke: 2 });
 assert.equal(pilihCicilan("spaylater", [{ ...uji[0], penyedia: "GoPayLater" }], {}, "2026-11-01"), null);
+
+// --- Nama barang belanja paylater dari ketikan (SPEC-paylater) ---
+assert.equal(barangKetikan("beli sepatu 300rb pakai spaylater 3x"), "Sepatu");
+assert.equal(barangKetikan("checkout headset bluetooth 450rb kredivo 3x"), "Headset bluetooth");
+assert.equal(barangKetikan("beli kulkas di electronic city rp 3jt akulaku 6x"), "Kulkas");
+assert.equal(barangKetikan("order jaket via spaylater 250rb"), "Jaket");
+assert.equal(barangKetikan("spaylater 300rb 3x"), null);
+const pl = { paylater: { penyedia: "Shopee PayLater", tenor: 3, per_cicilan: null, jatuh_tempo: null }, merchant: null };
+const teksSepatu = "beli sepatu 300rb pakai spaylater 3x";
+assert.equal(rapikanPaylater({ ...pl, description: null }, teksSepatu).description, "Sepatu");
+assert.equal(rapikanPaylater({ ...pl, description: teksSepatu }, teksSepatu).description, "Sepatu"); // model menyalin seluruh ketikan
+assert.equal(rapikanPaylater({ ...pl, description: "Kado ulang tahun" }, teksSepatu).description, "Kado ulang tahun");
+assert.equal(rapikanPaylater({ ...pl, merchant: "Tokopedia", description: null }, teksSepatu).description, null);
+assert.equal(rapikanPaylater({ ...pl, paylater: null, description: null }, teksSepatu).description, null);
 
 // --- Pihak yang tampak kartu kredit (SPEC-tagihan-cicilan §1) ---
 for (const ya of ["Kartu kredit Mandiri", "CC BCA", "credit card bni", "kartu-kredit", "Mandiri cc"]) assert.equal(tampakKartuKredit(ya), true, ya);
