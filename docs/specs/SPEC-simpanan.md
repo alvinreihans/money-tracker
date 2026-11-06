@@ -66,7 +66,7 @@ Menuntaskan rencana di CHANGELOG: *Opsi "tujuan ini disimpan di BCA", kalau sald
 
 - **Jatuh tempo** (periode yang `jatuh_tempo` ≤ hari ini dan belum dievaluasi):
   - push **hanya di hari itu** (cron notifikasi harian, tanpa H-3): "Deposito SeaBank jatuh tempo hari ini. Cek bunganya.";
-  - kartu di Beranda **"Deposito jatuh tempo"**: estimasi bunga kotor, pajak, bersih, dan tombol **Sesuai** / **Isi yang diterima** (nominal bunga bersih). Kartu bertahan sampai dievaluasi.
+  - kartu di Beranda **"Deposito jatuh tempo"**: estimasi bunga kotor, pajak, bersih, dan tombol **Sesuai** / **Isi yang diterima** (nominal bunga bersih). Kartu bertahan sampai dievaluasi. Selama itu deposito **tetap tampil** dengan saldonya ("Jatuh tempo 6 Des · menunggu cek bunga"); tidak ada yang dicatat atau disembunyikan sebelum user mengecek bunganya.
 - **Saat dievaluasi** dengan bunga bersih diterima B:
   - **sekali saja** → pemasukan B ke **induk** (kategori Bunga/Investasi, merchant = nama deposito, keterangan "Bunga deposito ke-n · kotor Rp X, pajak Rp Y"), lalu pindah kantong deposito → induk sebesar pokok. Deposito `selesai`, saldo 0, dan **langsung hilang** dari Profil → Kantong, Beranda, dan pilihan kantong. Datanya tidak dihapus: transaksi bunga & pencairannya tetap menyebut namanya, dan riwayat periodenya tetap tersimpan.
   - **diperpanjang tanpa bunga** → pemasukan B ke induk; periode baru dengan pokok yang sama, mulai = jatuh tempo lama.
@@ -100,7 +100,7 @@ Menuntaskan rencana di CHANGELOG: *Opsi "tujuan ini disimpan di BCA", kalau sald
 
 ## Keputusan tambahan (6 Nov 2026)
 
-1. Deposito yang sudah cair (sekali saja, atau dicairkan) **hilang otomatis** dari daftar; datanya tetap tersimpan untuk riwayat.
+1. Deposito yang sudah cair (sekali saja, atau dicairkan) **hilang otomatis** dari daftar, **sesudah** bunga bersihnya dicek user (evaluasi jatuh tempo, atau isian bunga saat Cairkan sekarang); datanya tetap tersimpan untuk riwayat.
 2. Push jatuh tempo **hanya di hari itu**.
 
 ## Belum diterapkan
