@@ -1,7 +1,7 @@
 import { ambilUser, createSupabaseServerClient } from "@/lib/supabase/server";
 import { ambilKantong } from "@/lib/kantong";
 import { kantongUang } from "@/lib/pinjaman";
-import { ambilDeposito, infoDeposito } from "@/lib/simpanan";
+import { ambilDeposito, infoDeposito, ringkasDisisihkan } from "@/lib/simpanan";
 import { kantongTujuan } from "@/lib/tujuan";
 import KantongView from "./KantongView";
 
@@ -23,7 +23,7 @@ export default async function KantongPage() {
       daftar={uang.filter((k) => !selesai.has(k.id))}
       deposito={infoDeposito(kantong, saldo, deposito, periode)}
       total={uang.reduce((n, k) => n + k.saldo, 0)}
-      disisihkan={{ jumlah: tujuan.length, total: tujuan.filter((k) => !k.induk_id).reduce((n, k) => n + k.saldo, 0) }}
+      disisihkan={{ jumlah: tujuan.length, ...ringkasDisisihkan(tujuan.map((k) => ({ saldo: k.saldo, induk: uang.find((x) => x.id === k.induk_id)?.name ?? null }))) }}
     />
   );
 }

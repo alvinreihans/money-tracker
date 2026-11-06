@@ -1,6 +1,6 @@
 # Spec: Simpanan (deposito & pocket) dan tujuan yang disimpan di kantong lain
 
-Status: **diterapkan, belum dirilis** (temuan UAT U1–U5 sedang dikerjakan) · 6 November 2026 · branch `feat/simpanan` (stacked di atas `fix/temuan-2.9.0`) · rencana rilis 2.11.0
+Status: **diterapkan, belum dirilis** · 6 November 2026 · branch `feat/simpanan` (stacked di atas `fix/temuan-2.9.0`) · rencana rilis 2.11.0
 
 Menuntaskan rencana di CHANGELOG: *Opsi "tujuan ini disimpan di BCA", kalau saldo BCA yang lebih kecil dari saldo asli di bank terasa membingungkan.*
 
@@ -105,7 +105,13 @@ Menuntaskan rencana di CHANGELOG: *Opsi "tujuan ini disimpan di BCA", kalau sald
 
 ## Temuan UAT (6 Nov 2026)
 
-Dari `docs/uat/UAT-simpanan-2.11.0.md`; semua disetujui user untuk dibetulkan sebelum rilis 2.11.0.
+Dari `docs/uat/UAT-simpanan-2.11.0.md`; semua disetujui user untuk dibetulkan sebelum rilis 2.11.0. **Semua diterapkan** (6 Nov 2026):
+
+- **U1** `ringkasSaldo`: kantong berisi simpanan/tujuan → `saldo` gabungan, `saldo_sendiri`, `berisi`; prompt Tanya AI: saldo satu kantong disebut gabungannya dulu, total aset dari `total_aset`. Kasus eval "berapa saldo seabank?" (harus Rp 2.500.000 sebelum Rp 500.000).
+- **U2** `fmtTanggalPanjang` ("6 Desember 2026") untuk `deposito.jatuh_tempo` dan `tujuan_tabungan.tenggat` di hasil fungsi.
+- **U3** `ringkasDisisihkan`: nominal hanya tujuan terpisah (tidak tampil bila tidak ada), keterangan "N tujuan tabungan" / "1 tujuan · disimpan di BCA" / "2 tujuan · 1 disimpan di BCA" (beberapa tempat dipisah koma).
+- **U4** `fokusGalat`: galat umum (tanpa kolom) digulir ke tengah lembar — berlaku untuk semua lembar berbilah Batal/Simpan.
+- **U5** `Lembar`: tanpa `data-autofocus`, lembar yang dibuka dengan sentuhan/klik memfokus dialognya sendiri (tanpa garis); sesudah tombol keyboard, fokus awal tetap bawaan browser.
 
 | # | Masalah | Perilaku yang diharapkan |
 |---|---|---|
@@ -126,7 +132,7 @@ Hal yang tidak diatur spec, dipilih yang paling kecil dan sejalan dengannya:
 1. **Data.** `induk_id` memakai FK biasa (NO ACTION), bukan RESTRICT: dicek di akhir pernyataan, jadi menghapus akun (cascade ke semua kantong sekaligus) tetap jalan; induk yang masih punya simpanan tetap tidak bisa dihapus. Pemeriksaan induk (kantong `bank`/`ewallet`/`cash` milik user yang sama) lewat trigger `kantong_induk_cek`. `deposito` & `deposito_periode` punya `user_id` untuk RLS; kolom milik & rujukan (`user_id`, `kantong_id`, `deposito_id`, `ke`) tidak bisa diubah sesudah dibuat. Batas: bunga ≤ 25 %/th (2 desimal), tenor ≤ 3.660 hari / 120 bulan.
 2. **Atomik.** Membuat simpanan, menutup periode (evaluasi / cair), dan menghapus simpanan masing-masing satu RPC (`buat_simpanan`, `tutup_periode_deposito`, `hapus_simpanan`, security invoker, lewat view transaksi), jadi tidak ada keadaan setengah jadi. Semua transaksinya bertanggal & berjam sekarang (WIB, dengan detik); saldo simpanan berlaku sejak awal menit itu, supaya pindah kantong awalnya ikut di kedua sisi.
 3. **Rincian induk.** Sampai dua isi disebut namanya ("Rp 500.000 + Deposito Rp 2.000.000 + Pocket Liburan Rp 300.000"); lebih dari dua diringkas "Rp 500.000 + 3 simpanan Rp …". "Isi" = simpanan dan tujuan yang disimpan di sana; deposito selesai tidak.
-4. **"Disisihkan ke tujuan"** di Profil → Kantong tetap menyebut jumlah semua tujuan, tapi nominalnya hanya tujuan yang terpisah (yang disimpan di kantong lain sudah ada di gabungan kantong itu, tidak dihitung dua kali).
+4. **"Disisihkan ke tujuan"** di Profil → Kantong tetap menyebut jumlah semua tujuan, tapi nominalnya hanya tujuan yang terpisah (yang disimpan di kantong lain sudah ada di gabungan kantong itu, tidak dihitung dua kali). Diperjelas oleh U3: tanpa tujuan terpisah nominalnya tidak tampil, dan keterangannya menyebut tempatnya.
 5. **Perpanjangan bulanan** memakai tanggal mulai periode ke-1 sebagai patokan: 31 Jan → 28 Feb → 31 Mar.
 6. **Cair** (sekali saja, Cairkan sekarang) memindah **seluruh saldo** deposito ke induk (sama dengan pokok kalau tidak ada transaksi lain), jadi deposito selalu berakhir Rp 0. Cairkan sekarang pada periode yang sudah jatuh tempo dihitung sebagai evaluasi biasa (`dicairkan_awal` hanya bila sebelum jatuh tempo); keterangan bunganya "Bunga deposito ke-n · dicairkan sebelum jatuh tempo" bila awal. Kategori bunga: Bunga/Investasi, atau Lainnya bila kategori itu sudah dihapus user.
 7. **Pajak %** bawaan mengikuti pokok **tiap periode** (`deposito.pajak_otomatis`, migrasi `20261111000001`): 0 % bila pokok ≤ Rp 7,5 jt, 20 % di atasnya — deposito yang diperpanjang dengan bunga dan pokok barunya melewati Rp 7,5 jt kena 20 % di periode berikutnya (dan kembali 0 % bila pokok turun lagi). Hanya pajak yang diubah user sendiri di form yang tetap (`pajak_otomatis = false`, `pajak_persen` dipakai apa adanya).

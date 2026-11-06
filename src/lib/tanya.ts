@@ -1,5 +1,5 @@
 import { SchemaType, type FunctionDeclaration } from "@google/generative-ai";
-import { geserHari } from "@/lib/format";
+import { fmtTanggalPanjang, geserHari } from "@/lib/format";
 import { geserBulan } from "@/lib/kalender";
 import { cocokkanKantong, type Kantong } from "@/lib/kantong";
 import { KELOMPOK } from "@/lib/metode";
@@ -55,7 +55,7 @@ export const DEKLARASI_FUNGSI: FunctionDeclaration[] = [
   {
     name: "saldo_kantong",
     description:
-      "Saldo tiap kantong (bank, e-wallet, tunai, orang, kartu kredit, simpanan seperti deposito & pocket di dalam bank), isi tiap tujuan tabungan (mis. dana darurat) beserta targetnya, bunga & jatuh tempo deposito, dan total aset. Kantong yang berisi simpanan/tujuan punya saldo_gabungan (seperti di aplikasi bank).",
+      "Saldo tiap kantong (bank, e-wallet, tunai, orang, kartu kredit, simpanan seperti deposito & pocket di dalam bank), isi tiap tujuan tabungan (mis. dana darurat) beserta targetnya, bunga & jatuh tempo deposito, dan total aset. Saldo kantong yang berisi simpanan/tujuan sudah gabungan (sama dengan aplikasi bank); saldo_sendiri = di luar isinya.",
   },
   {
     name: "hitung",
@@ -243,18 +243,21 @@ export function ringkasSaldo(
   const nama = (id: string | null | undefined) => kantong.find((k) => k.id === id)?.name ?? null;
   const rinci = (k: (typeof kantong)[number]) => {
     const isi = kantong.filter((x) => x.induk_id === k.id);
+    const sendiri = saldo.get(k.id) ?? 0;
     const d = simpanan.deposito.find((x) => x.kantong_id === k.id);
     const p = d ? periodeAktif(simpanan.periode, d.kantong_id) : null;
     return {
       ...(isi.length
-        ? { berisi: isi.map((x) => x.name), saldo_gabungan: (saldo.get(k.id) ?? 0) + isi.reduce((n, x) => n + (saldo.get(x.id) ?? 0), 0) }
+        ? // `saldo` = gabungan, yang tampil di aplikasi & bank (SPEC-simpanan U1).
+          { saldo: sendiri + isi.reduce((n, x) => n + (saldo.get(x.id) ?? 0), 0), saldo_sendiri: sendiri, berisi: isi.map((x) => x.name) }
         : {}),
       ...(k.kind === "simpanan" ? { di_dalam: nama(k.induk_id), macam: k.macam_simpanan === "deposito" ? "deposito" : "tabungan/pocket" } : {}),
       ...(d
         ? {
             deposito: {
               bunga_persen_per_tahun: Number(d.bunga_persen),
-              jatuh_tempo: p?.jatuh_tempo ?? null,
+              // Tanggal untuk dibaca ("6 Desember 2026"), supaya jawabannya ikut (U2).
+              jatuh_tempo: p ? fmtTanggalPanjang(p.jatuh_tempo) : null,
               estimasi_bunga_bersih: p ? Number(p.bunga_bersih) : null,
               saat_jatuh_tempo: NAMA_PERPANJANGAN[d.perpanjangan],
               menunggu_cek_bunga: Boolean(p && menungguCek(p, simpanan.hariIni)),
@@ -270,7 +273,7 @@ export function ringkasSaldo(
       nama_tujuan: k.name,
       terkumpul: saldo.get(k.id) ?? 0,
       target: Number(k.target ?? 0),
-      tenggat: k.tenggat ?? null,
+      tenggat: k.tenggat ? fmtTanggalPanjang(k.tenggat) : null,
       ...(k.induk_id ? { disimpan_di: nama(k.induk_id) } : {}),
     })),
     ...(tujuan.length ? { total_semua_tujuan: tujuan.reduce((n, k) => n + (saldo.get(k.id) ?? 0), 0) } : {}),

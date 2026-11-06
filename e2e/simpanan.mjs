@@ -165,15 +165,17 @@ try {
   const bcaSebelumCair = await saldo(bca.id);
   const cair = await langkah("cairkan", `${judul("Flash")}.click(); await sampai(() => dialog()?.innerText.includes('Cairkan sekarang')); await t(300);
     const detail = dialog().innerText.replace(/\\s+/g, ' ');
+    // U5: dibuka dengan klik → tidak ada garis fokus di tombol mana pun.
+    const garisFokus = [...dialog().querySelectorAll(':focus-visible')].map((x) => x.textContent.trim());
     ${tekan("Cairkan sekarang", "dialog()")}.click(); await sampai(() => dialog()?.querySelector('input[placeholder="Bunga bersih diterima (Rp)"]')); await t(300);
     const awal = dialog().querySelector('input[placeholder="Bunga bersih diterima (Rp)"]').value;
     ${tekan("Cairkan", "dialog()")}.click(); await sampai(() => /kembali ke BCA/.test(document.body.innerText), 30); await t(1500);
-    return { detail: /Riwayat periode/.test(detail) && /Ke-1/.test(detail), awal }`);
+    return { detail: /Riwayat periode/.test(detail) && /Ke-1/.test(detail), awal, garisFokus }`);
   const { data: dFlash } = await sb.from("deposito").select("selesai").eq("kantong_id", flash).single();
   const { data: perCair } = await sb.from("deposito_periode").select("dicairkan_awal, bunga_diterima").eq("deposito_id", flash).eq("ke", 2).single();
   cek(
     "Cairkan sekarang: bawaan Rp 0, Rp 10 jt kembali ke BCA, dicairkan awal, deposito selesai",
-    cair?.detail && cair?.awal === "0" && dFlash?.selesai && perCair?.dicairkan_awal === true && Number(perCair.bunga_diterima) === 0 && (await saldo(bca.id)) === bcaSebelumCair + 10000000 && (await saldo(flash)) === 0,
+    cair?.detail && cair?.awal === "0" && Array.isArray(cair?.garisFokus) && cair.garisFokus.length === 0 && dFlash?.selesai && perCair?.dicairkan_awal === true && Number(perCair.bunga_diterima) === 0 && (await saldo(bca.id)) === bcaSebelumCair + 10000000 && (await saldo(flash)) === 0,
     JSON.stringify({ cair, dFlash, perCair }),
   );
 
@@ -206,13 +208,23 @@ try {
     h.includes(`BCA ${rp(bcaSendiri)} + Tumbuh ${rp(7513411)} + Dana darurat Rp 3.000.000 ${rp(bcaSendiri + 7513411 + 3000000)}`),
     h.slice(0, 400),
   );
-  cek("Disisihkan ke tujuan: yang disimpan di BCA tidak dihitung dua kali", /Disisihkan ke tujuan 1 tujuan tabungan Rp 0/.test(h), h.match(/Disisihkan.{0,80}/)?.[0]);
+  // U3: yang disimpan di BCA tidak dihitung dua kali; tanpa tujuan terpisah nominalnya tidak tampil.
+  cek("Disisihkan ke tujuan: '1 tujuan · disimpan di BCA', tanpa nominal Rp 0", /Disisihkan ke tujuan 1 tujuan · disimpan di BCA(?! Rp)/.test(h), h.match(/Disisihkan.{0,80}/)?.[0]);
   await foto("simpanan-3-gabungan.png");
 
-  // --- 10. Induk dengan simpanan tidak bisa dihapus (aplikasi & database).
-  const tolak = await langkah("hapus BCA", `${tekan("BCA")}.click(); await sampai(() => dialog()?.innerText.includes('Hapus kantong')); await t(300);
-    ${tekan("Hapus kantong", "dialog()")}.click(); await sampai(() => /masih berisi/.test(dialog()?.innerText || ''), 10); await t(300);
-    return dialog().innerText.match(/BCA masih berisi[^\\n]*/)?.[0]`);
+  // --- 10. Induk dengan simpanan tidak bisa dihapus (aplikasi & database), di lebar 390 px:
+  //     pesannya terlihat penuh, tidak tertutup bilah Batal/Simpan (U4).
+  await cdp("Emulation.setDeviceMetricsOverride", { width: 390, height: 640, deviceScaleFactor: 1, mobile: true });
+  await buka(`${base}/profil/kantong`, 5000);
+  const tolakInfo = await langkah("hapus BCA", `${tekan("BCA")}.click(); await sampai(() => dialog()?.innerText.includes('Hapus kantong')); await t(300);
+    ${tekan("Hapus kantong", "dialog()")}.click(); await sampai(() => /masih berisi/.test(dialog()?.innerText || ''), 10); await t(800);
+    const pesan = [...dialog().querySelectorAll('[role=alert]')].find((x) => /masih berisi/.test(x.textContent));
+    const r = pesan.getBoundingClientRect();
+    const bilah = ${persis("Simpan")}.parentElement.getBoundingClientRect();
+    return { teks: pesan.textContent, atas: Math.round(r.top), bawah: Math.round(r.bottom), atasBilah: Math.round(bilah.top), tinggi: innerHeight }`);
+  await cdp("Emulation.setDeviceMetricsOverride", { width: 360, height: 860, deviceScaleFactor: 1, mobile: true });
+  const tolak = tolakInfo?.teks;
+  cek("390 px: pesan galat terlihat penuh di atas bilah Batal/Simpan", tolakInfo?.atas >= 0 && tolakInfo?.bawah <= tolakInfo?.atasBilah, JSON.stringify(tolakInfo));
   const { error: eHapus } = await sb.from("user_accounts").delete().eq("id", bca.id);
   const { data: bcaAda } = await sb.from("user_accounts").select("id").eq("id", bca.id);
   cek("BCA berisi deposito: ditolak dengan pesan, database juga menolak", /BCA masih berisi 1 simpanan\. Cairkan atau hapus simpanannya dulu\./.test(tolak ?? "") && Boolean(eHapus) && bcaAda?.length === 1, JSON.stringify({ tolak, eHapus: eHapus?.message }));

@@ -15,6 +15,13 @@ import { angkaMentah, angkaRibuan } from "@/lib/format";
  */
 
 const tanpaLangganan = () => () => {};
+
+/** Interaksi terakhir lewat keyboard? Menentukan fokus awal lembar (lihat Lembar). */
+let lewatKeyboard = false;
+if (typeof document !== "undefined") {
+  document.addEventListener("keydown", () => (lewatKeyboard = true), true);
+  document.addEventListener("pointerdown", () => (lewatKeyboard = false), true);
+}
 /** False saat render server, true setelah hidrasi: penanda form sudah bisa dipakai. */
 export const useSudahHidrasi = () => useSyncExternalStore(tanpaLangganan, () => true, () => false);
 
@@ -250,7 +257,12 @@ export function Lembar({
       if (fokus instanceof HTMLElement && d.contains(fokus)) fokus.focus();
     };
     buka();
-    d.querySelector<HTMLElement>("[data-autofocus]")?.focus();
+    // Tanpa data-autofocus, showModal memfokus tombol pertama — dibuka dengan
+    // sentuhan/klik itu tampil sebagai garis fokus yang tak diminta (SPEC-simpanan
+    // U5). Fokus ke dialognya saja; lewat keyboard tetap seperti bawaan browser.
+    const auto = d.querySelector<HTMLElement>("[data-autofocus]");
+    if (auto) auto.focus();
+    else if (!lewatKeyboard) d.focus({ preventScroll: true });
     const batal = (e: Event) => {
       e.preventDefault(); // biar React yang melepas dialognya, bukan browser
       tutup.current();
@@ -280,6 +292,7 @@ export function Lembar({
   return (
     <dialog
       ref={ref}
+      tabIndex={-1}
       className={kelas}
       aria-label={label ?? (typeof judul === "string" ? judul : undefined)}
       // Ketuk di luar kotak (area backdrop) menutup dialog.
@@ -385,11 +398,20 @@ const GalatContext = createContext<Galat>(null);
 /** Bungkus isian form: tiap Field ber-`kolom` mengambil galatnya dari sini. */
 export const GalatForm = GalatContext.Provider;
 
-/** Setelah simpan gagal: fokus (dan gulir) ke isian yang salah, di dialog teratas. */
+/**
+ * Setelah simpan gagal: fokus (dan gulir) ke isian yang salah, di dialog
+ * teratas. Galat umum (tanpa kolom) cukup digulir ke tengah, supaya tidak
+ * tertutup bilah Batal/Simpan di HP (SPEC-simpanan U4).
+ */
 export function fokusGalat(g: Galat) {
-  if (!g?.kolom) return;
+  if (!g) return;
   requestAnimationFrame(() => {
     const akar = [...document.querySelectorAll("dialog[open]")].at(-1) ?? document;
+    if (!g.kolom) {
+      const umum = [...akar.querySelectorAll<HTMLElement>("[role=alert]")].filter((x) => !x.closest("[data-kolom]")).at(-1);
+      umum?.scrollIntoView({ block: "center" });
+      return;
+    }
     const el = akar.querySelector<HTMLElement>(`[data-kolom="${g.kolom}"] :is(input, textarea, select, button)`);
     el?.focus({ preventScroll: true });
     el?.scrollIntoView({ block: "center" });

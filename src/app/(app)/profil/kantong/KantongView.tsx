@@ -98,8 +98,12 @@ export default function KantongView({
   deposito: InfoDeposito[];
   /** Total aset: tiap kantong uang dihitung sekali. */
   total: number;
-  /** Tujuan tabungan (SPEC-tujuan-tabungan): jumlahnya, dan saldo yang terpisah (tidak disimpan di kantong lain). */
-  disisihkan: { jumlah: number; total: number };
+  /**
+   * Tujuan tabungan (SPEC-tujuan-tabungan): jumlahnya, saldo yang terpisah
+   * (null = semua disimpan di kantong lain, nominal tidak ditampilkan), dan
+   * keterangan tempatnya (SPEC-simpanan U3).
+   */
+  disisihkan: { jumlah: number; total: number | null; keterangan: string };
 }) {
   const router = useRouter();
   const [edit, setEdit] = useState<{ asal: KantongSaldo | null; isian: Isian } | null>(null);
@@ -363,10 +367,10 @@ export default function KantongView({
                       Disisihkan ke tujuan
                     </span>
                     <span className={s.redup} style={{ whiteSpace: "normal" }}>
-                      {disisihkan.jumlah} tujuan tabungan
+                      {disisihkan.keterangan}
                     </span>
                   </span>
-                  <span className={s.nominal}>{fmtIDR(disisihkan.total)}</span>
+                  {disisihkan.total != null && <span className={s.nominal}>{fmtIDR(disisihkan.total)}</span>}
                 </NextLink>
               </div>
             )}

@@ -79,3 +79,5 @@ Dijalankan 6 Nov 2026 lewat browser otomatis (Edge headless, `e2e/kepala.mjs`) d
 3. Profil → Kantong menampilkan "Disisihkan ke tujuan · 1 tujuan tabungan · Rp 0" ketika satu-satunya tujuan disimpan di BCA (keputusan implementasi #4), bisa membingungkan.
 4. Di 390 px, pesan "SeaBank masih berisi 1 simpanan…" tertutup sebagian oleh bilah Batal/Simpan sampai digulir.
 5. Tombol "Cairkan sekarang" di detail deposito memperlihatkan garis fokus biru saat lembar dibuka (kosmetik).
+
+**Sudah dibetulkan** (SPEC-simpanan, Temuan UAT U1–U5, 6 Nov 2026): `saldo` induk kini gabungan dengan `saldo_sendiri` terpisah dan jawaban menyebut gabungannya lebih dulu (kasus eval baru lulus: "Saldo SeaBank kamu adalah Rp 2.500.000. Rinciannya … Rp 500.000 … Deposito … Rp 2.000.000"); tanggal di hasil fungsi berbentuk "6 Desember 2026"; baris "Disisihkan ke tujuan" menulis "1 tujuan · disimpan di BCA" tanpa nominal Rp 0; galat form umum digulir ke tengah lembar sehingga terlihat penuh di atas bilah tombol (dicek E2E di 390 × 640); lembar yang dibuka dengan sentuhan/klik memfokus dialognya, bukan tombol pertama (dengan keyboard tetap seperti biasa). Dicek ulang di `e2e/simpanan.mjs`.

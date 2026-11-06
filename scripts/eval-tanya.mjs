@@ -134,6 +134,27 @@ const KASUS = [
   },
   // Satu merchant (SPEC-perbaikan-temuan F2): dicari persis, tautannya merchant=, bukan q=.
   { tanya: "berapa total belanja di Kopi Kenangan bulan ini?", harus: [25000], tautan: /merchant=Kopi\+Kenangan/ },
+  // Saldo kantong berisi deposito (SPEC-simpanan U1): SeaBank Rp 2,5 jt di m-banking =
+  // rekening 500 rb + deposito 2 jt. Gabungannya disebut lebih dulu, bukan 500 rb.
+  {
+    tanya: "berapa saldo seabank?",
+    siapkan: async ({ sb, uid }) => {
+      const { data: sea } = await sb.from("user_accounts").insert({ user_id: uid, name: "SeaBank", kind: "bank", emoji: "🏦", saldo_awal: 2500000, saldo_sejak: "2026-01-01T00:00:00+07:00" }).select("id").single();
+      const { data: depo } = await sb.rpc("buat_simpanan", {
+        p_kantong: { name: "Deposito", emoji: "💰", induk_id: sea.id, macam_simpanan: "deposito", saldo: 2000000 },
+        p_termasuk: true,
+        p_deposito: { bunga_persen: 4.5, tenor: 1, satuan_tenor: "bulan", pajak_persen: 0, perpanjangan: "sekali" },
+        p_periode: { mulai: hariIni, jatuh_tempo: "2099-01-01", bunga_kotor: 7397, pajak: 0, bunga_bersih: 7397 },
+      });
+      return async () => {
+        await sb.rpc("hapus_simpanan", { p_id: depo });
+        await sb.from("user_accounts").delete().eq("id", sea.id);
+      };
+    },
+    harus: [2500000],
+    // Tidak ada "500.000" (saldo sendiri) sebelum "2.500.000".
+    pola: /^(?:(?!(?<![\d.])500\.000)[\s\S])*2\.500\.000/,
+  },
 ];
 
 let uid;

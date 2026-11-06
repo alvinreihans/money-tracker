@@ -22,6 +22,7 @@ import {
   periodeAktif,
   periodeDeposito,
   rincianInduk,
+  ringkasDisisihkan,
   susunKantong,
   teksDeposito,
   teksPratinjau,
@@ -125,6 +126,11 @@ assert.equal(
 assert.equal(sp(rincianInduk(500000, [{ name: "A", saldo: 1 }, { name: "B", saldo: 2 }])), "Rp 500.000 + A Rp 1 + B Rp 2");
 assert.equal(sp(rincianInduk(500000, [{ name: "A", saldo: 1000 }, { name: "B", saldo: 2000 }, { name: "C", saldo: 3000 }])), "Rp 500.000 + 3 simpanan Rp 6.000");
 
+// --- Baris "Disisihkan ke tujuan" (U3)
+assert.deepEqual(ringkasDisisihkan([{ saldo: 3000000, induk: "BCA" }]), { total: null, keterangan: "1 tujuan · disimpan di BCA" });
+assert.deepEqual(ringkasDisisihkan([{ saldo: 3000000, induk: "BCA" }, { saldo: 400000, induk: null }]), { total: 400000, keterangan: "2 tujuan · 1 disimpan di BCA" });
+assert.deepEqual(ringkasDisisihkan([{ saldo: 0, induk: null }, { saldo: 500000, induk: null }]), { total: 500000, keterangan: "2 tujuan tabungan" });
+
 // --- Pilihan kantong: pocket menyebut induknya, deposito tidak tampil
 const pocket = K("Pocket Liburan", "simpanan", 100000, { induk_id: "SeaBank", macam_simpanan: "tabungan" });
 assert.equal(labelKantong(pocket, daftar), "Pocket Liburan · di SeaBank");
@@ -141,9 +147,11 @@ const r = ringkasSaldo(daftar, new Map(daftar.map((k) => [k.id, k.saldo])), {
   hariIni: "2026-12-06",
 });
 const sea = r.kantong.find((k) => k.nama === "SeaBank");
-assert.deepEqual([sea?.saldo, sea?.saldo_gabungan, sea?.berisi], [500000, 2500000, ["Deposito"]]);
+// U1: `saldo` induk = gabungan (yang tampil di aplikasi & bank), saldo sendiri terpisah.
+assert.deepEqual([sea?.saldo, sea?.saldo_sendiri, sea?.berisi], [2500000, 500000, ["Deposito"]]);
 assert.deepEqual(r.kantong.find((k) => k.nama === "Deposito")?.deposito, {
-  bunga_persen_per_tahun: 4.5, jatuh_tempo: "2026-12-06", estimasi_bunga_bersih: 7397, saat_jatuh_tempo: "Diperpanjang tanpa bunga", menunggu_cek_bunga: true,
+  // U2: tanggal untuk dibaca.
+  bunga_persen_per_tahun: 4.5, jatuh_tempo: "6 Desember 2026", estimasi_bunga_bersih: 7397, saat_jatuh_tempo: "Diperpanjang tanpa bunga", menunggu_cek_bunga: true,
 });
 assert.equal(r.kantong.find((k) => k.nama === "Deposito")?.di_dalam, "SeaBank");
 assert.ok(!r.kantong.some((k) => k.nama === "Lama"), "deposito selesai tidak ikut");

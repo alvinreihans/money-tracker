@@ -355,3 +355,19 @@ export function validasiDeposito(i: { bunga: string; tenor: string; satuan: Satu
   if (!(pajak >= 0 && pajak <= 100)) return { ok: false, error: "Pajaknya 0–100%.", kolom: "pajak" };
   return { ok: true, data: { bunga_persen: bunga, tenor, satuan_tenor: i.satuan, pajak_persen: pajak, mulai: i.mulai } };
 }
+
+/**
+ * Baris "Disisihkan ke tujuan" di Profil → Kantong (SPEC-simpanan U3):
+ * nominalnya hanya tujuan yang terpisah (null = tidak ada, nominal tidak
+ * ditampilkan), keterangannya menyebut tempat tujuan yang disimpan di
+ * kantong lain: "1 tujuan · disimpan di BCA", "2 tujuan · 1 disimpan di BCA".
+ */
+export function ringkasDisisihkan(tujuan: { saldo: number; induk: string | null }[]): { total: number | null; keterangan: string } {
+  const terpisah = tujuan.filter((t) => !t.induk);
+  const disimpan = tujuan.filter((t) => t.induk);
+  const total = terpisah.length ? terpisah.reduce((n, t) => n + t.saldo, 0) : null;
+  if (!disimpan.length) return { total, keterangan: `${tujuan.length} tujuan tabungan` };
+  const tempat = [...new Set(disimpan.map((t) => t.induk))].join(", ");
+  const berapa = disimpan.length === tujuan.length ? "" : `${disimpan.length} `;
+  return { total, keterangan: `${tujuan.length} tujuan · ${berapa}disimpan di ${tempat}` };
+}

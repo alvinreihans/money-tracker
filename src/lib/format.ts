@@ -78,6 +78,10 @@ export const fmtTanggal = (iso: string) =>
     year: "numeric",
   }).format(new Date(`${iso}T00:00:00`));
 
+/** "6 Desember 2026": tanggal untuk dibaca (hasil fungsi Tanya AI, SPEC-simpanan U2). */
+export const fmtTanggalPanjang = (iso: string) =>
+  new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${iso}T00:00:00Z`));
+
 /** "5 Nov" untuk tahun berjalan, "5 Nov 2027" selain itu — untuk baris yang sempit. */
 export const fmtTanggalPendek = (iso: string, sekarang = new Date()) =>
   iso.slice(0, 4) === isoLokal(sekarang).slice(0, 4)

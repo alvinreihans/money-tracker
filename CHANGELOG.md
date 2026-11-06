@@ -32,7 +32,9 @@ docs/specs/SPEC-catat-tuntas.md (fase 1 & 2 selesai di 2.4.0, fase 3 di 2.5.0, f
 - **Pilihan kantong** (Catat, Ubah transaksi, Pinjamkan, Bayar cicilan) menulis pocket bersama tempatnya: "Pocket Liburan · di SeaBank". Deposito tidak pernah jadi pilihan — tidak sebagai sumber bayar, tempat pemasukan, maupun tujuan pindah kantong; ketikan "pakai deposito" ditanyakan kantongnya.
 - **Total aset di Beranda** menggabungkan simpanan dan tujuan yang disimpan di sebuah kantong ke baris kantong itu, dengan rinciannya. Totalnya tidak berubah.
 - **Menghapus simpanan** mengembalikan saldonya ke kantong tempatnya dulu ("Rp 300.000 kembali ke SeaBank, lalu simpanan ini dihapus."). Kantong yang masih berisi simpanan tidak bisa dihapus; tujuan yang disimpan di sana jadi terpisah.
-- **Tanya AI** tahu isi tiap kantong: simpanan dan tujuan di dalamnya, saldo gabungannya, serta bunga, jatuh tempo, dan perkiraan bunga bersih deposito.
+- **Tanya AI** tahu isi tiap kantong: simpanan dan tujuan di dalamnya, saldo gabungannya, serta bunga, jatuh tempo, dan perkiraan bunga bersih deposito. "Berapa saldo SeaBank?" dijawab dengan saldo gabungannya lebih dulu (sama dengan aplikasi bank), lalu rinciannya; tanggal ditulis "6 Desember 2026".
+- **Baris "Disisihkan ke tujuan"** di Profil → Kantong menyebut tempat tujuan yang disimpan di kantong lain ("1 tujuan · disimpan di BCA") dan tidak lagi menampilkan Rp 0 bila semua tujuan disimpan di kantong lain.
+- **Pesan galat form selalu terlihat penuh**, tidak tertutup bilah Batal/Simpan di layar HP; lembar yang dibuka dengan sentuhan tidak lagi memperlihatkan garis fokus di tombol pertamanya.
 
 ## [2.10.0] — 2026-11-06
 
