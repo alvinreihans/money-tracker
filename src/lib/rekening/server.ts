@@ -1,0 +1,106 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { bacaRekening } from "@/lib/rekening/baca";
+import { GalatRekening, type HasilBaca } from "@/lib/rekening/jenis";
+import { GalatPdf, teksPdf } from "@/lib/rekening/pdf";
+import { rencanakan, type KantongRencana, type Pilihan, type Rencana, type TransaksiLama } from "@/lib/rekening/rencana";
+import { geserHari } from "@/lib/format";
+
+/**
+ * Jalur server impor rekening koran: PDF → teks (pdfjs) → parser → rencana,
+ * dengan data user dari database. Dipakai /api/rekening/pratinjau (tanpa
+ * menulis apa pun) dan /api/rekening/impor (menulis lewat RPC impor_rekening).
+ */
+
+/** Batas unggah: satu permintaan serverless Vercel maksimal ±4,5 MB. */
+export const MAKS_BERKAS = 10;
+export const MAKS_UKURAN = 4 * 1024 * 1024;
+
+export interface GalatBerkas {
+  nama: string;
+  pesan: string;
+}
+
+/** Berkas PDF dari FormData → hasil baca, atau daftar galat per berkas. */
+export async function bacaBerkas(berkas: File[]): Promise<{ bacaan: HasilBaca[]; galat: GalatBerkas[] }> {
+  const bacaan: HasilBaca[] = [];
+  const galat: GalatBerkas[] = [];
+  for (const f of berkas) {
+    try {
+      const data = new Uint8Array(await f.arrayBuffer());
+      if (!isPdf(data)) throw new GalatPdf("Yang bisa dibaca cuma PDF rekening koran.");
+      bacaan.push(bacaRekening(await teksPdf(data)));
+    } catch (e) {
+      if (e instanceof GalatRekening || e instanceof GalatPdf) galat.push({ nama: f.name, pesan: e.message });
+      else throw e;
+    }
+  }
+  return { bacaan, galat };
+}
+
+/** Tanda tangan berkas PDF ("%PDF-"), bukan ekstensi nama berkasnya. */
+export const isPdf = (d: Uint8Array) => d.length > 5 && d[0] === 0x25 && d[1] === 0x50 && d[2] === 0x44 && d[3] === 0x46 && d[4] === 0x2d;
+
+/** Rencana impor untuk user yang sedang masuk (RLS membatasi ke datanya sendiri). */
+export async function susunRencana(supabase: SupabaseClient, bacaan: HasilBaca[], pilihan: Pilihan): Promise<{ rencana: Rencana; kantong: KantongRencana[] }> {
+  const [{ data: akun }, { data: kategori }, { data: deposito }] = await Promise.all([
+    supabase.from("user_accounts").select("id, name, kind, nomor_akhir, induk_id, macam_simpanan, aliases, saldo_awal, saldo_per, saldo_sejak, emoji").order("created_at"),
+    supabase.from("categories").select("type, slug"),
+    supabase.from("deposito").select("kantong_id, selesai"),
+  ]);
+  const selesai = new Set((deposito ?? []).filter((d) => d.selesai).map((d) => d.kantong_id as string));
+  const kantong = ((akun ?? []) as KantongRencana[]).filter((k) => !selesai.has(k.id));
+
+  // Pengenal baris yang sudah tersimpan.
+  const semuaRef = [...new Set(bacaan.flatMap((h) => h.rekening.flatMap((r) => r.baris.map((b) => b.ref))))];
+  const bulan = [...new Set(bacaan.flatMap((h) => h.rekening.flatMap((r) => r.baris.map((b) => `${h.bank}:${r.nomorAkhir}:bunga:${b.tanggal.slice(0, 7)}`))))];
+  const sudahAda = new Set<string>();
+  for (let i = 0; i < semuaRef.length + bulan.length; i += 500) {
+    const { data, error } = await supabase.rpc("ref_bank_ada", { p_ref: [...semuaRef, ...bulan].slice(i, i + 500) });
+    if (error) throw new Error(`ref_bank_ada: ${error.message}`);
+    for (const r of (data ?? []) as string[]) sudahAda.add(r);
+  }
+
+  // Transaksi tercatat di kantong uang sejak sehari sebelum periode paling awal
+  // (pencocokan ±1 hari & saldo akhir periode), per 1.000 baris (batas PostgREST).
+  const dari = bacaan.flatMap((h) => h.rekening.map((r) => r.dari)).sort()[0];
+  const transaksi: TransaksiLama[] = [];
+  if (dari) {
+    for (let i = 0; ; i += 1000) {
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("id, amount, type, category, merchant, kantong_id, kantong_tujuan_id, transaction_date, waktu, ref_bank, ref_bank_tujuan, induk_id, created_at")
+        .eq("status", "confirmed")
+        .gte("transaction_date", geserHari(dari, -1))
+        .order("id")
+        .range(i, i + 999);
+      if (error) throw new Error(`transactions: ${error.message}`);
+      transaksi.push(...((data ?? []) as TransaksiLama[]));
+      if (!data || data.length < 1000) break;
+    }
+  }
+  const rencana = rencanakan({ bacaan, kantong, transaksi, kategori: (kategori ?? []) as { type: string; slug: string }[], sudahAda, pilihan });
+  return { rencana, kantong };
+}
+
+/** Pilihan dari FormData (JSON), dibersihkan. */
+export function bacaPilihan(teks: unknown): Pilihan {
+  if (typeof teks !== "string" || !teks) return {};
+  try {
+    const p = JSON.parse(teks) as Record<string, unknown>;
+    const peta = (v: unknown) =>
+      v && typeof v === "object" ? Object.fromEntries(Object.entries(v as Record<string, unknown>).filter(([, x]) => typeof x === "string").slice(0, 2000)) as Record<string, string> : undefined;
+    const daftar = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string").slice(0, 200) : undefined);
+    return { peta: peta(p.peta), ragu: peta(p.ragu), deposito: daftar(p.deposito), samakan: daftar(p.samakan) };
+  } catch {
+    return {};
+  }
+}
+
+/** Berkas dari FormData, dengan batas jumlah & ukuran. */
+export function ambilBerkas(form: FormData): { berkas: File[]; galat: string | null } {
+  const berkas = form.getAll("berkas").filter((f): f is File => f instanceof File && f.size > 0);
+  if (!berkas.length) return { berkas, galat: "Belum ada PDF rekening koran." };
+  if (berkas.length > MAKS_BERKAS) return { berkas, galat: `Maksimal ${MAKS_BERKAS} PDF sekaligus.` };
+  if (berkas.reduce((n, f) => n + f.size, 0) > MAKS_UKURAN) return { berkas, galat: "PDF-nya kebesaran untuk sekali kirim (maks. 4 MB). Kirim sebagian dulu." };
+  return { berkas, galat: null };
+}
