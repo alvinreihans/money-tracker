@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { KonteksAI } from "@/lib/extract";
+import { kantongDeposito } from "@/lib/kantong";
 import { KATEGORI_BAWAAN, type Kategori } from "@/lib/kategori";
 
 /**
@@ -14,14 +15,16 @@ export async function ambilKategori(supabase: SupabaseClient): Promise<Kategori[
 /**
  * Konteks untuk prompt AI: kategori, nama orang & kartu kredit, rencana
  * cicilan, dan nama kantong uang & tujuan tabungan milik user (SPEC-ai-kantong).
+ * Pocket ikut seperti kantong lain; deposito tidak (SPEC-simpanan).
  */
 export async function ambilKonteksAI(supabase: SupabaseClient): Promise<KonteksAI> {
   const [kategori, { data: akun }, { data: cicilan }] = await Promise.all([
     ambilKategori(supabase),
-    supabase.from("user_accounts").select("name, kind"),
+    supabase.from("user_accounts").select("name, kind, macam_simpanan"),
     supabase.from("cicilan").select("nama, penyedia"),
   ]);
-  const nama = (pihak: boolean) => (akun ?? []).filter((k) => (k.kind === "orang" || k.kind === "kredit") === pihak).map((k) => k.name as string);
+  const nama = (pihak: boolean) =>
+    (akun ?? []).filter((k) => !kantongDeposito(k) && (k.kind === "orang" || k.kind === "kredit") === pihak).map((k) => k.name as string);
   return {
     kategori,
     pihak: nama(true),

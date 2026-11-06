@@ -55,6 +55,15 @@ try {
   const pushA = await satu(A.sb.from("push_langganan").insert({ user_id: A.id, endpoint: "https://contoh.invalid/a", p256dh: "x", auth: "y" }));
   const txA = await satu(A.sb.from("transactions").insert({ user_id: A.id, amount: 75000, type: "expense", category: "food", merchant: RAHASIA, description: "Catatan A", transaction_date: hariIni, kantong_id: kantongA.id, status: "confirmed", source: "text" }));
   const draftA = await satu(A.sb.from("transactions").insert({ user_id: A.id, amount: 0, type: "expense", category: "other", merchant: "Draft A", transaction_date: hariIni, status: "needs_review", source: "receipt" }));
+  // Simpanan (SPEC-simpanan): deposito di dalam BCA A, beserta periodenya.
+  const { data: depoA, error: eDepo } = await A.sb.rpc("buat_simpanan", {
+    p_kantong: { name: "Deposito A", emoji: "🏦", induk_id: kantongA.id, macam_simpanan: "deposito", saldo: 200000 },
+    p_termasuk: true,
+    p_deposito: { bunga_persen: 4.5, tenor: 1, satuan_tenor: "bulan", pajak_persen: 0, perpanjangan: "sekali" },
+    p_periode: { mulai: hariIni, jatuh_tempo: "2099-01-01", bunga_kotor: 1, pajak: 0, bunga_bersih: 1 },
+  });
+  if (eDepo) throw new Error(eDepo.message);
+  const perA = await satu(A.sb.from("deposito_periode").select("id").eq("deposito_id", depoA).limit(1));
   const { data: fotoTersimpan } = await A.sb.rpc("simpan_foto_draft", { p_id: draftA.id, p_foto: Buffer.from("foto A").toString("base64") });
   cek("Persiapan: data A tersimpan di semua tempat (termasuk foto draft)", fotoTersimpan === true);
   const saldoAwalA = (await A.sb.rpc("saldo_kantong")).data?.find((k) => k.id === kantongA.id)?.saldo;
@@ -68,6 +77,8 @@ try {
     ["metode_budget", "user_id", A.id, { metode: "kategori" }],
     ["push_langganan", "id", pushA.id, { endpoint: "https://contoh.invalid/b" }],
     ["transactions", "id", txA.id, { amount: 1, merchant: "Dibajak" }],
+    ["deposito", "kantong_id", depoA, { selesai: true }],
+    ["deposito_periode", "id", perA.id, { bunga_diterima: 1 }],
   ];
   // budgets milik A dicari lewat user_id (kategori "food" juga ada di B).
   const saring = (q, tabel, kolom, nilai) => (tabel === "budgets" ? q.eq("user_id", A.id).eq(kolom, nilai) : q.eq(kolom, nilai));
@@ -99,6 +110,12 @@ try {
     cek(`${siapa} tidak bisa menghapus kategori A lewat hapus_kategori`, Boolean(hapusKat));
     const { data: saldo } = await sb.rpc("saldo_kantong");
     cek(`${siapa} tidak melihat saldo kantong A`, !(saldo ?? []).some((k) => k.id === kantongA.id));
+    const { error: tutup } = await sb.rpc("tutup_periode_deposito", { p_periode: perA.id, p_bunga: 1000, p_cair: true, p_keterangan: "x" });
+    cek(`${siapa} tidak bisa mencairkan deposito A lewat tutup_periode_deposito`, Boolean(tutup));
+    const { error: hapusSimpanan } = await sb.rpc("hapus_simpanan", { p_id: depoA });
+    cek(`${siapa} tidak bisa menghapus simpanan A lewat hapus_simpanan`, Boolean(hapusSimpanan));
+    const { error: buatDiA } = await sb.rpc("buat_simpanan", { p_kantong: { name: "Numpang", emoji: "🏦", induk_id: kantongA.id, macam_simpanan: "tabungan", saldo: 0 }, p_termasuk: false });
+    cek(`${siapa} tidak bisa membuat simpanan di dalam kantong A lewat buat_simpanan`, Boolean(buatDiA));
     const { data: rerata } = await sb.rpc("get_avg_monthly_expense_by_category");
     cek(`${siapa} tidak mendapat rerata pengeluaran A`, (rerata ?? []).length === 0, JSON.stringify(rerata));
   }
@@ -111,6 +128,8 @@ try {
     ["cicilan", { user_id: A.id, nama: "Palsu", category: "shopping", nominal: 1, tenor: 1, jatuh_tempo_awal: hariIni }],
     ["push_langganan", { user_id: A.id, endpoint: "https://contoh.invalid/palsu", p256dh: "x", auth: "y" }],
     ["transactions", { user_id: A.id, amount: 1, type: "expense", category: "food", transaction_date: hariIni, status: "confirmed", source: "text" }],
+    ["deposito", { kantong_id: depoA, user_id: A.id, bunga_persen: 5, tenor: 1, satuan_tenor: "bulan", pajak_persen: 0, perpanjangan: "sekali" }],
+    ["deposito_periode", { user_id: A.id, deposito_id: depoA, ke: 9, mulai: hariIni, jatuh_tempo: "2099-01-01", pokok: 1, bunga_kotor: 0, pajak: 0, bunga_bersih: 0 }],
   ];
   for (const [tabel, isi] of sisip) {
     const { error } = await B.sb.from(tabel).insert(isi);
@@ -141,6 +160,21 @@ try {
   const kantongB = await satu(B.sb.from("user_accounts").insert({ user_id: B.id, name: "BCA B", kind: "bank", emoji: "🏦", saldo_awal: 0, saldo_sejak: "2026-01-01T00:00:00+07:00" }));
   const { error: cicilanRujuk } = await B.sb.from("cicilan").insert({ user_id: B.id, nama: "Rujuk", category: "shopping", nominal: 1, tenor: 1, jatuh_tempo_awal: hariIni, kantong_id: kantongA.id });
   cek("B tidak bisa membuat cicilan dengan kantong milik A", Boolean(cicilanRujuk));
+  // Simpanan & tujuan hanya di dalam kantong sendiri; deposito & periodenya hanya untuk kantong sendiri.
+  for (const [nama, isi] of [
+    ["simpanan", { user_id: B.id, name: "Pocket B", kind: "simpanan", macam_simpanan: "tabungan", induk_id: kantongA.id, emoji: "🐷", saldo_awal: 0, saldo_sejak: "2026-01-01T00:00:00+07:00" }],
+    ["tujuan", { user_id: B.id, name: "Tujuan B", kind: "tujuan", target: 1000, induk_id: kantongA.id, emoji: "🎯", saldo_awal: 0, saldo_sejak: "2026-01-01T00:00:00+07:00" }],
+  ]) {
+    const { error } = await B.sb.from("user_accounts").insert(isi);
+    cek(`B tidak bisa membuat ${nama} dengan induk kantong milik A`, Boolean(error));
+  }
+  const tujuanB = await satu(B.sb.from("user_accounts").insert({ user_id: B.id, name: "Tujuan B2", kind: "tujuan", target: 1000, emoji: "🎯", saldo_awal: 0, saldo_sejak: "2026-01-01T00:00:00+07:00" }));
+  const { data: tujuanPindah } = await B.sb.from("user_accounts").update({ induk_id: kantongA.id }).eq("id", tujuanB.id).select("induk_id");
+  cek("B tidak bisa memindah tujuannya ke dalam kantong milik A", !(tujuanPindah ?? []).some((k) => k.induk_id === kantongA.id), JSON.stringify(tujuanPindah));
+  const { error: depoRujuk } = await B.sb.from("deposito").insert({ kantong_id: depoA, user_id: B.id, bunga_persen: 5, tenor: 1, satuan_tenor: "bulan", pajak_persen: 0, perpanjangan: "sekali" });
+  cek("B tidak bisa memasang deposito pada kantong milik A", Boolean(depoRujuk));
+  const { error: periodeRujuk } = await B.sb.from("deposito_periode").insert({ user_id: B.id, deposito_id: depoA, ke: 9, mulai: hariIni, jatuh_tempo: "2099-01-01", pokok: 1, bunga_kotor: 0, pajak: 0, bunga_bersih: 0 });
+  cek("B tidak bisa menambah periode ke deposito milik A", Boolean(periodeRujuk));
   const { data: txB } = await B.sb.from("transactions").insert({ user_id: B.id, amount: 1000, type: "expense", category: "food", merchant: "Milik B", transaction_date: hariIni, kantong_id: kantongB.id, status: "confirmed", source: "text" }).select("id").single();
   const { data: ubahRujuk } = await B.sb.from("transactions").update({ pecahan_dari: txA.id }).eq("id", txB.id).select("pecahan_dari");
   const { data: ubahKantong } = await B.sb.from("transactions").update({ kantong_id: kantongA.id }).eq("id", txB.id).select("kantong_id");
@@ -161,6 +195,8 @@ try {
     ["metode_budget", "user_id", A.id, (r) => r.metode === "pyf"],
     ["push_langganan", "id", pushA.id, (r) => r.endpoint === "https://contoh.invalid/a"],
     ["transactions", "id", txA.id, (r) => r.merchant === RAHASIA && Number(r.amount) === 75000],
+    ["deposito", "kantong_id", depoA, (r) => r.selesai === false && Number(r.bunga_persen) === 4.5],
+    ["deposito_periode", "deposito_id", depoA, (r) => r.id === perA.id && r.bunga_diterima === null],
   ]) {
     if (!(await utuh(tabel, kolom, nilai, cocok))) rusak.push(tabel);
   }
@@ -178,6 +214,6 @@ try {
   console.log("✗ GAGAL:", e.message);
 } finally {
   for (const id of akun) await admin.auth.admin.deleteUser(id);
-  console.log(`\n${gagal ? `${gagal} cek gagal` : "✓ isolasi antar akun: baca, ubah, hapus, tulis atas nama orang lain, fungsi, dan kolom rujukan"} · akun uji dihapus`);
+  console.log(`\n${gagal ? `${gagal} cek gagal` : "✓ isolasi antar akun: baca, ubah, hapus, tulis atas nama orang lain, fungsi, dan kolom rujukan (termasuk simpanan & deposito)"} · akun uji dihapus`);
   process.exit(gagal ? 1 : 0);
 }

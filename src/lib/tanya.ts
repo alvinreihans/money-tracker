@@ -5,6 +5,7 @@ import { cocokkanKantong, type Kantong } from "@/lib/kantong";
 import { KELOMPOK } from "@/lib/metode";
 import { kantongUang } from "@/lib/pinjaman";
 import { alamatRiwayat, bacaFilter, type FilterRiwayat } from "@/lib/riwayat";
+import { menungguCek, NAMA_PERPANJANGAN, periodeAktif, type Deposito, type PeriodeDeposito } from "@/lib/simpanan";
 
 /**
  * Tanya AI di Analitik (SPEC-analitik-ai): AI tidak menghitung sendiri, ia
@@ -54,7 +55,7 @@ export const DEKLARASI_FUNGSI: FunctionDeclaration[] = [
   {
     name: "saldo_kantong",
     description:
-      "Saldo tiap kantong (bank, e-wallet, tunai, orang, kartu kredit), isi tiap tujuan tabungan (mis. dana darurat) beserta targetnya, dan total aset.",
+      "Saldo tiap kantong (bank, e-wallet, tunai, orang, kartu kredit, simpanan seperti deposito & pocket di dalam bank), isi tiap tujuan tabungan (mis. dana darurat) beserta targetnya, bunga & jatuh tempo deposito, dan total aset. Kantong yang berisi simpanan/tujuan punya saldo_gabungan (seperti di aplikasi bank).",
   },
   {
     name: "hitung",
@@ -217,16 +218,61 @@ export function tautanJawaban(
  * Hasil saldo_kantong: kantong biasa, lalu tujuan tabungan per tujuan.
  * Jumlah semua tujuan diberi nama sendiri (`total_semua_tujuan`), supaya
  * tidak dibaca sebagai isi satu tujuan (SPEC-perbaikan-temuan B9).
+ *
+ * Simpanan (SPEC-simpanan): kantong menyebut simpanan & tujuan di dalamnya
+ * beserta saldo gabungannya; simpanan menyebut induknya, dan deposito
+ * membawa bunga, jatuh tempo, dan perkiraan bunga bersih. Deposito yang
+ * sudah selesai tidak ikut.
  */
 export function ringkasSaldo(
-  kantong: { id: string; name: string; kind: string; target?: number | string | null; tenggat?: string | null }[],
+  kantong: {
+    id: string;
+    name: string;
+    kind: string;
+    target?: number | string | null;
+    tenggat?: string | null;
+    induk_id?: string | null;
+    macam_simpanan?: string | null;
+  }[],
   saldo: Map<string, number>,
+  simpanan: { deposito: Deposito[]; periode: PeriodeDeposito[]; hariIni: string } = { deposito: [], periode: [], hariIni: "" },
 ) {
+  const selesai = new Set(simpanan.deposito.filter((d) => d.selesai).map((d) => d.kantong_id));
+  kantong = kantong.filter((k) => !selesai.has(k.id));
   const tujuan = kantong.filter((k) => k.kind === "tujuan");
+  const nama = (id: string | null | undefined) => kantong.find((k) => k.id === id)?.name ?? null;
+  const rinci = (k: (typeof kantong)[number]) => {
+    const isi = kantong.filter((x) => x.induk_id === k.id);
+    const d = simpanan.deposito.find((x) => x.kantong_id === k.id);
+    const p = d ? periodeAktif(simpanan.periode, d.kantong_id) : null;
+    return {
+      ...(isi.length
+        ? { berisi: isi.map((x) => x.name), saldo_gabungan: (saldo.get(k.id) ?? 0) + isi.reduce((n, x) => n + (saldo.get(x.id) ?? 0), 0) }
+        : {}),
+      ...(k.kind === "simpanan" ? { di_dalam: nama(k.induk_id), macam: k.macam_simpanan === "deposito" ? "deposito" : "tabungan/pocket" } : {}),
+      ...(d
+        ? {
+            deposito: {
+              bunga_persen_per_tahun: Number(d.bunga_persen),
+              jatuh_tempo: p?.jatuh_tempo ?? null,
+              estimasi_bunga_bersih: p ? Number(p.bunga_bersih) : null,
+              saat_jatuh_tempo: NAMA_PERPANJANGAN[d.perpanjangan],
+              menunggu_cek_bunga: Boolean(p && menungguCek(p, simpanan.hariIni)),
+            },
+          }
+        : {}),
+    };
+  };
   return {
-    kantong: kantong.filter((k) => k.kind !== "tujuan").map((k) => ({ nama: k.name, jenis: k.kind, saldo: saldo.get(k.id) ?? 0 })),
+    kantong: kantong.filter((k) => k.kind !== "tujuan").map((k) => ({ nama: k.name, jenis: k.kind, saldo: saldo.get(k.id) ?? 0, ...rinci(k) })),
     // Saldo tujuan = yang sudah terkumpul di tujuan itu saja.
-    tujuan_tabungan: tujuan.map((k) => ({ nama_tujuan: k.name, terkumpul: saldo.get(k.id) ?? 0, target: Number(k.target ?? 0), tenggat: k.tenggat ?? null })),
+    tujuan_tabungan: tujuan.map((k) => ({
+      nama_tujuan: k.name,
+      terkumpul: saldo.get(k.id) ?? 0,
+      target: Number(k.target ?? 0),
+      tenggat: k.tenggat ?? null,
+      ...(k.induk_id ? { disimpan_di: nama(k.induk_id) } : {}),
+    })),
     ...(tujuan.length ? { total_semua_tujuan: tujuan.reduce((n, k) => n + (saldo.get(k.id) ?? 0), 0) } : {}),
     // Total aset hanya kantong uang (termasuk tujuan tabungan); orang & kartu kredit di Utang & Piutang.
     total_aset: kantong.filter(kantongUang).reduce((n, k) => n + (saldo.get(k.id) ?? 0), 0),

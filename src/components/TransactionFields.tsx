@@ -8,10 +8,11 @@ import { Field, InputNominal, Pilih, Segmen } from "@/components/oneui";
 import s from "@/components/ui.module.css";
 import { isianNominal, isoLokal } from "@/lib/format";
 import { jamWIB } from "@/lib/waktu";
-import { emojiKantong } from "@/lib/kantong";
+import { emojiKantong, kantongDeposito } from "@/lib/kantong";
 import { kantongSumber, kantongUang } from "@/lib/pinjaman";
 import { kategoriJenis, LAINNYA } from "@/lib/kategori";
 import { KELOMPOK, NAMA_KELOMPOK, type Kelompok } from "@/lib/metode";
+import { labelKantong } from "@/lib/simpanan";
 import { TIPE_TRANSAKSI } from "@/lib/transaksi-input";
 import type { Transaction, TransactionType } from "@/types/transaction";
 
@@ -85,10 +86,13 @@ export default function TransactionFields({
   // Tanpa pilihan "Tanpa kantong": begitu punya kantong, tiap transaksi wajib
   // jelas kantongnya supaya saldonya benar.
   // Keluar: kantong uang + kartu kredit. Masuk: kantong uang. Pindah: semua,
-  // termasuk orang (Lend & Borrow) dan kartu kredit (bayar tagihan).
+  // termasuk orang (Lend & Borrow) dan kartu kredit (bayar tagihan). Deposito
+  // tidak pernah jadi pilihan (hanya lewat aksinya sendiri), kecuali sudah
+  // terpilih di transaksi yang diubah; pocket menyebut induknya (SPEC-simpanan).
   const pilihanKantong = kantong
     .filter((k) => (type === "transfer" ? true : type === "expense" ? k.kind !== "orang" : kantongUang(k)))
-    .map((k) => ({ id: k.id, label: k.name, emoji: emojiKantong(k) }));
+    .filter((k) => !kantongDeposito(k) || k.id === nilai.kantong_id || k.id === nilai.kantong_tujuan_id)
+    .map((k) => ({ id: k.id, label: labelKantong(k, kantong), emoji: emojiKantong(k) }));
   // Menyisihkan ke tujuan tabungan: "Dari kantong" = kantong uang tanpa tujuan
   // tabungan, termasuk tujuan itu sendiri (SPEC-perbaikan-temuan C6).
   const keTujuan = type === "transfer" && kantong.some((k) => k.id === nilai.kantong_tujuan_id && k.kind === "tujuan");

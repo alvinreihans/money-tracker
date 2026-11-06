@@ -2,13 +2,13 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarDays, CircleAlert, CircleCheck, History, Pencil, PiggyBank, Plus, ShoppingBag, Smile, Target, Wallet } from "lucide-react";
+import { CalendarDays, CircleAlert, CircleCheck, History, Landmark, Pencil, PiggyBank, Plus, ShoppingBag, Smile, Target, Wallet } from "lucide-react";
 import { useCatat } from "@/components/Catat";
-import { AppBar, Field, GalatForm, InputNominal, Konfirmasi, Kosong, Lembar, Pesan, Spinner, useGalat } from "@/components/oneui";
+import { AppBar, Field, GalatForm, InputNominal, Konfirmasi, Kosong, Lembar, Pesan, Pilih, Spinner, useGalat } from "@/components/oneui";
 import s from "@/components/ui.module.css";
 import { dbErrorMessage } from "@/lib/errors";
 import { fmtIDR, fmtIDRRingkas, isianNominal, isoLokal } from "@/lib/format";
-import { ambilEmoji, pesanGagalKantong, type Kantong } from "@/lib/kantong";
+import { ambilEmoji, emojiKantong, pesanGagalKantong, type Kantong } from "@/lib/kantong";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { validasiTujuan } from "@/lib/transaksi-input";
 import { dampakHapusTujuan, EMOJI_TUJUAN, progresTujuan } from "@/lib/tujuan";
@@ -23,6 +23,8 @@ interface Isian {
   target: string;
   tenggat: string;
   saldo_awal: string;
+  /** Kantong tempat uangnya disimpan; kosong = terpisah (SPEC-simpanan). */
+  induk_id: string;
 }
 
 const SARAN_EMOJI = [EMOJI_TUJUAN, "📱", "💻", "🏠", "🚗", "🏍️", "✈️", "🎓", "💍", "🛟"];
@@ -46,8 +48,20 @@ function teksProgres(t: Tujuan, hariIni: string): { teks: string; ikon?: "capai"
  * Tujuan yang sudah dipakai habis pindah ke "Selesai". Tujuan bisa dihapus
  * kapan saja; konfirmasinya menyebut saldo yang keluar dari Total aset dan
  * transaksi yang kehilangan tujuannya (SPEC-perbaikan-temuan C5).
+ *
+ * "Disimpan di" (SPEC-simpanan): uang tujuan yang tetap ada di rekening lain
+ * ikut tampil di saldo gabungan rekening itu. Mengubahnya tidak memindahkan uang.
  */
-export default function TujuanView({ userId, daftar }: { userId: string; daftar: Tujuan[] }) {
+export default function TujuanView({
+  userId,
+  daftar,
+  tempat,
+}: {
+  userId: string;
+  daftar: Tujuan[];
+  /** Pilihan "Disimpan di": bank, e-wallet, tunai. */
+  tempat: { id: string; name: string; emoji: string | null; kind: string }[];
+}) {
   const router = useRouter();
   const { bukaManual } = useCatat();
   const hariIni = isoLokal(new Date());
@@ -68,8 +82,8 @@ export default function TujuanView({ userId, daftar }: { userId: string; daftar:
     setEdit({
       asal: k ?? null,
       isian: k
-        ? { name: k.name, emoji: k.emoji || EMOJI_TUJUAN, target: isianNominal(k.target), tenggat: k.tenggat ?? "", saldo_awal: isianNominal(k.saldo_awal) }
-        : { name: "", emoji: EMOJI_TUJUAN, target: "", tenggat: "", saldo_awal: "" },
+        ? { name: k.name, emoji: k.emoji || EMOJI_TUJUAN, target: isianNominal(k.target), tenggat: k.tenggat ?? "", saldo_awal: isianNominal(k.saldo_awal), induk_id: k.induk_id ?? "" }
+        : { name: "", emoji: EMOJI_TUJUAN, target: "", tenggat: "", saldo_awal: "", induk_id: "" },
     });
   }
 
@@ -83,13 +97,14 @@ export default function TujuanView({ userId, daftar }: { userId: string; daftar:
     // Tenggat paling cepat hari ini; tenggat lama yang sudah lewat boleh tetap (C7).
     const cek = validasiTujuan({ ...edit.isian, saldo_per: edit.asal?.saldo_per ?? hariIni, hari_ini: hariIni, tenggat_lama: edit.asal?.tenggat ?? null });
     if (!cek.ok) return gagal(cek.error, cek.kolom);
+    const data = { ...cek.data, induk_id: edit.isian.induk_id || null };
 
     setLoading(true);
     const db = createSupabaseBrowserClient();
     const tabel = db.from("user_accounts");
     const { error: err } = edit.asal
-      ? await tabel.update(cek.data).eq("id", edit.asal.id)
-      : await tabel.insert({ ...cek.data, user_id: userId, kind: "tujuan", saldo_sejak: saldoSejakDari(cek.data.saldo_per) });
+      ? await tabel.update(data).eq("id", edit.asal.id)
+      : await tabel.insert({ ...data, user_id: userId, kind: "tujuan", saldo_sejak: saldoSejakDari(cek.data.saldo_per) });
     const pesan = err ? await pesanGagalKantong(db, err, cek.data.name, edit.asal?.id ?? null, dbErrorMessage(err, `Tujuan "${cek.data.name}"`)) : null;
     setLoading(false);
     if (err) return gagal(pesan!, err.code === "23505" ? "name" : undefined);
@@ -107,6 +122,8 @@ export default function TujuanView({ userId, daftar }: { userId: string; daftar:
     router.refresh();
   }
 
+  const namaTempat = (id: string | null | undefined) => (id ? tempat.find((t) => t.id === id)?.name : undefined);
+
   const baris = (k: Tujuan) => {
     const p = progresTujuan(k, hariIni);
     const ket = teksProgres(k, hariIni);
@@ -121,6 +138,7 @@ export default function TujuanView({ userId, daftar }: { userId: string; daftar:
             <span className={s.barisJudul}>{k.name}</span>
             <span className={s.nominal}>{fmtIDR(habis ? k.dipakai : p.terkumpul)}</span>
           </span>
+          {namaTempat(k.induk_id) && <span className={s.redup}>di {namaTempat(k.induk_id)}</span>}
           {habis ? (
             <span className={s.redup}>Sudah dipakai</span>
           ) : (
@@ -263,6 +281,19 @@ export default function TujuanView({ userId, daftar }: { userId: string; daftar:
                 <Field label="Tenggat" ikon={CalendarDays} keterangan="Opsional. Aplikasi menghitung berapa yang perlu disisihkan tiap bulan." kolom="tenggat">
                   <input type="date" value={edit.isian.tenggat} min={edit.asal ? undefined : hariIni} onChange={(e) => ubah({ tenggat: e.target.value })} aria-label="Tenggat" />
                 </Field>
+                <Pilih
+                  label="Disimpan di"
+                  ikon={Landmark}
+                  kolom="induk_id"
+                  nilai={edit.isian.induk_id}
+                  pilihan={[{ id: "", label: "Terpisah", emoji: EMOJI_TUJUAN }, ...tempat.map((t) => ({ id: t.id, label: t.name, emoji: emojiKantong(t) }))]}
+                  onChange={(induk_id) => ubah({ induk_id })}
+                />
+                <p className={s.redup} style={{ margin: "4px 0 0 46px", fontSize: 14 }}>
+                  {edit.isian.induk_id
+                    ? `Uangnya tetap di ${namaTempat(edit.isian.induk_id)}; saldo ${namaTempat(edit.isian.induk_id)} tampil termasuk tujuan ini. Tidak ada uang yang dipindah.`
+                    : "Tampil sendiri, terpisah dari kantong mana pun."}
+                </p>
                 <Field label="Sudah terkumpul (Rp)" ikon={PiggyBank} keterangan="Yang sudah disisihkan sebelum memakai aplikasi. Setoran berikutnya dicatat lewat Sisihkan." kolom="saldo_awal">
                   <InputNominal value={edit.isian.saldo_awal} onChange={(saldo_awal) => ubah({ saldo_awal })} placeholder="Sudah terkumpul (Rp)" />
                 </Field>

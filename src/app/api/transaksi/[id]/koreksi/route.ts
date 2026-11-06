@@ -6,7 +6,7 @@ import { fmtIDR, fmtTanggal, JENIS } from "@/lib/format";
 import { namaKategori } from "@/lib/kategori";
 import { processReceiptText } from "@/lib/receipt";
 import { TEKS_MAKS } from "@/lib/transaksi-input";
-import type { Kantong } from "@/lib/kantong";
+import { kantongDeposito, type Kantong } from "@/lib/kantong";
 import { fmtJam } from "@/lib/waktu";
 import type { Transaction } from "@/types/transaction";
 
@@ -40,14 +40,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const supabase = await createSupabaseServerClient();
   const [{ data }, { data: daftarKantong }, kategori, konteks] = await Promise.all([
     supabase.from("transactions").select("*").eq("id", id).eq("status", "confirmed").maybeSingle(),
-    supabase.from("user_accounts").select("id, name, kind, aliases"),
+    supabase.from("user_accounts").select("id, name, kind, aliases, macam_simpanan"),
     ambilKategori(supabase),
     ambilKonteksAI(supabase),
   ]);
   const tx = data as Transaction | null;
   if (!tx) return NextResponse.json({ error: "Transaksinya nggak ketemu." }, { status: 404 });
-  const semua = (daftarKantong ?? []) as Pick<Kantong, "id" | "name" | "kind" | "aliases">[];
-  const tujuanLama = semua.find((k) => k.id === tx.kantong_tujuan_id)?.name;
+  const daftar = (daftarKantong ?? []) as Pick<Kantong, "id" | "name" | "kind" | "aliases" | "macam_simpanan">[];
+  const tujuanLama = daftar.find((k) => k.id === tx.kantong_tujuan_id)?.name;
+  // Koreksi tidak bisa memindah transaksi ke deposito (SPEC-simpanan).
+  const semua = daftar.filter((k) => !kantongDeposito(k));
 
   // Transaksi apa adanya, dalam bahasa yang sama dengan catatan biasa, lalu
   // koreksinya ditandai jelas — model menyusun ulang transaksi utuh.

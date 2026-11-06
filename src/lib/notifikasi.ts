@@ -1,6 +1,7 @@
 import { fmtIDR } from "@/lib/format";
 import { hitungSaldo, type BarisSaldo, type Kantong } from "@/lib/kantong";
 import { jadwalCicilan, jatuhTempoKartu, type Cicilan } from "@/lib/pinjaman";
+import { namaDeposito } from "@/lib/simpanan";
 
 /**
  * Isi push notifikasi harian (docs/specs/SPEC-notifikasi.md). Fungsi murni — diuji di
@@ -23,6 +24,8 @@ export interface DataNotifikasi {
   transaksi: (BarisSaldo & { created_at: string; cicilan_id: string | null; cicilan_ke: number | null })[];
   /** Catatan yang belum selesai dilengkapi (docs/specs/SPEC-catat-chat.md). */
   draft?: { id: string; dibuat: string; source: string }[];
+  /** Periode deposito yang belum dicek (docs/specs/SPEC-simpanan.md). */
+  deposito?: { id: string; nama: string; induk: string | null; jatuh_tempo: string; bunga_bersih: number | string }[];
 }
 
 /** Umur maksimal catatan yang belum selesai; lewat itu dihapus cron. */
@@ -78,6 +81,17 @@ export function isiNotifikasi(d: DataNotifikasi, sekarang = new Date()): Notifik
       isi: fmtIDR(Math.abs(n)),
       url: "/pinjaman",
       tag: `pinjaman-${k.id}`,
+    });
+  }
+
+  // Deposito: hanya di hari jatuh temponya (tanpa H-3); kartunya bertahan di Beranda sampai dicek.
+  for (const p of d.deposito ?? []) {
+    if (p.jatuh_tempo !== hariIni) continue;
+    hasil.push({
+      judul: `${namaDeposito(p.nama, p.induk)} jatuh tempo hari ini`,
+      isi: `Cek bunganya. Perkiraan bersih ${fmtIDR(Number(p.bunga_bersih))}.`,
+      url: "/",
+      tag: `deposito-${p.id}`,
     });
   }
 

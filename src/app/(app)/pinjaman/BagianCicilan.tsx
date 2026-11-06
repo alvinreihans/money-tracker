@@ -10,6 +10,7 @@ import s from "@/components/ui.module.css";
 import { dbErrorMessage } from "@/lib/errors";
 import { fmtIDR, fmtTanggal, fmtTanggalPendek, isianNominal, isoLokal } from "@/lib/format";
 import { emojiKantong, type Kantong } from "@/lib/kantong";
+import { labelKantong } from "@/lib/simpanan";
 import { kategoriJenis, LAINNYA } from "@/lib/kategori";
 import { bacaBunga, bagiRata, jadwalCicilan, kantongSumber, keteranganCicilan, statusCicilan, type Angsuran, type Cicilan } from "@/lib/pinjaman";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -298,7 +299,7 @@ function FormBayar({
               kolom="kantong"
               nilai={kantongId}
               kosong="Pilih kantong"
-              pilihan={pembayar.map((k) => ({ id: k.id, label: k.name, emoji: emojiKantong(k) }))}
+              pilihan={pembayar.map((k) => ({ id: k.id, label: labelKantong(k, pembayar), emoji: emojiKantong(k) }))}
               onChange={setKantongId}
             />
             <Field label="Tanggal bayar" ikon={CalendarDays}>
@@ -429,7 +430,7 @@ function FormRencana({ userId, pembayar, onClose }: { userId: string; pembayar: 
               ikon={Wallet}
               nilai={isian.kantong_id}
               kosong="Pilih kantong"
-              pilihan={pembayar.map((k) => ({ id: k.id, label: k.name, emoji: emojiKantong(k) }))}
+              pilihan={pembayar.map((k) => ({ id: k.id, label: labelKantong(k, pembayar), emoji: emojiKantong(k) }))}
               onChange={(kantong_id) => ubah({ kantong_id })}
             />
             <Field label="Catatan" ikon={NotebookPen}>

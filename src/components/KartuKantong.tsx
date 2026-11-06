@@ -4,8 +4,12 @@ import s from "@/components/ui.module.css";
 import { fmtIDR } from "@/lib/format";
 import { emojiKantong, type Kantong } from "@/lib/kantong";
 
-/** Total aset dan saldo per kantong, ala kartu "My wallet" di Samsung Wallet. */
-export default function KartuKantong({ data }: { data: (Pick<Kantong, "id" | "name" | "kind" | "emoji"> & { saldo: number })[] }) {
+/**
+ * Total aset dan saldo per kantong, ala kartu "My wallet" di Samsung Wallet.
+ * Kantong yang berisi simpanan/tujuan menampilkan saldo gabungan + rincian,
+ * sama dengan aplikasi bank (SPEC-simpanan).
+ */
+export default function KartuKantong({ data }: { data: (Pick<Kantong, "id" | "name" | "kind" | "emoji"> & { saldo: number; rincian?: string | null })[] }) {
   if (data.length === 0) {
     return (
       <NextLink href="/profil/kantong" className={`${s.blok} ${s.baris} ${s.tekan}`}>
@@ -39,6 +43,11 @@ export default function KartuKantong({ data }: { data: (Pick<Kantong, "id" | "na
             </span>
             <span className={s.barisTeks}>
               <span className={s.barisJudul}>{k.name}</span>
+              {k.rincian && (
+                <span className={s.redup} style={{ whiteSpace: "normal" }}>
+                  {k.rincian}
+                </span>
+              )}
             </span>
             <span className={`${s.nominal} ${k.saldo < 0 ? s.bahaya : ""}`}>{fmtIDR(k.saldo)}</span>
           </div>

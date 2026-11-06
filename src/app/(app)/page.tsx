@@ -6,6 +6,7 @@ import { isoLokal } from "@/lib/format";
 import { ambilKantong } from "@/lib/kantong";
 import { kantongUang, ringkasBeranda, type Cicilan } from "@/lib/pinjaman";
 import { rentangBulan } from "@/lib/periode";
+import { ambilDeposito, infoDeposito, susunKantong } from "@/lib/simpanan";
 import BerandaView from "./BerandaView";
 import type { Transaction } from "@/types/transaction";
 
@@ -40,6 +41,7 @@ export default async function BerandaPage({ searchParams }: { searchParams: Prom
     { data: cicilan },
     { data: bayarCicilan },
     pengaturan,
+    { deposito, periode },
   ] = await Promise.all([
     // Beranda cuma 5 transaksi terakhir (urutan sama dengan Riwayat);
     // selebihnya di Riwayat. Yang belum selesai tidak di sini — ada di lembar Catat.
@@ -78,6 +80,8 @@ export default async function BerandaPage({ searchParams }: { searchParams: Prom
     supabase.from("transactions").select("cicilan_id, cicilan_ke").not("cicilan_id", "is", null).eq("status", "confirmed"),
     // Metode budgeting (SPEC-metode-budget): peringatan per kelompok.
     ambilPengaturanMetode(supabase),
+    // Simpanan (SPEC-simpanan): deposito selesai disembunyikan, yang jatuh tempo menunggu dicek.
+    ambilDeposito(supabase),
   ]);
 
   // Bagian pecahan kelima transaksi itu (satu kartu per transaksi), dan total
@@ -136,7 +140,12 @@ export default async function BerandaPage({ searchParams }: { searchParams: Prom
       pecahan={await infoPecahan(supabase, asli)}
       totalKelompok={totalKelompokWaktu(keluarKelompok, sekarang)}
       // Total aset hanya kantong uang (termasuk tujuan tabungan); orang & kartu kredit ada di Utang & Piutang.
-      kantong={kantong.filter(kantongUang).map((k) => ({ id: k.id, name: k.name, kind: k.kind, emoji: k.emoji, saldo: saldo.get(k.id) ?? 0 }))}
+      // Simpanan & tujuan yang disimpan di kantong lain tidak dipisah: digabung ke induknya (SPEC-simpanan).
+      kantong={susunKantong(
+        kantong.filter(kantongUang).map((k) => ({ ...k, saldo: saldo.get(k.id) ?? 0 })),
+        new Set(deposito.filter((d) => d.selesai).map((d) => d.kantong_id)),
+      ).map((b) => ({ id: b.k.id, name: b.k.name, kind: b.k.kind, emoji: b.k.emoji, saldo: b.saldo, rincian: b.rincian }))}
+      deposito={infoDeposito(kantong, saldo, deposito, periode)}
       pinjaman={ringkasBeranda(
         kantong.map((k) => ({ ...k, saldo: saldo.get(k.id) ?? 0 })),
         (cicilan ?? []) as Cicilan[],

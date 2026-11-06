@@ -1,5 +1,6 @@
 import { ambilKantong } from "@/lib/kantong";
 import { ambilUser, createSupabaseServerClient } from "@/lib/supabase/server";
+import { bisaInduk } from "@/lib/simpanan";
 import { kantongTujuan } from "@/lib/tujuan";
 import TujuanView from "./TujuanView";
 
@@ -28,6 +29,8 @@ export default async function TujuanPage() {
     <TujuanView
       userId={user?.id ?? ""}
       daftar={tujuan.map((k) => ({ ...k, saldo: saldo.get(k.id) ?? 0, dipakai: dipakai.get(k.id) ?? 0, transaksi: transaksi.get(k.id) ?? 0 }))}
+      // "Disimpan di" (SPEC-simpanan): kantong uang biasa.
+      tempat={kantong.filter(bisaInduk).map((k) => ({ id: k.id, name: k.name, emoji: k.emoji ?? null, kind: k.kind }))}
     />
   );
 }

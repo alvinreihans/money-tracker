@@ -34,7 +34,8 @@
     "uji:arah": "tsx scripts/uji-arah.mts",
     "uji:metode": "tsx scripts/uji-metode.mts",
     "uji:ingat": "tsx scripts/uji-ingat.mts",
-    "uji:isolasi": "node --env-file=.env.local scripts/uji-isolasi.mjs"
+    "uji:isolasi": "node --env-file=.env.local scripts/uji-isolasi.mjs",
+    "uji:simpanan": "tsx scripts/uji-simpanan.mts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

@@ -6,6 +6,7 @@ import { ambilKategori } from "@/lib/kategori-server";
 import { analisisBulan, pisahTujuan, progresBudget, type BarisAnalitik } from "@/lib/analitik";
 import { geserBulan } from "@/lib/kalender";
 import { ambilKantong } from "@/lib/kantong";
+import { ambilDeposito } from "@/lib/simpanan";
 import { kategoriJenis, namaKategori, type Kategori } from "@/lib/kategori";
 import { cariSerupa } from "@/lib/ingat";
 import { daftarUtang, ringkasanPinjaman, statusCicilan, urutPelunasan, type Cicilan } from "@/lib/pinjaman";
@@ -294,8 +295,8 @@ export async function jalankanFungsi(
   }
 
   if (nama === "saldo_kantong") {
-    const { kantong, saldo } = await ambilKantong(supabase);
-    return ringkasSaldo(kantong, saldo);
+    const [{ kantong, saldo }, { deposito, periode }] = await Promise.all([ambilKantong(supabase), ambilDeposito(supabase)]);
+    return ringkasSaldo(kantong, saldo, { deposito, periode, hariIni: konteks.hariIni });
   }
 
   // pinjaman_cicilan
