@@ -29,6 +29,15 @@ docs/specs/SPEC-catat-tuntas.md (fase 1 & 2 selesai di 2.4.0, fase 3 di 2.5.0, f
 - **Bunga harian digabung** jadi satu pemasukan per bulan per rekening ("Bunga Sep 2026 (30 hari) · kotor Rp 480, pajak Rp 40").
 - **Kantong-kantong Jago jadi simpanan** di dalam kantong Jago (pindah antar kantong Jago = pindah antar simpanan), dan **deposito di rekening koran SeaBank** ditawarkan dibuat ("Buat deposito Promo 3 bulan, 6%, Rp 5 jt?").
 - **Tanda "Perlu dilengkapi"** untuk baris rekening koran yang belum jelas kategori/merchant-nya (pembayaran e-wallet/QRIS, transfer ke/dari orang): tetap tercatat dan ikut saldo sebagai Lainnya, bertanda di daftar & detail, dan bisa disaring di Riwayat (chip **Perlu dilengkapi**). Tanda hilang begitu transaksinya diedit.
+- **Lengkapi transaksi dari screenshot & struk** (SPEC-lengkapi). Screenshot ShopeePay atau struk yang cocok dengan transaksi yang sudah tercatat (nominal "Kamu Membayar"/total struk − voucher, tanggal, kantong sumber dananya) tidak dicatat lagi: kartu **"Lengkapi transaksi ini?"** menunjukkan transaksinya ("ShopeePay · −Rp 32.500 · 3 Sep · SeaBank") dan yang akan berubah — merchant, jam, kategori (menggantikan Lainnya), keterangan/rincian barang, Order SN atau nomor bon — dengan **Lengkapi** / **Catat sebagai baru** / **Batal**. Nominal, tanggal, dan kantongnya tidak pernah diubah; tanda Perlu dilengkapi hilang; bisa diurungkan. Screenshot lalu struk (atau sebaliknya) masing-masing mengisi bagiannya.
+- **Cashback ShopeePay** dari screenshot dicatat sebagai cashback transaksinya di kantong **ShopeePay** (tempat cashback dikreditkan); bila kantongnya belum ada, ditawarkan dibuat.
+- **Unggah banyak gambar sekaligus** (galeri, seret-lepas, maks. 50): diproses berurutan di latar, lalu satu ringkasan "38 struk: 34 melengkapi transaksi, 2 dicatat baru, 2 perlu dicek". Yang pasangannya pasti langsung dilengkapi (bisa diurungkan dari ringkasan); beberapa baris SeaBank sebayar di hari yang sama dipasangkan menurut urutan jam gambarnya; yang ragu menunggu di Belum selesai dengan pilihan **Lengkapi: …** per transaksi.
+- **Gambar yang sama dikirim dua kali** dikenali (isi gambar, Order SN, nomor bon — struk digital bahkan dari nama berkasnya, tanpa AI): "Struk ini sudah dipakai untuk melengkapi …", tidak dicatat lagi.
+
+### Diubah
+- **"Sepertinya ini sudah tercatat. Catat lagi?"** mendapat pilihan ketiga **Lengkapi yang sudah ada**: isi gambar baru dipindah ke transaksi lama, tanpa transaksi baru.
+- **Struk dengan voucher/poin**: yang tercatat kini yang benar-benar dibayar (Total Belanja − voucher), sama dengan potongan di rekening.
+- **Impor rekening koran**: penempatan deposito yang depositonya sudah dibuat manual dengan "Sudah termasuk" kini ditautkan ke pindah kantong pembuatannya (dulu jadi pindah kantong kedua dan saldo SeaBank berkurang dua kali); baris tanpa jam (SeaBank) tampil sesuai urutan rekening koran.
 
 ## [2.11.0] — 2026-11-06
 

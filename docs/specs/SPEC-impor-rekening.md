@@ -143,11 +143,12 @@ Hal yang tidak diatur spec, dipilih yang paling kecil dan sejalan dengannya:
 16. **Server**: `pdfjs-dist` 6 build legacy, modul worker-nya dimuat di proses yang sama (tanpa worker thread), `serverExternalPackages` + `outputFileTracingIncludes`. Pratinjau dan Impor membaca ulang PDF yang sama (disimpan di memori browser) dan menyusun ulang rencana dengan pilihan yang sama, lalu Impor menulis lewat satu RPC `impor_rekening` (security invoker, lewat view & trigger tulis); bentrok pengenal → "Sebagian baris rekening koran ini sudah diimpor barusan." Migrasi lanjutan `20261112000001_impor_rekening_deposito.sql` (`didanai`, `jadi_pindah`). `uji:bundle` memastikan pdfjs-dist terbaca dari bundle standalone.
 17. **Jam**: SeaBank tanpa jam (`waktu` kosong); pindah kantong memakai jam sisi yang punya jam.
 18. **Data untuk fase 2** disiapkan di migrasi yang sama: `ref_bukti` (Order SN / nomor bon) dan indeks `perlu_dilengkapi`.
+19. **Deposito dibuat manual dengan "Sudah termasuk"** (pindah kantong induk → deposito saat dibuat), lalu rekening koran bulan penempatannya diimpor: baris penempatan ditautkan (`ref_bank`) ke pindah kantong pembuatan itu — pasangan kantong (induk → deposito di kantong itu) dan nominal sama, tanggal berapa pun, yang tanggalnya paling dekat — jadi tidak ada pindah kantong kedua dan saldo induk tidak berkurang dua kali. Tanggal pindah kantongnya tetap tanggal pembuatan (7 Nov 2026, fase 2).
+20. **Urutan baris disimpan** (fase 2, SPEC-lengkapi): transaksi hasil impor ber-`created_at` = saat impor + posisi barisnya di rekening koran (milidetik), lewat `impor_rekening` versi migrasi `20261113000000_lengkapi_urutan.sql`.
 
 ## Belum diterapkan
 
-- Deposito yang dibuat manual dengan "Sudah termasuk" (pindah kantong saat dibuat), lalu rekening koran bulan penempatannya diimpor: penempatan dari bank jadi pindah kantong kedua (tidak tercocok karena tanggalnya jauh), saldo induk berkurang dua kali; perlu dicocokkan ke pindah kantong pembuatan deposito.
 - SPinjam / SPayLater ditautkan ke rencana cicilan (SPEC-lend-borrow / SPEC-paylater); sekarang hanya pindah kantong ke kantong orang/kartu bila ada.
 - Deposito SeaBank yang jatuh tempo: pencairan & bunganya di rekening koran belum dicocokkan dengan evaluasi jatuh tempo SPEC-simpanan (bisa tercatat dua kali bila keduanya dipakai).
 - Biaya transfer yang tertulis **sebelum** transaksi induknya tidak ditempelkan (dicatat sendiri sebagai Biaya admin).
-- Lengkapi dari screenshot & struk, dan hilangnya tanda lewat pelengkapan: [SPEC-lengkapi](SPEC-lengkapi.md) (fase 2).
+- Penempatan deposito yang dulu terimpor sebagai pengeluaran lalu depositonya dibuat manual dengan "Sudah termasuk": pengeluaran itu diubah jadi pindah kantong (keputusan 10) di samping pindah kantong pembuatan — belum ditangani.

@@ -80,17 +80,18 @@ Ketikan bertanggal hari ini tanpa jam mendapat jam saat dicatat (`jamTransaksi`,
 
 Hasil AI yang sudah jadi draft karena hal lain (kantong, nominal, jam, dll.) tidak dicek.
 
-**Penanda.** Draft yang dicurigai duplikat menyimpan id transaksi yang mirip di kolom baru `duplikat_dari`. Dengan begitu, pertanyaannya tetap muncul saat draft dibuka lagi dari "Belum selesai" (label daftar: "Mungkin tercatat dua kali"). Pertanyaan duplikat diajukan paling akhir, setelah nominal, kantong, kantong tujuan, dan jam terjawab.
+**Penanda.** Draft yang dicurigai duplikat menyimpan id transaksi yang mirip di kolom baru `duplikat_dari`. Dengan begitu, pertanyaannya tetap muncul saat draft dibuka lagi dari "Belum selesai" (label daftar: "Mungkin sudah tercatat" — sejak SPEC-lengkapi; dulu "Mungkin tercatat dua kali"). Pertanyaan duplikat diajukan paling akhir, setelah nominal, kantong, kantong tujuan, dan jam terjawab.
 
 **Kalau ketemu,** transaksinya disimpan sebagai **draft** (belum dihitung), lalu obrolan bertanya:
 
 > Sepertinya ini sudah tercatat: Bunga SeaBank · Rp 30 · 24 Okt 01.50 · SeaBank. Catat lagi?
-> **(Ya, catat lagi)** **(Bukan, buang)**
+> **(Lengkapi yang sudah ada)** **(Ya, catat lagi)** **(Bukan, buang)**
 
 (Transaksi aslinya sudah terhapus atau tak terbaca → "Sepertinya ini sudah tercatat. Catat lagi?")
 
 - **Ya, catat lagi** (atau ketik "ya/iya/oke/catat/lanjut"): `duplikat_dari` dikosongkan lewat `/api/draft/[id]/jawab`, lalu tersimpan seperti biasa, karena user memang bisa saja bayar dua kali.
 - **Bukan, buang** (atau ketik "bukan/tidak/ga/nggak/jangan…"): draft dihapus, dan pesan penutupnya "Oke, tidak dicatat."
+- **Lengkapi yang sudah ada** (SPEC-lengkapi §4, hanya draft dari gambar): merchant, keterangan, jam (bila kosong), kategori (bila Lainnya), usulan pecah, pengenal bukti, dan cashback draft dipindah ke transaksi lama; nominal, tanggal, kantongnya tetap; draft dihapus. Bila ada beberapa transaksi yang mungkin pasangannya (pasangan ragu dari unggah banyak), pertanyaannya "Sepertinya ini salah satu transaksi yang sudah tercatat. Lengkapi yang mana, atau catat lagi?" dengan satu tombol **Lengkapi: …** per transaksi.
 - Jawaban lain → "Pilih “Ya, catat lagi” atau “Bukan, buang” ya."
 - Kalau draft dibiarkan, ia menunggu di "Belum selesai" seperti draft lain.
 - Struk dari "Bagikan" di latar yang dicurigai duplikat dikabari lewat push "Struk barusan sepertinya sudah tercatat".

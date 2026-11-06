@@ -12,6 +12,7 @@ Aplikasi berjalan sebagai PWA di Vercel.
 - Teks bebas, foto struk atau bukti bayar e-wallet (kamera atau unggah), dan form manual.
 - Bagikan struk atau teks langsung dari aplikasi lain (share target Android); gambarnya diunggah di latar.
 - Impor rekening koran PDF SeaBank, Jago, dan BRI (parser per bank, tanpa AI): pratinjau dulu, impor ulang tidak menggandakan, pindah antar rekening sendiri dipasangkan, saldo dicocokkan dengan bank.
+- Lengkapi transaksi dari screenshot ShopeePay & struk: yang cocok dengan transaksi tercatat melengkapinya (merchant, jam, kategori, rincian, cashback) tanpa mencatat dua kali; unggah banyak gambar sekaligus dengan ringkasan & Urungkan.
 - Catat bergaya chat: draft, pertanyaan lanjutan, dan deteksi transaksi ganda.
 - Draft tetap tersimpan beserta teks mentahnya saat pembacaan gagal, jadi data tidak hilang.
 - Ingatan kategori per merchant, pencocokan nama yang toleran salah ketik, tawaran "ubah semua yang serupa", dan batalkan.
@@ -99,10 +100,11 @@ Langkah lengkap, termasuk jebakan koneksi Supabase, ada di [SETUP.md](SETUP.md).
 | `npm run test:teks` | Diagnostik jalur teks |
 | `npm run ukur:ocr` | Ukur kualitas OCR |
 | `npm run ukur:teks` | Ukur ketepatan AI membaca teks ketikan (18 kalimat, Groq sungguhan) |
-| `npm run uji:<nama>` | Skrip uji per area: `validasi`, `tanggal`, `saran`, `analitik`, `kantong`, `kategori`, `pinjaman`, `notifikasi`, `ekspor`, `draft`, `waktu`, `riwayat`, `tanya`, `arah`, `metode`, `ingat`, `simpanan`, `rekening`, `bundle` |
+| `npm run uji:<nama>` | Skrip uji per area: `validasi`, `tanggal`, `saran`, `analitik`, `kantong`, `kategori`, `pinjaman`, `notifikasi`, `ekspor`, `draft`, `waktu`, `riwayat`, `tanya`, `arah`, `metode`, `ingat`, `simpanan`, `rekening`, `lengkapi`, `bundle` |
 | `npm run cek:rekening -- <folder/pdf>` | Diagnostik lokal impor rekening koran atas PDF di luar repo; hanya mencetak angka (baris, validasi saldo, pasangan, bunga) |
 | `npm run uji:isolasi` | Akun lain tidak bisa membaca, mengubah, atau merujuk data akun ini (lewat API sungguhan) |
 | `npm run eval:tanya` | Evaluasi jawaban Tanya AI |
+| `npm run eval:lengkapi` | Baca 3 gambar buatan (screenshot ShopeePay, transfer bank, struk ber-voucher) dengan AI sungguhan dan cek field Lengkapi |
 | `npm run e2e [-- suite …]` | Semua suite E2E, atau yang disebut; butuh `npm run dev` jalan |
 
 `uji:isolasi`, `eval:tanya`, dan `e2e` memakai akun sementara (`*-sementara@example.com`)
