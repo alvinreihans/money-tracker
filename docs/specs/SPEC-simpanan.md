@@ -1,6 +1,6 @@
 # Spec: Simpanan (deposito & pocket) dan tujuan yang disimpan di kantong lain
 
-Status: **diterapkan, belum dirilis** · 6 November 2026 · branch `feat/simpanan` (stacked di atas `fix/temuan-2.9.0`) · rencana rilis 2.11.0
+Status: **diterapkan, belum dirilis** (temuan UAT U1–U5 sedang dikerjakan) · 6 November 2026 · branch `feat/simpanan` (stacked di atas `fix/temuan-2.9.0`) · rencana rilis 2.11.0
 
 Menuntaskan rencana di CHANGELOG: *Opsi "tujuan ini disimpan di BCA", kalau saldo BCA yang lebih kecil dari saldo asli di bank terasa membingungkan.*
 
@@ -102,6 +102,18 @@ Menuntaskan rencana di CHANGELOG: *Opsi "tujuan ini disimpan di BCA", kalau sald
 
 1. Deposito yang sudah cair (sekali saja, atau dicairkan) **hilang otomatis** dari daftar, **sesudah** bunga bersihnya dicek user (evaluasi jatuh tempo, atau isian bunga saat Cairkan sekarang); datanya tetap tersimpan untuk riwayat.
 2. Push jatuh tempo **hanya di hari itu**.
+
+## Temuan UAT (6 Nov 2026)
+
+Dari `docs/uat/UAT-simpanan-2.11.0.md`; semua disetujui user untuk dibetulkan sebelum rilis 2.11.0.
+
+| # | Masalah | Perilaku yang diharapkan |
+|---|---|---|
+| U1 | Tanya AI "berapa saldo seabank?" menyebut Rp 500.000 (saldo sendiri) lebih dulu. | `saldo_kantong` memberi kantong induk `saldo` = **gabungan** (yang tampil di aplikasi & bank) dan `saldo_sendiri` terpisah; jawaban menyebut gabungannya lebih dulu, rincian sesudahnya. Kasus eval baru. |
+| U2 | Tanya AI menulis tanggal "06-12-2026". | Tanggal di hasil fungsi (jatuh tempo deposito, tenggat tujuan) dikirim dalam format baca ("6 Desember 2026"), jadi jawabannya ikut. |
+| U3 | Profil → Kantong menampilkan "Disisihkan ke tujuan · 1 tujuan tabungan · Rp 0" bila satu-satunya tujuan disimpan di BCA. | Baris tetap ada (pintu ke halaman Tujuan). Nominalnya = tujuan yang terpisah saja; bila tidak ada yang terpisah, nominal tidak ditampilkan. Keterangannya menyebut tempatnya: "1 tujuan · disimpan di BCA", "2 tujuan · 1 disimpan di BCA". |
+| U4 | Di 390 px pesan galat form kantong (mis. "SeaBank masih berisi 1 simpanan…") tertutup bilah Batal/Simpan. | Pesan galat form selalu terlihat penuh di atas bilah tombol (digulir ke pandangan / diberi ruang). |
+| U5 | Tombol "Cairkan sekarang" memperlihatkan garis fokus saat detail deposito dibuka. | Membuka lembar dengan sentuhan/klik tidak memperlihatkan garis fokus di tombol; dengan keyboard garis fokus tetap ada (aksesibilitas). |
 
 ## Belum diterapkan
 
