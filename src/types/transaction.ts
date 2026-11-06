@@ -96,6 +96,20 @@ export interface ExtractedReceipt {
   rincian: BagianPecah[] | null;
   /** Hanya expense dari struk: barang beda kategori, ditawarkan untuk dipecah (jumlahnya = amount). */
   usulan_pecah: BagianPecah[] | null;
+  /**
+   * Bukti bayar & struk (SPEC-lengkapi): rekening/dompet yang BENAR-BENAR
+   * terpotong ("Sumber Dana SeaBank *1234" → "SeaBank", "Saldo ShopeePay" →
+   * "ShopeePay"); null bila tidak tertulis (struk "QRIS SHOPEEPAY").
+   */
+  sumber_dana?: string | null;
+  /** E-wallet/aplikasi perantara pembayaran ("ShopeePay" pada QRIS ShopeePay); tempat cashback masuk. */
+  dompet?: string | null;
+  /** Struk: potongan voucher/poin/promo e-wallet yang tidak dibayar dari rekening (sudah dikurangkan dari amount). */
+  voucher?: number | null;
+  /** Order SN / No. Transaksi (screenshot) atau nomor bon (struk). */
+  ref_bukti?: string | null;
+  /** Transfer bank: bank & 4 digit akhir rekening tujuan, "BCA …5678". */
+  rekening_tujuan?: string | null;
 }
 
 /** Satu bagian transaksi yang dipecah (rincian ketikan atau usulan dari struk). */

@@ -30,6 +30,7 @@
     "uji:riwayat": "tsx scripts/uji-riwayat.mts",
     "uji:tanya": "tsx scripts/uji-tanya.mts",
     "eval:tanya": "node --env-file=.env.local scripts/eval-tanya.mjs",
+    "eval:lengkapi": "tsx --env-file=.env.local scripts/eval-lengkapi.mts",
     "e2e": "node --env-file-if-exists=.env.local e2e/jalankan.mjs",
     "uji:arah": "tsx scripts/uji-arah.mts",
     "uji:metode": "tsx scripts/uji-metode.mts",
@@ -37,6 +38,7 @@
     "uji:isolasi": "node --env-file=.env.local scripts/uji-isolasi.mjs",
     "uji:simpanan": "tsx scripts/uji-simpanan.mts",
     "uji:rekening": "tsx scripts/uji-rekening.mts",
+    "uji:lengkapi": "tsx scripts/uji-lengkapi.mts",
     "cek:rekening": "tsx scripts/cek-rekening.mts"
   },
   "dependencies": {

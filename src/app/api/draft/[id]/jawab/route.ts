@@ -223,7 +223,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     await supabase
       .from("transactions")
       .update({ status: "confirmed", kantong_id: t.kantong_id, payment_method: t.payment_method })
-      .eq("induk_id", id);
+      .eq("induk_id", id)
+      .or(`type.eq.expense,kantong_id.is.null${tx.kantong_id ? `,kantong_id.eq.${tx.kantong_id}` : ""}`);
+    // Cashback yang sudah di kantong e-wallet perantaranya (SPEC-lengkapi K2) tetap di sana.
+    await supabase.from("transactions").update({ status: "confirmed" }).eq("induk_id", id);
   }
 
   return NextResponse.json({ transaction: baru as Transaction, pertanyaan: selesai ? null : sesudah });

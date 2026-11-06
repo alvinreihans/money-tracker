@@ -18,6 +18,7 @@ import {
   type InfoPaylater,
 } from "@/lib/pinjaman";
 import { barisIkutan } from "@/lib/transaksi-input";
+import { kantongCashback } from "@/lib/lengkapi";
 import { pertanyaanDraft, type JenisTanya } from "@/lib/draft";
 import { jamTransaksi, perluTanyaJam, saldoSejak, type PetunjukJam } from "@/lib/waktu";
 import type { Transaction } from "@/types/transaction";
@@ -91,7 +92,7 @@ export async function simpanTransaksi(
   userId: string,
   input: Record<string, unknown>,
 ): Promise<{ transaction: unknown; pertanyaan: JenisTanya | null; cicilan?: Cicilan }> {
-  const { payment_target, biaya_admin, cashback, pinjaman, cicilan: sebutanCicilan, jam, petunjuk_jam, info_paylater, bukti_transfer, rincian, usulan_pecah, ...row } = input;
+  const { payment_target, biaya_admin, cashback, pinjaman, cicilan: sebutanCicilan, jam, petunjuk_jam, info_paylater, bukti_transfer, rincian, usulan_pecah, dompet, ...row } = input;
   const dariAi = "payment_target" in input;
 
   // Belanja pakai paylater: bukan pengeluaran dari kantong mana pun. Tenor
@@ -312,7 +313,10 @@ export async function simpanTransaksi(
     { biaya_admin: biaya_admin as number | null, cashback: cashback as number | null },
     tujuan?.name,
   );
-  if (ikutan) await supabase.from("transactions").insert(ikutan);
+  // Cashback dari bukti e-wallet (SPEC-lengkapi K2): dikreditkan ke kantong
+  // e-wallet perantaranya (mis. ShopeePay), bukan kantong sumber dananya.
+  const kantongCb = ikutan && ikutan.type === "income" && typeof dompet === "string" ? kantongCashback(dompet, daftar) : null;
+  if (ikutan) await supabase.from("transactions").insert(kantongCb ? { ...ikutan, kantong_id: kantongCb.id, payment_method: kantongCb.name } : ikutan);
 
   // Tanggal, jam, kantong, merchant, jenis & status disalin trigger dari aslinya.
   if (bagian) {

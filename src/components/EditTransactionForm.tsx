@@ -78,9 +78,12 @@ export default function EditTransactionForm({
     // Samakan transaksi ikutan dengan isian: ubah, tambah, atau hapus.
     const tujuan = kantong.find((k) => k.id === kolom.kantong_tujuan_id)?.name;
     const harus = barisIkutan({ ...tx, ...baru }, { biaya_admin, cashback }, tujuan);
+    // Kantong induk tidak berubah: kantong ikutan dibiarkan — cashback bisa ada di
+    // kantong e-wallet perantaranya, mis. ShopeePay (SPEC-lengkapi K2).
+    const ubahIkutan = harus && tx.kantong_id === kolom.kantong_id ? Object.fromEntries(Object.entries(harus).filter(([k]) => k !== "kantong_id" && k !== "payment_method")) : harus;
     const { error: errIkutan } = harus
       ? ikutan
-        ? await db.from("transactions").update(harus).eq("id", ikutan.id)
+        ? await db.from("transactions").update(ubahIkutan!).eq("id", ikutan.id)
         : await db.from("transactions").insert(harus)
       : ikutan
         ? await db.from("transactions").delete().eq("id", ikutan.id)
