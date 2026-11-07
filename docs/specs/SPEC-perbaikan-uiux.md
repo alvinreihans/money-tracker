@@ -1,6 +1,6 @@
 # Spec: Perbaikan UI/UX layar baru (tinjauan ui-ux-pro-max)
 
-Status: **diterapkan, belum dirilis** (disetujui user: "perbaiki semuanya", memakai usulan perbaikan dari tinjauan) · 7 November 2026 · branch `feat/impor-rekening` · ikut rilis 2.12.0
+Status: **diterapkan · rilis 2.12.0** (disetujui user: "perbaiki semuanya", memakai usulan perbaikan dari tinjauan) · 7 November 2026 · branch `feat/impor-rekening` · ikut rilis 2.12.0
 
 Tinjauan layar baru (impor rekening koran, Lengkapi, unggah banyak, Perlu dilengkapi, Simpanan/deposito) dengan daftar periksa ui-ux-pro-max (Quick Reference: aksesibilitas, sentuh, tata letak, tipografi & warna, form & umpan balik, navigasi), di 390 / 900 / 1300 px dengan data buatan. Tidak ada temuan kritis. Yang sudah baik tetap: tanpa scroll samping, dialog berlabel, ring fokus, `role=alert` pada galat, spinner & tombol nonaktif saat menyimpan, Urungkan.
 

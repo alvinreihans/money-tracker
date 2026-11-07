@@ -1,6 +1,6 @@
 # Spec: Impor rekening koran (SeaBank, Jago, BRI)
 
-Status: **diterapkan, belum dirilis** · 6 November 2026 (diterapkan 7 November 2026) · branch `feat/impor-rekening` · migrasi `20261112000000_impor_rekening.sql` & `20261112000001_impor_rekening_deposito.sql` · pasangan [SPEC-lengkapi](SPEC-lengkapi.md) (fase 2)
+Status: **diterapkan · rilis 2.12.0** · 6 November 2026 (diterapkan 7 November 2026) · branch `feat/impor-rekening` · migrasi `20261112000000_impor_rekening.sql` & `20261112000001_impor_rekening_deposito.sql` · pasangan [SPEC-lengkapi](SPEC-lengkapi.md) (fase 2)
 
 Rekening koran jadi **sumber kebenaran soal uang** (nominal & kantong yang benar-benar terpotong); screenshot e-wallet dan struk melengkapi detailnya (SPEC-lengkapi). Impor rekening koran pernah ada dan dihapus di 2.0.0 sebagai penyederhanaan tampilan (`89df77f`), bukan karena gagal.
 

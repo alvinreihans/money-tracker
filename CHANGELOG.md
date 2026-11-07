@@ -21,6 +21,8 @@ docs/specs/SPEC-catat-tuntas.md (fase 1 & 2 selesai di 2.4.0, fase 3 di 2.5.0, f
 
 ## [Unreleased]
 
+## [2.12.0] — 2026-11-07
+
 ### Ditambah
 - **Impor rekening koran PDF SeaBank, Jago, dan BRI** (SPEC-impor-rekening). Lampirkan PDF-nya di Catat (boleh beberapa sekaligus), seret ke aplikasi, atau Bagikan dari aplikasi bank. Bank & rekeningnya dikenali dari isi PDF; rekening yang belum dikenal ditanya sekali "Rekening SeaBank …1234 ini kantong yang mana?" (atau **Buat kantong SeaBank**), lalu 4 digit akhirnya diingat. Dibaca di server tanpa AI; PDF tidak disimpan. Bank lain: "Rekening koran dari bank ini belum bisa dibaca."
 - **Pratinjau sebelum menyimpan**, satu kartu per rekening: periode & jumlah baris, transaksi baru, yang sudah tercatat (ditautkan, tidak dibuat lagi), pindah kantong, bunga, yang perlu dilengkapi, dan saldo akhir menurut bank vs menurut aplikasi — dengan tawaran **"Samakan saldo awal BRI supaya akhir September = Rp 730.500"**. Saldo awal + semua baris harus sama dengan saldo akhir; kalau tidak, impornya ditolak dan tidak ada yang tersimpan.

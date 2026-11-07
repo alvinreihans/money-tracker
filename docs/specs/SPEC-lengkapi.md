@@ -1,6 +1,6 @@
 # Spec: Lengkapi transaksi dari screenshot & struk, unggah banyak gambar
 
-Status: **diterapkan, belum dirilis** · 6 November 2026 (diterapkan 7 November 2026) · branch `feat/impor-rekening` · migrasi `20261113000000_lengkapi_urutan.sql` · pasangan [SPEC-impor-rekening](SPEC-impor-rekening.md)
+Status: **diterapkan · rilis 2.12.0** · 6 November 2026 (diterapkan 7 November 2026) · branch `feat/impor-rekening` · migrasi `20261113000000_lengkapi_urutan.sql` · pasangan [SPEC-impor-rekening](SPEC-impor-rekening.md)
 
 ## Masalah
 
