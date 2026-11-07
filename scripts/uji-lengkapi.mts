@@ -96,14 +96,16 @@ const ssSea: BuktiCocok = { jenis: "ss", type: "expense", nominal: 32_500, tangg
   assert.deepEqual(ids(cariPasangan(ssSea, [tx("a", { type: "income" })])), []);
 }
 {
-  // Struk: +1 hari hanya bila jam ≥ 22.00 (tanggal bisnis kasir).
-  const struk: BuktiCocok = { jenis: "struk", type: "expense", nominal: 32_500, tanggal: "2026-09-03", jam: "22:15", kantong: null };
-  assert.deepEqual(ids(cariPasangan(struk, [tx("a", { transaction_date: "2026-09-04" })])), ["a"]);
-  assert.deepEqual(ids(cariPasangan({ ...struk, jam: "21:59" }, [tx("a", { transaction_date: "2026-09-04" })])), []);
-  // Tanggal sama lebih dulu daripada +1 hari.
-  assert.deepEqual(ids(cariPasangan(struk, [tx("a", { transaction_date: "2026-09-04" }), tx("b")]))[0], "b");
+  // Struk ≥ 22.00 bertanggal bisnis kasir (besoknya): baris bank sehari SEBELUM tanggal struk
+  // ikut dicocokkan. Data nyata: struk "4 Sep 22.15" = bank & ShopeePay "3 Sep 22.15".
+  const struk: BuktiCocok = { jenis: "struk", type: "expense", nominal: 32_500, tanggal: "2026-09-04", jam: "22:15", kantong: null };
+  assert.deepEqual(ids(cariPasangan(struk, [tx("a", { transaction_date: "2026-09-03" })])), ["a"]);
+  assert.deepEqual(ids(cariPasangan(struk, [tx("a", { transaction_date: "2026-09-05" })])), []);
+  assert.deepEqual(ids(cariPasangan({ ...struk, jam: "21:59" }, [tx("a", { transaction_date: "2026-09-03" })])), []);
+  // Tanggal sama lebih dulu daripada sehari sebelumnya.
+  assert.deepEqual(ids(cariPasangan(struk, [tx("a", { transaction_date: "2026-09-03" }), tx("b", { transaction_date: "2026-09-04" })]))[0], "b");
   // Kantong perantara (QRIS ShopeePay): kantong mana pun.
-  assert.deepEqual(ids(cariPasangan({ ...struk, jam: "08:45" }, [tx("a", { kantong_id: "bca" })])), ["a"]);
+  assert.deepEqual(ids(cariPasangan({ ...struk, tanggal: "2026-09-03", jam: "08:45" }, [tx("a", { kantong_id: "bca" })])), ["a"]);
 }
 {
   // buktiCocok: sumber dana, perantara, Saldo ShopeePay, deposito tidak pernah jadi sumber.

@@ -141,7 +141,7 @@ const jamKe = (j: string | null | undefined) => (j ? j.slice(0, 5) : null);
 
 /**
  * Transaksi tercatat yang dilengkapi bukti ini (§1). Kandidat: nominal sama
- * persis; tanggal sama (struk ≥ 22.00: atau +1 hari, tanggal bisnis kasir);
+ * persis; tanggal sama (struk ≥ 22.00: atau sehari sebelum tanggal struk, karena kasir memakai tanggal bisnis berikutnya);
  * kantong sumber dana, atau kantong mana pun bila yang terbaca hanya e-wallet
  * perantara; belum dilengkapi oleh bukti sejenis. Beberapa kandidat: jam
  * paling dekat; baris rekening tanpa jam dibandingkan urutannya dengan jam
@@ -154,7 +154,8 @@ export function cariPasangan(
   opsi: { tetangga?: Tetangga[]; peringkat?: { ke: number; dari: number } | null } = {},
 ): HasilPasangan {
   if (b.tanpaKantong || !(b.nominal > 0)) return { kandidat: [], pasti: false };
-  const tanggal = [b.tanggal, ...(b.jenis === "struk" && (menit(b.jam) ?? 0) >= 22 * 60 ? [geserHari(b.tanggal, 1)] : [])];
+  // Struk ≥ 22.00 bertanggal bisnis kasir (besoknya): baris bank-nya sehari sebelum tanggal struk.
+  const tanggal = [b.tanggal, ...(b.jenis === "struk" && (menit(b.jam) ?? 0) >= 22 * 60 ? [geserHari(b.tanggal, -1)] : [])];
   const cocokKantong = (id: string | null | undefined) => b.kantong === null || id === b.kantong;
   const kandidat = calon.filter((t) => {
     if (Math.abs(Number(t.amount) - b.nominal) >= 0.005 || !tanggal.includes(t.transaction_date) || sudahJenis(t.ref_bukti, b.jenis)) return false;

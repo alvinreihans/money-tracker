@@ -113,8 +113,9 @@ export async function cariKandidat(
     .is("induk_id", null)
     .is("pecahan_dari", null)
     .eq("amount", b.nominal)
-    .gte("transaction_date", b.tanggal)
-    .lte("transaction_date", geserHari(b.tanggal, 1))
+    // Struk ≥ 22.00 juga dicocokkan ke baris sehari sebelumnya; cariPasangan menyaring tanggal persisnya.
+    .gte("transaction_date", geserHari(b.tanggal, -1))
+    .lte("transaction_date", b.tanggal)
     .limit(50);
   const calon = (data ?? []) as BarisTx[];
   // Baris rekening koran di kantong & hari kandidat: urutan & jam tetangganya.

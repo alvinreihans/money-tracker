@@ -160,6 +160,24 @@ try {
   const riwayat = await langkah("riwayat perlu dilengkapi", `return document.body.innerText.replace(/\\s+/g, ' ')`);
   cek("Riwayat Perlu dilengkapi · 2 (Toko Lain & C yang diurungkan)", /Perlu dilengkapi · 2/.test(riwayat), riwayat.slice(0, 300));
 
+  // --- 6. Regresi T1 (UAT data asli): struk ≥ 22.00 bertanggal bisnis kasir (besoknya) →
+  // melengkapi baris rekening koran sehari SEBELUM tanggal struk, tidak dicatat baru.
+  const { data: E } = await sb.from("transactions").insert({ user_id: uid, amount: 21_500, type: "expense", category: "other", merchant: "ShopeePay", description: "ShopeePay Payment", transaction_date: "2026-09-12", kantong_id: sea.id, status: "confirmed", source: "statement", ref_bank: "seabank:1234:2026-09-12:-21500:regresi", perlu_dilengkapi: true }).select("id").single();
+  const jumlahSebelum = (await semua()).length;
+  const hE = hasil({ document_type: "receipt", amount: 21_500, transaction_date: "2026-09-13", time: "22:05", ref_bukti: "BONCONTOH0001", merchant: "Minimarket Malam", category: "groceries", payment_method: "QRIS ShopeePay", sumber_dana: null, dompet: "ShopeePay" });
+  await buka(`${base}/`, 6000);
+  const kartuE = await langkah("unggah struk 22.05", `${suntik({ "malam.png": hE })} ${tempel("malam.png", await gambar(60))}
+    await sampai(() => /Lengkapi transaksi ini\\?|Tersimpan/.test(dialog()?.innerText ?? ''), 60);
+    return dialog().innerText.replace(/\\s+/g, ' ')`);
+  cek("Struk 13 Sep 22.05 → kartu Lengkapi untuk baris rekening 12 Sep", /Lengkapi transaksi ini\?/.test(kartuE) && /ShopeePay · −Rp\s?21\.500 · 12 Sep/.test(kartuE), kartuE.slice(-400));
+  await langkah("Lengkapi struk malam", `[...dialog().querySelectorAll('button')].filter((b) => b.textContent.trim() === 'Lengkapi').at(-1).click();
+    await sampai(() => /Sudah dilengkapi/.test(dialog()?.innerText ?? ''), 30); return 'ok'`);
+  tx = await semua();
+  const e = tx.find((t) => t.id === E.id);
+  cek("Baris 12 Sep dilengkapi (merchant toko, struk), tanggal/nominal/kantong tetap, tidak ada transaksi baru",
+    e.merchant === "Minimarket Malam" && /struk:BONCONTOH0001/.test(e.ref_bukti ?? "") && e.transaction_date === "2026-09-12" && Number(e.amount) === 21_500 && e.kantong_id === sea.id && e.perlu_dilengkapi === false && tx.length === jumlahSebelum,
+    JSON.stringify({ e, sebelum: jumlahSebelum, sesudah: tx.length }));
+
   console.log(masalah.length ? `masalah konsol: ${masalah.slice(0, 3).join(" | ")}` : "konsol bersih");
 } catch (e) {
   console.log("GAGAL:", e.message);
