@@ -38,6 +38,21 @@ docs/specs/SPEC-catat-tuntas.md (fase 1 & 2 selesai di 2.4.0, fase 3 di 2.5.0, f
 - **"Sepertinya ini sudah tercatat. Catat lagi?"** mendapat pilihan ketiga **Lengkapi yang sudah ada**: isi gambar baru dipindah ke transaksi lama, tanpa transaksi baru.
 - **Struk dengan voucher/poin**: yang tercatat kini yang benar-benar dibayar (Total Belanja − voucher), sama dengan potongan di rekening.
 - **Impor rekening koran**: penempatan deposito yang depositonya sudah dibuat manual dengan "Sudah termasuk" kini ditautkan ke pindah kantong pembuatannya (dulu jadi pindah kantong kedua dan saldo SeaBank berkurang dua kali); baris tanpa jam (SeaBank) tampil sesuai urutan rekening koran.
+- **Tombol kembali HP/browser menutup lembar yang terbuka lebih dulu** (form, pilihan, konfirmasi, lembar Catat), bukan meninggalkan halamannya. Kalau isiannya sudah diubah, "Buang perubahan?" muncul dulu dan **Batal** membiarkan lembarnya tetap terbuka. Lembar yang ditutup lewat tombol, Esc, atau ketuk di luar tidak meninggalkan langkah kembali yang sia-sia.
+- **Hasil evaluasi deposito bisa diurungkan** dari pesannya (Sesuai, Isi yang diterima, Cairkan sekarang): bunga/pencairannya dihapus dan periodenya kembali menunggu dicek. Hasil yang berselisih dengan perhitungan kini tampil sebagai peringatan, bukan sukses.
+- **Kartu "Lengkapi transaksi ini?"**: **Lengkapi** jadi tombol utama selebar kartu, **Batal** dan **Catat sebagai baru** sebaris di bawahnya; judulnya biru (belum ada yang tersimpan), dan "Melengkapi…" tampil selama diproses.
+- **Pratinjau impor rekening koran**: saldo akhir yang tidak sama dengan bank tampil sebagai peringatan dengan tawaran "Samakan saldo awal…" tepat di bawahnya; pilihan "Mungkin sudah tercatat" kini daftar pilihan yang terbaca utuh (jam di depan), bukan menu tarik-turun yang terpotong; nominal minus ditulis "−Rp".
+- **Form simpanan/deposito**: pilihan Tabungan/Deposito, "Sudah termasuk…?", chip tenor, dan Hari/Bulan sejajar dengan isian lain; pratinjau bunga tampil tepat di bawah tenor; pajak bunga dilipat di **Lanjutan**; sesudah menyimpan muncul kabar "Deposito “…” dibuat di BCA."
+- **Profil → Kantong**: baris induk yang isinya tampil di bawahnya cukup menulis "Saldo sendiri Rp 500.000 · 1 simpanan"; nama simpanan boleh dua baris.
+- **Lencana "Perlu dilengkapi"** berikon dan berwarna peringatan, tetap terlihat di baris yang sedang dipilih; catatan "Perlu dilengkapi" di detail transaksi menyebut bisa dilengkapi dengan mengunggah struk atau screenshot.
+
+### Diperbaiki
+- **Kotak centang "Ganti kategori ke …" dan pilihan transaksi di kartu Lengkapi** terlalu kecil (24px) dan berdempet; kini setinggi baris pilihan biasa (48px).
+- **Tombol yang difokus di form panjang tidak lagi tertutup** bilah Batal/Simpan di layar HP.
+- **Isi bunga yang diterima dikosongkan lalu disimpan** tidak lagi tercatat Rp 0 diam-diam: muncul "Isi nominalnya, boleh Rp 0."
+- **Kontras & area sentuh**: tombol aksi snackbar ("Riwayat", "Lihat") kini 4,9:1 dan 48px; tombol "Catat transaksi" di sidebar 4,7:1; tombol segmen dan pilihan jawab di obrolan ("Lengkapi yang sudah ada", "Ya, catat lagi", "Bukan, buang", "Cek sekarang", "Urungkan", "Lihat") punya area sentuh ≥ 44px.
+- **Lembar "Hasil unggah"**: tombol Urungkan tidak lagi memakan separuh baris sehingga keterangan perubahannya terjepit.
+- **Riwayat di HP**: chip filter yang aktif (mis. "Perlu dilengkapi · 4") digeser ke dalam pandangan, tidak tersembunyi di ujung baris chip.
 
 ## [2.11.0] — 2026-11-06
 

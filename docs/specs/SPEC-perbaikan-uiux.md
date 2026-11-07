@@ -1,6 +1,6 @@
 # Spec: Perbaikan UI/UX layar baru (tinjauan ui-ux-pro-max)
 
-Status: **disetujui** (user: "perbaiki semuanya", memakai usulan perbaikan dari tinjauan) · 7 November 2026 · branch `feat/impor-rekening` · ikut rilis 2.12.0
+Status: **diterapkan, belum dirilis** (disetujui user: "perbaiki semuanya", memakai usulan perbaikan dari tinjauan) · 7 November 2026 · branch `feat/impor-rekening` · ikut rilis 2.12.0
 
 Tinjauan layar baru (impor rekening koran, Lengkapi, unggah banyak, Perlu dilengkapi, Simpanan/deposito) dengan daftar periksa ui-ux-pro-max (Quick Reference: aksesibilitas, sentuh, tata letak, tipografi & warna, form & umpan balik, navigasi), di 390 / 900 / 1300 px dengan data buatan. Tidak ada temuan kritis. Yang sudah baik tetap: tanpa scroll samping, dialog berlabel, ring fokus, `role=alert` pada galat, spinner & tombol nonaktif saat menyimpan, Urungkan.
 
@@ -53,6 +53,25 @@ Tinjauan layar baru (impor rekening koran, Lengkapi, unggah banyak, Perlu dileng
 - `npm run e2e` penuh, `uji:*`, `tsc`, `eslint` tetap lulus; suite `kembali` tidak berubah perilakunya.
 - Tinjauan ulang singkat dengan skrip audit yang sama (kontras, area sentuh, fokus tertutup) di 390 & 1300 px.
 
+## Keputusan saat implementasi
+
+- **#2** `scroll-padding-bottom` setinggi ruang kapsul (100px + safe area) di badan lembar ber-`pil`; berlaku untuk semua lembar berkapsul.
+- **#3** Urungkan butuh database: migrasi `20261114000000_urungkan_deposito.sql` menambah `deposito_periode.transaksi_tutup` (id transaksi bunga/pencairan yang dibuat saat periode ditutup) dan RPC `urungkan_tutup_periode`. Hanya periode yang ditutup sesudah migrasi ini yang bisa diurungkan, dan hanya selama periode perpanjangannya belum dicek. Di detail deposito, Urungkan menutup lembarnya (isinya sudah usang). Selisih dihitung per rupiah (dibulatkan); pencairan sebelum jatuh tempo tidak punya "perhitungan", jadi selalu sukses.
+- **#5** Latar snackbar `--blok-2` (#252525): tombol aksi `--primer` 4,9:1 (dulu 4,27:1 di atas #2f2f2f); tombol aksi 48px, padding snackbar disesuaikan supaya tingginya tetap ±52px.
+- **#8** Lewat perluasan area sentuh `::after` seperti `.chip`: segmen 40 → 48px (sampai tepi segmen), pilihan jawab 36 → 44px (tepat mengisi celah 8px antarbaris, tanpa bertumpuk).
+- **#9** Lengkapi jadi tombol berisi warna selebar kartu di baris pertama; Batal (netral) dan Catat sebagai baru (flat) sebaris di bawahnya — di 360–1300px tidak ada tombol yang sendirian di baris kedua.
+- **#10** Chip aktif paling kanan digeser ke dalam pandangan saat filter berubah (urutan chip tetap, tidak dipindah ke depan).
+- **#11** `<select>` diganti daftar `BarisPilih` (radio) + "Bukan, catat sebagai baru"; tidak ada lagi isian berbentuk kotak, jadi token radius isian tidak dipakai di sana. Label kandidat dibentuk di server: jam · merchant · tanggal (hanya bila beda hari dengan baris bank).
+- **#12** `src/lib/riwayat-lembar.ts`, dipakai `Lembar` dan lembar Catat (obrolan, "kembali" bertingkatnya: obrolan → daftar → tutup). Menutup lewat tombol/Esc/ketuk luar **tidak** memakai `history.go(-1)`: traversal membatalkan `router.push` yang berjalan bersamaan (lembar aksi Tujuan → "Lihat riwayat" tidak jadi pindah). Sebagai gantinya entri sekarang diberi kedalaman baru dan entri lembar di bawahnya ditandai mati; kembali/maju ke entri mati langsung dilewati. Popstate antarentri halaman yang sama ditelan sebelum sampai ke Next.js (listener capture + `stopImmediatePropagation`); `router.replace`/refresh selama lembar terbuka mempertahankan penandanya. Batas: tanda "mati" hidup di memori — sesudah muat ulang, entri sisa bisa butuh satu ketukan kembali tambahan; maju ke entri lembar yang sudah ditutup tidak membukanya lagi.
+- **#13** Judul kartu memakai `--primer` (kelas `.tanyaKartu`), bukan `--sukses`.
+- **#15** Ikon `ClipboardPen` (sama dengan chip Riwayat), teks & ikon `--peringatan` di atas `color-mix(--peringatan 16%)`; lencana "Belum selesai" tidak berubah.
+- **#16** Pembantu `rp()` lokal di pratinjau impor ("−Rp", sama dengan daftar transaksi).
+- **#17** Kelas `.judulBagian` (h3 16px tebal) untuk judul bagian di focus block lembar: pertanyaan kantong, nama rekening, "Mungkin sudah tercatat", dan bagian Hasil unggah.
+- **#18** Hanya Profil → Kantong: "Saldo sendiri Rp 500.000 · 1 simpanan, 1 tujuan"; Beranda tetap rincian lengkap karena isinya tidak tampil terpisah di sana.
+- **#19** "Lanjutan" berupa baris yang bisa dibuka (`aria-expanded`), menampilkan nilai pajaknya sekarang; terbuka sendiri bila pajak salah isi.
+- **#20** Snackbar "Deposito “Nama” dibuat di BCA." / "Simpanan “Nama” diubah."; catatan detail: "Lengkapi dengan mengunggah struk atau screenshot pembayarannya di Catat, atau lewat Edit transaksi di bawah."
+- **#21** Hanya tombol berlabel di sidebar (≥ 1200px) yang memakai `--tombol` (4,7:1, dulu `--fab` 3,77:1); tombol + bulat (ikon saja) tetap `--fab`.
+
 ## Belum diterapkan
 
-Seluruh spec ini (sedang dikerjakan).
+Tidak ada.

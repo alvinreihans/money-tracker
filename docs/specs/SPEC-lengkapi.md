@@ -41,7 +41,7 @@ Kartu menampilkan transaksi yang ada ("ShopeePay · −Rp 32.500 · 3 Sep · Sea
 | merchant / penerima ("Bayar ke Alfamart", "Kirim ke <nama> · BCA …5678"), jam, cashback (ikutan, §3), Order SN | merchant (nama toko), jam, kategori, rincian barang (keterangan ringkas), **tawaran pecah** bila barangnya campur (SPEC-tawar-pecah), nomor bon |
 
 - **Nominal, tanggal, dan kantong tidak berubah** (rekening koran yang benar). Kategori dari struk menggantikan "Lainnya"; kategori yang sudah diisi user tidak ditimpa tanpa ditanya.
-- Tombol **Lengkapi** / **Catat sebagai baru** / **Batal**. Dari ketikan "ini yang tadi pagi di alfamart" tidak berlaku — hanya gambar.
+- Tombol **Lengkapi** (tombol utama, selebar kartu) / **Catat sebagai baru** / **Batal** (sebaris di bawahnya); selama diproses kartu menampilkan "Melengkapi…" (SPEC-perbaikan-uiux #9, #14). Dari ketikan "ini yang tadi pagi di alfamart" tidak berlaku — hanya gambar.
 - Tanda **Perlu dilengkapi** (SPEC-impor-rekening) hilang begitu dilengkapi; Riwayat punya filter **Perlu dilengkapi**.
 - Dilengkapi oleh screenshot lalu struk (atau sebaliknya) boleh: masing-masing mengisi bagiannya.
 

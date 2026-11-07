@@ -42,7 +42,7 @@ Menuntaskan rencana di CHANGELOG: *Opsi "tujuan ini disimpan di BCA", kalau sald
   - satuan **hari** → mulai + tenor hari (deposito 14 hari mulai 6 Nov → 20 Nov);
   - satuan **bulan** → mulai + tenor bulan, tanggal yang sama; bulan yang lebih pendek mundur ke hari terakhirnya (aturan yang sama dengan jatuh tempo cicilan). Perpanjangan dihitung dari tanggal mulai periode itu, jadi tetap di tanggal kalender yang sama.
 - **Bunga kotor** = pokok × bunga % ÷ 100 × jumlah hari sebenarnya (mulai → jatuh tempo, untuk kedua satuan) ÷ 365, dibulatkan ke rupiah.
-- **Pajak** = bunga kotor × pajak % (bawaan 20%, 0% bila pokok ≤ Rp 7.500.000; isian bisa diubah), dibulatkan.
+- **Pajak** = bunga kotor × pajak % (bawaan 20%, 0% bila pokok ≤ Rp 7.500.000; isian bisa diubah, terlipat di bagian **Lanjutan** form), dibulatkan. Pratinjau bunga tampil tepat di bawah isian tenor.
 - **Bunga bersih** = bunga kotor − pajak.
 - Bank bisa menghitung sedikit berbeda (pembulatan, basis hari); itulah gunanya evaluasi jatuh tempo.
 
@@ -57,7 +57,7 @@ Menuntaskan rencana di CHANGELOG: *Opsi "tujuan ini disimpan di BCA", kalau sald
 
 ### 4. Tampilan
 
-- **Profil → Kantong** dan **Total aset di Beranda**: baris induk menampilkan **saldo gabungan** (saldonya sendiri + semua simpanan + tujuan yang disimpan di sana), dengan rincian di bawahnya: "Rp 500.000 + Deposito Rp 2.000.000" (lebih dari dua: "Rp 500.000 + 3 simpanan Rp …"). Simpanan tampil menjorok di bawah induknya di Profil → Kantong ("Deposito · 4,5%/th · jatuh tempo 6 Des"); di Beranda tidak dipisah.
+- **Profil → Kantong** dan **Total aset di Beranda**: baris induk menampilkan **saldo gabungan** (saldonya sendiri + semua simpanan + tujuan yang disimpan di sana), dengan rincian di bawahnya: "Rp 500.000 + Deposito Rp 2.000.000" (lebih dari dua: "Rp 500.000 + 3 simpanan Rp …"). Simpanan tampil menjorok di bawah induknya di Profil → Kantong ("Deposito · 4,5%/th · jatuh tempo 6 Des", nama boleh dua baris); di Beranda tidak dipisah. Karena isinya sudah tampil menjorok, rincian baris induk di Profil → Kantong diringkas: "Saldo sendiri Rp 500.000 · 1 simpanan" (SPEC-perbaikan-uiux #18); Beranda tetap memakai rincian lengkap.
 - **Total aset** tidak berubah: tiap kantong tetap dihitung sekali.
 - **Pilihan kantong** (Catat, form manual, form pinjaman): tabungan/pocket tampil sebagai "Pocket Liburan · di SeaBank"; **deposito tidak tampil** sebagai sumber bayar, tempat pemasukan, maupun tujuan pindah kantong (hanya lewat aksinya sendiri, §5).
 - **Tujuan tabungan** yang disimpan di kantong lain menulis "di BCA" di halaman Tujuan.
@@ -66,7 +66,7 @@ Menuntaskan rencana di CHANGELOG: *Opsi "tujuan ini disimpan di BCA", kalau sald
 
 - **Jatuh tempo** (periode yang `jatuh_tempo` ≤ hari ini dan belum dievaluasi):
   - push **hanya di hari itu** (cron notifikasi harian, tanpa H-3): "Deposito SeaBank jatuh tempo hari ini. Cek bunganya.";
-  - kartu di Beranda **"Deposito jatuh tempo"**: estimasi bunga kotor, pajak, bersih, dan tombol **Sesuai** / **Isi yang diterima** (nominal bunga bersih). Kartu bertahan sampai dievaluasi. Selama itu deposito **tetap tampil** dengan saldonya ("Jatuh tempo 6 Des · menunggu cek bunga"); tidak ada yang dicatat atau disembunyikan sebelum user mengecek bunganya.
+  - kartu di Beranda **"Deposito jatuh tempo"**: estimasi bunga kotor, pajak, bersih, dan tombol **Sesuai** / **Isi yang diterima** (nominal bunga bersih). Kartu bertahan sampai dievaluasi. Isian bunga yang dikosongkan ditolak ("Isi nominalnya, boleh Rp 0."), bukan dianggap Rp 0. Hasil yang berselisih dengan perhitungan tampil sebagai **peringatan** (sama persis: sukses), dan tiap hasil — termasuk Cairkan sekarang — bisa **diurungkan** dari pesannya (`urungkan_tutup_periode`, migrasi `20261114000000`): transaksi bunga/pencairannya dihapus, periode perpanjangannya dihapus selama belum dicek, dan periodenya kembali menunggu dicek (SPEC-perbaikan-uiux #3). Selama itu deposito **tetap tampil** dengan saldonya ("Jatuh tempo 6 Des · menunggu cek bunga"); tidak ada yang dicatat atau disembunyikan sebelum user mengecek bunganya.
 - **Saat dievaluasi** dengan bunga bersih diterima B:
   - **sekali saja** → pemasukan B ke **induk** (kategori Bunga/Investasi, merchant = nama deposito, keterangan "Bunga deposito ke-n · kotor Rp X, pajak Rp Y"), lalu pindah kantong deposito → induk sebesar pokok. Deposito `selesai`, saldo 0, dan **langsung hilang** dari Profil → Kantong, Beranda, dan pilihan kantong. Datanya tidak dihapus: transaksi bunga & pencairannya tetap menyebut namanya, dan riwayat periodenya tetap tersimpan.
   - **diperpanjang tanpa bunga** → pemasukan B ke induk; periode baru dengan pokok yang sama, mulai = jatuh tempo lama.

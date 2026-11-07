@@ -43,7 +43,7 @@ Satu lembar per rekening: "SeaBank …1234 · 1–30 Sep 2026 · 112 baris", lal
 - **n sudah tercatat** (cocok dengan transaksi yang sudah ada, §5) — tidak dibuat lagi;
 - **n pindah kantong** antar rekening sendiri (§6);
 - **bunga** (digabung, §4);
-- saldo akhir menurut bank vs menurut aplikasi sesudah impor, dengan tawaran menyamakan bila beda (§7).
+- saldo akhir menurut bank vs menurut aplikasi sesudah impor; bila beda tampil sebagai **peringatan** ("Saldo akhir tidak sama") dengan tawaran menyamakan tepat di bawahnya (§7, SPEC-perbaikan-uiux #4). Nominal minus ditulis "−Rp".
 Tombol **Impor** / **Batal**. Pratinjau tidak mengubah apa pun.
 
 ### 4. Menjadi transaksi
@@ -66,7 +66,7 @@ Tombol **Impor** / **Batal**. Pratinjau tidak mengubah apa pun.
 
 ### 5. Transaksi yang sudah tercatat sebelumnya
 
-Baris bank dianggap **sudah tercatat** bila ada transaksi di kantong yang sama dengan nominal sama, tanggal sama (±1 hari), dan belum tertaut baris bank lain. Transaksinya dipertahankan (isinya biasanya lebih lengkap), hanya ditautkan (`ref_bank` diisi). Kalau ada lebih dari satu kandidat, dipilih yang jamnya paling sesuai urutan rekening; yang ragu ditampilkan di pratinjau untuk dipilih.
+Baris bank dianggap **sudah tercatat** bila ada transaksi di kantong yang sama dengan nominal sama, tanggal sama (±1 hari), dan belum tertaut baris bank lain. Transaksinya dipertahankan (isinya biasanya lebih lengkap), hanya ditautkan (`ref_bank` diisi). Kalau ada lebih dari satu kandidat, dipilih yang jamnya paling sesuai urutan rekening; yang ragu ditampilkan di pratinjau untuk dipilih ("Mungkin sudah tercatat": daftar pilihan radio per baris bank — jam, merchant, lalu tanggal bila beda hari — plus "Bukan, catat sebagai baru").
 
 ### 6. Pindah kantong antar rekening sendiri
 
