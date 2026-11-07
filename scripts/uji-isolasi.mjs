@@ -113,6 +113,8 @@ try {
     cek(`${siapa} tidak melihat saldo kantong A`, !(saldo ?? []).some((k) => k.id === kantongA.id));
     const { error: tutup } = await sb.rpc("tutup_periode_deposito", { p_periode: perA.id, p_bunga: 1000, p_cair: true, p_keterangan: "x" });
     cek(`${siapa} tidak bisa mencairkan deposito A lewat tutup_periode_deposito`, Boolean(tutup));
+    const { error: urung } = await sb.rpc("urungkan_tutup_periode", { p_periode: perA.id });
+    cek(`${siapa} tidak bisa mengurungkan periode deposito A lewat urungkan_tutup_periode`, Boolean(urung));
     const { error: hapusSimpanan } = await sb.rpc("hapus_simpanan", { p_id: depoA });
     cek(`${siapa} tidak bisa menghapus simpanan A lewat hapus_simpanan`, Boolean(hapusSimpanan));
     const { error: buatDiA } = await sb.rpc("buat_simpanan", { p_kantong: { name: "Numpang", emoji: "🏦", induk_id: kantongA.id, macam_simpanan: "tabungan", saldo: 0 }, p_termasuk: false });
