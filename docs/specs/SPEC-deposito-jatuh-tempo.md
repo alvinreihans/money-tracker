@@ -1,6 +1,6 @@
 # Spec: Deposito jatuh tempo dari rekening koran
 
-Status: **diterapkan, belum dirilis** (K1–K4 usulan diterima user) · 7 November 2026 · branch `feat/deposito-jatuh-tempo` · lanjutan [SPEC-simpanan](SPEC-simpanan.md) §5 dan [SPEC-impor-rekening](SPEC-impor-rekening.md) §8 (butir "Belum diterapkan": deposito jatuh tempo)
+Status: **diterapkan · rilis 2.13.0** (K1–K4 usulan diterima user) · 7 November 2026 · branch `feat/deposito-jatuh-tempo` · lanjutan [SPEC-simpanan](SPEC-simpanan.md) §5 dan [SPEC-impor-rekening](SPEC-impor-rekening.md) §8 (butir "Belum diterapkan": deposito jatuh tempo)
 
 ## Masalah
 

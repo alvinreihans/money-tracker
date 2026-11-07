@@ -21,6 +21,8 @@ docs/specs/SPEC-catat-tuntas.md (fase 1 & 2 selesai di 2.4.0, fase 3 di 2.5.0, f
 
 ## [Unreleased]
 
+## [2.13.0] — 2026-11-07
+
 ### Ditambah
 - **Deposito jatuh tempo dicocokkan dengan rekening koran** (SPEC-deposito-jatuh-tempo). Bila rekening koran yang diimpor memuat bunga (dan pajak) atau pencairan deposito di sekitar tanggal jatuh temponya (± 3 hari), periode itu ditutup dengan angka bank: bunga bersih dicatat sekali, deposito diperpanjang atau cair menurut setelannya, dan kartu "Deposito jatuh tempo" di Beranda hilang. Pratinjau menyebutnya, mis. "Deposito Promo jatuh tempo 10 Okt 2026: bunga bersih Rp 32.877 (perkiraan Rp 32.877) · diperpanjang sampai 10 Nov 2026"; bila beda dengan perkiraan, tampil sebagai peringatan.
 - **Urungkan penutupan dari rekening koran** di detail deposito (Riwayat periode): bunganya dihapus dan periodenya kembali menunggu dicek.
