@@ -1341,8 +1341,9 @@ button.blok { background: var(--blok); }
   min-height: 36px; padding: 0 12px; border: 1px solid var(--garis); border-radius: 18px;
   background: var(--blok); color: var(--teks); font-size: 14px; cursor: pointer;
 }
-/* Tampak 36px, area sentuh 48px; di celah 8px antarbaris bertumpuk 4px (SPEC-perbaikan-uiux #8). */
-.pilihanJawab button::after { content: ""; position: absolute; inset: -6px 0; }
+/* Tampak 36px, area sentuh 44px (−5px dari kotak isi = 4px di luar garis tepi 1px): tepat mengisi
+   celah 8px antarbaris tanpa bertumpuk (SPEC-perbaikan-uiux #8). */
+.pilihanJawab button::after { content: ""; position: absolute; inset: -5px 0; }
 
 /* Kartu hasil: ringkasan transaksi yang barusan tersimpan + aksinya. */
 .kartuHasil { align-self: stretch; padding: 14px 16px 6px; border: 1px solid var(--garis); border-radius: 20px; background: var(--bg); }
@@ -1721,7 +1722,7 @@ button.blok { background: var(--blok); }
     border-radius: var(--radius-tombol);
     font-size: 16px;
     font-weight: 700;
-    /* Berlabel teks: putih di atas --tombol 4,9:1 (--fab cuma 3,8:1), SPEC-perbaikan-uiux #21. */
+    /* Berlabel teks: putih di atas --tombol 4,7:1 (--fab cuma 3,8:1), SPEC-perbaikan-uiux #21. */
     background: var(--tombol);
   }
 
