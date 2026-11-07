@@ -41,6 +41,8 @@ export interface PeriodeDeposito {
   bunga_diterima: number | string | null;
   dievaluasi_pada: string | null;
   dicairkan_awal: boolean;
+  /** Ditutup dari baris rekening koran (SPEC-deposito-jatuh-tempo), bukan evaluasi di aplikasi. */
+  dari_rekening?: boolean;
 }
 
 export const NAMA_PERPANJANGAN: Record<Perpanjangan, string> = {
@@ -171,6 +173,17 @@ export function hasilJatuhTempo(d: AturanDeposito & Pick<Deposito, "perpanjangan
 /** Periode yang menunggu dicek: jatuh tempo sudah sampai, belum dievaluasi. */
 export const menungguCek = (p: Pick<PeriodeDeposito, "jatuh_tempo" | "bunga_diterima" | "dicairkan_awal">, hariIni: string) =>
   p.bunga_diterima == null && !p.dicairkan_awal && p.jatuh_tempo <= hariIni;
+
+/**
+ * Periode yang ditutup dari rekening koran dan masih bisa diurungkan: periode
+ * tertutup terakhir, perpanjangannya (bila ada) belum dicek.
+ */
+export function urungRekening<P extends Pick<PeriodeDeposito, "ke" | "bunga_diterima" | "dicairkan_awal" | "dari_rekening">>(periode: P[]): P | null {
+  const tutup = periode.filter((p) => p.bunga_diterima != null || p.dicairkan_awal).sort((a, b) => b.ke - a.ke)[0];
+  if (!tutup?.dari_rekening) return null;
+  const sesudah = periode.filter((p) => p.ke > tutup.ke);
+  return sesudah.every((p) => p.ke === tutup.ke + 1 && p.bunga_diterima == null && !p.dicairkan_awal) ? tutup : null;
+}
 
 /** Periode yang sedang berjalan (terakhir dan belum ditutup). */
 export const periodeAktif = <P extends PeriodeDeposito>(periode: P[], depositoId: string): P | null =>

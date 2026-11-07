@@ -301,6 +301,56 @@ try {
   const { data: danaLepas } = await sb.from("user_accounts").select("induk_id").eq("id", dana.id).single();
   const { data: depoLama } = await sb.from("user_accounts").select("id").eq("id", depo.id);
   cek("SeaBank (hanya deposito selesai) bisa dihapus; tujuan di dalamnya jadi terpisah", !eHapusSea && danaLepas?.induk_id === null && depoLama?.length === 0, JSON.stringify({ e: eHapusSea?.message, danaLepas }));
+
+  // --- 12. K3 (SPEC-deposito-jatuh-tempo): penempatan yang sudah terimpor sebagai pengeluaran
+  //     "Fund Placement" (tanggal & nominal sama) diganti pindah kantong saat deposito
+  //     "Sudah termasuk" dibuat; snackbar "… diganti" dengan Urungkan.
+  const tglTaruh = geser(hariIni, -3);
+  const { data: fp, error: eFp } = await sb.from("transactions").insert({
+    user_id: uid, amount: 3000000, type: "expense", category: "other", merchant: "Fund Placement", transaction_date: tglTaruh,
+    kantong_id: bca.id, status: "confirmed", source: "statement", ref_bank: "sea:9999:uji-penempatan", perlu_dilengkapi: true,
+  }).select("id").single();
+  const bcaSebelumK3 = await saldo(bca.id);
+  await buka(`${base}/profil/kantong`, 6000);
+  const k3 = await langkah("K3 buat deposito", `${PILIH}
+    document.querySelector('button[aria-label="Tambah kantong"]').click(); await sampai(() => dialog()?.querySelector('input[placeholder="Nama"]')); await t(300);
+    seg('Simpanan').click(); await t(300);
+    isi(dialog().querySelector('input[placeholder="Nama"]'), 'Deposito Tiga');
+    await pilih(dialog(), 'induk_id', 'BCA');
+    seg('Deposito').click(); await t(300);
+    isi(dialog().querySelector('input[placeholder="Pokok (Rp)"]'), '3000000');
+    isi(dialog().querySelector('input[placeholder="Bunga per tahun (%)"]'), '5'); await t(200);
+    ${tekan("3 bln", "dialog()")}.click(); await t(300);
+    isi(dialog().querySelector('input[aria-label="Tanggal mulai"]'), '${tglTaruh}'); await t(300);
+    ${persis("Simpan")}.click(); await sampai(() => !dialog() && /diganti/.test(document.body.innerText), 20); await t(300);
+    const bar = [...document.querySelectorAll('[class*=snackbar]')].find((x) => /diganti/.test(x.innerText));
+    const tombol = bar?.querySelector('button');
+    return { teks: bar?.innerText.replace(/\\s+/g, ' '), aksi: tombol?.textContent.trim(), tinggi: Math.round(tombol?.getBoundingClientRect().height ?? 0) }`);
+  await foto("simpanan-4-k3-snackbar.png");
+  const { data: depoTiga } = await sb.from("user_accounts").select("id").eq("name", "Deposito Tiga").single();
+  const { data: fpAda } = await sb.from("transactions").select("id").eq("id", fp?.id ?? "");
+  const { data: tfTiga } = await sb.from("transactions").select("id, transaction_date, ref_bank").eq("type", "transfer").eq("kantong_tujuan_id", depoTiga?.id ?? "");
+  cek(
+    "K3: snackbar \"Pengeluaran Fund Placement … diganti …\" dengan Urungkan (≥ 44px)",
+    !eFp && /Pengeluaran Fund Placement .* Rp 3\.000\.000 diganti pindah kantong ke deposito ini\./.test(norm(k3?.teks)) && k3?.aksi === "Urungkan" && k3?.tinggi >= 44,
+    JSON.stringify({ k3, eFp: eFp?.message }),
+  );
+  cek(
+    "K3: pengeluaran dihapus; pindah kantong pembuatan bertanggal penempatan & berpengenal barisnya; saldo BCA & deposito benar",
+    fpAda?.length === 0 && tfTiga?.length === 1 && tfTiga[0].transaction_date === tglTaruh && tfTiga[0].ref_bank === "sea:9999:uji-penempatan" &&
+      (await saldo(bca.id)) === bcaSebelumK3 && (await saldo(depoTiga.id)) === 3000000,
+    JSON.stringify({ fpAda, tfTiga, bca: await saldo(bca.id), bcaSebelumK3 }),
+  );
+  const urungK3 = await langkah("K3 urungkan", `const bar = [...document.querySelectorAll('[class*=snackbar]')].find((x) => /diganti/.test(x.innerText));
+    bar.querySelector('button').click(); await sampai(() => /Fund Placement dikembalikan/.test(document.body.innerText), 20); await t(800); return 'ok'`);
+  const { data: fpKembali } = await sb.from("transactions").select("id, amount, merchant, ref_bank, transaction_date").eq("id", fp?.id ?? "");
+  const { data: tfKembali } = await sb.from("transactions").select("transaction_date, ref_bank").eq("id", tfTiga?.[0]?.id ?? "");
+  cek(
+    "K3 Urungkan: pengeluaran kembali (id & pengenal sama), pindah kantong kembali ke hari ini tanpa pengenal",
+    urungK3 === "ok" && fpKembali?.length === 1 && fpKembali[0].ref_bank === "sea:9999:uji-penempatan" && fpKembali[0].transaction_date === tglTaruh &&
+      tfKembali?.[0]?.transaction_date === hariIni && tfKembali[0].ref_bank === null && (await saldo(bca.id)) === bcaSebelumK3 - 3000000,
+    JSON.stringify({ fpKembali, tfKembali }),
+  );
 } catch (e) {
   console.log("GAGAL:", e.message);
   gagal++;

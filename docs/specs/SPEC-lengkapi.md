@@ -118,7 +118,6 @@ Hal yang tidak diatur spec, dipilih yang paling kecil dan sejalan dengannya:
 
 ## Belum diterapkan
 
-- UAT dengan data asli user (dijalankan user sendiri).
 - Kartu dengan beberapa kandidat menampilkan daftar perubahan untuk kandidat pertama saja.
 - Draft "sudah tercatat?" dari pasangan ragu tidak menyimpan sumber dana/e-wallet hasil bacanya: pilihan kandidat saat dibuka dari Belum selesai memakai kantong mana pun.
 - Bagikan di latar: tanpa ringkasan & Urungkan; cashback yang kantong e-wallet-nya belum ada tidak dicatat.

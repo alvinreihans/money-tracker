@@ -129,7 +129,7 @@ Dari `docs/uat/UAT-simpanan-2.11.0.md`; semua disetujui user untuk dibetulkan se
 
 ## Belum diterapkan
 
-- Bunga tabungan/pocket otomatis (keputusan user: belum; dicatat manual sebagai pemasukan).
+- ~~Bunga tabungan/pocket otomatis~~ — **tidak akan dibuat** (keputusan user 7 Nov 2026: takut perhitungannya salah); bunga dicatat manual sebagai pemasukan, atau ikut impor rekening koran.
 
 ## Keputusan saat implementasi
 

@@ -33,6 +33,7 @@ export async function POST(req: NextRequest) {
       belumDipetakan: rencana.belumDipetakan,
       kantongBaru: rencana.kantongBaru.map((k) => ({ kunci: k.kunci, name: k.name, kind: k.kind })),
       tawaranDeposito: rencana.tawaranDeposito,
+      tawaranJadikan: rencana.tawaranJadikan,
       ragu: rencana.ragu,
       ringkas: rencana.ringkas,
       // Pilihan jawaban "kantong yang mana?": kantong uang milik user.

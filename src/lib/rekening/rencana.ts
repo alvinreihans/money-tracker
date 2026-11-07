@@ -2,7 +2,20 @@ import { cocokkanKantong, normal } from "@/lib/kantong";
 import { namaRekening } from "@/lib/rekening/baca";
 import { NAMA_BANK, type Bank, type BarisBank, type DepositoBank, type HasilBaca, type RekeningBank } from "@/lib/rekening/jenis";
 import { empatAkhir, selisihHari, sen } from "@/lib/rekening/teks";
-import { hitungBunga, pajakBawaan, tambahBulan, tambahHari } from "@/lib/simpanan";
+import {
+  hitungBunga,
+  pajakBawaan,
+  patokanDeposito,
+  periodeDeposito,
+  tambahBulan,
+  tambahHari,
+  tglPanjang,
+  type Deposito,
+  type IsianPeriode,
+  type Perpanjangan,
+  type PeriodeDeposito,
+  type SatuanTenor,
+} from "@/lib/simpanan";
 import { ikutSaldo, saldoSejak, type SaldoSejak } from "@/lib/waktu";
 import { fmtIDR } from "@/lib/format";
 
@@ -44,6 +57,42 @@ export interface TransaksiLama {
   ref_bank_tujuan?: string | null;
   induk_id?: string | null;
   created_at?: string;
+  description?: string | null;
+  /** "statement" = dari rekening koran. */
+  source?: string | null;
+}
+
+/** Pengeluaran/pemasukan rekening koran yang ternyata pindah antar kantong sendiri (temuan UAT R2). */
+export interface UbahPindah {
+  id: string;
+  kantong_id: RujukanKantong;
+  kantong_tujuan_id: RujukanKantong;
+  ref_bank: string | null;
+  ref_bank_tujuan: string | null;
+  merchant: string;
+}
+
+/** Periode deposito yang sudah tersimpan (SPEC-deposito-jatuh-tempo). */
+export type PeriodeRencana = Pick<PeriodeDeposito, "id" | "ke" | "mulai" | "jatuh_tempo" | "pokok" | "bunga_kotor" | "pajak" | "bunga_bersih" | "bunga_diterima" | "dicairkan_awal"> & {
+  /** Transaksi yang dibuat saat periode ini ditutup (evaluasi atau rekening koran). */
+  transaksi_tutup?: string[] | null;
+};
+
+/** Deposito user beserta periodenya (yang selesai juga, untuk menautkan pencairannya). */
+export type DepositoRencana = Pick<Deposito, "kantong_id" | "bunga_persen" | "tenor" | "satuan_tenor" | "pajak_persen" | "pajak_otomatis" | "perpanjangan" | "selesai"> & {
+  name: string;
+  induk_id: string | null;
+  periode: PeriodeRencana[];
+};
+
+/** Isian "Jadikan deposito?" untuk kantong Jago bernama Deposito (K2). */
+export interface IsianJadikan {
+  tenor: number;
+  satuan_tenor: SatuanTenor;
+  bunga_persen: number;
+  perpanjangan: Perpanjangan;
+  /** Tanggal mulai bila baris Penempatan Dana tidak ada di rekening koran. */
+  mulai?: string;
 }
 
 /** Jawaban user di pratinjau. */
@@ -56,6 +105,8 @@ export interface Pilihan {
   deposito?: string[];
   /** Kunci rekening yang saldo awal kantongnya disamakan (K4). */
   samakan?: string[];
+  /** Kunci rekening kantong Jago → isian deposito (SPEC-deposito-jatuh-tempo K2). */
+  jadikan?: Record<string, IsianJadikan>;
 }
 
 export interface MasukanRencana {
@@ -69,6 +120,14 @@ export interface MasukanRencana {
   /** ref_bank / ref_bank_tujuan yang sudah tersimpan. */
   sudahAda: Set<string>;
   pilihan?: Pilihan;
+  /** Deposito & periodenya; tanpa ini jatuh tempo tidak dicocokkan. */
+  deposito?: DepositoRencana[];
+  /**
+   * Saldo tiap kantong sekarang (RPC saldo_kantong), untuk saldo akhir periode di
+   * pratinjau: `transaksi` hanya sejak sehari sebelum periode, yang lebih lama
+   * terhitung lewat angka ini (temuan UAT R1).
+   */
+  saldoSekarang?: Record<string, number>;
 }
 
 // ---------------------------------------------------------------- keluaran
@@ -137,6 +196,63 @@ export interface TawaranDeposito {
   didanai?: string | null;
 }
 
+/** Tawaran "Jadikan deposito?" untuk kantong Jago bernama Deposito (K2). */
+export interface TawaranJadikan {
+  /** Kunci rekening kantong Jago-nya. */
+  kunci: string;
+  kantong: RujukanKantong;
+  name: string;
+  /** Tanggal & nominal baris Penempatan Dana; null bila tidak ada di rekening koran ini. */
+  mulai: string | null;
+  pokok: number | null;
+  teks: string;
+  /** Isian yang sedang berlaku (diterima), atau null. */
+  isian: IsianJadikan | null;
+  galat: string | null;
+}
+
+/** Isian periode deposito baru (kunci = rujukan sementara sampai disimpan). */
+export type PeriodeBaru = Omit<IsianPeriode, "hari"> & { kunci: string };
+
+/** Periode yang belum dicek, ditutup dari baris rekening koran (§1). */
+export interface TutupRekening {
+  /** Id periode, atau kunci periode baru dari rencana yang sama. */
+  periode: string;
+  deposito: RujukanKantong;
+  /** Bunga bersih menurut bank. */
+  bunga: number;
+  cair: boolean;
+  /** Transaksi hasilnya (kunci TxBaru atau id transaksi lama) → transaksi_tutup. */
+  transaksi: string[];
+  /** Periode perpanjangan; null bila cair. */
+  baru: PeriodeBaru | null;
+}
+
+/** Periode yang sudah dievaluasi di aplikasi tapi bunganya beda dengan bank (K1). */
+export interface SesuaikanPeriode {
+  periode: string;
+  bunga: number;
+  /** Transaksi bunga hasil evaluasi, diubah ke nominal bank. */
+  transaksi: { id: string; amount: number; description: string } | null;
+  /** Transaksi bunga baru (evaluasi Rp 0, bank memberi bunga): kunci TxBaru. */
+  tambah: string | null;
+  /** Periode perpanjangan yang belum dicek: pokok & perkiraannya dihitung ulang. */
+  berikut: { id: string; pokok: number; bunga_kotor: number; pajak: number; bunga_bersih: number } | null;
+  /** Hasil evaluasi (bunga, pencairan) yang tanggal/jamnya diubah ke tanggal baris bank. */
+  tanggal?: { id: string; transaction_date: string; waktu: string | null }[];
+}
+
+/** Kantong Jago yang dijadikan deposito (K2). */
+export interface JadikanDeposito {
+  kantong_id: RujukanKantong;
+  bunga_persen: number;
+  tenor: number;
+  satuan_tenor: SatuanTenor;
+  pajak_persen: number;
+  perpanjangan: Perpanjangan;
+  periode: PeriodeBaru;
+}
+
 export interface Ragu {
   ref: string;
   rekening: string;
@@ -174,6 +290,10 @@ export interface RingkasRekening {
   saldoAplikasi: number | null;
   /** Tawaran K4 bila beda. */
   samakan: { saldo_awal: number; saldo_sejak: string; teks: string } | null;
+  /** Transaksi di kantong lain yang diubah jadi pindah kantong dengan rekening ini (R2): "2 transaksi di Jago …". */
+  diubahPindah: { nama: string; n: number }[];
+  /** Deposito yang jatuh tempo di rekening koran ini; `peringatan` = bunga beda dengan perkiraan/isian. */
+  deposito: { teks: string; peringatan: boolean; judul?: string }[];
 }
 
 export interface Rencana {
@@ -191,6 +311,14 @@ export interface Rencana {
   perbarui: { id: string; amount: number; description: string }[];
   /** Pengeluaran penempatan deposito dari impor sebelumnya → pindah kantong ke depositonya. */
   jadiPindah: { id: string; kantong_tujuan_id: RujukanKantong; merchant: string }[];
+  /** Pengeluaran/pemasukan di kantong lain yang ternyata pindah kantong dengan rekening ini (R2). */
+  ubahPindah: UbahPindah[];
+  /** Pengeluaran penempatan yang sudah diganti pindah kantong pembuatan deposito (K3): dihapus. */
+  hapus: string[];
+  tawaranJadikan: TawaranJadikan[];
+  jadikan: JadikanDeposito[];
+  tutup: TutupRekening[];
+  sesuaikan: SesuaikanPeriode[];
   ragu: Ragu[];
   ringkas: {
     baris: number;
@@ -449,6 +577,8 @@ export function rencanakan(m: MasukanRencana): Rencana {
       saldoBank: urut.reduce((x, y) => (y.sampai >= x.sampai ? y : x)).saldoAkhir,
       saldoAplikasi: null,
       samakan: null,
+      diubahPindah: [],
+      deposito: [],
     });
   }
   for (const b of kerja) ringkas.get(b.kunciRek)!.baris++;
@@ -515,10 +645,245 @@ export function rencanakan(m: MasukanRencana): Rencana {
     }
   }
 
+  // 3b. Deposito jatuh tempo (SPEC-deposito-jatuh-tempo): satu kejadian = satu catatan.
+  const { milikDeposito, depositoKe, pencairanTutup, tutup, sesuaikan, jadikan, tawaranJadikan, daftarDeposito } = jatuhTempo();
+
+  function jatuhTempo() {
+    const JENDELA = 3; // K4: ± 3 hari (libur bank / akhir pekan)
+    const dekat = (b: BarisKerja, tgl: string) => Math.abs(selisihHari(b.tanggal, tgl)) <= JENDELA;
+    const jumlah = (d: BarisKerja[]) => sen(d.reduce((n, b) => n + b.nominal, 0));
+    const milikDeposito = new Set<BarisKerja>();
+    /** Pencairan yang dicatat bagian 5/7 sebagai pindah kantong: SeaBank diarahkan ke depositonya. */
+    const depositoKe = new Map<BarisKerja, RujukanKantong>();
+    /** Pencairan periode yang ditutup di sini: pindah kantongnya ikut transaksi_tutup. */
+    const pencairanTutup: { b: BarisKerja; t: TutupRekening }[] = [];
+    const tutup: TutupRekening[] = [];
+    const sesuaikan: SesuaikanPeriode[] = [];
+    const jadikan: JadikanDeposito[] = [];
+    const tawaranJadikan: TawaranJadikan[] = [];
+    type DepositoKerja = Omit<DepositoRencana, "kantong_id" | "induk_id"> & { kantong_id: RujukanKantong; induk_id: RujukanKantong | null };
+    const daftarDeposito: DepositoKerja[] = (m.deposito ?? []).map((d) => ({ ...d, periode: [...d.periode].sort((a, b) => a.ke - b.ke).map((p) => ({ ...p })) }));
+
+    // K2: kantong Jago bernama "Deposito" yang belum jadi deposito → "Jadikan deposito?".
+    for (const r of daftarRek) {
+      const c = r.contoh;
+      const id = petaRek.get(r.kunci);
+      if (c.bank !== "jago" || c.utama || !/deposito/i.test(c.saku ?? "") || !id || daftarDeposito.some((d) => d.kantong_id === id)) continue;
+      const tempat = kerja
+        .filter((b) => b.kunciRek === r.kunci && b.nominal > 0 && /^Penempatan Dana/i.test(b.jenis ?? ""))
+        .sort((a, b) => a.tanggal.localeCompare(b.tanggal) || a.urut - b.urut)[0];
+      const awal = [...r.semua].sort((a, b) => a.dari.localeCompare(b.dari))[0];
+      const isian = pilihan.jadikan?.[r.kunci] ?? null;
+      const mulai = tempat?.tanggal ?? (isian?.mulai || null);
+      // Tanpa baris penempatan: pokoknya saldo kantong di awal rekening koran (penempatan sebelum periode ini).
+      const pokok = tempat ? tempat.nominal : mulai && mulai <= awal.dari && awal.saldoAwal > 0 ? awal.saldoAwal : null;
+      const galat = isian ? cekJadikan(isian, mulai, pokok) : null;
+      tawaranJadikan.push({ kunci: r.kunci, kantong: id, name: c.saku!, mulai: tempat?.tanggal ?? null, pokok: tempat?.nominal ?? null, teks: "Jadikan deposito?", isian, galat });
+      if (!isian || galat) continue;
+      const aturan = { bunga_persen: isian.bunga_persen, tenor: isian.tenor, satuan_tenor: isian.satuan_tenor, pajak_persen: pajakBawaan(pokok!), pajak_otomatis: true, perpanjangan: isian.perpanjangan };
+      const p1 = periodeDeposito(aturan, mulai!, pokok!);
+      const kunci = `periode:${r.kunci}:1`;
+      jadikan.push({ kantong_id: id, ...aturan, periode: { kunci, mulai: p1.mulai, jatuh_tempo: p1.jatuh_tempo, pokok: p1.pokok, bunga_kotor: p1.bunga_kotor, pajak: p1.pajak, bunga_bersih: p1.bunga_bersih } });
+      daftarDeposito.push({ kantong_id: id, name: namaKantong(id) ?? c.saku!, induk_id: indukJago, ...aturan, selesai: false, periode: [{ id: kunci, ke: 1, ...p1, bunga_diterima: null, dicairkan_awal: false, transaksi_tutup: null }] });
+    }
+
+    for (const d of daftarDeposito) {
+      // Jago: kantong deposito itu sendiri. SeaBank (longgar, perlu dicek ulang): rekening induknya.
+      const rek =
+        daftarRek.find((x) => x.contoh.bank === "jago" && !x.contoh.utama && petaRek.get(x.kunci) === d.kantong_id) ??
+        (d.induk_id ? daftarRek.find((x) => x.contoh.bank === "seabank" && petaRek.get(x.kunci) === d.induk_id) : undefined);
+      if (!rek) continue;
+      const jago = rek.contoh.bank === "jago";
+      const rr = ringkas.get(rek.kunci)!;
+      const induk = jago ? indukJago : d.induk_id;
+      const patokan = patokanDeposito(d.periode);
+      for (let i = 0; i < d.periode.length; i++) {
+        const p = d.periode[i];
+        if (p.dicairkan_awal) break;
+        const terbuka = p.bunga_diterima == null;
+        // Hanya periode terakhir yang bisa ditutup.
+        if (terbuka && i !== d.periode.length - 1) break;
+        const baris = kerja.filter((b) => b.kunciRek === rek.kunci && !milikDeposito.has(b) && dekat(b, p.jatuh_tempo));
+        const pokok = Number(p.pokok);
+        let bunga: BarisKerja[];
+        let pajak: BarisKerja[];
+        let cair: BarisKerja | null;
+        if (jago) {
+          bunga = baris.filter((b) => b.gol === "bunga" && b.nominal > 0);
+          pajak = baris.filter((b) => b.gol === "pajak" && b.nominal < 0);
+          // Belum ada contoh pencairan Jago: "Pencairan Dana …" keluar dari kantong deposito.
+          cair = baris.find((b) => b.gol === "antarJago" && b.nominal < 0 && /^Pencairan Dana/i.test(b.jenis ?? "")) ?? null;
+        } else {
+          // Bunga tabungan ("Savings Interest") bukan milik deposito.
+          const bukanTabungan = (b: BarisKerja) => !/savings/i.test(`${b.uraian} ${b.pihak?.nama ?? ""}`);
+          bunga = baris.filter((b) => b.gol === "bunga" && b.nominal > 0 && bukanTabungan(b));
+          pajak = baris.filter((b) => b.gol === "pajak" && b.nominal < 0 && bukanTabungan(b));
+          const kira = pokok + (bunga.length ? 0 : Number(p.bunga_bersih));
+          cair =
+            baris
+              .filter((b) => b.gol === "deposito" && b.nominal > 0 && b.nominal >= pokok - 0.005)
+              .sort((a, b) => Math.abs(a.nominal - kira) - Math.abs(b.nominal - kira))[0] ?? null;
+        }
+        // Bunga terpisah, atau (SeaBank) digabung ke pencairan: bersih = masuk − pokok.
+        const gabung = !bunga.length && !jago && cair !== null;
+        if (!bunga.length && !gabung) break;
+        if (!cair && d.perpanjangan === "sekali") break;
+        const kotor = gabung ? sen(cair!.nominal - pokok) : jumlah(bunga);
+        const potong = gabung ? 0 : -jumlah(pajak);
+        const bersih = sen(kotor - potong);
+        if (bersih < 0) break;
+        const ref = gabung ? `${cair!.ref}:bunga` : bunga[0].ref;
+        const contoh = gabung ? cair! : bunga[0];
+        // Bunga masuk ke tempat barisnya: kantong deposito (Jago, atau digabung ke pencairan), atau induk (SeaBank terpisah).
+        const ke: RujukanKantong = jago || gabung ? d.kantong_id : induk!;
+        const keterangan = `Bunga deposito ke-${p.ke}${gabung ? "" : ` · kotor ${fmtIDR(kotor)}, pajak ${fmtIDR(potong)}`} · dari rekening koran`;
+        const semua = [...bunga, ...pajak];
+        // "Deposito Uji jatuh tempo …"; nama yang sudah menyebut deposito tidak diulang.
+        const judul = `${/deposito/i.test(d.name) ? d.name : `Deposito ${d.name}`} jatuh tempo ${tglPanjang(p.jatuh_tempo)}`;
+        const transaksiBunga = (): TxBaru => {
+          rr.baru++;
+          const t: TxBaru = {
+            kunci: kunciBaru(),
+            type: "income",
+            amount: bersih,
+            category: kat("income", "investment"),
+            merchant: d.name,
+            description: keterangan,
+            transaction_date: contoh.tanggal,
+            waktu: contoh.jam,
+            kantong_id: ke,
+            kantong_tujuan_id: null,
+            induk: null,
+            ref_bank: ref,
+            ref_bank_tujuan: null,
+            perlu_dilengkapi: false,
+            urut: urutDari(contoh),
+          };
+          sisip.push(t);
+          return t;
+        };
+        /** Perpanjangan dengan bunga: pokok periode berikutnya bertambah bunga yang masuk ke deposito. */
+        const pokokBerikut = (bungaMasuk: number) => sen(pokok + (d.perpanjangan === "pokok_bunga" && ke === d.kantong_id ? bungaMasuk : 0));
+
+        if (terbuka) {
+          // Baris yang sudah tersimpan di transaksi lain: biarkan seperti sebelumnya.
+          if ([...semua, cair].some((b) => b && m.sudahAda.has(b.ref))) break;
+          // Bulan yang bunganya sudah terimpor digabung ("Bunga <bulan>"): dipakai sebagai
+          // bunga deposito bila isinya hanya baris deposito ini; selain itu jangan ditutup.
+          let bulanan: (typeof lama)[number] | null = null;
+          let gagalBulan = false;
+          for (const ym of new Set(semua.map((b) => b.tanggal.slice(0, 7)))) {
+            const ada = lama.find((t) => t.ref_bank === `${rek.kunci}:bunga:${ym}`);
+            if (!ada) continue;
+            const isiBulan = kerja.filter((b) => b.kunciRek === rek.kunci && (b.gol === "bunga" || b.gol === "pajak") && b.tanggal.startsWith(ym));
+            if (bulanan || !isiBulan.every((b) => semua.includes(b))) gagalBulan = true;
+            bulanan = ada;
+          }
+          if (gagalBulan) break;
+          const t: TutupRekening = { periode: p.id, deposito: d.kantong_id, bunga: bersih, cair: Boolean(cair), transaksi: [], baru: null };
+          if (bulanan) {
+            pakaiAsal(bulanan, ref);
+            perbarui.push({ id: bulanan.id, amount: bersih, description: keterangan });
+            t.transaksi.push(bulanan.id);
+          } else if (bersih > 0) t.transaksi.push(transaksiBunga().kunci);
+          for (const b of semua) b.selesai = true;
+          if (cair) {
+            depositoKe.set(cair, d.kantong_id);
+            pencairanTutup.push({ b: cair, t });
+          } else {
+            const np = periodeDeposito(d, p.jatuh_tempo, pokokBerikut(bersih), patokan);
+            const kunci = `periode:${d.kantong_id}:${p.ke + 1}`;
+            t.baru = { kunci, mulai: np.mulai, jatuh_tempo: np.jatuh_tempo, pokok: np.pokok, bunga_kotor: np.bunga_kotor, pajak: np.pajak, bunga_bersih: np.bunga_bersih };
+            d.periode.push({ id: kunci, ke: p.ke + 1, ...np, bunga_diterima: null, dicairkan_awal: false, transaksi_tutup: null });
+          }
+          p.bunga_diterima = bersih;
+          tutup.push(t);
+          const lanjut = cair ? `${fmtIDR(cair.nominal)} kembali ke ${namaKantong(induk) ?? "induknya"}` : `diperpanjang sampai ${tglPanjang(t.baru!.jatuh_tempo)}`;
+          rr.deposito.push({
+            teks: `${judul}: bunga bersih ${fmtIDR(bersih)} (perkiraan ${fmtIDR(Number(p.bunga_bersih))}) · ${lanjut}`,
+            peringatan: Math.round(bersih) !== Math.round(Number(p.bunga_bersih)),
+            judul: "Bunga deposito beda dengan perkiraan",
+          });
+        } else {
+          // Sudah dievaluasi di aplikasi: baris bank ditautkan ke hasil evaluasinya.
+          const hasil = lama.filter((t) => p.transaksi_tutup?.includes(t.id));
+          const masuk = hasil.find((t) => t.type === "income") ?? null;
+          const pindah = hasil.find((t) => t.type === "transfer") ?? null;
+          const diterima = Number(p.bunga_diterima);
+          /** Hasil evaluasi yang tanggal/jamnya beda dengan baris bank: ikut bank, supaya saldo akhir periodenya sama. */
+          const tanggal: NonNullable<SesuaikanPeriode["tanggal"]> = [];
+          const ikutBank = (t: (typeof lama)[number], b: BarisKerja) => {
+            if (t.transaction_date === b.tanggal && (t.waktu ?? null)?.slice(0, 5) === (b.jam ?? null)?.slice(0, 5)) return;
+            tanggal.push({ id: t.id, transaction_date: b.tanggal, waktu: b.jam });
+            t.transaction_date = b.tanggal;
+            t.waktu = b.jam;
+          };
+          for (const b of semua) if (!b.selesai) tandaiTercatat(b);
+          // Pencairan yang sudah dicatat evaluasi (deposito selesai): ditautkan, bukan pindah kantong kedua.
+          if (cair && pindah && d.selesai && !cair.selesai) {
+            if (jago) {
+              const lawan = kerja.find((b) => !b.selesai && b.gol === "antarJago" && b.kunciRek !== rek.kunci && b.nominal === -cair.nominal && b.tanggal === cair.tanggal && b.jam === cair.jam);
+              if (pindah.bebasAsal) pakaiAsal(pindah, cair.ref);
+              if (lawan && pindah.bebasTujuan) {
+                pakaiTujuan(pindah, lawan.ref);
+                tandaiTercatat(lawan);
+              }
+            } else if (pindah.bebasTujuan) pakaiTujuan(pindah, cair.ref);
+            tandaiTercatat(cair);
+            ikutBank(pindah, cair);
+          } else if (cair) depositoKe.set(cair, d.kantong_id);
+          if (!(masuk && masuk.ref_bank === ref)) {
+            if (masuk?.bebasAsal && !m.sudahAda.has(ref)) pakaiAsal(masuk, ref);
+            if (masuk) ikutBank(masuk, contoh);
+            const beda = Math.abs(diterima - bersih) >= 0.005;
+            let tambah: string | null = null;
+            if (!masuk && bersih > 0) tambah = transaksiBunga().kunci;
+            if (beda || tambah || tanggal.length) {
+              // K1: ikut angka (dan tanggal) bank.
+              const berikut = d.periode[i + 1];
+              let ubahBerikut: SesuaikanPeriode["berikut"] = null;
+              if (beda && berikut && berikut.bunga_diterima == null && !berikut.dicairkan_awal && d.perpanjangan === "pokok_bunga") {
+                const np = periodeDeposito(d, berikut.mulai, pokokBerikut(bersih), patokan);
+                ubahBerikut = { id: berikut.id, pokok: np.pokok, bunga_kotor: np.bunga_kotor, pajak: np.pajak, bunga_bersih: np.bunga_bersih };
+                Object.assign(berikut, ubahBerikut);
+              }
+              sesuaikan.push({
+                periode: p.id,
+                bunga: bersih,
+                transaksi: masuk && beda ? { id: masuk.id, amount: bersih, description: `${masuk.description || keterangan.replace(/ · dari rekening koran$/, "")} · disesuaikan dengan rekening koran`.slice(0, 300) } : null,
+                tambah,
+                berikut: ubahBerikut,
+                tanggal,
+              });
+              if (masuk && beda) {
+                masuk.amount = bersih;
+                masuk.n = bersih;
+              }
+              p.bunga_diterima = bersih;
+            }
+            rr.deposito.push(
+              beda
+                ? { teks: `${judul}: sudah dicek di aplikasi; bunga diubah dari ${fmtIDR(diterima)} jadi ${fmtIDR(bersih)} sesuai bank`, peringatan: true, judul: "Bunga deposito diubah sesuai bank" }
+                : { teks: `${judul}: sudah dicek di aplikasi, ditautkan ke rekening koran${tanggal.length ? `; tanggalnya ikut bank (${tglPanjang(contoh.tanggal)})` : ""}`, peringatan: false },
+            );
+          } else if (tanggal.length) sesuaikan.push({ periode: p.id, bunga: diterima, transaksi: null, tambah: null, berikut: null, tanggal });
+        }
+        for (const b of semua) milikDeposito.add(b);
+        if (cair) {
+          milikDeposito.add(cair);
+          break;
+        }
+      }
+    }
+    return { milikDeposito, depositoKe, pencairanTutup, tutup, sesuaikan, jadikan, tawaranJadikan, daftarDeposito };
+  }
+
   // 4. Bunga & pajak: digabung satu pemasukan bersih per bulan per rekening (K2).
   const bungaPerBulan = new Map<string, BarisKerja[]>();
   for (const b of kerja) {
     if (b.gol !== "bunga" && b.gol !== "pajak") continue;
+    // Milik deposito yang jatuh tempo (SPEC-deposito-jatuh-tempo §2): tidak ikut digabung.
+    if (milikDeposito.has(b)) continue;
     ringkas.get(b.kunciRek)!.barisBunga++;
     const k = `${b.kunciRek}|${b.tanggal.slice(0, 7)}`;
     bungaPerBulan.set(k, [...(bungaPerBulan.get(k) ?? []), b]);
@@ -706,6 +1071,28 @@ export function rencanakan(m: MasukanRencana): Rencana {
     const t = catatPindah(a, b, a.kantong!, b.kantong!, `Pindah ke ${namaKantong(b.kantong) ?? "kantong sendiri"}`);
     for (const [biaya, induk] of indukBiaya) if (induk === a && t) tempelBiaya(biaya, t);
   }
+  /**
+   * R2: pasangan baris `a` di kantong lawan `ke` yang tercatat sebagai pengeluaran (a uang
+   * masuk) / pemasukan (a uang keluar) dari rekening koran: nominal sama, ±1 hari, menit sama
+   * bila keduanya berjam (aturan pasangan §6); tanggal terdekat dulu.
+   */
+  const ubahPindah: UbahPindah[] = [];
+  const cariBiasa = (a: BarisKerja, ke: RujukanKantong) =>
+    lama
+      .filter(
+        (t) =>
+          t.type === (a.nominal > 0 ? "expense" : "income") &&
+          t.kantong_id === ke &&
+          !t.kantong_tujuan_id &&
+          !t.ref_bank_tujuan &&
+          !t.induk_id &&
+          (t.source == null || t.source === "statement") &&
+          !ubahPindah.some((x) => x.id === t.id) &&
+          Math.abs(t.n - Math.abs(a.nominal)) < 0.005 &&
+          Math.abs(selisihHari(t.transaction_date, a.tanggal)) <= 1 &&
+          (!a.jam || !t.waktu || menit(a.jam) === menit(t.waktu)),
+      )
+      .sort((x, y) => Math.abs(selisihHari(x.transaction_date, a.tanggal)) - Math.abs(selisihHari(y.transaction_date, a.tanggal)))[0];
   // Satu sisi: lawannya kantong sendiri yang belum diimpor.
   for (const a of calonPindah) {
     if (a.selesai || (a.rek.bank === "jago" && !a.rek.utama)) continue;
@@ -713,6 +1100,31 @@ export function rencanakan(m: MasukanRencana): Rencana {
     const pl = !lawan ? kantongPaylater(a) : null;
     const ke = lawan ?? pl?.id ?? null;
     if (!ke) continue;
+    // R2: rekening koran kantong lawan diimpor lebih dulu, saat kantong ini belum ada —
+    // pasangannya tercatat sebagai pengeluaran/pemasukan biasa. Transaksi itu diubah jadi
+    // pindah kantong (aturan pasangan §6), bukan pindah kantong baru di samping transaksi lama.
+    const biasa = lawan && !pl ? cariBiasa(a, ke) : undefined;
+    if (biasa) {
+      biasa.bebasAsal = false;
+      biasa.bebasTujuan = false;
+      const keluar = a.nominal < 0;
+      ubahPindah.push({
+        id: biasa.id,
+        kantong_id: keluar ? a.kantong! : ke,
+        kantong_tujuan_id: keluar ? ke : a.kantong!,
+        ref_bank: keluar ? a.ref : (biasa.ref_bank ?? null),
+        ref_bank_tujuan: keluar ? (biasa.ref_bank ?? null) : a.ref,
+        merchant: `${keluar ? "Pindah ke" : "Pindah dari"} ${namaKantong(ke)}`,
+      });
+      a.selesai = true;
+      const rr = ringkas.get(a.kunciRek)!;
+      rr.pindah++;
+      const nama = namaKantong(ke) ?? "kantong lain";
+      const ada = rr.diubahPindah.find((x) => x.nama === nama);
+      if (ada) ada.n++;
+      else rr.diubahPindah.push({ nama, n: 1 });
+      continue;
+    }
     const t =
       a.nominal < 0
         ? catatPindah(a, null, a.kantong!, ke, `${pl ? "Bayar" : "Pindah ke"} ${namaKantong(ke)}`)
@@ -791,6 +1203,7 @@ export function rencanakan(m: MasukanRencana): Rencana {
   // koran ini (mis. bulan penempatannya) tidak memuat tabel deposito.
   for (const k of kantong) {
     if (k.kind !== "simpanan" || k.macam_simpanan !== "deposito" || !k.induk_id) continue;
+    if (daftarDeposito.some((d) => d.kantong_id === k.id && d.selesai)) continue;
     const daftar = depositoKantong.get(k.induk_id) ?? [];
     if (!daftar.includes(k.id)) depositoKantong.set(k.induk_id, [...daftar, k.id]);
   }
@@ -810,7 +1223,8 @@ export function rencanakan(m: MasukanRencana): Rencana {
     const d = depositoBaru.find((x) => x.kunci === ke);
     if (d && (!d.didanai || tanggal < d.didanai)) d.didanai = tanggal;
   };
-  const namaDeposito = (ke: RujukanKantong) => namaKantong(ke) ?? depositoBaru.find((d) => d.kunci === ke)?.name ?? "deposito";
+  const namaDeposito = (ke: RujukanKantong) =>
+    namaKantong(ke) ?? depositoBaru.find((d) => d.kunci === ke)?.name ?? daftarDeposito.find((d) => d.kantong_id === ke)?.name ?? "deposito";
   for (const a of kerja) {
     if (a.selesai || a.gol !== "deposito") continue;
     // Deposito yang dibuat manual dengan "Sudah termasuk" (SPEC-simpanan): pindah
@@ -827,7 +1241,8 @@ export function rencanakan(m: MasukanRencana): Rencana {
         continue;
       }
     }
-    const ke = tujuanDeposito(a.kantong!, Math.abs(a.nominal));
+    // Pencairan deposito yang jatuh tempo (3b): ke deposito itu, bukan tebakan dari nominal.
+    const ke = depositoKe.get(a) ?? tujuanDeposito(a.kantong!, Math.abs(a.nominal));
     if (!ke) {
       a.gol = "lain";
       continue;
@@ -840,12 +1255,33 @@ export function rencanakan(m: MasukanRencana): Rencana {
   // Penempatan yang sudah terimpor sebagai pengeluaran (rekening koran bulan
   // penempatan diimpor sebelum ada depositonya): diubah jadi pindah kantong.
   const jadiPindah: Rencana["jadiPindah"] = [];
+  const hapus: string[] = [];
   for (const t of lama) {
     if (t.type !== "expense" || !t.kantong_id || !depositoKantong.has(t.kantong_id) || !t.ref_bank?.startsWith("sea:") || !/^Fund Placement$/i.test(t.merchant ?? "")) continue;
     const ke = tujuanDeposito(t.kantong_id, t.n);
     if (!ke) continue;
+    // K3: deposito dibuat "Sudah termasuk" dengan tanggal mulai & pokok yang sama →
+    // pindah kantong pembuatannya sudah mencatat penempatan ini; pengeluarannya dihapus
+    // dan pengenal barisnya pindah ke pindah kantong itu (impor ulang tetap tidak dobel).
+    const awal = daftarDeposito.find((d) => d.kantong_id === ke)?.periode.find((p) => p.ke === 1);
+    const buatan =
+      awal && awal.mulai === t.transaction_date && Math.abs(Number(awal.pokok) - t.n) < 0.005
+        ? lama.find((x) => x.type === "transfer" && x.kantong_id === t.kantong_id && x.kantong_tujuan_id === ke && Math.abs(x.n - t.n) < 0.005 && x.bebasAsal && !x.ref_bank)
+        : undefined;
+    if (buatan) {
+      hapus.push(t.id);
+      t.bebasAsal = false;
+      pakaiAsal(buatan, t.ref_bank);
+      continue;
+    }
     didanai(ke, t.transaction_date);
     jadiPindah.push({ id: t.id, kantong_tujuan_id: ke, merchant: `Pindah ke ${namaDeposito(ke)}` });
+  }
+  // Pencairan periode yang ditutup dari rekening koran: pindah kantong barunya ikut
+  // transaksi_tutup, supaya Urungkan mengembalikan saldo deposito juga.
+  for (const { b, t } of pencairanTutup) {
+    const tx = sisip.find((x) => x.type === "transfer" && (x.ref_bank === b.ref || x.ref_bank_tujuan === b.ref));
+    if (tx) t.transaksi.push(tx.kunci);
   }
 
   // 8. Baris lain: sudah tercatat (§5), atau transaksi baru menurut aturan kategori.
@@ -963,7 +1399,24 @@ export function rencanakan(m: MasukanRencana): Rencana {
     if (t.type === "expense") return t.kantong_id === id ? -n : 0;
     return (t.kantong_tujuan_id === id ? n : 0) - (t.kantong_id === id ? n : 0);
   };
-  const semuaTx = [...lama, ...sisip];
+  // Keadaan sesudah impor (R1): transaksi lama dengan perubahan rencana ini (dihapus,
+  // diubah jadi pindah kantong, bunga diperbarui) + transaksi baru.
+  const semuaTx = [
+    ...lama
+      .filter((t) => !hapus.includes(t.id))
+      .map((t) => {
+        const jp = jadiPindah.find((x) => x.id === t.id);
+        const up = ubahPindah.find((x) => x.id === t.id);
+        const pb = perbarui.find((x) => x.id === t.id);
+        return {
+          ...t,
+          ...(pb ? { amount: pb.amount } : {}),
+          ...(jp ? { type: "transfer", kantong_tujuan_id: jp.kantong_tujuan_id } : {}),
+          ...(up ? { type: "transfer", kantong_id: up.kantong_id, kantong_tujuan_id: up.kantong_tujuan_id } : {}),
+        };
+      }),
+    ...sisip,
+  ];
   for (const r of ringkas.values()) {
     if (!r.kantong) continue;
     const baru = kantongBaru.find((k) => k.kunci === r.kantong);
@@ -981,7 +1434,14 @@ export function rencanakan(m: MasukanRencana): Rencana {
     const sebelumAkhir = (t: { transaction_date: string; waktu?: string | null }) => t.transaction_date <= r.sampai;
     let saldo: number;
     if (sejak.tanggal <= akhir.tanggal) {
-      saldo = Number(k.saldo_awal ?? 0) + terkait.filter((t) => sebelumAkhir(t) && ikutSaldo(t, sejak)).reduce((n, t) => n + efek(t, r.kantong!), 0);
+      // R1: transaksi sebelum rentang yang dimuat (sejak sehari sebelum periode) tetap
+      // terhitung — dari saldo kantong sekarang dikurangi yang dimuat.
+      const id = r.kantong;
+      const sebelumnya =
+        m.saldoSekarang && id in m.saldoSekarang
+          ? m.saldoSekarang[id] - Number(k.saldo_awal ?? 0) - m.transaksi.filter((t) => ikutSaldo(t, sejak)).reduce((n, t) => n + efek(t, id), 0)
+          : 0;
+      saldo = Number(k.saldo_awal ?? 0) + sebelumnya + terkait.filter((t) => sebelumAkhir(t) && ikutSaldo(t, sejak)).reduce((n, t) => n + efek(t, r.kantong!), 0);
     } else {
       // Saldo kantong diisi sesudah periode: mundur dari saldo itu.
       saldo = Number(k.saldo_awal ?? 0) - terkait.filter((t) => !sebelumAkhir(t) && !ikutSaldo(t, sejak)).reduce((n, t) => n + efek(t, r.kantong!), 0);
@@ -1017,6 +1477,12 @@ export function rencanakan(m: MasukanRencana): Rencana {
     tautkan,
     perbarui,
     jadiPindah,
+    ubahPindah,
+    hapus,
+    tawaranJadikan,
+    jadikan,
+    tutup,
+    sesuaikan,
     ragu,
     ringkas: {
       baris: kerja.length,
@@ -1033,6 +1499,19 @@ export function rencanakan(m: MasukanRencana): Rencana {
       perKategori,
     },
   };
+}
+
+/** Isian "Jadikan deposito?" (K2): sama dengan batas form deposito (validasiDeposito). */
+function cekJadikan(i: IsianJadikan, mulai: string | null, pokok: number | null): string | null {
+  if (!(i.bunga_persen > 0)) return "Bunganya diisi dulu, mis. 4,5.";
+  if (i.bunga_persen > 25) return "Bunganya maksimal 25% per tahun.";
+  if (i.satuan_tenor !== "hari" && i.satuan_tenor !== "bulan") return "Pilih tenornya.";
+  if (!Number.isInteger(i.tenor) || i.tenor < 1) return "Tenornya minimal 1 hari.";
+  if (i.tenor > (i.satuan_tenor === "hari" ? 3660 : 120)) return "Tenornya kepanjangan, maksimal 10 tahun.";
+  if (!["sekali", "pokok", "pokok_bunga"].includes(i.perpanjangan)) return "Pilih perpanjangannya.";
+  if (!mulai || !/^\d{4}-\d{2}-\d{2}$/.test(mulai) || Number.isNaN(Date.parse(`${mulai}T00:00:00Z`))) return "Tanggal mulainya diisi dulu.";
+  if (!pokok || pokok <= 0) return "Pokoknya tidak terbaca: penempatannya tidak ada di rekening koran ini.";
+  return null;
 }
 
 const BULAN_PANJANG = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];

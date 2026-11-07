@@ -21,6 +21,22 @@ docs/specs/SPEC-catat-tuntas.md (fase 1 & 2 selesai di 2.4.0, fase 3 di 2.5.0, f
 
 ## [Unreleased]
 
+## [2.13.0] — 2026-11-07
+
+### Ditambah
+- **Deposito jatuh tempo dicocokkan dengan rekening koran** (SPEC-deposito-jatuh-tempo). Bila rekening koran yang diimpor memuat bunga (dan pajak) atau pencairan deposito di sekitar tanggal jatuh temponya (± 3 hari), periode itu ditutup dengan angka bank: bunga bersih dicatat sekali, deposito diperpanjang atau cair menurut setelannya, dan kartu "Deposito jatuh tempo" di Beranda hilang. Pratinjau menyebutnya, mis. "Deposito Promo jatuh tempo 10 Okt 2026: bunga bersih Rp 32.877 (perkiraan Rp 32.877) · diperpanjang sampai 10 Nov 2026"; bila beda dengan perkiraan, tampil sebagai peringatan.
+- **Urungkan penutupan dari rekening koran** di detail deposito (Riwayat periode): bunganya dihapus dan periodenya kembali menunggu dicek.
+- **"Jadikan deposito?"** untuk kantong Jago bernama Deposito saat impor: isi bunga, tenor, dan perpanjangannya (tanggal mulai & pokok dari baris Penempatan Dana); jatuh tempo di rekening koran yang sama langsung dicocokkan. Kalau tidak dicentang, kantongnya tetap tabungan seperti sebelumnya.
+
+### Diubah
+- **Deposito yang sudah dicek di aplikasi** lalu rekening korannya diimpor: baris bunga & pencairannya ditautkan ke hasil cek itu, tidak dicatat lagi. Bila bunga yang diisi beda dengan bank, nominalnya ikut bank (catatan "disesuaikan dengan rekening koran", peringatan "Bunga deposito diubah sesuai bank" di pratinjau), dan tanggalnya ikut tanggal di bank, supaya saldo akhir bulannya sama dengan bank.
+- **Membuat deposito "Sudah termasuk"** yang penempatannya sudah terimpor sebagai pengeluaran "Fund Placement" (tanggal & nominal sama): pengeluaran itu diganti pindah kantong ke deposito, dengan snackbar "… diganti" yang bisa diurungkan. Impor rekening koran berikutnya juga tidak lagi membuat pindah kantong kedua.
+
+### Diperbaiki
+- **Impor rekening koran: peringatan "Saldo akhir tidak sama" palsu.** Rekening koran bulan berikutnya yang diimpor sendiri tidak lagi memperingatkan (dan menawarkan "Samakan saldo awal") bila sesudah impor saldonya memang sama dengan bank; transaksi bulan-bulan sebelumnya kini ikut terhitung di pratinjau.
+- **Impor rekening koran: transfer antar rekening sendiri tidak lagi dobel** bila rekening koran keduanya diimpor belakangan. Transfer yang dulu tercatat sebagai pengeluaran/pemasukan biasa (karena kantong rekening lawannya belum ada) diubah jadi pindah kantong, dan pratinjau menyebutnya ("2 transaksi di Jago diubah jadi pindah kantong"). Transfer ke/dari orang lain tidak ikut diubah.
+- Jatuh tempo deposito tidak lagi tercatat dua kali (evaluasi di aplikasi + impor rekening koran): bunga & pajak deposito tidak ikut digabung ke bunga bulanan ("Bunga Okt 2026"), dan pencairan deposito SeaBank yang sudah dievaluasi tidak dicatat lagi sebagai pemasukan atau pindah kantong kedua.
+
 ## [2.12.0] — 2026-11-07
 
 ### Ditambah
