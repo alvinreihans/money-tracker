@@ -31,6 +31,8 @@ docs/specs/SPEC-catat-tuntas.md (fase 1 & 2 selesai di 2.4.0, fase 3 di 2.5.0, f
 - **Membuat deposito "Sudah termasuk"** yang penempatannya sudah terimpor sebagai pengeluaran "Fund Placement" (tanggal & nominal sama): pengeluaran itu diganti pindah kantong ke deposito, dengan snackbar "… diganti" yang bisa diurungkan. Impor rekening koran berikutnya juga tidak lagi membuat pindah kantong kedua.
 
 ### Diperbaiki
+- **Impor rekening koran: peringatan "Saldo akhir tidak sama" palsu.** Rekening koran bulan berikutnya yang diimpor sendiri tidak lagi memperingatkan (dan menawarkan "Samakan saldo awal") bila sesudah impor saldonya memang sama dengan bank; transaksi bulan-bulan sebelumnya kini ikut terhitung di pratinjau.
+- **Impor rekening koran: transfer antar rekening sendiri tidak lagi dobel** bila rekening koran keduanya diimpor belakangan. Transfer yang dulu tercatat sebagai pengeluaran/pemasukan biasa (karena kantong rekening lawannya belum ada) diubah jadi pindah kantong, dan pratinjau menyebutnya ("2 transaksi di Jago diubah jadi pindah kantong"). Transfer ke/dari orang lain tidak ikut diubah.
 - Jatuh tempo deposito tidak lagi tercatat dua kali (evaluasi di aplikasi + impor rekening koran): bunga & pajak deposito tidak ikut digabung ke bunga bulanan ("Bunga Okt 2026"), dan pencairan deposito SeaBank yang sudah dievaluasi tidak dicatat lagi sebagai pemasukan atau pindah kantong kedua.
 
 ## [2.12.0] — 2026-11-07
