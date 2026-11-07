@@ -2,11 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { FileText, Landmark, Plus } from "lucide-react";
-import { BarisPilih, Lembar, Pesan, Spinner } from "@/components/oneui";
+import { CalendarDays, FileText, Landmark, Percent, Plus } from "lucide-react";
+import { BarisPilih, Field, Lembar, Pesan, Spinner } from "@/components/oneui";
 import s from "@/components/ui.module.css";
 import { fmtIDR } from "@/lib/format";
-import type { Pilihan, Ragu, RingkasRekening, TawaranDeposito } from "@/lib/rekening/rencana";
+import type { IsianJadikan, Pilihan, Ragu, RingkasRekening, TawaranDeposito, TawaranJadikan } from "@/lib/rekening/rencana";
+import { bacaPersen, CHIP_TENOR, KET_PERPANJANGAN, NAMA_PERPANJANGAN, type Perpanjangan, type SatuanTenor } from "@/lib/simpanan";
 
 /**
  * Impor rekening koran (docs/specs/SPEC-impor-rekening.md): PDF dari Catat,
@@ -21,6 +22,7 @@ interface Pratinjau {
   belumDipetakan: { kunci: string; nama: string; bank: string; nomorAkhir: string; utama: boolean }[];
   kantongBaru: { kunci: string; name: string; kind: string }[];
   tawaranDeposito: TawaranDeposito[];
+  tawaranJadikan: TawaranJadikan[];
   ragu: Ragu[];
   pilihanKantong: { id: string; name: string; kind: string; emoji: string | null }[];
   bank: Record<string, string>;
@@ -97,8 +99,12 @@ export default function ImporRekening({ berkas, onClose, onSelesai }: { berkas: 
     setMengimpor(false);
     if (Array.isArray(d.galat)) return setGalat(d.galat as { nama: string; pesan: string }[]);
     if (!ok) return setGalat([{ pesan: typeof d.error === "string" ? d.error : "Rekening korannya gagal diimpor." }]);
-    const h = (d.hasil ?? {}) as { transaksi?: number; tautan?: number };
-    const bagian = [`${h.transaksi ?? 0} transaksi baru`, h.tautan ? `${h.tautan} ditautkan ke yang sudah tercatat` : null].filter(Boolean);
+    const h = (d.hasil ?? {}) as { transaksi?: number; tautan?: number; deposito?: number };
+    const bagian = [
+      `${h.transaksi ?? 0} transaksi baru`,
+      h.tautan ? `${h.tautan} ditautkan ke yang sudah tercatat` : null,
+      h.deposito ? `${h.deposito} jatuh tempo deposito dicocokkan` : null,
+    ].filter(Boolean);
     router.refresh();
     onSelesai(`Rekening koran diimpor: ${bagian.join(", ")}.`);
   }
@@ -157,6 +163,16 @@ export default function ImporRekening({ berkas, onClose, onSelesai }: { berkas: 
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         {tampil.map((r) => (
           <KartuRekening key={r.kunci} r={r} baru={data.kantongBaru.some((k) => k.kunci === r.kantong)} samakan={Boolean(pilihan.samakan?.includes(r.kunci))} onSamakan={(ya) => ubah({ samakan: ya ? [...(pilihan.samakan ?? []), r.kunci] : (pilihan.samakan ?? []).filter((k) => k !== r.kunci) })} />
+        ))}
+        {(data.tawaranJadikan ?? []).map((t) => (
+          <KartuJadikan
+            key={t.kunci}
+            t={t}
+            onTerapkan={(isian) => {
+              const lain = Object.fromEntries(Object.entries(pilihan.jadikan ?? {}).filter(([k]) => k !== t.kunci));
+              ubah({ jadikan: isian ? { ...lain, [t.kunci]: isian } : lain });
+            }}
+          />
         ))}
         {data.tawaranDeposito.map((d) => (
           <div key={d.kunci} className={s.blok}>
@@ -274,8 +290,24 @@ function KartuRekening({ r, baru, samakan, onSamakan }: { r: RingkasRekening; ba
             </li>
           )}
         </ul>
+        {/* Deposito jatuh tempo (SPEC-deposito-jatuh-tempo): yang sesuai perkiraan cukup satu baris. */}
+        {(r.deposito ?? [])
+          .filter((d) => !d.peringatan)
+          .map((d) => (
+            <span key={d.teks} className={s.redup} style={{ whiteSpace: "normal" }}>
+              {d.teks}
+            </span>
+          ))}
         {r.saldoAplikasi !== null && !beda && <span className={s.redup}>Saldo akhir menurut bank {rp(r.saldoBank)} · sama dengan aplikasi</span>}
       </div>
+      {/* Bunga beda dengan perkiraan/isian: peringatan (pola SPEC-perbaikan-uiux #3). */}
+      {(r.deposito ?? [])
+        .filter((d) => d.peringatan)
+        .map((d) => (
+          <Pesan key={d.teks} jenis="peringatan" judul="Bunga deposito beda dengan perkiraan">
+            {d.teks}
+          </Pesan>
+        ))}
       {/* Saldo yang tidak sama: peringatan, dengan tawaran menyamakannya tepat di bawahnya (#4). */}
       {r.saldoAplikasi !== null && beda && (
         <Pesan jenis="peringatan" judul="Saldo akhir tidak sama">
@@ -288,6 +320,92 @@ function KartuRekening({ r, baru, samakan, onSamakan }: { r: RingkasRekening; ba
             <span style={{ whiteSpace: "normal" }}>{r.samakan.teks}</span>
           </span>
         </BarisPilih>
+      )}
+    </section>
+  );
+}
+
+/**
+ * "Jadikan deposito?" untuk kantong Jago bernama Deposito (SPEC-deposito-jatuh-tempo
+ * K2): rekening koran Jago tidak memuat tenor & bunganya, jadi diisi di sini.
+ * Tanggal mulai & pokok dari baris Penempatan Dana. Tidak dicentang = tetap tabungan.
+ */
+function KartuJadikan({ t, onTerapkan }: { t: TawaranJadikan; onTerapkan: (isian: IsianJadikan | null) => void }) {
+  const [buka, setBuka] = useState(Boolean(t.isian));
+  const [bunga, setBunga] = useState(t.isian ? String(t.isian.bunga_persen).replace(".", ",") : "");
+  const [tenor, setTenor] = useState<{ tenor: number; satuan: SatuanTenor }>({ tenor: t.isian?.tenor ?? 1, satuan: t.isian?.satuan_tenor ?? "bulan" });
+  const [perpanjangan, setPerpanjangan] = useState<Perpanjangan>(t.isian?.perpanjangan ?? "pokok_bunga");
+  const [mulai, setMulai] = useState(t.isian?.mulai ?? "");
+  const terapkan = () =>
+    onTerapkan({ tenor: tenor.tenor, satuan_tenor: tenor.satuan, bunga_persen: bacaPersen(bunga) || 0, perpanjangan, ...(t.mulai ? {} : { mulai }) });
+  return (
+    <section className={s.blok} aria-label={t.teks}>
+      <BarisPilih
+        peran="checkbox"
+        dipilih={buka}
+        onClick={() => {
+          setBuka(!buka);
+          if (buka && t.isian) onTerapkan(null);
+        }}
+      >
+        <span className={s.barisEmoji} aria-hidden>
+          💰
+        </span>
+        <span className={s.barisTeks}>
+          <span style={{ whiteSpace: "normal" }}>{t.teks}</span>
+          <span className={s.redup} style={{ whiteSpace: "normal" }}>
+            {t.mulai ? `Penempatan ${teksPeriode(t.mulai, t.mulai)}${t.pokok ? ` · ${fmtIDR(t.pokok)}` : ""} · ` : ""}
+            Isi tenor & bunganya supaya jatuh temponya dicocokkan.
+          </span>
+        </span>
+      </BarisPilih>
+      {buka && (
+        <form
+          style={{ paddingBottom: 12 }}
+          onSubmit={(e) => {
+            e.preventDefault();
+            terapkan();
+          }}
+        >
+          <Field label="Bunga per tahun (%)" ikon={Percent} galat={t.isian ? t.galat : null}>
+            <input inputMode="decimal" value={bunga} onChange={(e) => setBunga(e.target.value)} placeholder="Bunga per tahun (%)" />
+          </Field>
+          <div className={`${s.chipsBungkus} ${s.sisipForm}`} role="group" aria-label="Tenor">
+            {CHIP_TENOR.map((c) => (
+              <button
+                key={c.label}
+                type="button"
+                className={s.chip}
+                aria-pressed={c.tenor === tenor.tenor && c.satuan === tenor.satuan}
+                onClick={() => setTenor({ tenor: c.tenor, satuan: c.satuan })}
+              >
+                {c.label}
+              </button>
+            ))}
+          </div>
+          {!t.mulai && (
+            <Field label="Tanggal mulai" ikon={CalendarDays}>
+              <input type="date" value={mulai} onChange={(e) => setMulai(e.target.value)} aria-label="Tanggal mulai" />
+            </Field>
+          )}
+          <div role="radiogroup" aria-label="Saat jatuh tempo">
+            {(Object.keys(NAMA_PERPANJANGAN) as Perpanjangan[]).map((id) => (
+              <BarisPilih key={id} peran="radio" dipilih={perpanjangan === id} onClick={() => setPerpanjangan(id)}>
+                <span className={s.barisTeks}>
+                  <span className={s.barisJudul}>{NAMA_PERPANJANGAN[id]}</span>
+                  <span className={s.redup} style={{ whiteSpace: "normal" }}>
+                    {KET_PERPANJANGAN[id]}
+                  </span>
+                </span>
+              </BarisPilih>
+            ))}
+          </div>
+          <div style={{ padding: "8px 20px 0" }}>
+            <button type="submit" className={s.tombol}>
+              {t.isian ? "Perbarui" : "Jadikan deposito"}
+            </button>
+          </div>
+        </form>
       )}
     </section>
   );

@@ -27,6 +27,7 @@ import {
   teksDeposito,
   teksPratinjau,
   teksSelisih,
+  urungRekening,
   validasiDeposito,
   type PeriodeDeposito,
 } from "../src/lib/simpanan.ts";
@@ -166,4 +167,15 @@ assert.equal((validasiDeposito({ ...isian, bunga: "" }) as { kolom: string }).ko
 assert.equal((validasiDeposito({ ...isian, bunga: "30" }) as { kolom: string }).kolom, "bunga");
 assert.equal((validasiDeposito({ ...isian, pajak: "120" }) as { kolom: string }).kolom, "pajak");
 
-console.log("✓ simpanan: isian deposito, jatuh tempo hari/bulan, bunga & pajak, perpanjangan, saldo gabungan, pilihan kantong, pajak otomatis per periode, saldo_kantong Tanya AI");
+// --- Periode yang ditutup dari rekening koran (SPEC-deposito-jatuh-tempo §4): bisa diurungkan
+// selama perpanjangannya belum dicek; yang dievaluasi di aplikasi tidak lewat sini.
+{
+  const per = (ke: number, dicek: boolean, dari_rekening = false) => ({ ke, bunga_diterima: dicek ? 1000 : null, dicairkan_awal: false, dari_rekening });
+  assert.equal(urungRekening([per(1, true, true), per(2, false)])?.ke, 1);
+  assert.equal(urungRekening([per(1, true, true)])?.ke, 1, "cair: tanpa perpanjangan");
+  assert.equal(urungRekening([per(1, true, false), per(2, false)]), null, "evaluasi di aplikasi");
+  assert.equal(urungRekening([per(1, true, true), per(2, true, false), per(3, false)]), null, "yang terakhir ditutup bukan dari rekening koran");
+  assert.equal(urungRekening([per(1, false)]), null);
+}
+
+console.log("✓ simpanan: isian deposito, jatuh tempo hari/bulan, bunga & pajak, perpanjangan, saldo gabungan, pilihan kantong, pajak otomatis per periode, saldo_kantong Tanya AI, urungkan penutupan dari rekening koran");

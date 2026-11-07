@@ -26,6 +26,7 @@ import {
   susunKantong,
   teksDeposito,
   teksPratinjau,
+  tglPanjang,
   validasiDeposito,
   type InfoDeposito,
   type MacamSimpanan,
@@ -198,9 +199,10 @@ export default function KantongView({
     setLoading(true);
     const db = createSupabaseBrowserClient();
     let err: { code?: string; message: string } | null = null;
+    let dibuat: string | null = null;
     if (!asal) {
       const p = d?.ok && aturan ? periodeDeposito(aturan, d.data.mulai, dasar.data.saldo_awal) : null;
-      ({ error: err } = await db.rpc("buat_simpanan", {
+      ({ data: dibuat, error: err } = await db.rpc("buat_simpanan", {
         p_kantong: { name: dasar.data.name, emoji: dasar.data.emoji, induk_id: i.induk_id, macam_simpanan: i.macam, saldo: dasar.data.saldo_awal },
         p_termasuk: i.termasuk === "ya",
         p_deposito: aturan,
@@ -227,6 +229,27 @@ export default function KantongView({
     setEdit(null);
     // Umpan balik sukses (SPEC-perbaikan-uiux #20).
     const jenis = i.macam === "deposito" ? "Deposito" : "Simpanan";
+    // Penempatan yang dulu terimpor sebagai pengeluaran "Fund Placement" (tanggal &
+    // nominal sama): diganti pindah kantong pembuatan ini, bisa diurungkan
+    // (SPEC-deposito-jatuh-tempo K3). Gagal/tidak ada → pesan biasa.
+    if (!asal && dibuat && i.macam === "deposito" && i.termasuk === "ya") {
+      const { data: salinan } = await db.rpc("ganti_penempatan", { p_deposito: dibuat });
+      const fp = (salinan as { pengeluaran?: { transaction_date: string; amount: number } } | null)?.pengeluaran;
+      if (fp) {
+        router.refresh();
+        return kabari(
+          `${jenis} “${dasar.data.name}” dibuat. Pengeluaran Fund Placement ${tglPanjang(fp.transaction_date)} ${fmtIDR(Number(fp.amount))} diganti pindah kantong ke deposito ini.`,
+          {
+            label: "Urungkan",
+            jalankan: async () => {
+              const { error: gagalUrung } = await db.rpc("urungkan_ganti_penempatan", { p: salinan });
+              kabari(gagalUrung ? `Gagal mengurungkan: ${dbErrorMessage(gagalUrung)}` : "Pengeluaran Fund Placement dikembalikan.");
+              router.refresh();
+            },
+          },
+        );
+      }
+    }
     kabari(asal ? `${jenis} “${dasar.data.name}” diubah.` : `${jenis} “${dasar.data.name}” dibuat di ${namaInduk(i.induk_id)}.`);
     router.refresh();
   }

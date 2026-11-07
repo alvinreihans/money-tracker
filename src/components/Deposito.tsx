@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Banknote, BadgeCheck, Pencil } from "lucide-react";
+import { Banknote, BadgeCheck, Pencil, Undo2 } from "lucide-react";
 import { Field, InputNominal, Lembar, Pesan, Spinner } from "@/components/oneui";
 import s from "@/components/ui.module.css";
 import { dbErrorMessage } from "@/lib/errors";
@@ -18,6 +18,7 @@ import {
   teksSelisih,
   tglPanjang,
   tglPendek,
+  urungRekening,
   type InfoDeposito,
   type PeriodeDeposito,
 } from "@/lib/simpanan";
@@ -261,6 +262,20 @@ export function DetailDeposito({ info, onUbah, onClose }: { info: InfoDeposito; 
     setHasil(t);
   });
   const riwayat = info.periode.filter((p) => p.bunga_diterima != null || p.dicairkan_awal).reverse();
+  // Ditutup dari rekening koran (SPEC-deposito-jatuh-tempo §4): bisa diurungkan di sini.
+  const urung = urungRekening(info.periode);
+  const router = useRouter();
+  const [mengurungkan, setMengurungkan] = useState(false);
+  const [galatUrung, setGalatUrung] = useState<string | null>(null);
+  async function urungkan(id: string) {
+    setMengurungkan(true);
+    setGalatUrung(null);
+    const { error } = await createSupabaseBrowserClient().rpc("urungkan_tutup_periode", { p_periode: id });
+    setMengurungkan(false);
+    if (error) return setGalatUrung(dbErrorMessage(error));
+    onClose();
+    router.refresh();
+  }
 
   return (
     <Lembar judul={info.name} sub={`${fmtIDR(info.saldo)} · di ${info.induk}`} daftar onClose={onClose}>
@@ -319,10 +334,29 @@ export function DetailDeposito({ info, onUbah, onClose }: { info: InfoDeposito; 
                       {p.dicairkan_awal
                         ? `Dicairkan sebelum jatuh tempo · bunga ${fmtIDR(Number(p.bunga_diterima ?? 0))}`
                         : `Perkiraan ${fmtIDR(Number(p.bunga_bersih))} · ${teksSelisih(Number(p.bunga_diterima), Number(p.bunga_bersih))}`}
+                      {p.dari_rekening ? " Dari rekening koran." : ""}
                     </span>
                   </span>
                 </div>
               ))}
+              {urung && (
+                <button type="button" className={s.baris} disabled={mengurungkan} onClick={() => void urungkan(urung.id)}>
+                  <span className={s.barisIkon} aria-hidden>
+                    <Undo2 size={20} />
+                  </span>
+                  <span className={s.barisTeks}>
+                    <span className={s.barisJudul}>{mengurungkan ? <Spinner /> : `Urungkan penutupan ke-${urung.ke} dari rekening koran`}</span>
+                    <span className={s.redup} style={{ whiteSpace: "normal" }}>
+                      Bunganya dihapus dan periodenya kembali menunggu dicek.
+                    </span>
+                  </span>
+                </button>
+              )}
+              {galatUrung && (
+                <div style={{ padding: "0 20px 16px" }}>
+                  <Pesan jenis="bahaya">{galatUrung}</Pesan>
+                </div>
+              )}
             </>
           )}
         </>
