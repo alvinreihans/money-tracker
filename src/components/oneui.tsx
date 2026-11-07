@@ -273,16 +273,31 @@ export function Lembar({
     };
     // Dialog non-modal tidak ditutup Esc oleh browser.
     const esc = (e: KeyboardEvent) => e.key === "Escape" && !d.matches(":modal") && tutup.current();
+    // Tombol/gestur kembali menutup lembar ini dulu, bukan halamannya (SPEC-perbaikan-uiux #12).
+    // Panel samping non-modal (layar lebar) bukan lembar: ia bertahan saat pindah
+    // halaman, dan tombol Kembali halaman tetap memindah halaman.
+    let lepas: (() => void) | null = null;
+    const daftar = () => {
+      const modal = !lebar?.matches;
+      if (modal && !lepas) lepas = daftarLembar(() => tutup.current());
+      else if (!modal && lepas) {
+        lepas();
+        lepas = null;
+      }
+    };
+    daftar();
+    const ubahLebar = () => {
+      buka();
+      daftar();
+    };
     d.addEventListener("cancel", batal);
     d.addEventListener("keydown", esc);
-    lebar?.addEventListener("change", buka);
-    // Tombol/gestur kembali menutup lembar ini dulu, bukan halamannya (SPEC-perbaikan-uiux #12).
-    const lepas = daftarLembar(() => tutup.current());
+    lebar?.addEventListener("change", ubahLebar);
     return () => {
       d.removeEventListener("cancel", batal);
       d.removeEventListener("keydown", esc);
-      lebar?.removeEventListener("change", buka);
-      lepas();
+      lebar?.removeEventListener("change", ubahLebar);
+      lepas?.();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
