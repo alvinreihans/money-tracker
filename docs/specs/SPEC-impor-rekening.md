@@ -121,6 +121,15 @@ Semua berkas sekaligus (kantong rekaan): 1.452 baris unik (129 baris dobel antar
 
 Deposito SeaBank: didanai baris penempatan, saldo = pokok; tanpa baris penempatan (berkas Oktober saja): uang baru, saldo = pokok; 0 penempatan tercatat sebagai pengeluaran.
 
+## Temuan UAT (7 Nov 2026, dari UAT SPEC-deposito-jatuh-tempo, data asli lokal)
+
+Disetujui user untuk diperbaiki sebelum rilis berikutnya ("oke perbaiki dulu").
+
+| # | Temuan | Diharapkan |
+|---|---|---|
+| R1 | Rekening koran beberapa bulan sudah diimpor, lalu bulan berikutnya diimpor sendiri: pratinjau menulis **"Saldo akhir tidak sama"** + tawaran **Samakan saldo awal** di 5 dari 7 kartu Jago, padahal sesudah impor saldonya sama dengan bank (pratinjau ulang berkas yang sama, 0 baris baru, tetap memperingatkan). Menerima Samakan merusak `saldo_awal`. | Saldo "menurut aplikasi" di pratinjau = saldo kantong di akhir periode berkas **sesudah** impor ini (transaksi yang sudah ada + yang akan dibuat/ditautkan/diubah), sama dengan yang terlihat sesudah impor. Peringatan & Samakan hanya muncul bila memang beda. |
+| R2 | Rekening A (Jago) diimpor saat kantong rekening B (SeaBank) belum ada: transfer A ↔ B tercatat sebagai pengeluaran/pemasukan biasa (Lainnya, Perlu dilengkapi). Lalu B diimpor: baris B dicatat sebagai **pindah kantong baru**, transaksi lama di A tetap → A dobel (UAT: meleset Rp 7.950.000 dari bank, 9 baris). | Pelengkap §6: saat rekening koran B diimpor, baris B yang cocok (aturan pasangan §6: nominal sama, ±1 hari, jam sama bila ada, ada tanda rekening sendiri) dengan transaksi rekening koran A yang tercatat sebagai pengeluaran/pemasukan biasa → transaksi A **diubah jadi pindah kantong** A ↔ B (pola `jadiPindah`, `ref_bank_tujuan` diisi baris B), tidak ada transaksi baru. Pratinjau B menyebutnya ("n transaksi di Jago diubah jadi pindah kantong"). Saldo A & B sama dengan bank sesudahnya, impor ulang 0 baru. |
+
 ## Keputusan saat implementasi
 
 Hal yang tidak diatur spec, dipilih yang paling kecil dan sejalan dengannya:
