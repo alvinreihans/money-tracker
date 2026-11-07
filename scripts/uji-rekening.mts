@@ -10,7 +10,8 @@
 import assert from "node:assert/strict";
 import { bacaRekening, cekSaldo } from "../src/lib/rekening/baca.ts";
 import { GalatRekening, PESAN_BANK_LAIN, type BarisPdf } from "../src/lib/rekening/jenis.ts";
-import { golongkan, rencanakan, ringkasRupiah, samaPemilik, type KantongRencana, type MasukanRencana, type TransaksiLama } from "../src/lib/rekening/rencana.ts";
+import { golongkan, rencanakan, ringkasRupiah, samaPemilik, type DepositoRencana, type KantongRencana, type MasukanRencana, type PeriodeRencana, type TransaksiLama } from "../src/lib/rekening/rencana.ts";
+import type { HasilBaca } from "../src/lib/rekening/jenis.ts";
 import { angkaID, angkaUS, susunBaris, tanggalTeks } from "../src/lib/rekening/teks.ts";
 import { pihakBri } from "../src/lib/rekening/bri.ts";
 import { bri as briContoh, Halaman, jagoBulanan, jagoRiwayat, seabank as seabankContoh, seabankBulan } from "./contoh-rekening.mjs";
@@ -392,6 +393,173 @@ for (const [nama, urutan] of [
   const r = impor(db, [agustus], SEKARANG);
   assert.equal(r.depositoBaru[0].didanai ?? null, null);
   assert.equal(saldoDb(db)["Deposito Uji"], 2_000_000);
+}
+
+// ------------------------------------------------------------ deposito jatuh tempo (SPEC-deposito-jatuh-tempo)
+
+{
+  type Baris = HasilBaca["rekening"][number]["baris"][number];
+  const bJ = (nomor: string, tanggal: string, jam: string, nominal: number, jenis: string, pihak: string, urut: number): Baris => ({
+    tanggal, jam, nominal, saldo: null, uraian: jenis, jenis, pihak: { nama: pihak, bank: "Jago", nomor: null }, catatan: null, ref: `jago:${nomor}:${tanggal}T${jam}:${nominal}`, urut,
+  });
+  const rekJ = (nomor: string, saku: string, utama: boolean, dari: string, sampai: string, saldoAwal: number, baris: Baris[]) => ({
+    bank: "jago" as const, nomorAkhir: nomor, saku, utama, dari, sampai, saldoAwal, saldoAkhir: saldoAwal + baris.reduce((n, b) => n + b.nominal, 0), baris,
+  });
+  const jago = (...rekening: ReturnType<typeof rekJ>[]): HasilBaca => ({ format: "jagoBulanan", bank: "jago", pemilik: "BUDI SANTOSO", rekening, deposito: [] });
+  const bS = (tanggal: string, nominal: number, jenis: string, pihak: string, urut: number): Baris => ({
+    tanggal, jam: null, nominal, saldo: null, uraian: pihak, jenis, pihak: { nama: pihak, bank: null, nomor: null }, catatan: null, ref: `sea:1234:${tanggal}:${nominal}:${urut}`, urut,
+  });
+  const seaOkt = (baris: Baris[]): HasilBaca => ({
+    format: "seabank", bank: "seabank", pemilik: "BUDI SANTOSO", deposito: [],
+    rekening: [{ bank: "seabank", nomorAkhir: "1234", saku: null, utama: true, dari: "2026-10-01", sampai: "2026-10-31", saldoAwal: 100_000, saldoAkhir: 100_000 + baris.reduce((n, b) => n + b.nominal, 0), baris }],
+  });
+
+  // Jago: kantong "Deposito" pokok Rp 10 jt, 5%, 30 hari, diperpanjang dengan bunga.
+  const KJ: KantongRencana[] = [
+    { id: "jago", name: "Jago", kind: "bank", nomor_akhir: "5678", saldo_awal: 500_000, saldo_per: "2026-10-01", saldo_sejak: "2026-10-01T00:00:00+07:00" },
+    { id: "depo", name: "Deposito", kind: "simpanan", induk_id: "jago", macam_simpanan: "deposito", nomor_akhir: "7001", saldo_awal: 10_000_000, saldo_per: "2026-10-01", saldo_sejak: "2026-10-01T00:00:00+07:00" },
+  ];
+  const P1: PeriodeRencana = { id: "p1", ke: 1, mulai: "2026-09-10", jatuh_tempo: "2026-10-10", pokok: 10_000_000, bunga_kotor: 41_096, pajak: 8_219, bunga_bersih: 32_877, bunga_diterima: null, dicairkan_awal: false, transaksi_tutup: null };
+  const DJ = (periode: PeriodeRencana[], ubah: Partial<DepositoRencana> = {}): DepositoRencana[] => [
+    { kantong_id: "depo", name: "Deposito", induk_id: "jago", bunga_persen: 5, tenor: 1, satuan_tenor: "bulan", pajak_persen: 20, pajak_otomatis: true, perpanjangan: "pokok_bunga", selesai: false, periode, ...ubah },
+  ];
+  const utamaOkt = rekJ("5678", "Kantong Utama", true, "2026-10-01", "2026-10-31", 500_000, [bJ("5678", "2026-10-31", "04:59", 100, "Bunga", "Bunga", 0), bJ("5678", "2026-10-31", "04:59", -20, "Pajak Bunga", "Pajak Bunga", 1)]);
+  const BUNGA = bJ("7001", "2026-10-11", "00:15", 41_096, "Bunga", "Bunga", 0); // sehari sesudah jatuh tempo: masih dalam ± 3 hari
+  const PAJAK = bJ("7001", "2026-10-11", "00:15", -8_219, "Pajak Bunga", "Pajak Bunga", 1);
+  const okt = jago(utamaOkt, rekJ("7001", "Deposito", false, "2026-10-01", "2026-10-31", 10_000_000, [BUNGA, PAJAK]));
+  const masukJ = (m: Partial<MasukanRencana>): MasukanRencana => ({ bacaan: [okt], kantong: KJ, transaksi: [], kategori: null, sudahAda: new Set(), ...m });
+
+  // Belum dievaluasi → ditutup dari rekening koran, periode baru pokok + bunga, tidak masuk "Bunga Okt".
+  const r = rencanakan(masukJ({ deposito: DJ([P1]) }));
+  assert.equal(r.tutup.length, 1);
+  const t = r.tutup[0];
+  const bunga = r.sisip.find((x) => x.ref_bank === BUNGA.ref)!;
+  assert.deepEqual([bunga.type, bunga.amount, bunga.kantong_id, bunga.category, bunga.merchant, bunga.transaction_date], ["income", 32_877, "depo", "investment", "Deposito", "2026-10-11"]);
+  assert.match(sp(bunga.description)!, /^Bunga deposito ke-1 · kotor Rp 41\.096, pajak Rp 8\.219 · dari rekening koran$/);
+  assert.deepEqual([t.periode, t.deposito, t.bunga, t.cair, t.transaksi], ["p1", "depo", 32_877, false, [bunga.kunci]]);
+  assert.deepEqual(t.baru, { kunci: "periode:depo:2", mulai: "2026-10-10", jatuh_tempo: "2026-11-10", pokok: 10_032_877, bunga_kotor: 42_605, pajak: 8_521, bunga_bersih: 34_084 });
+  assert.deepEqual(r.sisip.filter((x) => x.category === "investment").map((x) => [x.kantong_id, x.ref_bank]), [["depo", BUNGA.ref], ["jago", "jago:5678:bunga:2026-10"]], "bunga deposito tidak ikut Bunga Okt");
+  const kartu = r.rekening.find((x) => x.kunci === "jago:7001")!;
+  assert.deepEqual(kartu.deposito.map((d) => [sp(d.teks), d.peringatan]), [["Deposito Deposito jatuh tempo 10 Okt 2026: bunga bersih Rp 32.877 (perkiraan Rp 32.877) · diperpanjang sampai 10 Nov 2026", false]]);
+  assert.equal(kartu.saldoAplikasi, kartu.saldoBank);
+  assert.deepEqual([r.sesuaikan, r.tawaranJadikan, r.jadikan], [[], [], []]);
+
+  // Impor ulang sesudahnya: periodenya sudah ditutup dari rekening koran → 0 baru, tidak ditutup lagi.
+  const lama: TransaksiLama[] = r.sisip.map((x, i) => ({ ...x, id: `u${i}` }));
+  const idBunga = `u${r.sisip.indexOf(bunga)}`;
+  const tertutup = [{ ...P1, bunga_diterima: 32_877, transaksi_tutup: [idBunga] }, { id: "p2", ke: 2, ...t.baru!, bunga_diterima: null, dicairkan_awal: false }];
+  const sudahAda = new Set(r.sisip.flatMap((x) => [x.ref_bank, x.ref_bank_tujuan].filter((v): v is string => Boolean(v))));
+  const ulang = rencanakan(masukJ({ deposito: DJ(tertutup), transaksi: lama, sudahAda }));
+  assert.deepEqual([ulang.sisip.length, ulang.tutup.length, ulang.sesuaikan.length, ulang.tautkan.length, ulang.perbarui.length], [0, 0, 0, 0, 0]);
+  assert.equal(ulang.ringkas.tercatat, ulang.ringkas.baris);
+
+  // Sudah dievaluasi di aplikasi dengan angka yang sama → ditautkan, tanpa transaksi baru.
+  const evaluasi: TransaksiLama = { id: "ev1", amount: 32_877, type: "income", kantong_id: "depo", kantong_tujuan_id: null, transaction_date: "2026-10-12", merchant: "Deposito", description: "Bunga deposito ke-1 · kotor Rp 41.096, pajak Rp 8.219" };
+  const P2 = { id: "p2", ke: 2, mulai: "2026-10-10", jatuh_tempo: "2026-11-10", pokok: 10_032_877, bunga_kotor: 42_605, pajak: 8_521, bunga_bersih: 34_084, bunga_diterima: null, dicairkan_awal: false };
+  const dicek = rencanakan(masukJ({ deposito: DJ([{ ...P1, bunga_diterima: 32_877, transaksi_tutup: ["ev1"] }, P2]), transaksi: [evaluasi] }));
+  assert.deepEqual(dicek.tautkan, [{ id: "ev1", ref_bank: BUNGA.ref }]);
+  assert.equal(dicek.sisip.some((x) => x.kantong_id === "depo"), false, "tidak ada transaksi baru untuk deposito");
+  assert.deepEqual([dicek.tutup.length, dicek.sesuaikan.length], [0, 0]);
+  assert.deepEqual(dicek.rekening.find((x) => x.kunci === "jago:7001")!.deposito.map((d) => d.peringatan), [false]);
+  assert.equal(dicek.rekening.find((x) => x.kunci === "jago:7001")!.tercatat, 2);
+
+  // K1: isian user beda dengan bank → transaksi bunga ikut bank, perpanjangan dihitung ulang.
+  const k1 = rencanakan(masukJ({ deposito: DJ([{ ...P1, bunga_diterima: 30_000, transaksi_tutup: ["ev1"] }, { ...P2, pokok: 10_030_000 }]), transaksi: [{ ...evaluasi, amount: 30_000 }] }));
+  assert.deepEqual(k1.tautkan, [{ id: "ev1", ref_bank: BUNGA.ref }]);
+  assert.equal(k1.sesuaikan.length, 1);
+  const s1 = k1.sesuaikan[0];
+  assert.deepEqual([s1.periode, s1.bunga, s1.transaksi?.id, s1.transaksi?.amount, s1.tambah], ["p1", 32_877, "ev1", 32_877, null]);
+  assert.equal(sp(s1.transaksi?.description), "Bunga deposito ke-1 · kotor Rp 41.096, pajak Rp 8.219 · disesuaikan dengan rekening koran");
+  assert.deepEqual(s1.berikut, { id: "p2", pokok: 10_032_877, bunga_kotor: 42_605, pajak: 8_521, bunga_bersih: 34_084 });
+  assert.equal(k1.rekening.find((x) => x.kunci === "jago:7001")!.deposito[0].peringatan, true);
+
+  // Tidak ada baris yang dikenali (jatuh tempo di luar ± 3 hari) → periode tetap terbuka, bunga ikut bulanan.
+  const jauh = rencanakan(masukJ({ deposito: DJ([{ ...P1, jatuh_tempo: "2026-10-20" }]) }));
+  assert.deepEqual([jauh.tutup.length, jauh.sisip.some((x) => x.ref_bank === "jago:7001:bunga:2026-10")], [0, true]);
+  // Sekali saja tanpa baris pencairan: tidak ditutup otomatis.
+  assert.equal(rencanakan(masukJ({ deposito: DJ([P1], { perpanjangan: "sekali" }) })).tutup.length, 0);
+  // Tanpa data deposito: seperti sebelumnya.
+  const tanpa = rencanakan(masukJ({}));
+  assert.deepEqual([tanpa.tutup.length, tanpa.sisip.some((x) => x.ref_bank === "jago:7001:bunga:2026-10")], [0, true]);
+  // "Bunga Okt" kantong itu sudah terimpor sebelumnya (isinya hanya baris deposito): dipakai jadi bunga deposito.
+  const bulanan: TransaksiLama = { id: "bln", amount: 32_877, type: "income", kantong_id: "depo", kantong_tujuan_id: null, transaction_date: "2026-10-11", ref_bank: "jago:7001:bunga:2026-10" };
+  const pakai = rencanakan(masukJ({ deposito: DJ([P1]), transaksi: [bulanan] }));
+  assert.deepEqual([pakai.tutup[0].transaksi, pakai.sisip.some((x) => x.kantong_id === "depo"), pakai.tautkan], [["bln"], false, [{ id: "bln", ref_bank: BUNGA.ref }]]);
+
+  // K2: kantong Jago "Deposito" yang masih tabungan → "Jadikan deposito?" (mulai dari baris Penempatan Dana).
+  const KT: KantongRencana[] = [KJ[0], { ...KJ[1], macam_simpanan: "tabungan" }];
+  const tempat = bJ("7001", "2026-09-10", "09:00", 10_000_000, "Penempatan Dana Pokok", "Kantong Utama", 0);
+  const keluar = bJ("5678", "2026-09-10", "09:00", -10_000_000, "Penempatan Dana Pokok", "Deposito", 0);
+  const sep = jago(rekJ("5678", "Kantong Utama", true, "2026-09-01", "2026-09-30", 10_500_000, [keluar]), rekJ("7001", "Deposito", false, "2026-09-01", "2026-09-30", 0, [tempat]));
+  const tawar = rencanakan({ bacaan: [sep, okt], kantong: KT, transaksi: [], kategori: null, sudahAda: new Set() });
+  assert.deepEqual(tawar.tawaranJadikan.map((x) => [x.kunci, x.kantong, x.mulai, x.pokok, x.teks, x.isian, x.galat]), [["jago:7001", "depo", "2026-09-10", 10_000_000, "Jadikan Deposito deposito?", null, null]]);
+  assert.equal(tawar.tutup.length, 0, "ditolak: tetap tabungan");
+  assert.ok(tawar.sisip.some((x) => x.ref_bank === "jago:7001:bunga:2026-10"), "ditolak: bunganya ikut bulanan");
+  const isian = { tenor: 1, satuan_tenor: "bulan" as const, bunga_persen: 5, perpanjangan: "pokok_bunga" as const };
+  const jadi = rencanakan({ bacaan: [sep, okt], kantong: KT, transaksi: [], kategori: null, sudahAda: new Set(), pilihan: { jadikan: { "jago:7001": isian } } });
+  assert.deepEqual(jadi.jadikan, [{ kantong_id: "depo", bunga_persen: 5, tenor: 1, satuan_tenor: "bulan", pajak_persen: 20, pajak_otomatis: true, perpanjangan: "pokok_bunga", periode: { kunci: "periode:jago:7001:1", mulai: "2026-09-10", jatuh_tempo: "2026-10-10", pokok: 10_000_000, bunga_kotor: 41_096, pajak: 8_219, bunga_bersih: 32_877 } }]);
+  assert.deepEqual(jadi.tutup.map((x) => [x.periode, x.bunga, x.baru?.pokok]), [["periode:jago:7001:1", 32_877, 10_032_877]], "periode ke-1 langsung ditutup dari rekening koran");
+  assert.equal(jadi.sisip.some((x) => x.ref_bank === "jago:7001:bunga:2026-10"), false);
+  // Isian tidak lengkap → galat, tidak diterapkan.
+  const salah = rencanakan({ bacaan: [sep, okt], kantong: KT, transaksi: [], kategori: null, sudahAda: new Set(), pilihan: { jadikan: { "jago:7001": { ...isian, bunga_persen: 0 } } } });
+  assert.deepEqual([salah.tawaranJadikan[0].galat, salah.jadikan.length], ["Bunganya diisi dulu, mis. 4,5.", 0]);
+
+  // SeaBank cair (sintetis, perlu dicek ulang dengan rekening koran asli).
+  const KS: KantongRencana[] = [
+    { id: "sea", name: "SeaBank", kind: "bank", nomor_akhir: "1234", saldo_awal: 100_000, saldo_per: "2026-10-01", saldo_sejak: "2026-10-01T00:00:00+07:00" },
+    { id: "tds", name: "Deposito Uji", kind: "simpanan", induk_id: "sea", macam_simpanan: "deposito", saldo_awal: 2_000_000, saldo_per: "2026-07-06", saldo_sejak: "2026-07-06T00:00:00+07:00" },
+  ];
+  const PS: PeriodeRencana = { id: "ps1", ke: 1, mulai: "2026-07-06", jatuh_tempo: "2026-10-06", pokok: 2_000_000, bunga_kotor: 30_247, pajak: 0, bunga_bersih: 30_247, bunga_diterima: null, dicairkan_awal: false, transaksi_tutup: null };
+  const DS = (periode: PeriodeRencana[], selesai = false): DepositoRencana[] => [{ kantong_id: "tds", name: "Deposito Uji", induk_id: "sea", bunga_persen: 6, tenor: 3, satuan_tenor: "bulan", pajak_persen: 0, pajak_otomatis: true, perpanjangan: "sekali", selesai, periode }];
+  const tabungan = bS("2026-10-06", 15, "Interest", "Savings Interest", 1);
+  // Pokok + bunga digabung dalam satu baris pencairan.
+  const CAIR = bS("2026-10-07", 2_030_247, "Time Deposit", "Fund Withdrawal", 0);
+  const gabung = rencanakan({ bacaan: [seaOkt([CAIR, tabungan])], kantong: KS, transaksi: [], kategori: null, sudahAda: new Set(), deposito: DS([PS]) });
+  const bg = gabung.sisip.find((x) => x.ref_bank === `${CAIR.ref}:bunga`)!;
+  const pg = gabung.sisip.find((x) => x.ref_bank_tujuan === CAIR.ref)!;
+  assert.deepEqual([bg.type, bg.amount, bg.kantong_id], ["income", 30_247, "tds"]);
+  assert.deepEqual([pg.type, pg.amount, pg.kantong_id, pg.kantong_tujuan_id], ["transfer", 2_030_247, "tds", "sea"]);
+  assert.deepEqual(gabung.tutup.map((x) => [x.periode, x.bunga, x.cair, x.baru, x.transaksi]), [["ps1", 30_247, true, null, [bg.kunci, pg.kunci]]]);
+  assert.ok(gabung.sisip.some((x) => x.ref_bank === "seabank:1234:bunga:2026-10" && x.amount === 15), "bunga tabungan tetap bulanan");
+  assert.match(sp(gabung.rekening[0].deposito[0].teks)!, /: bunga bersih Rp 30\.247 \(perkiraan Rp 30\.247\) · Rp 2\.030\.247 kembali ke SeaBank$/);
+  // Impor ulang sesudahnya (deposito selesai, periode tertutup dari rekening koran): 0 baru.
+  {
+    const lama: TransaksiLama[] = gabung.sisip.map((x, i) => ({ ...x, id: `g${i}` }));
+    const ids = gabung.tutup[0].transaksi.map((k) => `g${gabung.sisip.findIndex((x) => x.kunci === k)}`);
+    const sudahAda = new Set(gabung.sisip.flatMap((x) => [x.ref_bank, x.ref_bank_tujuan].filter((v): v is string => Boolean(v))));
+    const ulang = rencanakan({ bacaan: [seaOkt([CAIR, tabungan])], kantong: KS, transaksi: lama, kategori: null, sudahAda, deposito: DS([{ ...PS, bunga_diterima: 30_247, transaksi_tutup: ids }], true) });
+    assert.deepEqual([ulang.sisip.length, ulang.tutup.length, ulang.sesuaikan.length, ulang.tautkan.length], [0, 0, 0, 0]);
+  }
+  // Pencairan pokok dengan bunga & pajak terpisah: bunga bersih ke SeaBank.
+  const pisah = rencanakan({
+    bacaan: [seaOkt([bS("2026-10-06", 2_000_000, "Time Deposit", "Fund Withdrawal", 0), bS("2026-10-06", 30_250, "Interest", "Time Deposit Interest", 1), bS("2026-10-06", -3, "Tax", "Time Deposit Tax", 2)])],
+    kantong: KS, transaksi: [], kategori: null, sudahAda: new Set(), deposito: DS([PS]),
+  });
+  const bp = pisah.sisip.find((x) => x.type === "income")!;
+  assert.deepEqual([bp.amount, bp.kantong_id, pisah.sisip.find((x) => x.type === "transfer")?.amount], [30_247, "sea", 2_000_000]);
+  assert.deepEqual([pisah.tutup[0].bunga, pisah.tutup[0].cair, pisah.tutup[0].transaksi.length], [30_247, true, 2]);
+  assert.equal(pisah.sisip.some((x) => x.ref_bank === "seabank:1234:bunga:2026-10"), false, "bunga deposito bukan bunga bulanan");
+  // Sudah dicairkan di aplikasi (deposito selesai): pencairan & bunga ditautkan, bukan pindah kantong kedua.
+  const hasilCair: TransaksiLama[] = [
+    { id: "eb", amount: 30_000, type: "income", kantong_id: "sea", kantong_tujuan_id: null, transaction_date: "2026-10-06", description: "Bunga deposito ke-1" },
+    { id: "ep", amount: 2_000_000, type: "transfer", kantong_id: "tds", kantong_tujuan_id: "sea", transaction_date: "2026-10-06" },
+  ];
+  const cairDulu = rencanakan({ bacaan: [seaOkt([CAIR])], kantong: KS, transaksi: hasilCair, kategori: null, sudahAda: new Set(), deposito: DS([{ ...PS, bunga_diterima: 30_000, transaksi_tutup: ["eb", "ep"] }], true) });
+  assert.deepEqual(cairDulu.sisip, []);
+  assert.deepEqual(cairDulu.tautkan, [{ id: "eb", ref_bank: `${CAIR.ref}:bunga` }, { id: "ep", ref_bank_tujuan: CAIR.ref }]);
+  assert.deepEqual(cairDulu.sesuaikan.map((x) => [x.bunga, x.transaksi?.amount, x.berikut]), [[30_247, 30_247, null]], "K1");
+  // Tanpa baris deposito di sekitar jatuh tempo → tetap terbuka.
+  assert.equal(rencanakan({ bacaan: [seaOkt([tabungan])], kantong: KS, transaksi: [], kategori: null, sudahAda: new Set(), deposito: DS([PS]) }).tutup.length, 0);
+
+  // K3 saat impor: deposito "Sudah termasuk" (pindah kantong pembuatan) + pengeluaran Fund Placement
+  // tanggal & nominal sama → pengeluarannya dihapus, pengenal barisnya pindah ke pindah kantong itu.
+  const fp: TransaksiLama = { id: "fp", amount: 2_000_000, type: "expense", merchant: "Fund Placement", kantong_id: "sea", kantong_tujuan_id: null, transaction_date: "2026-07-06", ref_bank: "sea:1234:2026-07-06:-2000000:500000" };
+  const buatan: TransaksiLama = { id: "bt", amount: 2_000_000, type: "transfer", kantong_id: "sea", kantong_tujuan_id: "tds", transaction_date: "2026-10-20" };
+  const k3 = rencanakan({ bacaan: [seaOkt([tabungan])], kantong: KS, transaksi: [fp, buatan], kategori: null, sudahAda: new Set([fp.ref_bank!]), deposito: DS([{ ...PS, jatuh_tempo: "2026-11-06" }]) });
+  assert.deepEqual([k3.hapus, k3.jadiPindah, k3.tautkan], [["fp"], [], [{ id: "bt", ref_bank: fp.ref_bank }]]);
+  // Tanggal beda dengan mulai deposito → seperti sebelumnya (jadi pindah kantong).
+  const k3b = rencanakan({ bacaan: [seaOkt([tabungan])], kantong: KS, transaksi: [{ ...fp, transaction_date: "2026-07-07" }, buatan], kategori: null, sudahAda: new Set([fp.ref_bank!]), deposito: DS([{ ...PS, jatuh_tempo: "2026-11-06" }]) });
+  assert.deepEqual([k3b.hapus, k3b.jadiPindah.map((x) => x.id)], [[], ["fp"]]);
 }
 
 console.log("uji:rekening lulus");

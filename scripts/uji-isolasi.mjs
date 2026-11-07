@@ -140,6 +140,26 @@ try {
       p: { kantong_baru: [{ kunci: "baru:x", name: "Pocket curian", emoji: "🐷", kind: "simpanan", induk_id: kantongA.id, macam_simpanan: "tabungan", saldo_awal: 0, nomor_akhir: "" }] },
     });
     cek(`${siapa} tidak bisa membuat simpanan di kantong A lewat impor_rekening`, Boolean(simpananDiA));
+    // Deposito jatuh tempo dari rekening koran (SPEC-deposito-jatuh-tempo).
+    const { error: tutupDariRek } = await sb.rpc("impor_rekening", { p: { tutup: [{ periode: perA.id, deposito: depoA, bunga: 1, cair: true, transaksi: [], baru: null }] } });
+    cek(`${siapa} tidak bisa menutup periode deposito A lewat impor_rekening`, Boolean(tutupDariRek));
+    const { error: sesuaikanA } = await sb.rpc("impor_rekening", { p: { sesuaikan: [{ periode: perA.id, bunga: 1, transaksi: { id: txA.id, amount: 1, description: "x" }, tambah: null, berikut: null }] } });
+    cek(`${siapa} tidak bisa mengubah bunga deposito A lewat impor_rekening`, Boolean(sesuaikanA));
+    const { error: jadikanA } = await sb.rpc("impor_rekening", {
+      p: { jadikan: [{ kantong_id: depoA, bunga_persen: 5, tenor: 1, satuan_tenor: "bulan", pajak_persen: 0, perpanjangan: "sekali", periode: { kunci: "periode:x", mulai: hariIni, jatuh_tempo: "2099-01-01", pokok: 1, bunga_kotor: 0, pajak: 0, bunga_bersih: 0 } }] },
+    });
+    cek(`${siapa} tidak bisa menjadikan kantong A deposito lewat impor_rekening`, Boolean(jadikanA));
+    await sb.rpc("impor_rekening", { p: { hapus: [txA.id] } });
+    const { data: ganti } = await sb.rpc("ganti_penempatan", { p_deposito: depoA });
+    cek(`${siapa} tidak bisa mengganti penempatan deposito A lewat ganti_penempatan`, !ganti, JSON.stringify(ganti));
+    const { error: urungGanti } = await sb.rpc("urungkan_ganti_penempatan", {
+      p: {
+        pengeluaran: { id: txA.id, user_id: A.id, amount: 1, type: "expense", category: "other", transaction_date: hariIni, kantong_id: kantongA.id, status: "confirmed", source: "statement" },
+        transfer: { id: txA.id, transaction_date: "2026-01-02", waktu: null },
+        kantong: { id: kantongA.id, saldo_per: "2026-01-01", saldo_sejak: "2026-01-01T00:00:00+07:00" },
+      },
+    });
+    cek(`${siapa} tidak bisa menimpa transaksi/kantong A lewat urungkan_ganti_penempatan`, Boolean(urungGanti));
     const { data: nomorDiubah } = await sb.from("user_accounts").update({ nomor_akhir: "8888" }).eq("id", kantongA.id).select("id");
     cek(`${siapa} tidak bisa mengubah nomor_akhir kantong A`, !(nomorDiubah ?? []).length);
   }
@@ -225,6 +245,7 @@ try {
     ["push_langganan", "id", pushA.id, (r) => r.endpoint === "https://contoh.invalid/a"],
     ["transactions", "id", txA.id, (r) => r.merchant === RAHASIA && Number(r.amount) === 75000 && r.ref_bank === "uji:ref-a" && !r.ref_bank_tujuan && r.perlu_dilengkapi === true],
     ["deposito", "kantong_id", depoA, (r) => r.selesai === false && Number(r.bunga_persen) === 4.5],
+    ["user_accounts", "id", depoA, (r) => r.macam_simpanan === "deposito"],
     ["deposito_periode", "deposito_id", depoA, (r) => r.id === perA.id && r.bunga_diterima === null],
   ]) {
     if (!(await utuh(tabel, kolom, nilai, cocok))) rusak.push(tabel);
@@ -243,6 +264,6 @@ try {
   console.log("✗ GAGAL:", e.message);
 } finally {
   for (const id of akun) await admin.auth.admin.deleteUser(id);
-  console.log(`\n${gagal ? `${gagal} cek gagal` : "✓ isolasi antar akun: baca, ubah, hapus, tulis atas nama orang lain, fungsi, dan kolom rujukan (termasuk simpanan, deposito & impor rekening koran)"} · akun uji dihapus`);
+  console.log(`\n${gagal ? `${gagal} cek gagal` : "✓ isolasi antar akun: baca, ubah, hapus, tulis atas nama orang lain, fungsi, dan kolom rujukan (termasuk simpanan, deposito, impor rekening koran & deposito jatuh tempo)"} · akun uji dihapus`);
   process.exit(gagal ? 1 : 0);
 }

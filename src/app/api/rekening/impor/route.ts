@@ -39,6 +39,11 @@ export async function POST(req: NextRequest) {
         tautkan: rencana.tautkan,
         perbarui: rencana.perbarui,
         jadi_pindah: rencana.jadiPindah,
+        // Deposito jatuh tempo (SPEC-deposito-jatuh-tempo).
+        hapus: rencana.hapus,
+        jadikan: rencana.jadikan,
+        tutup: rencana.tutup,
+        sesuaikan: rencana.sesuaikan,
       },
     });
     if (error) {
