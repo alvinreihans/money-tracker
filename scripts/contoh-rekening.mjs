@@ -104,6 +104,64 @@ export function jagoBulanan() {
   return [h1, h2];
 }
 
+/** "+10.000.000,00" / "-3.836,00" (rupiah bulat). */
+const nominalJago = (n, tanda = true) => `${tanda ? (n < 0 ? "-" : "+") : ""}${ribuan(Math.abs(Math.round(n)))},00`;
+
+/**
+ * Laporan bulanan Jago satu halaman dengan saldo dihitung sendiri (uji deposito
+ * jatuh tempo): `bulan` "October 2026", `kantong` [{ nama, id, awal, baris:
+ * [{ tgl: "12 Oct 2026", jam: "09.00", pihak, rincian, n }] }] — kantong
+ * pertama Kantong Utama (nomornya di kepala laporan).
+ */
+export function jagoBulan({ bulan, kantong }) {
+  const h = new Halaman();
+  h.baris(761, [315, "Laporan Keuangan Bulanan"], [415, bulan], [483, "Halaman 1 dari 1"]);
+  h.baris(702, [18, `BUDI SANTOSO / ${kantong[0].id}`]);
+  let y = 650;
+  let nomor = 0;
+  for (const k of kantong) {
+    const akhir = k.awal + k.baris.reduce((s, b) => s + b.n, 0);
+    bagianJago(h, y, k.nama, k.id, nominalJago(k.awal, false), nominalJago(akhir, false));
+    let saldo = k.awal;
+    k.baris.forEach((b, i) => {
+      saldo += b.n;
+      nomor++;
+      barisJago(h, y - 87 - i * 40, b.tgl, b.jam, [[101, b.pihak], [191, b.rincian], [420, nominalJago(b.n)], [502, nominalJago(saldo, false)]], [[[191, `ID# 261000-BBBB-${String(nomor).padStart(6, "0")}`]]]);
+    });
+    y -= 87 + k.baris.length * 40 + 20;
+  }
+  kakiJago(h);
+  return [h];
+}
+
+/**
+ * Oktober: Rp 10 jt ditempatkan ke kantong "Deposito" 12 Okt (5%, 14 hari),
+ * jatuh tempo 26 Okt diperpanjang pokok + bunga: Bunga & Pajak Bunga di
+ * kantong itu (bersih Rp 15.342), tanpa baris pencairan. Kantong Utama
+ * mulai & berakhir Rp 176.008 (lanjutan jagoBulanan September).
+ */
+export const jagoDepositoOkt = () =>
+  jagoBulan({
+    bulan: "October 2026",
+    kantong: [
+      {
+        nama: "Kantong Utama", id: "102000005678", awal: 176_008,
+        baris: [
+          { tgl: "01 Oct 2026", jam: "08.00", pihak: "ANI WIJAYA", rincian: "Transfer Masuk", n: 10_000_000 },
+          { tgl: "12 Oct 2026", jam: "09.00", pihak: "Deposito", rincian: "Penempatan Dana Pokok", n: -10_000_000 },
+        ],
+      },
+      {
+        nama: "Deposito", id: "115000007001", awal: 0,
+        baris: [
+          { tgl: "12 Oct 2026", jam: "09.00", pihak: "Kantong Utama", rincian: "Penempatan Dana Pokok", n: 10_000_000 },
+          { tgl: "26 Oct 2026", jam: "00.15", pihak: "Bunga", rincian: "Bunga", n: 19_178 },
+          { tgl: "26 Oct 2026", jam: "00.15", pihak: "Pajak Bunga", rincian: "Pajak Bunga", n: -3_836 },
+        ],
+      },
+    ],
+  });
+
 // ------------------------------------------------------------ Jago riwayat
 
 export function jagoRiwayat() {
