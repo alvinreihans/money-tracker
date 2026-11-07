@@ -7,6 +7,7 @@ import { Check, ChevronDown, ChevronLeft, ChevronUp, CircleCheck, CircleX, Info,
 import { LAYAR_LEBAR } from "@/components/navigasi";
 import s from "@/components/ui.module.css";
 import { angkaMentah, angkaRibuan } from "@/lib/format";
+import { daftarLembar } from "@/lib/riwayat-lembar";
 
 /**
  * Komponen dasar One UI. Samsung tidak merilis pustaka web untuk One UI,
@@ -196,6 +197,9 @@ export function KembaliKeAtas() {
  * `isian`: nilai form di dalamnya. Kalau sudah diubah sejak lembar dibuka,
  * menutup lewat jalan mana pun (kembali/×, Esc, ketuk di luar, Batal)
  * bertanya dulu "Buang perubahan?" — ketikan tidak hilang tanpa sengaja.
+ *
+ * Tombol kembali browser/HP menutup lembar paling atas lebih dulu: tiap
+ * lembar terbuka punya satu entri riwayat (lib/riwayat-lembar).
  */
 export function Lembar({
   judul,
@@ -272,10 +276,13 @@ export function Lembar({
     d.addEventListener("cancel", batal);
     d.addEventListener("keydown", esc);
     lebar?.addEventListener("change", buka);
+    // Tombol/gestur kembali menutup lembar ini dulu, bukan halamannya (SPEC-perbaikan-uiux #12).
+    const lepas = daftarLembar(() => tutup.current());
     return () => {
       d.removeEventListener("cancel", batal);
       d.removeEventListener("keydown", esc);
       lebar?.removeEventListener("change", buka);
+      lepas();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

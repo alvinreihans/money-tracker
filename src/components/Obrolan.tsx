@@ -40,6 +40,7 @@ import {
 import { alamatDetail, angkaMentah, angkaRibuan, fmtIDR, fmtTanggalPendek } from "@/lib/format";
 import { kantongDeposito } from "@/lib/kantong";
 import { namaKategori } from "@/lib/kategori";
+import { daftarLembar } from "@/lib/riwayat-lembar";
 import { UMUR_DRAFT_HARI } from "@/lib/notifikasi";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { Cicilan } from "@/lib/pinjaman";
@@ -633,7 +634,12 @@ export default function LembarCatat({
       kembaliRef.current();
     };
     d.addEventListener("cancel", batal);
-    return () => d.removeEventListener("cancel", batal);
+    // Tombol kembali browser/HP: satu langkah "kembali" lembar ini dulu (SPEC-perbaikan-uiux #12).
+    const lepas = daftarLembar(() => kembaliRef.current());
+    return () => {
+      d.removeEventListener("cancel", batal);
+      lepas();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
