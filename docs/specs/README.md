@@ -45,6 +45,7 @@ Bagian **Belum diterapkan** di akhir spec berisi rencana yang belum ada di kode.
 | [simpanan](SPEC-simpanan.md) | Simpanan (deposito & pocket) di dalam kantong, tujuan "disimpan di" | diterapkan, 2.11.0 |
 | [impor-rekening](SPEC-impor-rekening.md) | Impor rekening koran PDF SeaBank, Jago, BRI (parser per bank) | diterapkan, belum dirilis |
 | [lengkapi](SPEC-lengkapi.md) | Lengkapi transaksi dari screenshot & struk, unggah banyak gambar | diterapkan, belum dirilis |
+| [perbaikan-uiux](SPEC-perbaikan-uiux.md) | Perbaikan UI/UX layar baru (tinjauan ui-ux-pro-max), tombol kembali menutup lembar | disetujui |
 
 ## Spec baru
 
