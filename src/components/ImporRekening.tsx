@@ -304,7 +304,7 @@ function KartuRekening({ r, baru, samakan, onSamakan }: { r: RingkasRekening; ba
       {(r.deposito ?? [])
         .filter((d) => d.peringatan)
         .map((d) => (
-          <Pesan key={d.teks} jenis="peringatan" judul="Bunga deposito beda dengan perkiraan">
+          <Pesan key={d.teks} jenis="peringatan" judul={d.judul ?? "Bunga deposito beda dengan perkiraan"}>
             {d.teks}
           </Pesan>
         ))}
@@ -339,7 +339,7 @@ function KartuJadikan({ t, onTerapkan }: { t: TawaranJadikan; onTerapkan: (isian
   const terapkan = () =>
     onTerapkan({ tenor: tenor.tenor, satuan_tenor: tenor.satuan, bunga_persen: bacaPersen(bunga) || 0, perpanjangan, ...(t.mulai ? {} : { mulai }) });
   return (
-    <section className={s.blok} aria-label={t.teks}>
+    <section className={s.blok} aria-label={`${t.teks} Kantong Jago ${t.name}`}>
       <BarisPilih
         peran="checkbox"
         dipilih={buka}
@@ -354,7 +354,7 @@ function KartuJadikan({ t, onTerapkan }: { t: TawaranJadikan; onTerapkan: (isian
         <span className={s.barisTeks}>
           <span style={{ whiteSpace: "normal" }}>{t.teks}</span>
           <span className={s.redup} style={{ whiteSpace: "normal" }}>
-            {t.mulai ? `Penempatan ${teksPeriode(t.mulai, t.mulai)}${t.pokok ? ` · ${fmtIDR(t.pokok)}` : ""} · ` : ""}
+            Kantong Jago “{t.name}” · {t.mulai ? `penempatan ${teksPeriode(t.mulai, t.mulai)}${t.pokok ? ` ${fmtIDR(t.pokok)}` : ""} · ` : ""}
             Isi tenor & bunganya supaya jatuh temponya dicocokkan.
           </span>
         </span>

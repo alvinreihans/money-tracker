@@ -143,7 +143,7 @@ try {
     // Deposito jatuh tempo dari rekening koran (SPEC-deposito-jatuh-tempo).
     const { error: tutupDariRek } = await sb.rpc("impor_rekening", { p: { tutup: [{ periode: perA.id, deposito: depoA, bunga: 1, cair: true, transaksi: [], baru: null }] } });
     cek(`${siapa} tidak bisa menutup periode deposito A lewat impor_rekening`, Boolean(tutupDariRek));
-    const { error: sesuaikanA } = await sb.rpc("impor_rekening", { p: { sesuaikan: [{ periode: perA.id, bunga: 1, transaksi: { id: txA.id, amount: 1, description: "x" }, tambah: null, berikut: null }] } });
+    const { error: sesuaikanA } = await sb.rpc("impor_rekening", { p: { sesuaikan: [{ periode: perA.id, bunga: 1, transaksi: { id: txA.id, amount: 1, description: "x" }, tambah: null, berikut: null, tanggal: [{ id: txA.id, transaction_date: "2026-01-03", waktu: null }] }] } });
     cek(`${siapa} tidak bisa mengubah bunga deposito A lewat impor_rekening`, Boolean(sesuaikanA));
     const { error: jadikanA } = await sb.rpc("impor_rekening", {
       p: { jadikan: [{ kantong_id: depoA, bunga_persen: 5, tenor: 1, satuan_tenor: "bulan", pajak_persen: 0, perpanjangan: "sekali", periode: { kunci: "periode:x", mulai: hariIni, jatuh_tempo: "2099-01-01", pokok: 1, bunga_kotor: 0, pajak: 0, bunga_bersih: 0 } }] },

@@ -220,6 +220,8 @@ export interface SesuaikanPeriode {
   tambah: string | null;
   /** Periode perpanjangan yang belum dicek: pokok & perkiraannya dihitung ulang. */
   berikut: { id: string; pokok: number; bunga_kotor: number; pajak: number; bunga_bersih: number } | null;
+  /** Hasil evaluasi (bunga, pencairan) yang tanggal/jamnya diubah ke tanggal baris bank. */
+  tanggal?: { id: string; transaction_date: string; waktu: string | null }[];
 }
 
 /** Kantong Jago yang dijadikan deposito (K2). */
@@ -271,7 +273,7 @@ export interface RingkasRekening {
   /** Tawaran K4 bila beda. */
   samakan: { saldo_awal: number; saldo_sejak: string; teks: string } | null;
   /** Deposito yang jatuh tempo di rekening koran ini; `peringatan` = bunga beda dengan perkiraan/isian. */
-  deposito: { teks: string; peringatan: boolean }[];
+  deposito: { teks: string; peringatan: boolean; judul?: string }[];
 }
 
 export interface Rencana {
@@ -653,7 +655,7 @@ export function rencanakan(m: MasukanRencana): Rencana {
       // Tanpa baris penempatan: pokoknya saldo kantong di awal rekening koran (penempatan sebelum periode ini).
       const pokok = tempat ? tempat.nominal : mulai && mulai <= awal.dari && awal.saldoAwal > 0 ? awal.saldoAwal : null;
       const galat = isian ? cekJadikan(isian, mulai, pokok) : null;
-      tawaranJadikan.push({ kunci: r.kunci, kantong: id, name: c.saku!, mulai: tempat?.tanggal ?? null, pokok: tempat?.nominal ?? null, teks: `Jadikan ${c.saku} deposito?`, isian, galat });
+      tawaranJadikan.push({ kunci: r.kunci, kantong: id, name: c.saku!, mulai: tempat?.tanggal ?? null, pokok: tempat?.nominal ?? null, teks: "Jadikan deposito?", isian, galat });
       if (!isian || galat) continue;
       const aturan = { bunga_persen: isian.bunga_persen, tenor: isian.tenor, satuan_tenor: isian.satuan_tenor, pajak_persen: pajakBawaan(pokok!), pajak_otomatis: true, perpanjangan: isian.perpanjangan };
       const p1 = periodeDeposito(aturan, mulai!, pokok!);
@@ -713,7 +715,8 @@ export function rencanakan(m: MasukanRencana): Rencana {
         const ke: RujukanKantong = jago || gabung ? d.kantong_id : induk!;
         const keterangan = `Bunga deposito ke-${p.ke}${gabung ? "" : ` · kotor ${fmtIDR(kotor)}, pajak ${fmtIDR(potong)}`} · dari rekening koran`;
         const semua = [...bunga, ...pajak];
-        const judul = `Deposito ${d.name} jatuh tempo ${tglPanjang(p.jatuh_tempo)}`;
+        // "Deposito Uji jatuh tempo …"; nama yang sudah menyebut deposito tidak diulang.
+        const judul = `${/deposito/i.test(d.name) ? d.name : `Deposito ${d.name}`} jatuh tempo ${tglPanjang(p.jatuh_tempo)}`;
         const transaksiBunga = (): TxBaru => {
           rr.baru++;
           const t: TxBaru = {
@@ -776,6 +779,7 @@ export function rencanakan(m: MasukanRencana): Rencana {
           rr.deposito.push({
             teks: `${judul}: bunga bersih ${fmtIDR(bersih)} (perkiraan ${fmtIDR(Number(p.bunga_bersih))}) · ${lanjut}`,
             peringatan: Math.round(bersih) !== Math.round(Number(p.bunga_bersih)),
+            judul: "Bunga deposito beda dengan perkiraan",
           });
         } else {
           // Sudah dievaluasi di aplikasi: baris bank ditautkan ke hasil evaluasinya.
@@ -783,31 +787,14 @@ export function rencanakan(m: MasukanRencana): Rencana {
           const masuk = hasil.find((t) => t.type === "income") ?? null;
           const pindah = hasil.find((t) => t.type === "transfer") ?? null;
           const diterima = Number(p.bunga_diterima);
-          if (!(masuk && masuk.ref_bank === ref)) {
-            if (masuk?.bebasAsal && !m.sudahAda.has(ref)) pakaiAsal(masuk, ref);
-            const beda = Math.abs(diterima - bersih) >= 0.005;
-            let tambah: string | null = null;
-            if (!masuk && bersih > 0) tambah = transaksiBunga().kunci;
-            if (beda || tambah) {
-              // K1: ikut angka bank.
-              const berikut = d.periode[i + 1];
-              let ubahBerikut: SesuaikanPeriode["berikut"] = null;
-              if (berikut && berikut.bunga_diterima == null && !berikut.dicairkan_awal && d.perpanjangan === "pokok_bunga") {
-                const np = periodeDeposito(d, berikut.mulai, pokokBerikut(bersih), patokan);
-                ubahBerikut = { id: berikut.id, pokok: np.pokok, bunga_kotor: np.bunga_kotor, pajak: np.pajak, bunga_bersih: np.bunga_bersih };
-                Object.assign(berikut, ubahBerikut);
-              }
-              sesuaikan.push({
-                periode: p.id,
-                bunga: bersih,
-                transaksi: masuk && beda ? { id: masuk.id, amount: bersih, description: `${masuk.description || keterangan.replace(/ · dari rekening koran$/, "")} · disesuaikan dengan rekening koran`.slice(0, 300) } : null,
-                tambah,
-                berikut: ubahBerikut,
-              });
-              p.bunga_diterima = bersih;
-              rr.deposito.push({ teks: `${judul}: sudah dicek di aplikasi; bunga diubah dari ${fmtIDR(diterima)} jadi ${fmtIDR(bersih)} sesuai bank`, peringatan: true });
-            } else rr.deposito.push({ teks: `${judul}: sudah dicek di aplikasi, ditautkan ke rekening koran`, peringatan: false });
-          }
+          /** Hasil evaluasi yang tanggal/jamnya beda dengan baris bank: ikut bank, supaya saldo akhir periodenya sama. */
+          const tanggal: NonNullable<SesuaikanPeriode["tanggal"]> = [];
+          const ikutBank = (t: (typeof lama)[number], b: BarisKerja) => {
+            if (t.transaction_date === b.tanggal && (t.waktu ?? null)?.slice(0, 5) === (b.jam ?? null)?.slice(0, 5)) return;
+            tanggal.push({ id: t.id, transaction_date: b.tanggal, waktu: b.jam });
+            t.transaction_date = b.tanggal;
+            t.waktu = b.jam;
+          };
           for (const b of semua) if (!b.selesai) tandaiTercatat(b);
           // Pencairan yang sudah dicatat evaluasi (deposito selesai): ditautkan, bukan pindah kantong kedua.
           if (cair && pindah && d.selesai && !cair.selesai) {
@@ -820,7 +807,43 @@ export function rencanakan(m: MasukanRencana): Rencana {
               }
             } else if (pindah.bebasTujuan) pakaiTujuan(pindah, cair.ref);
             tandaiTercatat(cair);
+            ikutBank(pindah, cair);
           } else if (cair) depositoKe.set(cair, d.kantong_id);
+          if (!(masuk && masuk.ref_bank === ref)) {
+            if (masuk?.bebasAsal && !m.sudahAda.has(ref)) pakaiAsal(masuk, ref);
+            if (masuk) ikutBank(masuk, contoh);
+            const beda = Math.abs(diterima - bersih) >= 0.005;
+            let tambah: string | null = null;
+            if (!masuk && bersih > 0) tambah = transaksiBunga().kunci;
+            if (beda || tambah || tanggal.length) {
+              // K1: ikut angka (dan tanggal) bank.
+              const berikut = d.periode[i + 1];
+              let ubahBerikut: SesuaikanPeriode["berikut"] = null;
+              if (beda && berikut && berikut.bunga_diterima == null && !berikut.dicairkan_awal && d.perpanjangan === "pokok_bunga") {
+                const np = periodeDeposito(d, berikut.mulai, pokokBerikut(bersih), patokan);
+                ubahBerikut = { id: berikut.id, pokok: np.pokok, bunga_kotor: np.bunga_kotor, pajak: np.pajak, bunga_bersih: np.bunga_bersih };
+                Object.assign(berikut, ubahBerikut);
+              }
+              sesuaikan.push({
+                periode: p.id,
+                bunga: bersih,
+                transaksi: masuk && beda ? { id: masuk.id, amount: bersih, description: `${masuk.description || keterangan.replace(/ · dari rekening koran$/, "")} · disesuaikan dengan rekening koran`.slice(0, 300) } : null,
+                tambah,
+                berikut: ubahBerikut,
+                tanggal,
+              });
+              if (masuk && beda) {
+                masuk.amount = bersih;
+                masuk.n = bersih;
+              }
+              p.bunga_diterima = bersih;
+            }
+            rr.deposito.push(
+              beda
+                ? { teks: `${judul}: sudah dicek di aplikasi; bunga diubah dari ${fmtIDR(diterima)} jadi ${fmtIDR(bersih)} sesuai bank`, peringatan: true, judul: "Bunga deposito diubah sesuai bank" }
+                : { teks: `${judul}: sudah dicek di aplikasi, ditautkan ke rekening koran${tanggal.length ? `; tanggalnya ikut bank (${tglPanjang(contoh.tanggal)})` : ""}`, peringatan: false },
+            );
+          } else if (tanggal.length) sesuaikan.push({ periode: p.id, bunga: diterima, transaksi: null, tambah: null, berikut: null, tanggal });
         }
         for (const b of semua) milikDeposito.add(b);
         if (cair) {

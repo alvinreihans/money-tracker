@@ -345,7 +345,9 @@ export function DetailDeposito({ info, onUbah, onClose }: { info: InfoDeposito; 
                     <Undo2 size={20} />
                   </span>
                   <span className={s.barisTeks}>
-                    <span className={s.barisJudul}>{mengurungkan ? <Spinner /> : `Urungkan penutupan ke-${urung.ke} dari rekening koran`}</span>
+                    <span className={s.barisJudul} style={{ whiteSpace: "normal" }}>
+                      {mengurungkan ? <Spinner /> : `Urungkan penutupan ke-${urung.ke} dari rekening koran`}
+                    </span>
                     <span className={s.redup} style={{ whiteSpace: "normal" }}>
                       Bunganya dihapus dan periodenya kembali menunggu dicek.
                     </span>
