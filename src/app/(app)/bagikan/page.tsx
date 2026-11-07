@@ -3,22 +3,23 @@
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Memuat from "@/app/(app)/loading";
-import { useCatat } from "@/components/Catat";
+import { adalahPdf, useCatat } from "@/components/Catat";
 
 /**
  * Tujuan "Bagikan" dari aplikasi lain. Service worker (public/sw.js)
  * menangkap POST dari Android dan mengalihkan ke sini:
  *  - ?latar=<jumlah>: gambarnya sudah diunggah service worker di latar —
  *    cukup dikabari; yang belum lengkap nanti dikabari lewat push.
- *  - ?berkas=<jumlah>: gambar yang gagal diunggah di latar, disimpan di
- *    Cache Storage → masuk antrean struk di sini (dengan sesi halaman).
+ *  - ?berkas=<jumlah>: gambar yang gagal diunggah di latar, atau PDF
+ *    rekening koran, disimpan di Cache Storage → gambar masuk antrean struk,
+ *    PDF ke pratinjau impor rekening koran (SPEC-impor-rekening).
  *  - ?teks=…: mengisi kolom Catat tanpa langsung dikirim, supaya dicek dulu.
  * Setelah itu pindah ke Beranda — sheet-nya tetap terbuka karena Catat
  * hidup di kerangka aplikasi.
  */
 export default function BagikanPage() {
   const router = useRouter();
-  const { buka, tambahStruk, kabari } = useCatat();
+  const { buka, tambahStruk, tambahRekening, kabari } = useCatat();
   // Efek berjalan dua kali di mode dev (StrictMode); berkasnya cukup diambil sekali.
   const sudah = useRef(false);
 
@@ -47,11 +48,14 @@ export default function BagikanPage() {
       }
 
       router.replace("/");
-      if (berkas.length) tambahStruk(berkas);
-      else if (latar) kabari(`${latar} struk diproses di latar. Kalau ada yang kurang, nanti dikabari.`);
-      else buka(teks);
+      const pdf = berkas.filter(adalahPdf);
+      const gambar = berkas.filter((f) => !adalahPdf(f));
+      if (pdf.length) tambahRekening(pdf);
+      if (gambar.length) tambahStruk(gambar);
+      if (latar) kabari(`${latar} struk diproses di latar. Kalau ada yang kurang, nanti dikabari.`);
+      else if (!berkas.length) buka(teks);
     })();
-  }, [router, buka, tambahStruk, kabari]);
+  }, [router, buka, tambahStruk, tambahRekening, kabari]);
 
   return <Memuat />;
 }

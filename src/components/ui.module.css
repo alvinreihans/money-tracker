@@ -155,6 +155,8 @@
 .flatBahaya { color: var(--bahaya); }
 /* Tombol dialog konfirmasi ala My Files: putih, bukan biru. */
 .flatNetral { color: var(--teks); font-size: 17px; }
+/* Tombol flat di ujung baris daftar: selebar isinya, teks baris memakai sisanya. */
+.flatRingkas { flex: none; padding: 0 12px; }
 
 .dialogTombol:has(> .pilPemisah) { align-items: center; gap: 0; }
 
@@ -214,6 +216,9 @@
 }
 
 .segmen button[aria-pressed="true"] { background: var(--blok); color: var(--teks); font-weight: 600; }
+/* Tampak 40px, area sentuh 48px sampai tepi segmennya (SPEC-perbaikan-uiux #8). */
+.segmen button { position: relative; }
+.segmen button::after { content: ""; position: absolute; inset: -4px 0; }
 
 /* ---------- Focus block & daftar ---------- */
 
@@ -224,6 +229,8 @@
 }
 
 .blokIsi { padding: 20px; }
+/* Judul bagian di dalam focus block di lembar (h3 di bawah judul lembar, SPEC-perbaikan-uiux #17). */
+.judulBagian { margin: 0; padding: 20px 20px 4px; font-size: 16px; font-weight: 700; }
 
 .blokJudul { margin: 0; font-size: 24px; font-weight: 700; line-height: 1.2; }
 .blokSub { margin: 4px 0 0; color: var(--teks-2); font-size: 15px; }
@@ -402,6 +409,16 @@ button.blok { background: var(--blok); }
 }
 
 .lencanaBahaya { background: rgba(255, 95, 95, 0.16); color: var(--bahaya); }
+/* "Perlu dilengkapi" (SPEC-perbaikan-uiux #15): ikon + teks, latar peringatan
+   tipis — tetap berbentuk lencana di baris yang sedang dipilih (latar --blok-2). */
+.lencanaPeringatan {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  background: color-mix(in srgb, var(--peringatan) 16%, transparent);
+  color: var(--peringatan);
+}
 
 /* ---------- Statistik & kategori ---------- */
 
@@ -629,16 +646,17 @@ button.blok { background: var(--blok); }
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 8px 8px 8px 20px;
+  padding: 2px 4px 2px 20px;
   border-radius: var(--radius-tombol);
-  background: #2f2f2f;
+  /* Token, bukan warna keras: tombol aksi --primer di atasnya 4,9:1 (SPEC-perbaikan-uiux #5). */
+  background: var(--blok-2);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
 }
 
 .snackbar > span { flex: 1; min-width: 0; font-size: 15px; }
 
 .snackbar button {
-  min-height: 40px;
+  min-height: 48px;
   padding: 0 12px;
   border: 0;
   border-radius: 12px;
@@ -687,7 +705,12 @@ button.blok { background: var(--blok); }
 
 /* Ruang di bawah isi supaya baris terakhir tidak tertutup kapsul tombol. */
 .dialogBadan.dialogBadanPil,
-.dialogBadanDaftar.dialogBadanPil { padding-bottom: calc(100px + env(safe-area-inset-bottom)); }
+.dialogBadanDaftar.dialogBadanPil {
+  padding-bottom: calc(100px + env(safe-area-inset-bottom));
+  /* Elemen yang difokus/digulir ke pandangan berhenti di atas kapsul tombol,
+     tidak di belakangnya (SPEC-perbaikan-uiux #2). */
+  scroll-padding-bottom: calc(100px + env(safe-area-inset-bottom));
+}
 
 /* Fokus ke dialognya sendiri (dibuka dengan sentuhan): tanpa garis fokus. */
 .dialog:focus { outline: none; }
@@ -805,6 +828,10 @@ button.blok { background: var(--blok); }
 
 /* Kartu berisi isian: jarak atas-bawah supaya baris pertama & terakhir lega. */
 .blokForm { padding: 10px 0 14px; }
+/* Segmen, chip, dan pertanyaan di dalam blok form: jarak tepi sama dengan isian (SPEC-perbaikan-uiux #7). */
+.sisipForm { padding: 12px 20px 4px; }
+/* Judul baris boleh dua baris, lalu dipotong (nama simpanan di Profil → Kantong, #18). */
+.barisJudul.duaBaris { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 
 /* Tombol simpan/batal ala Kontak Samsung: kapsul melayang di tengah bawah,
    dua tombol teks dipisah garis tegak — senada dengan navigasi bawah. */
@@ -1310,15 +1337,26 @@ button.blok { background: var(--blok); }
 .statusObrolan { align-self: flex-start; display: flex; align-items: center; gap: 10px; padding: 4px 6px; color: var(--teks-2); font-size: 14px; }
 .pilihanJawab { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
 .pilihanJawab button {
+  position: relative;
   min-height: 36px; padding: 0 12px; border: 1px solid var(--garis); border-radius: 18px;
   background: var(--blok); color: var(--teks); font-size: 14px; cursor: pointer;
 }
+/* Tampak 36px, area sentuh 44px (−5px dari kotak isi = 4px di luar garis tepi 1px): tepat mengisi
+   celah 8px antarbaris tanpa bertumpuk (SPEC-perbaikan-uiux #8). */
+.pilihanJawab button::after { content: ""; position: absolute; inset: -5px 0; }
 
 /* Kartu hasil: ringkasan transaksi yang barusan tersimpan + aksinya. */
 .kartuHasil { align-self: stretch; padding: 14px 16px 6px; border: 1px solid var(--garis); border-radius: 20px; background: var(--bg); }
 .tersimpan { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; color: var(--sukses); font-size: 13px; font-weight: 600; }
+/* Judul kartu yang masih bertanya (belum ada yang disimpan): bukan warna sukses (#13). */
+.tersimpan.tanyaKartu { color: var(--primer); }
 .kartuHasil .baris { padding: 0; min-height: 0; }
+/* Pilihan (checkbox/radio) di kartu tetap setinggi baris pilihan: 48px, garis tidak menempel teks (#1). */
+.kartuHasil .baris.barisPilih { min-height: 48px; padding: 8px 0; }
+.kartuHasil .barisPilih + .barisPilih::before { left: 0; right: 0; }
 .aksiKartu { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; margin-top: 6px; }
+/* Hierarki aksi kartu Lengkapi (#9): utama berisi warna, lainnya flat. */
+.aksiKartu .tombol { min-height: 44px; padding: 0 20px; }
 .kartuBatal { opacity: 0.5; }
 .kartuBatal .tersimpan { color: var(--teks-2); }
 .kartuBatal .barisJudul, .kartuBatal .nominal { text-decoration: line-through; }
@@ -1684,6 +1722,8 @@ button.blok { background: var(--blok); }
     border-radius: var(--radius-tombol);
     font-size: 16px;
     font-weight: 700;
+    /* Berlabel teks: putih di atas --tombol 4,7:1 (--fab cuma 3,8:1), SPEC-perbaikan-uiux #21. */
+    background: var(--tombol);
   }
 
   .navCatatLabel { display: inline; }

@@ -18,10 +18,10 @@ import {
 } from "lucide-react";
 import CameraCapture from "@/components/CameraCapture";
 import { tandaTransaksi } from "@/components/kategori";
-import { Spinner } from "@/components/oneui";
+import { BarisPilih, Spinner } from "@/components/oneui";
 import PecahTransaksi, { bacaUsulan, ringkasUsulan } from "@/components/PecahTransaksi";
 import s from "@/components/ui.module.css";
-import { useCatat } from "@/components/Catat";
+import { adalahPdf, useCatat } from "@/components/Catat";
 import { useTawaranSerupa } from "@/components/TawaranSerupa";
 import { ACCEPT_STRUK } from "@/components/UploadReceiptForm";
 import { bacaBukti, kalimatArah, kantongBank, rapikanNama } from "@/lib/arah";
@@ -40,12 +40,14 @@ import {
 import { alamatDetail, angkaMentah, angkaRibuan, fmtIDR, fmtTanggalPendek } from "@/lib/format";
 import { kantongDeposito } from "@/lib/kantong";
 import { namaKategori } from "@/lib/kategori";
+import { daftarLembar } from "@/lib/riwayat-lembar";
 import { UMUR_DRAFT_HARI } from "@/lib/notifikasi";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { Cicilan } from "@/lib/pinjaman";
 import { TEKS_MAKS } from "@/lib/transaksi-input";
 import { saldoSejak } from "@/lib/waktu";
-import type { Transaction } from "@/types/transaction";
+import type { HasilLengkapi, UsulanLengkapi } from "@/lib/lengkapi-server";
+import type { ExtractedReceipt, Transaction } from "@/types/transaction";
 
 /**
  * Catat sebagai obrolan (docs/specs/SPEC-catat-chat.md): lembar yang bisa membesar.
@@ -69,7 +71,23 @@ type Pesan =
   | { t: "foto"; src: string }
   | { t: "app"; teks: string; sub?: string }
   | { t: "status"; teks: string }
-  | { t: "tanya"; jenis: JenisTanya | "manual"; teks: string; selesai?: boolean }
+  | { t: "tanya"; jenis: JenisTanya | "manual"; teks: string; selesai?: boolean; kandidat?: { id: string; label: string }[] }
+  // "Lengkapi transaksi ini?" (SPEC-lengkapi §2): belum ada yang disimpan sampai dipilih.
+  | {
+      t: "lengkapi";
+      u: UsulanLengkapi;
+      hasil: ExtractedReceipt;
+      sidik: string | null;
+      file: File;
+      keterangan: string;
+      pilih: string;
+      ganti: boolean;
+      buat: boolean;
+      selesai?: boolean;
+      /** "Melengkapi…" di kartu selama permintaan berjalan (SPEC-perbaikan-uiux #14). */
+      memproses?: boolean;
+    }
+  | { t: "dilengkapi"; r: HasilLengkapi; diurungkan?: boolean }
   | { t: "kartu"; tx: Transaction; perbaikan: boolean; batal?: boolean }
   | { t: "koreksi"; id: string; perubahan: string[]; sebelum: Partial<Transaction>; dibatalkan?: boolean; dihapus?: boolean }
   | { t: "cicilan"; c: Cicilan }
@@ -120,7 +138,7 @@ const KURANG: Record<JenisTanya, string> = {
   kartu: "Kartu kreditnya belum terdaftar",
   waktu: "Jamnya belum jelas",
   tenor: "Berapa kali cicilannya belum jelas",
-  duplikat: "Mungkin tercatat dua kali",
+  duplikat: "Mungkin sudah tercatat",
   konfirmasi: "Tinggal dicek",
 };
 
@@ -151,7 +169,7 @@ export default function LembarCatat({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { kantong, kategori } = useCatat();
+  const { kantong, kategori, tambahRekening, tambahStruk } = useCatat();
   const serupa = useTawaranSerupa();
   // Struk campuran yang sedang dipecah dari kartu hasilnya (SPEC-tawar-pecah).
   const [pecah, setPecah] = useState<Transaction | null>(null);
@@ -262,13 +280,27 @@ export default function LembarCatat({
   function mulaiTanya(tx: Transaction, jenis: JenisTanya, ronde: number) {
     setAktif({ tx, jenis, ronde });
     if (jenis === "duplikat" && tx.duplikat_dari) {
-      // Tunjukkan transaksi yang sudah tercatat, supaya user bisa memutuskan.
-      void db
-        .from("transactions")
-        .select("merchant, amount, type, category, transaction_date, waktu, payment_method")
-        .eq("id", tx.duplikat_dari)
-        .maybeSingle()
-        .then(({ data: o }) => {
+      // Tunjukkan transaksi yang sudah tercatat, supaya user bisa memutuskan;
+      // dari gambar, beserta transaksi lain yang mungkin pasangannya (SPEC-lengkapi §4).
+      const dariGambar = tx.source === "receipt" || tx.source === "payment_proof";
+      const duplikatDari = tx.duplikat_dari;
+      void Promise.all([
+        db
+          .from("transactions")
+          .select("merchant, amount, type, category, transaction_date, waktu, payment_method")
+          .eq("id", duplikatDari)
+          .maybeSingle(),
+        dariGambar
+          ? fetch(`/api/lengkapi/kandidat?draft=${tx.id}`)
+              .then((r) => r.json())
+              .then((d: { kandidat?: { id: string; label: string }[] }) => d.kandidat ?? [])
+              .catch(() => [] as { id: string; label: string }[])
+          : Promise.resolve([] as { id: string; label: string }[]),
+      ]).then(([{ data: o }, kandidat]) => {
+          if (kandidat.length > 1) {
+            tambah({ t: "tanya", jenis, teks: "Sepertinya ini salah satu transaksi yang sudah tercatat. Lengkapi yang mana, atau catat lagi?", kandidat });
+            return;
+          }
           const apa = o
             ? [
                 o.merchant ?? namaKategori(kategori, o.category, o.type),
@@ -279,7 +311,7 @@ export default function LembarCatat({
                 .filter(Boolean)
                 .join(" · ")
             : null;
-          tambah({ t: "tanya", jenis, teks: apa ? `Sepertinya ini sudah tercatat: ${apa}. Catat lagi?` : KALIMAT_TANYA.duplikat });
+          tambah({ t: "tanya", jenis, teks: apa ? `Sepertinya ini sudah tercatat: ${apa}. Catat lagi?` : KALIMAT_TANYA.duplikat, kandidat: o ? [{ id: duplikatDari, label: apa ?? "" }] : [] });
         });
       return;
     }
@@ -301,8 +333,36 @@ export default function LembarCatat({
   }
 
   /** Hasil catatan baru (teks/foto): lengkap → kartu; kurang → percakapan. */
-  function terimaHasil(data: Record<string, unknown>, status: number) {
+  function terimaHasil(data: Record<string, unknown>, status: number, foto?: { file: File; keterangan: string }) {
     if (data.cicilan) return void cicilanDibuat(data.cicilan as Cicilan);
+    // Gambar yang sama / pengenal yang sama sudah dipakai (SPEC-lengkapi §5).
+    const dipakai = data.dipakai as { id: string; label: string; draft: boolean } | undefined;
+    if (dipakai) {
+      tambah({
+        t: "app",
+        teks: dipakai.draft ? "Gambar ini sudah dikirim dan menunggu di “Belum selesai”." : "Struk ini sudah dipakai untuk melengkapi transaksi ini, jadi tidak dicatat lagi:",
+        sub: dipakai.label,
+      });
+      return;
+    }
+    // Cocok dengan transaksi yang sudah tercatat: tawarkan Lengkapi (SPEC-lengkapi §2).
+    const u = data.lengkapi as UsulanLengkapi | undefined;
+    if (u && foto && data.hasil) {
+      setBesar(true);
+      setLayar("obrolan");
+      tambah({
+        t: "lengkapi",
+        u,
+        hasil: data.hasil as ExtractedReceipt,
+        sidik: (data.sidik as string | undefined) ?? null,
+        file: foto.file,
+        keterangan: foto.keterangan,
+        pilih: u.kandidat[0].id,
+        ganti: false,
+        buat: Boolean(u.cashback?.buat),
+      });
+      return;
+    }
     const tx = data.transaction as Transaction | undefined;
     if (!tx) {
       tambah({ t: "app", teks: (data.error as string) ?? "Gagal nyimpen. Coba lagi ya." });
@@ -351,7 +411,89 @@ export default function LembarCatat({
     }
     setPesan((prev) => prev.filter((p) => p.t !== "status"));
     setSibuk(false);
+    terimaHasil(data, status, { file, keterangan });
+  }
+
+  const ubahPesan = (i: number, isi: Partial<Extract<Pesan, { t: "lengkapi" }>>) =>
+    setPesan((prev) => prev.map((p, j) => (j === i && p.t === "lengkapi" ? { ...p, ...isi } : p)));
+
+  /** Kartu Lengkapi: isi transaksi yang dipilih dari gambar ini; nominal, tanggal, kantong tetap. */
+  async function lengkapiDariKartu(i: number) {
+    const p = pesan[i];
+    if (p?.t !== "lengkapi" || sibuk) return;
+    ubahPesan(i, { selesai: true, memproses: true });
+    tambah({ t: "saya", teks: "Lengkapi" });
+    setSibuk(true);
+    const r = await kirimJson("/api/lengkapi", { id: p.pilih, hasil: p.hasil, sidik: p.sidik, gantiKategori: p.ganti, buatDompet: p.buat });
+    setSibuk(false);
+    ubahPesan(i, { memproses: false });
+    if (r.status !== 200 || !r.data.transaction) {
+      ubahPesan(i, { selesai: false });
+      return tambah({ t: "app", teks: (r.data.error as string) ?? "Gagal melengkapi transaksinya." });
+    }
+    tambah({ t: "dilengkapi", r: r.data as unknown as HasilLengkapi });
+    router.refresh();
+  }
+
+  /** Kartu Lengkapi → "Catat sebagai baru": hasil baca yang sama dikirim balik, tanpa AI lagi. */
+  async function catatSebagaiBaru(i: number) {
+    const p = pesan[i];
+    if (p?.t !== "lengkapi" || sibuk) return;
+    ubahPesan(i, { selesai: true });
+    tambah({ t: "saya", teks: "Catat sebagai baru" }, { t: "status", teks: "Mencatat…" });
+    setSibuk(true);
+    const fd = new FormData();
+    fd.append("file", p.file);
+    fd.append("baru", "1");
+    fd.append("hasil", JSON.stringify(p.hasil));
+    if (p.keterangan) fd.append("keterangan", p.keterangan);
+    let status = 0;
+    let data: Record<string, unknown>;
+    try {
+      const res = await fetch("/api/upload-receipt", { method: "POST", body: fd });
+      status = res.status;
+      data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    } catch {
+      data = { error: "Koneksinya bermasalah." };
+    }
+    setPesan((prev) => prev.filter((x) => x.t !== "status"));
+    setSibuk(false);
     terimaHasil(data, status);
+  }
+
+  /** Urungkan Lengkapi dari kartu hasilnya. */
+  async function urungkanLengkapi(i: number) {
+    const p = pesan[i];
+    if (p?.t !== "dilengkapi" || sibuk) return;
+    setSibuk(true);
+    const r = await kirimJson("/api/lengkapi/urungkan", { id: p.r.transaction.id, sebelum: p.r.sebelum, ikutan_id: p.r.ikutan_id, kantong_baru: p.r.kantong_baru });
+    setSibuk(false);
+    if (r.status !== 200) return tambah({ t: "app", teks: (r.data.error as string) ?? "Gagal mengurungkan." });
+    setPesan((prev) => prev.map((x, j) => (j === i && x.t === "dilengkapi" ? { ...x, diurungkan: true } : x)));
+    router.refresh();
+  }
+
+  /** Draft "sudah tercatat?" → "Lengkapi yang sudah ada" (SPEC-lengkapi §4): draft-nya dihapus. */
+  async function lengkapiYangAda(id: string, label: string) {
+    if (!aktif || sibuk) return;
+    const draft = aktif.tx;
+    setPesan((prev) => prev.map((p) => (p.t === "tanya" ? { ...p, selesai: true } : p)));
+    tambah({ t: "saya", teks: label });
+    setSibuk(true);
+    const r = await kirimJson("/api/lengkapi", { id, draft: draft.id });
+    setSibuk(false);
+    if (r.status !== 200 || !r.data.transaction) {
+      setPesan((prev) => {
+        const j = prev.findLastIndex((p) => p.t === "tanya");
+        return prev.map((p, k) => (k === j && p.t === "tanya" ? { ...p, selesai: false } : p));
+      });
+      return tambah({ t: "app", teks: (r.data.error as string) ?? "Gagal melengkapi transaksinya." });
+    }
+    setAktif(null);
+    const { count } = await db.from("draft_catat").select("transaksi_id", { count: "exact", head: true });
+    tambah({ t: "dilengkapi", r: r.data as unknown as HasilLengkapi }, { t: "tutup", lagi: count ?? 0, teks: "Sip, transaksi yang sudah ada dilengkapi — tidak dicatat dua kali." });
+    setDetik(TUTUP_DETIK);
+    router.refresh();
   }
 
   async function jawab(nilai: string, label?: string, jenisPaksa?: JenisTanya) {
@@ -492,7 +634,12 @@ export default function LembarCatat({
       kembaliRef.current();
     };
     d.addEventListener("cancel", batal);
-    return () => d.removeEventListener("cancel", batal);
+    // Tombol kembali browser/HP: satu langkah "kembali" lembar ini dulu (SPEC-perbaikan-uiux #12).
+    const lepas = daftarLembar(() => kembaliRef.current());
+    return () => {
+      d.removeEventListener("cancel", batal);
+      lepas();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -802,6 +949,101 @@ export default function LembarCatat({
           </div>
         );
       }
+      case "lengkapi": {
+        const buka = !p.selesai && !sibuk;
+        return (
+          <div key={i} className={s.kartuHasil}>
+            <div className={`${s.tersimpan} ${s.tanyaKartu}`}>Lengkapi transaksi ini?</div>
+            {p.u.kandidat.length === 1 ? (
+              <p style={{ margin: "4px 0" }}>{p.u.kandidat[0].label}</p>
+            ) : (
+              <div role="radiogroup" aria-label="Transaksi yang dilengkapi" style={{ margin: "4px 0" }}>
+                <p className={s.redup} style={{ margin: "0 0 4px" }}>Ada {p.u.kandidat.length} transaksi yang cocok. Yang mana?</p>
+                {p.u.kandidat.map((k) => (
+                  <BarisPilih key={k.id} peran="radio" dipilih={p.pilih === k.id} onClick={() => buka && ubahPesan(i, { pilih: k.id })}>
+                    <span className={s.barisTeks}>
+                      <span style={{ whiteSpace: "normal" }}>{k.label}</span>
+                    </span>
+                  </BarisPilih>
+                ))}
+              </div>
+            )}
+            {p.u.perubahan.length > 0 && (
+              <ul className={s.redup} style={{ margin: "4px 0", paddingLeft: 18 }}>
+                {p.u.perubahan.map((x) => (
+                  <li key={x}>{x}</li>
+                ))}
+              </ul>
+            )}
+            <p className={s.redup} style={{ margin: "4px 0" }}>Nominal, tanggal, dan kantongnya tetap.</p>
+            {p.u.tawarKategori && (
+              <div>
+                <BarisPilih peran="checkbox" dipilih={p.ganti} onClick={() => buka && ubahPesan(i, { ganti: !p.ganti })}>
+                  <span className={s.barisTeks}>Ganti kategori ke {p.u.tawarKategori.nama}</span>
+                </BarisPilih>
+              </div>
+            )}
+            {p.u.cashback?.buat && (
+              <div>
+                <BarisPilih peran="checkbox" dipilih={p.buat} onClick={() => buka && ubahPesan(i, { buat: !p.buat })}>
+                  <span className={s.barisTeks}>
+                    <span style={{ whiteSpace: "normal" }}>
+                      Buat kantong {p.u.cashback.kantong} untuk cashback {fmtIDR(p.u.cashback.nominal)}
+                    </span>
+                  </span>
+                </BarisPilih>
+              </div>
+            )}
+            {p.memproses && (
+              <div className={s.statusObrolan} role="status">
+                <Spinner /> Melengkapi…
+              </div>
+            )}
+            {buka && (
+              // Hierarki: Lengkapi utama, Catat sebagai baru sekunder, Batal netral (SPEC-perbaikan-uiux #9).
+              <div className={s.aksiKartu}>
+                <button type="button" className={`${s.tombol} ${s.tombolPenuh}`} onClick={() => void lengkapiDariKartu(i)}>
+                  Lengkapi
+                </button>
+                <button
+                  type="button"
+                  className={`${s.flat} ${s.flatNetral}`}
+                  style={{ fontSize: "inherit" }}
+                  onClick={() => {
+                    ubahPesan(i, { selesai: true });
+                    tambah({ t: "saya", teks: "Batal" }, { t: "app", teks: "Oke, tidak dicatat." });
+                  }}
+                >
+                  Batal
+                </button>
+                <button type="button" className={s.flat} onClick={() => void catatSebagaiBaru(i)}>
+                  Catat sebagai baru
+                </button>
+              </div>
+            )}
+          </div>
+        );
+      }
+      case "dilengkapi":
+        return (
+          <div key={i} className={`${s.bub} ${s.bubApp}`}>
+            {p.diurungkan ? "Pelengkapannya diurungkan." : "Sudah dilengkapi:"}
+            {!p.diurungkan && (p.r.perubahan.length ? p.r.perubahan : ["Tanda “Perlu dilengkapi” dilepas"]).map((x) => <small key={x}>{x}</small>)}
+            {!p.diurungkan && p.r.cashback_tertunda && (
+              <small>Cashback {fmtIDR(p.r.cashback_tertunda.nominal)} belum dicatat: belum ada kantong {p.r.cashback_tertunda.dompet}.</small>
+            )}
+            {!p.diurungkan && (
+              <div className={s.pilihanJawab}>
+                <button type="button" disabled={sibuk} onClick={() => void urungkanLengkapi(i)}>
+                  ↩ Urungkan
+                </button>
+                <button type="button" disabled={sibuk} onClick={() => keDetail(p.r.transaction)}>
+                  Lihat
+                </button>
+              </div>
+            )}
+          </div>
+        );
       case "cicilan":
         return (
           <div key={i} className={s.kartuHasil}>
@@ -892,6 +1134,15 @@ export default function LembarCatat({
             )}
             {buka && p.jenis === "duplikat" && aktif && (
               <div className={s.pilihanJawab}>
+                {(p.kandidat ?? []).length === 1 && (
+                  <button type="button" onClick={() => void lengkapiYangAda(p.kandidat![0].id, "Lengkapi yang sudah ada")}>Lengkapi yang sudah ada</button>
+                )}
+                {(p.kandidat ?? []).length > 1 &&
+                  p.kandidat!.map((k) => (
+                    <button key={k.id} type="button" onClick={() => void lengkapiYangAda(k.id, `Lengkapi: ${k.label}`)}>
+                      Lengkapi: {k.label}
+                    </button>
+                  ))}
                 <button type="button" onClick={() => void jawab("ya", "Ya, catat lagi")}>Ya, catat lagi</button>
                 <button type="button" onClick={() => void hapusDraft(aktif.tx, "Bukan, buang", "Oke, tidak dicatat.")}>Bukan, buang</button>
               </div>
@@ -1149,10 +1400,24 @@ export default function LembarCatat({
         <input
           ref={galeriRef}
           type="file"
-          accept={ACCEPT_STRUK}
+          accept={`${ACCEPT_STRUK},application/pdf`}
+          multiple
           hidden
           onChange={(e) => {
-            lampirkan(e.target.files?.[0]);
+            // PDF rekening koran → pratinjau impor (SPEC-impor-rekening); gambar
+            // pertama dilampirkan, sisanya diproses di latar seperti "Bagikan".
+            const semua = [...(e.target.files ?? [])];
+            const pdf = semua.filter(adalahPdf);
+            const gambar = semua.filter((f) => !adalahPdf(f));
+            if (pdf.length) {
+              tambahRekening(pdf);
+              if (!gambar.length) onClose();
+            }
+            // Banyak gambar: diproses di latar dengan ringkasan (SPEC-lengkapi §7).
+            if (gambar.length > 1) {
+              tambahStruk(gambar);
+              onClose();
+            } else lampirkan(gambar[0]);
             // Reset supaya memilih file yang sama dua kali tetap memicu onChange.
             e.target.value = "";
           }}

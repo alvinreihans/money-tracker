@@ -63,8 +63,28 @@ try {
     isi(dialog().querySelector('input[placeholder="Bunga per tahun (%)"]'), '4,5'); await t(200);
     ${tekan("1 bln", "dialog()")}.click(); await t(400);
     const teks = dialog().innerText.replace(/\\s+/g, ' ');
-    ${persis("Simpan")}.click(); await sampai(() => !dialog(), 20); await t(1500);
-    return { termasuk: /Sudah termasuk di saldo SeaBank\\?/.test(teks), pratinjau: teks.match(/Jatuh tempo [^·]+\\(\\d+ hari\\) · bunga ± Rp[^·]+· pajak Rp 0 · bersih Rp [\\d.]+/)?.[0] }`);
+    // SPEC-perbaikan-uiux #7: segmen, chip tenor, dan pertanyaan berjarak tepi sama dengan isian (≥ 16px dari tepi blok).
+    const blok = dialog().querySelector('[data-kolom="saldo_awal"]').closest('[class*=blok]').getBoundingClientRect();
+    const tepi = ['[aria-label="Macam simpanan"]', '[aria-label^="Sudah termasuk"]', '[aria-label="Tenor"] button', '[aria-label="Satuan tenor"]'].map((q) => Math.round(dialog().querySelector(q).getBoundingClientRect().left - blok.left));
+    // #19: pratinjau bunga tepat sesudah tenor (sebelum "Saat jatuh tempo"); pajak terlipat di "Lanjutan".
+    const info = [...dialog().querySelectorAll('[role=status]')].find((x) => /Jatuh tempo/.test(x.innerText));
+    const urutan = Boolean(info && info.compareDocumentPosition(dialog().querySelector('[data-kolom="perpanjangan"]')) & Node.DOCUMENT_POSITION_FOLLOWING);
+    const lanjutan = [...dialog().querySelectorAll('button[aria-expanded]')].find((b) => b.innerText.includes('Lanjutan'));
+    const pajakTerlipat = !dialog().querySelector('input[placeholder="Pajak bunga (%)"]').offsetParent && lanjutan?.getAttribute('aria-expanded') === 'false';
+    // #2: fokus keyboard pada segmen "Ya, sudah" tidak tertutup bilah Batal/Simpan.
+    const ya = [...dialog().querySelectorAll('button[aria-pressed]')].find((b) => b.textContent.trim() === 'Ya, sudah');
+    dialog().querySelector('[class*=dialogBadan]').scrollTop = 0; await t(200);
+    ya.focus(); await t(400);
+    const r = ya.getBoundingClientRect(); const pil = dialog().querySelector('[class*=pil]').getBoundingClientRect();
+    const fokus = { bawah: Math.round(r.bottom), atasPil: Math.round(pil.top), kena: ya.contains(document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)) };
+    ${persis("Simpan")}.click(); await sampai(() => !dialog(), 20); await t(1000);
+    const kabar = [...document.querySelectorAll('[class*=snackbar]')].map((x) => x.innerText).join('|');
+    await t(500);
+    return { termasuk: /Sudah termasuk di saldo SeaBank\\?/.test(teks), pratinjau: teks.match(/Jatuh tempo [^·]+\\(\\d+ hari\\) · bunga ± Rp[^·]+· pajak Rp 0 · bersih Rp [\\d.]+/)?.[0], tepi, urutan, pajakTerlipat, fokus, kabar }`);
+  cek("Form deposito: segmen/chip/pertanyaan ≥ 16px dari tepi blok (#7)", Array.isArray(buat?.tepi) && buat.tepi.every((x) => x >= 16), JSON.stringify(buat?.tepi));
+  cek("Form deposito: pratinjau dekat tenor, pajak terlipat di Lanjutan (#19)", buat?.urutan === true && buat?.pajakTerlipat === true, JSON.stringify(buat));
+  cek("Form deposito: segmen yang difokus tidak tertutup bilah Batal/Simpan (#2)", buat?.fokus?.kena === true && buat.fokus.bawah <= buat.fokus.atasPil, JSON.stringify(buat?.fokus));
+  cek("Snackbar sukses sesudah membuat simpanan (#20)", /Deposito “Deposito” dibuat di SeaBank\./.test(buat?.kabar ?? ""), buat?.kabar);
   const { data: depo } = await sb.from("user_accounts").select("id, kind, macam_simpanan, induk_id, saldo_awal").eq("name", "Deposito").single();
   const { data: per1 } = await sb.from("deposito_periode").select("*").eq("deposito_id", depo?.id);
   let h = await halaman();
@@ -72,7 +92,8 @@ try {
     "Deposito dibuat: pindah SeaBank → deposito, saldo gabungan SeaBank tetap Rp 2.500.000",
     buat?.termasuk && Boolean(buat?.pratinjau) && depo?.macam_simpanan === "deposito" && depo.induk_id === sea.id && Number(depo.saldo_awal) === 0 &&
       (await saldo(depo.id)) === 2000000 && (await saldo(sea.id)) === 500000 && per1?.length === 1 && Number(per1[0].pokok) === 2000000 &&
-      /SeaBank Rp 500\.000 \+ Deposito Rp 2\.000\.000 Rp 2\.500\.000/.test(h) && /Deposito Deposito · 4,5%\/th · jatuh tempo/.test(h),
+      // Profil → Kantong: isi tampil menjorok, baris induk cukup "Saldo sendiri … · 1 simpanan" (#18).
+      /SeaBank Saldo sendiri Rp 500\.000 · 1 simpanan Rp 2\.500\.000/.test(h) && /Deposito Deposito · 4,5%\/th · jatuh tempo/.test(h),
     JSON.stringify({ buat, depo, per1: per1?.length }) + " " + h.slice(0, 300),
   );
   cek("Total aset tidak berubah", (await total()) === totalAwal && h.includes(`Total aset ${rp(totalAwal)}`));
@@ -113,7 +134,7 @@ try {
   );
   await buka(`${base}/profil/kantong`, 5000);
   h = await halaman();
-  cek("Deposito selesai hilang dari Profil → Kantong", !/Deposito ·|jatuh tempo/.test(h) && /SeaBank Rp [\d.]+ \+ Pocket Liburan Rp 300\.000/.test(h), h.slice(0, 300));
+  cek("Deposito selesai hilang dari Profil → Kantong", !/Deposito ·|jatuh tempo/.test(h) && /SeaBank Saldo sendiri Rp [\d.]+ · 1 simpanan Rp [\d.]+ \S* ?Pocket Liburan Tabungan\/pocket Rp 300\.000/.test(h), h.slice(0, 300));
   const { data: riwayat1 } = await sb.from("deposito_periode").select("bunga_diterima").eq("deposito_id", depo.id);
   cek("Riwayat periodenya tetap tersimpan", riwayat1?.length === 1 && Number(riwayat1[0].bunga_diterima) === est1);
 
@@ -131,10 +152,21 @@ try {
   const flash = await buatDepo("Flash", 10000000, "pokok", 14, "hari");
   const bcaSetelahFlash = await saldo(bca.id);
   await buka(`${base}/`, 6000);
-  const isiLain = await langkah("isi yang diterima", `${tekan("Isi yang diterima")}.click(); await sampai(() => dialog()?.querySelector('input[placeholder="Bunga bersih diterima (Rp)"]')); await t(300);
-    isi(dialog().querySelector('input[placeholder="Bunga bersih diterima (Rp)"]'), '18000'); await t(200);
+  // SPEC-perbaikan-uiux #3: isian kosong ditolak (bukan Rp 0).
+  const kosong = await langkah("isi kosong", `${tekan("Isi yang diterima")}.click(); await sampai(() => dialog()?.querySelector('input[placeholder="Bunga bersih diterima (Rp)"]')); await t(300);
+    isi(dialog().querySelector('input[placeholder="Bunga bersih diterima (Rp)"]'), ''); await t(200);
+    ${persis("Simpan")}.click(); await t(1000);
+    return { masihBuka: Boolean(dialog()?.querySelector('input[placeholder="Bunga bersih diterima (Rp)"]')), galat: [...(dialog()?.querySelectorAll('[role=alert]') ?? [])].map((x) => x.textContent.trim()).join('|') }`);
+  const { data: perKosong } = await sb.from("deposito_periode").select("id").eq("deposito_id", flash);
+  cek("Isi yang diterima kosong: galat \"Isi nominalnya, boleh Rp 0.\", tidak tersimpan", kosong?.masihBuka && /Isi nominalnya, boleh Rp 0\./.test(kosong.galat) && perKosong?.length === 1, JSON.stringify({ kosong, n: perKosong?.length }));
+  const isiLain = await langkah("isi yang diterima", `isi(dialog().querySelector('input[placeholder="Bunga bersih diterima (Rp)"]'), '18000'); await t(200);
     ${persis("Simpan")}.click(); await sampai(() => /Flash: Bank memberi/.test(document.body.innerText), 30); await t(1500);
+    const p = [...document.querySelectorAll('[role=status]')].find((x) => /Flash: Bank memberi/.test(x.innerText));
+    const svg = p?.querySelector('svg');
+    window.__hasilFlash = { ikon: svg?.getAttribute('stroke') || svg?.getAttribute('color'), urungkan: [...(p?.querySelectorAll('button') ?? [])].map((b) => b.textContent.trim()) };
     return document.body.innerText.match(/Flash: Bank memberi[^\\n]*/)?.[0]`);
+  const hasilFlash = await jalankan("window.__hasilFlash");
+  cek("Hasil berselisih (−Rp 411) tampil sebagai peringatan, dengan Urungkan", hasilFlash?.ikon === "var(--peringatan)" && hasilFlash.urungkan.includes("Urungkan"), JSON.stringify(hasilFlash));
   const { data: perFlash } = await sb.from("deposito_periode").select("ke, mulai, jatuh_tempo, pokok, bunga_diterima").eq("deposito_id", flash).order("ke");
   cek(
     "Tanpa bunga: Rp 18.000 ke BCA, periode ke-2 pokok sama mulai di jatuh tempo lama (+14 hari), selisih −Rp 411",
@@ -142,6 +174,20 @@ try {
       (await saldo(bca.id)) === bcaSetelahFlash + 18000 && (await saldo(flash)) === 10000000 && /beda −Rp 411 dari perhitungan/.test(norm(isiLain)),
     JSON.stringify({ perFlash, isiLain }),
   );
+  // Urungkan dari pesan hasilnya: bunga Rp 18.000 & periode ke-2 hilang, periodenya menunggu dicek lagi. Lalu diisi ulang.
+  const urung = await langkah("urungkan hasil", `const p = [...document.querySelectorAll('[role=status]')].find((x) => /Flash: Bank memberi/.test(x.innerText));
+    [...p.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Urungkan').click();
+    await sampai(() => !/Flash: Bank memberi/.test(document.body.innerText) && /Flash · di BCA/.test(document.body.innerText), 30); await t(1000);
+    return /Isi yang diterima/.test(document.body.innerText)`);
+  const { data: perUrung } = await sb.from("deposito_periode").select("ke, bunga_diterima").eq("deposito_id", flash).order("ke");
+  cek(
+    "Urungkan: periode ke-2 & bunga Rp 18.000 terhapus, saldo BCA kembali, kartu evaluasi muncul lagi",
+    urung === true && perUrung?.length === 1 && perUrung[0].bunga_diterima === null && (await saldo(bca.id)) === bcaSetelahFlash,
+    JSON.stringify({ urung, perUrung }),
+  );
+  await langkah("isi ulang", `${tekan("Isi yang diterima")}.click(); await sampai(() => dialog()?.querySelector('input[placeholder="Bunga bersih diterima (Rp)"]')); await t(300);
+    isi(dialog().querySelector('input[placeholder="Bunga bersih diterima (Rp)"]'), '18000'); await t(200);
+    ${persis("Simpan")}.click(); await sampai(() => /Flash: Bank memberi/.test(document.body.innerText), 30); await t(1500); return 'ok'`);
 
   // --- 6. Diperpanjang dengan bunga (1 bulan): Sesuai → bunga ke deposito, pokok + bunga.
   // Pajak otomatis: pokok Rp 7.495.000 (0%) + bunga → di atas Rp 7,5 jt, periode ke-2 kena 20%.
@@ -204,8 +250,8 @@ try {
   h = await halaman();
   const bcaSendiri = await saldo(bca.id);
   cek(
-    "Kantong: BCA gabungan = BCA + Tumbuh + Dana darurat; lebih dari dua isi diringkas",
-    h.includes(`BCA ${rp(bcaSendiri)} + Tumbuh ${rp(7513411)} + Dana darurat Rp 3.000.000 ${rp(bcaSendiri + 7513411 + 3000000)}`),
+    "Kantong: BCA gabungan = BCA + Tumbuh + Dana darurat; induk diringkas, isinya menjorok di bawah",
+    h.includes(`BCA Saldo sendiri ${rp(bcaSendiri)} · 1 simpanan, 1 tujuan ${rp(bcaSendiri + 7513411 + 3000000)}`) && h.includes(`Tumbuh Deposito`) && h.includes("Dana darurat"),
     h.slice(0, 400),
   );
   // U3: yang disimpan di BCA tidak dihitung dua kali; tanpa tujuan terpisah nominalnya tidak tampil.

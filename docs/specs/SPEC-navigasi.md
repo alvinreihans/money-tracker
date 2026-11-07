@@ -36,6 +36,7 @@ Begitu ada mode desktop, alamat terlihat di address bar, bisa di-bookmark, dan d
   - `/profil`, dengan halaman di bawahnya `/profil/kantong`, `/profil/kategori`, `/profil/budget`, `/profil/tujuan`
 - **Utang & Piutang tetap `/pinjaman`.** Ini fitur tersendiri dan notifikasi sudah menautkan ke sana. Di sidebar desktop ia jadi item sendiri.
 - **Keadaan yang layak disimpan atau dibagikan masuk query string.** Contohnya filter Riwayat: `?jenis=keluar&dari=2026-10-01&sampai=2026-10-31&kantong=…`. Lembar sementara (pilih kantong, konfirmasi) tidak mengubah alamat.
+- **Tombol/gestur kembali menutup lembar paling atas dulu** (sejak SPEC-perbaikan-uiux #12). Tiap lembar modal yang terbuka (`Lembar`, termasuk lembar Catat; panel samping non-modal Tanya AI di layar lebar tidak) punya satu entri riwayat beralamat sama di atas entri halamannya (`src/lib/riwayat-lembar.ts`). Kembali → lembar teratas menutup lewat jalan tutupnya sendiri: bila isiannya berubah, "Buang perubahan?" muncul dan Batal di sana membiarkan lembar terbuka. Menutup lewat tombol/×, Esc, atau ketuk di luar tidak meninggalkan entri sisa yang perlu ditekan kembali dua kali; lembar yang menutup sambil pindah halaman ("Lihat riwayat") tetap pindah. Alamatnya tidak berubah.
 - **Daftar navigasi ditulis sekali.** Satu array `NAVIGASI` di `src/components/navigasi.ts` memuat alamat, label, ikon, fungsi `aktif` (alamat mana saja yang membuat tab menyala), dan penanda `sidebar` (item yang hanya tampil di sidebar). Kapsul bawah, rail, dan sidebar sama-sama membacanya (`AppShell`).
 
 ## Fase 1: rancangan
@@ -122,7 +123,7 @@ Fase 1 tidak mengubah isi Riwayat. Satu-satunya perubahan: menu ⋮ dihapus. Fil
   - sub-halaman (Kantong dan lainnya) kembali ke Profil;
   - tombol kembali browser dari tiap tab dan sub-halaman berjalan benar;
   - tidak ada error di console.
-- Suite permanen yang kini menjaga perilaku ini: `e2e/kembali.mjs` (tombol kembali), `e2e/lebar.mjs`, `e2e/a11y.mjs`.
+- Suite permanen yang kini menjaga perilaku ini: `e2e/kembali.mjs` (tombol kembali, termasuk kembali menutup lembar), `e2e/lebar.mjs`, `e2e/a11y.mjs`.
 
 ## Boundaries
 

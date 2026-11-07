@@ -70,6 +70,30 @@ try {
   await buka(`${base}/riwayat`, 5000);
   const hpPad = await jalankan(`({ tepi: getComputedStyle(document.querySelector('[class*=isi]')).paddingLeft, bawah: getComputedStyle(document.documentElement).scrollPaddingBottom, samping: document.documentElement.scrollWidth - innerWidth })`);
   cek("360: margin isi tetap 16px, scroll-padding bawah setinggi navigasi, tanpa gulir samping", hpPad.tepi === "16px" && hpPad.bawah === "100px" && hpPad.samping <= 0, JSON.stringify(hpPad));
+  // SPEC-perbaikan-uiux #8: tombol segmen tampak 40px, area sentuh 48px (sampai tepi segmennya).
+  await buka(`${base}/profil/kantong`, 5000);
+  const seg = await jalankan(`(async () => { document.querySelector('button[aria-label="Tambah kantong"]').click(); await new Promise(r => setTimeout(r, 900));
+    const d = [...document.querySelectorAll('dialog[open]')].at(-1); const b = d.querySelector('[aria-label="Jenis kantong"] button'); const r = b.getBoundingClientRect();
+    const kena = (y) => b.contains(document.elementFromPoint(r.left + 20, y));
+    const hasil = { tinggi: Math.round(r.height), atas: kena(r.top - 3), bawah: kena(r.bottom + 3) }; d.close(); return hasil })()`);
+  cek("segmen: tampak 40px, area sentuh 48px", seg.tinggi === 40 && seg.atas && seg.bawah, JSON.stringify(seg));
+
+  // #5 & #21: kontras teks tombol aksi snackbar & tombol "Catat transaksi" berlabel di rail ≥ 4,5:1.
+  const KONTRAS = `const lum = (c) => { const v = c.match(/[\\d.]+/g).slice(0, 3).map(Number).map((x) => { x /= 255; return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4; }); return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]; };
+    const rasio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return Math.round(((x + 0.05) / (y + 0.05)) * 100) / 100; };`;
+  await buka(`${base}/`, 5000);
+  const snack = await jalankan(`(async () => { ${KONTRAS}
+    const dt = new DataTransfer(); dt.items.add(new File(['x'], 'catatan.txt', { type: 'text/plain' }));
+    window.dispatchEvent(new DragEvent('dragenter', { dataTransfer: dt, bubbles: true })); window.dispatchEvent(new DragEvent('drop', { dataTransfer: dt, bubbles: true, cancelable: true }));
+    await new Promise(r => setTimeout(r, 600));
+    const bar = document.querySelector('[class*=snackbar]'); const b = document.createElement('button'); b.textContent = 'Lihat'; bar.append(b);
+    const r = b.getBoundingClientRect(); const hasil = { rasio: rasio(getComputedStyle(b).color, getComputedStyle(bar).backgroundColor), tinggi: Math.round(r.height), latar: getComputedStyle(bar).backgroundColor }; b.remove(); return hasil })()`);
+  cek("snackbar: tombol aksi ≥ 4,5:1 di latar token, tinggi ≥ 44px", snack.rasio >= 4.5 && snack.tinggi >= 44 && snack.latar === "rgb(37, 37, 37)", JSON.stringify(snack));
+  await ukur(1300);
+  await buka(`${base}/`, 5000);
+  const rail = await jalankan(`(() => { ${KONTRAS} const b = [...document.querySelectorAll('button[aria-label="Catat transaksi"]')].find((x) => x.offsetParent && x.innerText.includes('Catat transaksi')); const cs = getComputedStyle(b); return { rasio: rasio(cs.color, cs.backgroundColor), latar: cs.backgroundColor } })()`);
+  cek("rail: tombol Catat transaksi berlabel ≥ 4,5:1 (--tombol)", rail.rasio >= 4.5, JSON.stringify(rail));
+  await ukur(360);
   cek("tidak ada error console", masalah.length === 0, JSON.stringify(masalah));
 } catch (e) {
   console.log("GAGAL:", e.message);

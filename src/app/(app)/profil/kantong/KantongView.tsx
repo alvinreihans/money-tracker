@@ -3,7 +3,8 @@
 import { useState, type FormEvent } from "react";
 import NextLink from "next/link";
 import { useRouter } from "next/navigation";
-import { Banknote, CalendarDays, Clock, Landmark, Percent, Plus, Repeat, Smile, Wallet } from "lucide-react";
+import { Banknote, CalendarDays, ChevronDown, Clock, Landmark, Percent, Plus, Repeat, Smile, Wallet } from "lucide-react";
+import { useCatat } from "@/components/Catat";
 import { DetailDeposito, LembarBunga } from "@/components/Deposito";
 import { AppBar, Field, GalatForm, InputNominal, Konfirmasi, Kosong, Lembar, Pesan, Pilih, Segmen, Spinner, useGalat } from "@/components/oneui";
 import s from "@/components/ui.module.css";
@@ -74,6 +75,13 @@ const EMOJI_SIMPANAN: Record<MacamSimpanan, string> = { tabungan: "🐷", deposi
  * menampilkan saldo gabungan + rincian, simpanannya menjorok di bawahnya
  * (SPEC-simpanan).
  */
+/** Baris induk di Profil → Kantong: "Saldo sendiri Rp 500.000 · 1 simpanan, 1 tujuan" (isinya tampil di bawah). */
+function ringkasIsi(sendiri: number, isi: { kind: string }[]): string {
+  const n = (kind: string) => isi.filter((k) => k.kind === kind).length;
+  const bagian = [n("simpanan") && `${n("simpanan")} simpanan`, n("tujuan") && `${n("tujuan")} tujuan`].filter(Boolean);
+  return `Saldo sendiri ${fmtIDR(sendiri)} · ${bagian.join(", ")}`;
+}
+
 /** Sejak kapan saldo yang diisi berlaku, dalam kalimat. */
 function keteranganSaldo(tanggal: string, asal?: Kantong): string {
   if (asal?.saldo_sejak && asal.saldo_per === tanggal && jamWIB(asal.saldo_sejak) !== "00:00") {
@@ -109,6 +117,8 @@ export default function KantongView({
   const [edit, setEdit] = useState<{ asal: KantongSaldo | null; isian: Isian } | null>(null);
   const [detail, setDetail] = useState<InfoDeposito | null>(null);
   const [yakinHapus, setYakinHapus] = useState(false);
+  const [lanjutan, setLanjutan] = useState(false);
+  const { kabari } = useCatat();
   const [loading, setLoading] = useState(false);
   const { galat, gagal, bersihkan } = useGalat(edit?.isian);
   const hariIni = isoLokal(new Date());
@@ -215,6 +225,9 @@ export default function KantongView({
     setLoading(false);
     if (err) return gagal(pesan!, err.code === "23505" ? "name" : undefined);
     setEdit(null);
+    // Umpan balik sukses (SPEC-perbaikan-uiux #20).
+    const jenis = i.macam === "deposito" ? "Deposito" : "Simpanan";
+    kabari(asal ? `${jenis} “${dasar.data.name}” diubah.` : `${jenis} “${dasar.data.name}” dibuat di ${namaInduk(i.induk_id)}.`);
     router.refresh();
   }
 
@@ -330,9 +343,10 @@ export default function KantongView({
                     </span>
                     <span className={s.barisTeks}>
                       <span className={s.barisJudul}>{b.k.name}</span>
-                      {b.rincian && (
+                      {/* Isinya tampil menjorok di bawah: cukup saldo sendiri + jumlah isinya (#18). */}
+                      {b.isi.length > 0 && (
                         <span className={s.redup} style={{ whiteSpace: "normal" }}>
-                          {b.rincian}
+                          {ringkasIsi(b.sendiri, b.isi)}
                         </span>
                       )}
                     </span>
@@ -344,7 +358,7 @@ export default function KantongView({
                         {emojiKantong(k)}
                       </span>
                       <span className={s.barisTeks}>
-                        <span className={s.barisJudul}>{k.name}</span>
+                        <span className={`${s.barisJudul} ${s.duaBaris}`}>{k.name}</span>
                         <span className={s.redup} style={{ whiteSpace: "normal" }}>
                           {ketIsi(k)}
                         </span>
@@ -462,7 +476,7 @@ export default function KantongView({
                     </Field>
                   </>
                 ) : edit.asal ? (
-                  <p className={s.redup} style={{ margin: "8px 0 0" }}>
+                  <p className={s.redup} style={{ margin: 0, padding: "8px 20px 0" }}>
                     Di dalam {namaInduk(edit.asal.induk_id)} · saldo {fmtIDR(edit.asal.saldo)}. Saldonya berubah lewat pindah kantong
                     {depo ? ", jatuh tempo, atau Cairkan sekarang." : "."}
                   </p>
@@ -477,19 +491,22 @@ export default function KantongView({
                       pilihan={induk.map((k) => ({ id: k.id, label: k.name, emoji: emojiKantong(k) }))}
                       onChange={(induk_id) => ubah({ induk_id })}
                     />
-                    <Segmen
-                      label="Macam simpanan"
-                      pilihan={[
-                        { id: "tabungan", label: "Tabungan/pocket" },
-                        { id: "deposito", label: "Deposito" },
-                      ]}
-                      nilai={isian.macam}
-                      onChange={(macam) => ubah({ macam, ...(Object.values(EMOJI_SIMPANAN).includes(isian.emoji) ? { emoji: EMOJI_SIMPANAN[macam] } : {}) })}
-                    />
+                    {/* Segmen, chip, dan pertanyaan memakai jarak tepi isian lain (SPEC-perbaikan-uiux #7). */}
+                    <div className={s.sisipForm}>
+                      <Segmen
+                        label="Macam simpanan"
+                        pilihan={[
+                          { id: "tabungan", label: "Tabungan/pocket" },
+                          { id: "deposito", label: "Deposito" },
+                        ]}
+                        nilai={isian.macam}
+                        onChange={(macam) => ubah({ macam, ...(Object.values(EMOJI_SIMPANAN).includes(isian.emoji) ? { emoji: EMOJI_SIMPANAN[macam] } : {}) })}
+                      />
+                    </div>
                     <Field label={depo ? "Pokok (Rp)" : "Saldo (Rp)"} ikon={Banknote} kolom="saldo_awal">
                       <InputNominal value={isian.saldo_awal} onChange={(saldo_awal) => ubah({ saldo_awal })} placeholder={depo ? "Pokok (Rp)" : "Saldo (Rp)"} />
                     </Field>
-                    <div style={{ padding: "12px 0 4px" }}>
+                    <div className={s.sisipForm}>
                       <p className={s.redup} style={{ margin: "0 0 8px" }}>
                         Sudah termasuk di saldo {namaInduk(isian.induk_id) || "kantong itu"}?
                       </p>
@@ -516,7 +533,7 @@ export default function KantongView({
                     <Field label="Bunga per tahun (%)" ikon={Percent} kolom="bunga">
                       <input inputMode="decimal" value={isian.bunga} onChange={(e) => ubah({ bunga: e.target.value })} placeholder="Bunga per tahun (%)" />
                     </Field>
-                    <div className={s.chipsBungkus} role="group" aria-label="Tenor" style={{ padding: "12px 0 0" }}>
+                    <div className={`${s.chipsBungkus} ${s.sisipForm}`} role="group" aria-label="Tenor">
                       {CHIP_TENOR.map((c) => (
                         <button
                           key={c.label}
@@ -532,15 +549,19 @@ export default function KantongView({
                     <Field label="Tenor" ikon={Clock} kolom="tenor">
                       <input inputMode="numeric" value={isian.tenor} onChange={(e) => ubah({ tenor: e.target.value.replace(/\D/g, "") })} placeholder="Tenor" />
                     </Field>
-                    <Segmen
-                      label="Satuan tenor"
-                      pilihan={[
-                        { id: "hari", label: "Hari" },
-                        { id: "bulan", label: "Bulan" },
-                      ]}
-                      nilai={isian.satuan}
-                      onChange={(satuan) => ubah({ satuan })}
-                    />
+                    <div className={s.sisipForm}>
+                      <Segmen
+                        label="Satuan tenor"
+                        pilihan={[
+                          { id: "hari", label: "Hari" },
+                          { id: "bulan", label: "Bulan" },
+                        ]}
+                        nilai={isian.satuan}
+                        onChange={(satuan) => ubah({ satuan })}
+                      />
+                    </div>
+                    {/* Pratinjau tepat di bawah tenor: terlihat selagi mengisi (#19). */}
+                    {pratinjau && <Pesan jenis="info">{teksPratinjau(pratinjau)}</Pesan>}
                     {(!aktifEdit || aktifEdit.ke === 1) && (
                       <Field label="Tanggal mulai" ikon={CalendarDays} kolom="mulai">
                         <input type="date" required value={isian.mulai} onChange={(e) => ubah({ mulai: e.target.value })} aria-label="Tanggal mulai" />
@@ -554,18 +575,36 @@ export default function KantongView({
                       pilihan={(Object.keys(NAMA_PERPANJANGAN) as Perpanjangan[]).map((id) => ({ id, label: NAMA_PERPANJANGAN[id] }))}
                       onChange={(perpanjangan) => ubah({ perpanjangan })}
                     />
-                    <p className={s.redup} style={{ margin: "4px 0 0 46px", fontSize: 14 }}>
+                    <p className={s.redup} style={{ margin: 0, padding: "4px 20px 0 60px", fontSize: 14 }}>
                       {KET_PERPANJANGAN[isian.perpanjangan]}
                     </p>
-                    <Field label="Pajak bunga (%)" ikon={Percent} kolom="pajak" keterangan="PPh final 20%, 0% bila pokok sampai Rp 7.500.000.">
-                      <input inputMode="decimal" value={isian.pajak} onChange={(e) => ubah({ pajak: e.target.value, pajakDiubah: true })} placeholder="Pajak bunga (%)" />
-                    </Field>
+                    {/* Pajak jarang diubah: terlipat di "Lanjutan", terbuka sendiri bila ada galatnya (#19). */}
+                    <button
+                      type="button"
+                      className={`${s.baris} ${s.tekan}`}
+                      aria-expanded={lanjutan || galat?.kolom === "pajak"}
+                      aria-controls="kantong-lanjutan"
+                      onClick={() => setLanjutan((x) => !x)}
+                    >
+                      <span className={s.barisIkon} aria-hidden>
+                        <Percent size={20} />
+                      </span>
+                      <span className={s.barisTeks}>
+                        <span className={s.barisJudul}>Lanjutan</span>
+                        <span className={s.redup}>Pajak bunga {isian.pajak || "0"}%</span>
+                      </span>
+                      <ChevronDown size={20} aria-hidden style={{ transform: lanjutan || galat?.kolom === "pajak" ? "rotate(180deg)" : undefined }} />
+                    </button>
+                    <div id="kantong-lanjutan" hidden={!(lanjutan || galat?.kolom === "pajak")}>
+                      <Field label="Pajak bunga (%)" ikon={Percent} kolom="pajak" keterangan="PPh final 20%, 0% bila pokok sampai Rp 7.500.000.">
+                        <input inputMode="decimal" value={isian.pajak} onChange={(e) => ubah({ pajak: e.target.value, pajakDiubah: true })} placeholder="Pajak bunga (%)" />
+                      </Field>
+                    </div>
                   </>
                 )}
               </div>
             </GalatForm>
 
-            {pratinjau && <Pesan jenis="info">{teksPratinjau(pratinjau)}</Pesan>}
             {simpanan && !edit.asal && induk.length === 0 && <Pesan jenis="peringatan">Tambahkan dulu bank, e-wallet, atau tunai sebagai tempat simpanannya.</Pesan>}
             {galat && !galat.kolom && <Pesan jenis="bahaya">{galat.pesan}</Pesan>}
 

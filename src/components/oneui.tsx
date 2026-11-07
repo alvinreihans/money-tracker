@@ -7,6 +7,7 @@ import { Check, ChevronDown, ChevronLeft, ChevronUp, CircleCheck, CircleX, Info,
 import { LAYAR_LEBAR } from "@/components/navigasi";
 import s from "@/components/ui.module.css";
 import { angkaMentah, angkaRibuan } from "@/lib/format";
+import { daftarLembar } from "@/lib/riwayat-lembar";
 
 /**
  * Komponen dasar One UI. Samsung tidak merilis pustaka web untuk One UI,
@@ -196,6 +197,9 @@ export function KembaliKeAtas() {
  * `isian`: nilai form di dalamnya. Kalau sudah diubah sejak lembar dibuka,
  * menutup lewat jalan mana pun (kembali/×, Esc, ketuk di luar, Batal)
  * bertanya dulu "Buang perubahan?" — ketikan tidak hilang tanpa sengaja.
+ *
+ * Tombol kembali browser/HP menutup lembar paling atas lebih dulu: tiap
+ * lembar terbuka punya satu entri riwayat (lib/riwayat-lembar).
  */
 export function Lembar({
   judul,
@@ -269,13 +273,31 @@ export function Lembar({
     };
     // Dialog non-modal tidak ditutup Esc oleh browser.
     const esc = (e: KeyboardEvent) => e.key === "Escape" && !d.matches(":modal") && tutup.current();
+    // Tombol/gestur kembali menutup lembar ini dulu, bukan halamannya (SPEC-perbaikan-uiux #12).
+    // Panel samping non-modal (layar lebar) bukan lembar: ia bertahan saat pindah
+    // halaman, dan tombol Kembali halaman tetap memindah halaman.
+    let lepas: (() => void) | null = null;
+    const daftar = () => {
+      const modal = !lebar?.matches;
+      if (modal && !lepas) lepas = daftarLembar(() => tutup.current());
+      else if (!modal && lepas) {
+        lepas();
+        lepas = null;
+      }
+    };
+    daftar();
+    const ubahLebar = () => {
+      buka();
+      daftar();
+    };
     d.addEventListener("cancel", batal);
     d.addEventListener("keydown", esc);
-    lebar?.addEventListener("change", buka);
+    lebar?.addEventListener("change", ubahLebar);
     return () => {
       d.removeEventListener("cancel", batal);
       d.removeEventListener("keydown", esc);
-      lebar?.removeEventListener("change", buka);
+      lebar?.removeEventListener("change", ubahLebar);
+      lepas?.();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

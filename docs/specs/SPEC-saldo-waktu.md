@@ -42,6 +42,7 @@ Dipakai sama persis di RPC `saldo_kantong()` dan `hitungSaldo`/`ikutSaldo` (`src
 | **Ketik** dengan bagian hari | "pagi" 08.00 · "siang" 12.00 · "sore" 16.00 · "malam" 20.00 (perkiraan) |
 | **Ketik** tanpa petunjuk waktu ("kopi 25rb bca") | bertanggal hari ini → **jam saat dicatat** (orang biasanya mencatat begitu belanja); hari lain → tanpa jam |
 | **Ketik** "tadi …" tanpa jam/bagian hari | tanpa jam; **ditanya** bila perlu (lihat bawah) |
+| **Rekening koran** (SPEC-impor-rekening) | jam dari bank (Jago, BRI); SeaBank tanpa jam. "Samakan saldo awal" mengisi `saldo_sejak` = 00.00 WIB tanggal awal periode rekening koran |
 | **Form Manual / Edit** | kolom **Jam** (opsional; transaksi baru terisi jam sekarang, edit terisi jamnya atau kosong) |
 
 AI mengembalikan dua isian: `time` ("HH:MM" | null) dan `time_hint` ("pagi" | "siang" | "sore" | "malam" | "lampau" | null; hanya bila `time` null).

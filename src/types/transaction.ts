@@ -43,6 +43,14 @@ export interface Transaction {
   pelengkap_tujuan?: string | null;
   /** Struk campuran: JSON BagianPecah[] usulan AI, sampai dipecah/ditutup (SPEC-tawar-pecah). */
   usulan_pecah?: string | null;
+  /** Pengenal baris rekening koran (sisi asal untuk pindah kantong); unik per user (SPEC-impor-rekening). */
+  ref_bank?: string | null;
+  /** Pindah kantong antar rekening sendiri: pengenal baris di rekening tujuan. */
+  ref_bank_tujuan?: string | null;
+  /** Dari rekening koran tanpa kategori/merchant yang jelas; hilang saat dilengkapi (SPEC-lengkapi). */
+  perlu_dilengkapi?: boolean | null;
+  /** Order SN / nomor bon bukti yang melengkapinya (SPEC-lengkapi, fase 2). */
+  ref_bukti?: string | null;
   transaction_date: string; // ISO date: "YYYY-MM-DD"
   /** Jam transaksi (WIB), "HH:MM:SS"; opsional. Lihat docs/specs/SPEC-saldo-waktu.md. */
   waktu?: string | null;
@@ -88,6 +96,20 @@ export interface ExtractedReceipt {
   rincian: BagianPecah[] | null;
   /** Hanya expense dari struk: barang beda kategori, ditawarkan untuk dipecah (jumlahnya = amount). */
   usulan_pecah: BagianPecah[] | null;
+  /**
+   * Bukti bayar & struk (SPEC-lengkapi): rekening/dompet yang BENAR-BENAR
+   * terpotong ("Sumber Dana SeaBank *1234" → "SeaBank", "Saldo ShopeePay" →
+   * "ShopeePay"); null bila tidak tertulis (struk "QRIS SHOPEEPAY").
+   */
+  sumber_dana?: string | null;
+  /** E-wallet/aplikasi perantara pembayaran ("ShopeePay" pada QRIS ShopeePay); tempat cashback masuk. */
+  dompet?: string | null;
+  /** Struk: potongan voucher/poin/promo e-wallet yang tidak dibayar dari rekening (sudah dikurangkan dari amount). */
+  voucher?: number | null;
+  /** Order SN / No. Transaksi (screenshot) atau nomor bon (struk). */
+  ref_bukti?: string | null;
+  /** Transfer bank: bank & 4 digit akhir rekening tujuan, "BCA …5678". */
+  rekening_tujuan?: string | null;
 }
 
 /** Satu bagian transaksi yang dipecah (rincian ketikan atau usulan dari struk). */
@@ -110,5 +132,5 @@ export interface AvgMonthlyExpenseRow {
 export type TransactionSource =
   | "receipt"        // foto struk kertas
   | "payment_proof"  // screenshot bukti bayar e-wallet
-  | "statement"      // baris rekening koran (impor lama; fiturnya sudah dihapus)
+  | "statement"      // baris rekening koran (SPEC-impor-rekening)
   | "text";          // diketik: teks bebas atau isian manual (dulu juga pesan teks Telegram)

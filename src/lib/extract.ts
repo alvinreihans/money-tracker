@@ -98,6 +98,11 @@ Skema:
     struk,
     `
   "document_type": "receipt" | "payment_proof",
+  "sumber_dana": string | null,
+  "dompet": string | null,
+  "voucher": number | null,
+  "ref_bukti": string | null,
+  "rekening_tujuan": string | null,
   "bukti_transfer": { "pengirim": { "nama": string | null, "bank": string | null }, "penerima": { "nama": string | null, "bank": string | null } } | null,
   "usulan_pecah": [{ "category": string, "kelompok": "kebutuhan" | "keinginan" | "tabungan" | "berbagi" | "pengembangan" | "tak_terduga" | null, "subtotal": number, "barang": string }] | null`,
   )}${hanya(
@@ -239,7 +244,7 @@ ${daftarPrompt(kategori, "income")}
 - fee: HANYA untuk "transfer": biaya admin yang disebut ("admin 1000", "biaya 2,5rb"
   -> 2500). Selain itu null.
 - cashback: HANYA untuk "expense": cashback yang BENAR-BENAR didapat dari belanja
-  itu ("cashback 5rb", "dapet koin 2rb"). BUKAN promo "Cashback up to ...". Selain itu null.
+  itu ("cashback 5rb", "dapet koin 2rb"${struk ? `; bukti ShopeePay "Cashback Rp15" -> 15` : ""}). BUKAN promo "Cashback up to ...". Selain itu null.
   Cashback tanpa belanja ("dapet cashback 5rb") adalah "income" kategori refund.
 - pinjaman: HANYA untuk meminjamkan/meminjam uang dengan ORANG atau kartu kredit
   (kata seperti minjemin, pinjem, utang, balikin, nyicil utang). Isi type "transfer",
@@ -274,7 +279,27 @@ ${daftarPrompt(kategori, "income")}
 - document_type: "payment_proof" bila ini tangkapan layar bukti bayar dari
   aplikasi (ShopeePay/GoPay/OVO/DANA/QRIS/m-banking), "receipt" bila ini struk
   kertas dari mesin kasir. Dipakai untuk mencegah transaksi tercatat dua kali
-  saat rekening koran diimpor.`,
+  saat rekening koran diimpor.
+- sumber_dana: rekening/dompet yang BENAR-BENAR terpotong menurut bukti, nama SINGKAT:
+  "Sumber Dana"/"Metode Pembayaran" "SeaBank Bayar Instan - *1234" atau "SeaBank *1234" -> "SeaBank";
+  "Saldo ShopeePay" -> "ShopeePay"; "BCA" -> "BCA". Paylater (SPayLater, dll.) -> nama paylater-nya.
+  Struk kasir yang hanya menulis cara bayar e-wallet/QRIS ("CPM QRIS SHOPEEPAY", "QRIS") TIDAK
+  menyebut sumber dananya -> null. Tidak tertulis -> null. Bila sumber_dana bank/dompet,
+  payment_method sama dengan sumber_dana.
+- dompet: e-wallet/aplikasi perantara pembayaran bila ada: tangkapan layar ShopeePay -> "ShopeePay"
+  (walau dananya dari bank), struk "CPM QRIS SHOPEEPAY" -> "ShopeePay", "QRIS GOPAY" -> "GoPay".
+  Struk tunai/kartu, atau bukti dari aplikasi bank langsung -> null.
+- voucher: HANYA struk kasir: jumlah potongan pembayaran yang dibayar dengan voucher/kupon/poin/
+  promo e-wallet (baris pembayaran "VOUCHER", "KUPON", "POIN", "PROMO SHOPEEPAY"), sehingga yang
+  ditagih ke cara bayar utamanya lebih kecil dari TOTAL. Contoh "TOTAL BELANJA 17.500 / VOUCHER
+  5.500 / CPM QRIS SHOPEEPAY 12.000" -> amount 17500, voucher 5500. Diskon per barang ("Disc")
+  BUKAN voucher (sudah masuk TOTAL). Tangkapan layar bukti bayar selalu null (amount-nya sudah
+  "Kamu Membayar"). Tidak ada -> null.
+- ref_bukti: pengenal transaksi persis seperti tertulis: "Order SN", "No. Transaksi", "ID Transaksi"
+  (tangkapan layar) atau nomor bon/struk ("Bon ZZ01-234-5678ABCD", "No. Struk") — gabungkan bila
+  terpotong ke baris berikutnya. BUKAN "No. Referensi" bank bila Order SN ada. Tidak ada -> null.
+- rekening_tujuan: HANYA transfer ke rekening bank orang lain ("Kirim Ke NAMA / BCA 1234567890"):
+  nama bank singkat + "…" + 4 digit terakhir nomornya -> "BCA …7890". Selain itu null.`,
   )}
 
 Contoh (field lain mengikuti aturan di atas):
@@ -391,12 +416,21 @@ export function normalize(parsed: Partial<ExtractedReceipt>, kategori: Kategori[
       ? parsed.type
       : "expense";
 
+  // Struk dengan voucher/poin/promo e-wallet (SPEC-lengkapi): yang tercatat =
+  // yang benar-benar ditagih ke cara bayarnya (= baris rekening koran).
+  const dokumen = parsed.document_type === "payment_proof" ? "payment_proof" : "receipt";
+  const total = Number(parsed.amount) || 0;
+  const v = dariStruk && dokumen === "receipt" ? nominalAtauNull(parsed.voucher) : null;
+  const voucher = v && v < total ? v : null;
+  const amount = total - (voucher ?? 0);
+  const teksAtauNull = (x: unknown, n: number) => (typeof x === "string" && x.trim() && !/^(null|-)$/i.test(x.trim()) ? x.trim().slice(0, n) : null);
+
   // Kategori di luar daftar milik user (atau terhapus) jatuh ke "Lainnya".
   const slug = typeof parsed.category === "string" ? parsed.category.trim() : "";
   const category = kategoriJenis(kategori, type).some((k) => k.slug === slug) ? slug : LAINNYA;
 
   return {
-    amount: Number(parsed.amount) || 0,
+    amount,
     type,
     category,
     merchant: parsed.merchant?.toString().trim() || null,
@@ -409,17 +443,33 @@ export function normalize(parsed: Partial<ExtractedReceipt>, kategori: Kategori[
     cicilan: type === "expense" && typeof parsed.cicilan === "string" && parsed.cicilan.trim() ? parsed.cicilan.trim().slice(0, 60) : null,
     // Membayar cicilan paylater (field cicilan) bukan belanja paylater baru.
     paylater: type === "expense" && !(typeof parsed.cicilan === "string" && parsed.cicilan.trim()) ? paylaterAtauNull(parsed.paylater) : null,
-    document_type: parsed.document_type === "payment_proof" ? "payment_proof" : "receipt",
+    document_type: dokumen,
     bukti_transfer: pinjaman ? null : buktiAtauNull(parsed.bukti_transfer),
     kelompok: type === "expense" ? kelompokAtauNull(parsed.kelompok) : null,
-    rincian: type === "expense" && !pinjaman ? rincianAtauNull(parsed.rincian, Number(parsed.amount) || 0, kategori) : null,
-    usulan_pecah: dariStruk && type === "expense" && !pinjaman ? usulanPecah(parsed.usulan_pecah, Number(parsed.amount) || 0, kategori) : null,
+    rincian: type === "expense" && !pinjaman ? rincianAtauNull(parsed.rincian, amount, kategori) : null,
+    usulan_pecah: dariStruk && type === "expense" && !pinjaman ? usulanPecah(parsed.usulan_pecah, amount, kategori) : null,
+    ...(dariStruk
+      ? {
+          sumber_dana: teksAtauNull(parsed.sumber_dana, 40),
+          dompet: teksAtauNull(parsed.dompet, 40),
+          voucher,
+          // Pengenal: huruf & angka saja, supaya "ZZ01-234-5678ABCD" = nama berkas "ZZ01-2345678ABCD".
+          ref_bukti: teksAtauNull(parsed.ref_bukti, 120)?.replace(/[^0-9A-Za-z]/g, "").toUpperCase().slice(0, 60) || null,
+          rekening_tujuan: rekeningTujuan(teksAtauNull(parsed.rekening_tujuan, 40)),
+        }
+      : {}),
     transaction_date:
       typeof parsed.transaction_date === "string" && parsed.transaction_date
         ? parsed.transaction_date
         : toISODate(new Date()),
     ...jamAtauNull(parsed.time, parsed.time_hint),
   };
+}
+
+/** "BCA 1234567890" / "BCA …67890" → "BCA …7890": nama bank + 4 digit terakhir saja. */
+export function rekeningTujuan(t: string | null): string | null {
+  const m = t?.match(/^(.*?)[\s.*…:-]*(\d{4,})\s*$/);
+  return m && m[1].trim() ? `${m[1].trim()} …${m[2].slice(-4)}` : t;
 }
 
 /** Paylater yang sah: penyedia wajib; tenor 1–120, nominal & tanggal hanya bila masuk akal. */
@@ -558,6 +608,11 @@ const geminiSchema: GenerationConfig["responseSchema"] = {
       },
     },
     document_type: { type: SchemaType.STRING, format: "enum", enum: ["receipt", "payment_proof"] },
+    sumber_dana: { type: SchemaType.STRING, nullable: true },
+    dompet: { type: SchemaType.STRING, nullable: true },
+    voucher: { type: SchemaType.NUMBER, nullable: true },
+    ref_bukti: { type: SchemaType.STRING, nullable: true },
+    rekening_tujuan: { type: SchemaType.STRING, nullable: true },
     bukti_transfer: {
       type: SchemaType.OBJECT,
       nullable: true,

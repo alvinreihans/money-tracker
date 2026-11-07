@@ -57,6 +57,8 @@ export interface Kantong {
   induk_id?: string | null;
   /** Hanya simpanan: tabungan/pocket atau deposito (terkunci). */
   macam_simpanan?: "tabungan" | "deposito" | null;
+  /** 4 digit akhir nomor rekening, diingat dari impor rekening koran (SPEC-impor-rekening). */
+  nomor_akhir?: string | null;
 }
 
 /**

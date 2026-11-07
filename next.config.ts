@@ -78,6 +78,13 @@ const BERKAS_OCR = [
   "./node_modules/@img/sharp-libvips-linux-x64/**",
 ];
 
+/** pdfjs-dist untuk Node: modul utama & worker-nya (dijalankan di proses yang sama). */
+const BERKAS_PDF = [
+  "./node_modules/pdfjs-dist/package.json",
+  "./node_modules/pdfjs-dist/legacy/build/pdf.mjs",
+  "./node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs",
+];
+
 const dev = process.env.NODE_ENV === "development";
 const supabase = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 
@@ -168,10 +175,15 @@ const nextConfig: NextConfig = {
 
   // tesseract.js & sharp memuat binary/WASM lewat path runtime. Kalau ikut
   // di-bundle, resolusi path-nya rusak saat dijalankan di serverless.
-  serverExternalPackages: ["tesseract.js", "sharp"],
+  // pdfjs-dist (rekening koran, src/lib/rekening/pdf.ts) juga dibiarkan apa
+  // adanya: build legacy-nya untuk Node, dimuat tanpa worker thread.
+  serverExternalPackages: ["tesseract.js", "sharp", "pdfjs-dist"],
 
   outputFileTracingIncludes: {
     "/api/upload-receipt": BERKAS_OCR,
+    // Dimuat lewat import dinamis; disebut supaya pasti ikut ter-deploy.
+    "/api/rekening/pratinjau": BERKAS_PDF,
+    "/api/rekening/impor": BERKAS_PDF,
   },
 };
 

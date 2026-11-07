@@ -1,6 +1,7 @@
 "use client";
 
 import NextLink from "next/link";
+import { ClipboardPen } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCatat, useKategori } from "@/components/Catat";
 import { LAYAR_LEBAR } from "@/components/navigasi";
@@ -104,6 +105,9 @@ function Kartu({
           <span className={s.barisJudul}>{judul}</span>
           <span className={s.redup}>{rincian}</span>
           {t.status === "needs_review" && <span className={`${s.lencana} ${s.lencanaBahaya}`}>Belum selesai</span>}
+          {t.status !== "needs_review" && t.perlu_dilengkapi && <span className={`${s.lencana} ${s.lencanaPeringatan}`}>
+              <ClipboardPen size={13} aria-hidden /> Perlu dilengkapi
+            </span>}
           {sebagian && <span className={s.redup}>Bagian dari {fmtIDR(pecahan!.total)}</span>}
         </span>
         <span className={`${s.nominal} ${kelasNominal(t)}`}>

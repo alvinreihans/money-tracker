@@ -25,7 +25,7 @@ export default async function RiwayatPage({ searchParams }: { searchParams: Prom
   // Total untuk SELURUH hasil filter (bukan hanya 100 yang dimuat), per 1.000
   // baris karena batas PostgREST — sama seperti ekspor.
   // ponytail: dijumlah di server dari semua baris; pindahkan ke RPC SQL kalau riwayat sudah puluhan ribu baris.
-  const [{ data, count }, barisTotal] = await Promise.all([
+  const [{ data, count }, barisTotal, { count: perluDilengkapi }] = await Promise.all([
     queryRiwayat(supabase, filter, hariIni).range(0, PER_MUAT - 1),
     (async () => {
       const semua: { id: string; pecahan_dari: string | null; amount: number | string; type: string; transaction_date: string }[] = [];
@@ -35,6 +35,8 @@ export default async function RiwayatPage({ searchParams }: { searchParams: Prom
         if (!d || d.length < 1000) return semua;
       }
     })(),
+    // Chip "Perlu dilengkapi" hanya tampil bila ada (SPEC-impor-rekening).
+    supabase.from("transactions").select("id", { count: "exact", head: true }).eq("status", "confirmed").eq("perlu_dilengkapi", true),
   ]);
 
   // Bagian pecahan tidak dipisah dari aslinya di batas halaman.
@@ -46,6 +48,7 @@ export default async function RiwayatPage({ searchParams }: { searchParams: Prom
       filter={filter}
       baris={count ?? daftar.length}
       ringkasan={ringkasRiwayat(barisTotal)}
+      perluDilengkapi={perluDilengkapi ?? 0}
       daftar={daftar}
       // Transaksi yang dipecah tampil satu kartu (SPEC-metode-budget).
       pecahan={pecahan}

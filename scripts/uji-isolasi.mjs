@@ -47,13 +47,14 @@ try {
   const anon = klien();
 
   // --- Data A di setiap tempat yang menyimpan data per akun.
-  const kantongA = await satu(A.sb.from("user_accounts").insert({ user_id: A.id, name: "BCA A", kind: "bank", emoji: "🏦", saldo_awal: 1000000, saldo_sejak: "2026-01-01T00:00:00+07:00" }));
+  const kantongA = await satu(A.sb.from("user_accounts").insert({ user_id: A.id, name: "BCA A", kind: "bank", emoji: "🏦", saldo_awal: 1000000, saldo_sejak: "2026-01-01T00:00:00+07:00", nomor_akhir: "1111" }));
   const kategoriA = await satu(A.sb.from("categories").insert({ user_id: A.id, type: "expense", slug: "kursus-a", name: "Kursus A", icon: "graduation-cap", color: "#3e91ff" }));
   const budgetA = await satu(A.sb.from("budgets").insert({ user_id: A.id, category: "food", amount: 500000 }));
   const cicilanA = await satu(A.sb.from("cicilan").insert({ user_id: A.id, nama: "HP A", category: "shopping", nominal: 100000, tenor: 3, jatuh_tempo_awal: hariIni }));
   await satu(A.sb.from("metode_budget").upsert({ user_id: A.id, metode: "pyf", persen: { tabungan: 20 } }));
   const pushA = await satu(A.sb.from("push_langganan").insert({ user_id: A.id, endpoint: "https://contoh.invalid/a", p256dh: "x", auth: "y" }));
-  const txA = await satu(A.sb.from("transactions").insert({ user_id: A.id, amount: 75000, type: "expense", category: "food", merchant: RAHASIA, description: "Catatan A", transaction_date: hariIni, kantong_id: kantongA.id, status: "confirmed", source: "text" }));
+  // Dari rekening koran (SPEC-impor-rekening): pengenal baris & tanda perlu dilengkapi.
+  const txA = await satu(A.sb.from("transactions").insert({ user_id: A.id, amount: 75000, type: "expense", category: "food", merchant: RAHASIA, description: "Catatan A", transaction_date: hariIni, kantong_id: kantongA.id, status: "confirmed", source: "statement", ref_bank: "uji:ref-a", perlu_dilengkapi: true }));
   const draftA = await satu(A.sb.from("transactions").insert({ user_id: A.id, amount: 0, type: "expense", category: "other", merchant: "Draft A", transaction_date: hariIni, status: "needs_review", source: "receipt" }));
   // Simpanan (SPEC-simpanan): deposito di dalam BCA A, beserta periodenya.
   const { data: depoA, error: eDepo } = await A.sb.rpc("buat_simpanan", {
@@ -112,12 +113,35 @@ try {
     cek(`${siapa} tidak melihat saldo kantong A`, !(saldo ?? []).some((k) => k.id === kantongA.id));
     const { error: tutup } = await sb.rpc("tutup_periode_deposito", { p_periode: perA.id, p_bunga: 1000, p_cair: true, p_keterangan: "x" });
     cek(`${siapa} tidak bisa mencairkan deposito A lewat tutup_periode_deposito`, Boolean(tutup));
+    const { error: urung } = await sb.rpc("urungkan_tutup_periode", { p_periode: perA.id });
+    cek(`${siapa} tidak bisa mengurungkan periode deposito A lewat urungkan_tutup_periode`, Boolean(urung));
     const { error: hapusSimpanan } = await sb.rpc("hapus_simpanan", { p_id: depoA });
     cek(`${siapa} tidak bisa menghapus simpanan A lewat hapus_simpanan`, Boolean(hapusSimpanan));
     const { error: buatDiA } = await sb.rpc("buat_simpanan", { p_kantong: { name: "Numpang", emoji: "🏦", induk_id: kantongA.id, macam_simpanan: "tabungan", saldo: 0 }, p_termasuk: false });
     cek(`${siapa} tidak bisa membuat simpanan di dalam kantong A lewat buat_simpanan`, Boolean(buatDiA));
     const { data: rerata } = await sb.rpc("get_avg_monthly_expense_by_category");
     cek(`${siapa} tidak mendapat rerata pengeluaran A`, (rerata ?? []).length === 0, JSON.stringify(rerata));
+    // Impor rekening koran: pengenal baris A tidak terlihat; RPC impor tidak menyentuh milik A.
+    const { data: refAda } = await sb.rpc("ref_bank_ada", { p_ref: ["uji:ref-a"] });
+    cek(`${siapa} tidak melihat pengenal rekening koran A lewat ref_bank_ada`, !(refAda ?? []).length, JSON.stringify(refAda));
+    await sb.rpc("impor_rekening", {
+      p: {
+        tautkan: [{ id: txA.id, ref_bank: "uji:curian", ref_bank_tujuan: "uji:curian-2" }],
+        perbarui: [{ id: txA.id, amount: 1, description: "x" }],
+        nomor_akhir: [{ id: kantongA.id, nomor_akhir: "9999" }],
+        saldo: [{ kantong_id: kantongA.id, saldo_awal: 1, saldo_sejak: "2026-01-01T00:00:00+07:00" }],
+      },
+    });
+    const { error: imporKeA } = await sb.rpc("impor_rekening", {
+      p: { sisip: [{ kunci: "t0", type: "expense", amount: 1, category: "other", merchant: "x", transaction_date: hariIni, kantong_id: kantongA.id, ref_bank: "uji:sisip" }] },
+    });
+    cek(`${siapa} tidak bisa mengimpor transaksi ke kantong A lewat impor_rekening`, Boolean(imporKeA));
+    const { error: simpananDiA } = await sb.rpc("impor_rekening", {
+      p: { kantong_baru: [{ kunci: "baru:x", name: "Pocket curian", emoji: "🐷", kind: "simpanan", induk_id: kantongA.id, macam_simpanan: "tabungan", saldo_awal: 0, nomor_akhir: "" }] },
+    });
+    cek(`${siapa} tidak bisa membuat simpanan di kantong A lewat impor_rekening`, Boolean(simpananDiA));
+    const { data: nomorDiubah } = await sb.from("user_accounts").update({ nomor_akhir: "8888" }).eq("id", kantongA.id).select("id");
+    cek(`${siapa} tidak bisa mengubah nomor_akhir kantong A`, !(nomorDiubah ?? []).length);
   }
 
   // 5. Menulis atas nama A.
@@ -180,6 +204,11 @@ try {
   const { data: ubahKantong } = await B.sb.from("transactions").update({ kantong_id: kantongA.id }).eq("id", txB.id).select("kantong_id");
   cek("B tidak bisa mengubah transaksinya sendiri agar merujuk milik A", !(ubahRujuk ?? []).some((t) => t.pecahan_dari === txA.id) && !(ubahKantong ?? []).some((t) => t.kantong_id === kantongA.id), JSON.stringify({ ubahRujuk, ubahKantong }));
 
+  // Pengenal baris unik per akun, bukan global: B boleh memakai pengenal yang sama
+  // (kalau unik global, galat "sudah ada" membocorkan bahwa A punya baris itu).
+  const { error: refSama } = await B.sb.from("transactions").insert({ user_id: B.id, amount: 1, type: "expense", category: "other", transaction_date: hariIni, kantong_id: kantongB.id, status: "confirmed", source: "statement", ref_bank: "uji:ref-a" });
+  cek("B bisa memakai pengenal baris yang sama dengan A (unik per akun, tidak bocor)", !refSama, refSama?.message);
+
   // 7. Semua milik A tetap utuh.
   const utuh = async (tabel, kolom, nilai, cocok) => {
     const { data } = await A.sb.from(tabel).select("*").eq(kolom, nilai);
@@ -187,14 +216,14 @@ try {
   };
   const rusak = [];
   for (const [tabel, kolom, nilai, cocok] of [
-    ["user_accounts", "id", kantongA.id, (r) => r.name === "BCA A"],
+    ["user_accounts", "id", kantongA.id, (r) => r.name === "BCA A" && r.nomor_akhir === "1111" && Number(r.saldo_awal) === 1000000],
     ["categories", "id", kategoriA.id, (r) => r.name === "Kursus A"],
     // budgets berkunci (user_id, category); A hanya melihat miliknya sendiri.
     ["budgets", "category", budgetA.category, (r) => Number(r.amount) === 500000],
     ["cicilan", "id", cicilanA.id, (r) => r.nama === "HP A"],
     ["metode_budget", "user_id", A.id, (r) => r.metode === "pyf"],
     ["push_langganan", "id", pushA.id, (r) => r.endpoint === "https://contoh.invalid/a"],
-    ["transactions", "id", txA.id, (r) => r.merchant === RAHASIA && Number(r.amount) === 75000],
+    ["transactions", "id", txA.id, (r) => r.merchant === RAHASIA && Number(r.amount) === 75000 && r.ref_bank === "uji:ref-a" && !r.ref_bank_tujuan && r.perlu_dilengkapi === true],
     ["deposito", "kantong_id", depoA, (r) => r.selesai === false && Number(r.bunga_persen) === 4.5],
     ["deposito_periode", "deposito_id", depoA, (r) => r.id === perA.id && r.bunga_diterima === null],
   ]) {
@@ -214,6 +243,6 @@ try {
   console.log("✗ GAGAL:", e.message);
 } finally {
   for (const id of akun) await admin.auth.admin.deleteUser(id);
-  console.log(`\n${gagal ? `${gagal} cek gagal` : "✓ isolasi antar akun: baca, ubah, hapus, tulis atas nama orang lain, fungsi, dan kolom rujukan (termasuk simpanan & deposito)"} · akun uji dihapus`);
+  console.log(`\n${gagal ? `${gagal} cek gagal` : "✓ isolasi antar akun: baca, ubah, hapus, tulis atas nama orang lain, fungsi, dan kolom rujukan (termasuk simpanan, deposito & impor rekening koran)"} · akun uji dihapus`);
   process.exit(gagal ? 1 : 0);
 }

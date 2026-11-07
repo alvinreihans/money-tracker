@@ -1,5 +1,6 @@
 import { runOcr, isOcrUsable, type OcrResult } from "@/lib/ocr";
 import {
+  normalize,
   extractWithGroq,
   extractWithGeminiVision,
   extractTextWithGemini,
@@ -42,7 +43,7 @@ function ringkasBacaan(e: ExtractedReceipt): string {
  */
 
 export type ReceiptStatus = "confirmed" | "needs_review";
-export type ExtractionSource = "groq" | "gemini_vision" | "gemini_text" | "none";
+export type ExtractionSource = "groq" | "gemini_vision" | "gemini_text" | "hasil" | "none";
 
 export interface ProcessedReceipt {
   status: ReceiptStatus;
@@ -88,6 +89,10 @@ export interface TransactionRow {
   raw_ocr_text: string | null;
   /** receipt | payment_proof | text — ditampilkan sebagai "Masuk lewat". */
   source: string;
+  /** Pengenal bukti (SPEC-lengkapi): Order SN / nomor bon + sidik gambar; diisi route unggah. */
+  ref_bukti?: string | null;
+  /** Bukan kolom: e-wallet perantara, tempat cashback dikreditkan (SPEC-lengkapi K2). */
+  dompet?: string | null;
 }
 
 /** Hari ini menurut WIB (server berjalan di UTC). */
@@ -204,6 +209,19 @@ export async function processReceiptImage(
 
   // --- 4. Semua jalur gagal: simpan sebagai draft, jangan buang data user ---
   return done("needs_review", best ?? emptyDraft(), ocr, "none", notes);
+}
+
+/**
+ * Hasil baca yang dikirim balik oleh klien (SPEC-lengkapi): "Catat sebagai
+ * baru" sesudah kartu Lengkapi, atau gambar yang ditunda di unggah banyak —
+ * dibaca sekali saja oleh AI. Dirapikan & divalidasi seperti hasil AI.
+ */
+export function hasilKirimanUlang(mentah: unknown, konteks: KonteksAI = { kategori: KATEGORI_BAWAAN }): ProcessedReceipt {
+  // Bentuk yang sudah dirapikan (amount sudah dikurangi voucher): voucher tidak dikurangkan lagi.
+  const m = (mentah ?? {}) as Partial<ExtractedReceipt>;
+  const e = { ...normalize({ ...m, voucher: null }, konteks.kategori, true), voucher: Number(m.voucher) > 0 ? Number(m.voucher) : null };
+  const valid = isValidExtraction(e, konteks.kategori);
+  return done(valid ? "confirmed" : "needs_review", e, null, "hasil", ["Hasil baca dari kiriman sebelumnya (tanpa AI)"], undefined, valid ? null : ringkasBacaan(e));
 }
 
 /** Pemanggil AI untuk teks; bisa diganti di uji (scripts/uji-draft.mts) supaya tidak memakai kuota. */

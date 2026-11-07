@@ -136,7 +136,7 @@ Foto struk bisa diseret dari File Explorer, Galeri (layar terpisah di tablet/Fol
 ### Mouse & keyboard (desktop)
 
 - Setiap elemen yang bisa diklik punya efek *hover* dan cincin fokus saat dinavigasi dengan Tab (`:focus-visible`). Efek hover hanya aktif di perangkat dengan mouse (`@media (hover: hover)`), jadi HP tidak terpengaruh.
-- Esc menutup pop-up. Ini sudah bawaan `<dialog>`.
+- Esc menutup pop-up. Ini sudah bawaan `<dialog>`. Tombol kembali browser juga menutup pop-up/panel paling atas lebih dulu, di semua lebar (SPEC-navigasi, SPEC-perbaikan-uiux #12).
 - Teks tidak diperbesar. Ukurannya tetap ukuran One UI yang sama dengan HP.
 
 ## Cara kerja (ringkas)

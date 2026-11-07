@@ -111,6 +111,13 @@ export default function DetailView({
           </Pesan>
         )}
 
+        {/* Dari rekening koran tanpa kategori/merchant yang jelas (SPEC-impor-rekening K3). */}
+        {!draft && t.perlu_dilengkapi && (
+          <Pesan jenis="info" judul="Perlu dilengkapi">
+            Dari rekening koran: nominal & kantongnya sudah benar, kategori dan merchant-nya belum. Lengkapi dengan mengunggah struk atau screenshot pembayarannya di Catat, atau lewat Edit transaksi di bawah.
+          </Pesan>
+        )}
+
         {/* Struk campuran: tawaran pecah di atas supaya terlihat (SPEC-tawar-pecah). */}
         {!draft && !terpecah && t.type === "expense" && usulan && <PecahTransaksi tx={t} bagian={bagian} usulan={usulan} />}
 

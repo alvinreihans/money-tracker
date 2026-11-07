@@ -1,6 +1,6 @@
 {
   "name": "money-tracker",
-  "version": "2.11.0",
+  "version": "2.12.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -30,12 +30,16 @@
     "uji:riwayat": "tsx scripts/uji-riwayat.mts",
     "uji:tanya": "tsx scripts/uji-tanya.mts",
     "eval:tanya": "node --env-file=.env.local scripts/eval-tanya.mjs",
+    "eval:lengkapi": "tsx --env-file=.env.local scripts/eval-lengkapi.mts",
     "e2e": "node --env-file-if-exists=.env.local e2e/jalankan.mjs",
     "uji:arah": "tsx scripts/uji-arah.mts",
     "uji:metode": "tsx scripts/uji-metode.mts",
     "uji:ingat": "tsx scripts/uji-ingat.mts",
     "uji:isolasi": "node --env-file=.env.local scripts/uji-isolasi.mjs",
-    "uji:simpanan": "tsx scripts/uji-simpanan.mts"
+    "uji:simpanan": "tsx scripts/uji-simpanan.mts",
+    "uji:rekening": "tsx scripts/uji-rekening.mts",
+    "uji:lengkapi": "tsx scripts/uji-lengkapi.mts",
+    "cek:rekening": "tsx scripts/cek-rekening.mts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
@@ -44,6 +48,7 @@
     "groq-sdk": "^1.6.0",
     "lucide-react": "^1.61.0",
     "next": "^16.4.2",
+    "pdfjs-dist": "^6.4.299",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "sharp": "^0.35.5",
@@ -58,6 +63,7 @@
     "@types/web-push": "^3.6.4",
     "eslint": "^9.39.5",
     "eslint-config-next": "^16.4.2",
+    "pdf-lib": "^1.17.1",
     "pg": "^8.23.0",
     "tsx": "^4.23.13",
     "typescript": "^5.9.3"
