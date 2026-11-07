@@ -135,6 +135,18 @@ export default function RiwayatView({
   const [teks, setTeks] = useState(q);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Chip filter aktif selalu terlihat di HP (SPEC-perbaikan-uiux #10): baris
+  // chip bisa digeser, jadi yang aktif paling kanan digeser ke dalam pandangan.
+  const saringRef = useRef<HTMLDivElement>(null);
+  const kunciFilter = JSON.stringify(filter);
+  useEffect(() => {
+    const baris = saringRef.current;
+    const aktifTerakhir = [...(baris?.querySelectorAll<HTMLElement>('[aria-pressed="true"]') ?? [])].at(-1);
+    if (!baris || !aktifTerakhir) return;
+    const lebih = aktifTerakhir.getBoundingClientRect().right - baris.getBoundingClientRect().right;
+    if (lebih > 0) baris.scrollLeft += lebih + 16;
+  }, [kunciFilter]);
+
   // Fokus masih di dalam ketukan tombol cari, jadi keyboard HP langsung muncul.
   useLayoutEffect(() => {
     if (cariBuka) inputRef.current?.focus();
@@ -257,7 +269,7 @@ export default function RiwayatView({
             </div>
 
             {/* Filter lain: chip berisi nilainya, ketuk → lembar pilihan. */}
-            <div className={s.chips} role="group" aria-label="Saring transaksi" style={{ marginTop: -8 }}>
+            <div ref={saringRef} className={s.chips} role="group" aria-label="Saring transaksi" style={{ marginTop: -8 }}>
               <button type="button" className={s.chip} aria-pressed={Boolean(filter.periode || filter.dari || filter.sampai)} aria-haspopup="dialog" onClick={() => buka("tanggal")}>
                 <CalendarDays size={16} aria-hidden /> {labelTanggal} <ChevronDown size={16} aria-hidden />
               </button>

@@ -884,7 +884,11 @@ export function rencanakan(m: MasukanRencana): Rencana {
         tanggal: b.tanggal,
         nominal: b.nominal,
         uraian: b.uraian,
-        kandidat: d0.map((t) => ({ id: t.id, label: [t.merchant || "Tanpa nama", t.transaction_date, t.waktu?.slice(0, 5)].filter(Boolean).join(" · ") })),
+        kandidat: d0.map((t) => ({
+          id: t.id,
+          // Jam di depan (pembedanya), tanggal hanya bila beda dari baris rekening (SPEC-perbaikan-uiux #11).
+          label: [t.waktu?.slice(0, 5).replace(":", "."), t.merchant || "Tanpa nama", t.transaction_date !== b.tanggal ? t.transaction_date : null].filter(Boolean).join(" · "),
+        })),
         dipilih: jawab ?? d0[0].id,
       });
     }

@@ -91,9 +91,7 @@ export default function RingkasanUnggah({
 
   const bagian = (judul: string, isi: React.ReactNode) => (
     <div className={s.blok}>
-      <p className={s.blokIsi} style={{ paddingBottom: 4, margin: 0 }}>
-        <strong>{judul}</strong>
-      </p>
+      <h3 className={s.judulBagian}>{judul}</h3>
       {isi}
     </div>
   );
@@ -141,7 +139,7 @@ export default function RingkasanUnggah({
                   </span>
                 </span>
                 {!i.diurungkan && (
-                  <button type="button" className={s.flat} disabled={Boolean(sibuk)} onClick={() => void urungkan(i)}>
+                  <button type="button" className={`${s.flat} ${s.flatRingkas}`} disabled={Boolean(sibuk)} onClick={() => void urungkan(i)}>
                     {sibuk === i.id ? <Spinner /> : "Urungkan"}
                   </button>
                 )}

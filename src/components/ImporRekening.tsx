@@ -26,6 +26,9 @@ interface Pratinjau {
   bank: Record<string, string>;
 }
 
+/** Nominal bertanda seperti daftar transaksi: "−Rp 18.000" (tanda minus, bukan tanda hubung). */
+const rp = (n: number) => (n < 0 ? `−${fmtIDR(-n)}` : fmtIDR(n));
+
 const BULAN = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
 const tgl = (iso: string) => ({ h: Number(iso.slice(8, 10)), b: BULAN[Number(iso.slice(5, 7)) - 1], t: iso.slice(0, 4) });
 
@@ -122,9 +125,9 @@ export default function ImporRekening({ berkas, onClose, onSelesai }: { berkas: 
       <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
         {tanya.map((r) => (
           <div key={r.kunci} className={s.blok}>
-            <p className={s.blokIsi} style={{ paddingBottom: 8, margin: 0 }}>
-              <strong>Rekening {r.nama} ini kantong yang mana?</strong>
-            </p>
+            <h3 className={s.judulBagian} style={{ paddingBottom: 8 }}>
+              Rekening {r.nama} ini kantong yang mana?
+            </h3>
             <div role="radiogroup" aria-label={`Kantong untuk ${r.nama}`}>
               {data.pilihanKantong.map((k) => (
                 <BarisPilih key={k.id} peran="radio" dipilih={jawab[r.kunci] === k.id} onClick={() => setJawab((j) => ({ ...j, [r.kunci]: k.id }))}>
@@ -169,31 +172,39 @@ export default function ImporRekening({ berkas, onClose, onSelesai }: { berkas: 
           </div>
         ))}
         {data.ragu.length > 0 && (
-          <div className={s.blok}>
-            <div className={s.blokIsi} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              <strong>Mungkin sudah tercatat ({data.ragu.length})</strong>
-              <span className={s.redup}>Ada beberapa transaksi yang cocok. Pilih yang sama dengan baris rekening koran ini.</span>
-              {data.ragu.map((g) => (
-                <label key={g.ref} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                  <span>
-                    {g.rekening} · {teksPeriode(g.tanggal, g.tanggal)} · {fmtIDR(g.nominal)}
-                  </span>
-                  <select
-                    style={{ padding: "10px 12px", borderRadius: 12, background: "var(--blok-2)", color: "inherit", border: "none", font: "inherit" }}
-                    value={pilihan.ragu?.[g.ref] ?? g.dipilih}
-                    onChange={(e) => ubah({ ragu: { ...pilihan.ragu, [g.ref]: e.target.value } })}
-                  >
-                    {g.kandidat.map((k) => (
-                      <option key={k.id} value={k.id}>
-                        {k.label}
-                      </option>
-                    ))}
-                    <option value="baru">Bukan, catat sebagai baru</option>
-                  </select>
-                </label>
-              ))}
-            </div>
-          </div>
+          <section className={s.blok} aria-labelledby="ragu-judul">
+            <h3 id="ragu-judul" className={s.judulBagian}>
+              Mungkin sudah tercatat ({data.ragu.length})
+            </h3>
+            <p className={s.redup} style={{ margin: 0, padding: "0 20px 4px" }}>
+              Ada beberapa transaksi yang cocok. Pilih yang sama dengan baris rekening koran ini.
+            </p>
+            {data.ragu.map((g) => {
+              const dipilih = pilihan.ragu?.[g.ref] ?? g.dipilih;
+              const pilihRagu = (id: string) => ubah({ ragu: { ...pilihan.ragu, [g.ref]: id } });
+              const label = `${g.rekening} · ${teksPeriode(g.tanggal, g.tanggal)} · ${rp(g.nominal)}`;
+              return (
+                // Daftar pilihan yang membungkus teks, jam di depan (SPEC-perbaikan-uiux #11).
+                <div key={g.ref} role="radiogroup" aria-label={label} style={{ paddingTop: 8 }}>
+                  <p className={s.blokIsi} style={{ margin: 0, padding: "8px 20px 0", fontWeight: 600 }}>
+                    {label}
+                  </p>
+                  {g.kandidat.map((k) => (
+                    <BarisPilih key={k.id} peran="radio" dipilih={dipilih === k.id} onClick={() => pilihRagu(k.id)}>
+                      <span className={s.barisTeks}>
+                        <span style={{ whiteSpace: "normal" }}>{k.label}</span>
+                      </span>
+                    </BarisPilih>
+                  ))}
+                  <BarisPilih peran="radio" dipilih={dipilih === "baru"} onClick={() => pilihRagu("baru")}>
+                    <span className={s.barisTeks}>
+                      <span style={{ whiteSpace: "normal" }}>Bukan, catat sebagai baru</span>
+                    </span>
+                  </BarisPilih>
+                </div>
+              );
+            })}
+          </section>
         )}
       </div>
     );
@@ -238,7 +249,7 @@ function KartuRekening({ r, baru, samakan, onSamakan }: { r: RingkasRekening; ba
         <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
           {r.bank === "jago" && !r.utama ? <Landmark size={22} aria-hidden /> : <FileText size={22} aria-hidden />}
           <div className={s.barisTeks}>
-            <strong>{r.nama}</strong>
+            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{r.nama}</h3>
             <span className={s.redup}>
               {teksPeriode(r.dari, r.sampai)} · {r.baris} baris{r.berkas > 1 ? ` · ${r.berkas} berkas` : ""}
             </span>
@@ -263,13 +274,14 @@ function KartuRekening({ r, baru, samakan, onSamakan }: { r: RingkasRekening; ba
             </li>
           )}
         </ul>
-        {r.saldoAplikasi !== null && (
-          <span className={s.redup}>
-            Saldo akhir menurut bank {fmtIDR(r.saldoBank)}
-            {beda ? ` · menurut aplikasi sesudah impor ${fmtIDR(r.saldoAplikasi)}` : " · sama dengan aplikasi"}
-          </span>
-        )}
+        {r.saldoAplikasi !== null && !beda && <span className={s.redup}>Saldo akhir menurut bank {rp(r.saldoBank)} · sama dengan aplikasi</span>}
       </div>
+      {/* Saldo yang tidak sama: peringatan, dengan tawaran menyamakannya tepat di bawahnya (#4). */}
+      {r.saldoAplikasi !== null && beda && (
+        <Pesan jenis="peringatan" judul="Saldo akhir tidak sama">
+          Menurut bank {rp(r.saldoBank)}, menurut aplikasi sesudah impor {rp(r.saldoAplikasi)}.
+        </Pesan>
+      )}
       {r.samakan && (
         <BarisPilih peran="checkbox" dipilih={samakan} onClick={() => onSamakan(!samakan)}>
           <span className={s.barisTeks}>

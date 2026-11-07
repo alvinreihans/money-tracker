@@ -83,6 +83,8 @@ type Pesan =
       ganti: boolean;
       buat: boolean;
       selesai?: boolean;
+      /** "Melengkapi…" di kartu selama permintaan berjalan (SPEC-perbaikan-uiux #14). */
+      memproses?: boolean;
     }
   | { t: "dilengkapi"; r: HasilLengkapi; diurungkan?: boolean }
   | { t: "kartu"; tx: Transaction; perbaikan: boolean; batal?: boolean }
@@ -418,11 +420,12 @@ export default function LembarCatat({
   async function lengkapiDariKartu(i: number) {
     const p = pesan[i];
     if (p?.t !== "lengkapi" || sibuk) return;
-    ubahPesan(i, { selesai: true });
+    ubahPesan(i, { selesai: true, memproses: true });
     tambah({ t: "saya", teks: "Lengkapi" });
     setSibuk(true);
     const r = await kirimJson("/api/lengkapi", { id: p.pilih, hasil: p.hasil, sidik: p.sidik, gantiKategori: p.ganti, buatDompet: p.buat });
     setSibuk(false);
+    ubahPesan(i, { memproses: false });
     if (r.status !== 200 || !r.data.transaction) {
       ubahPesan(i, { selesai: false });
       return tambah({ t: "app", teks: (r.data.error as string) ?? "Gagal melengkapi transaksinya." });
@@ -944,7 +947,7 @@ export default function LembarCatat({
         const buka = !p.selesai && !sibuk;
         return (
           <div key={i} className={s.kartuHasil}>
-            <div className={s.tersimpan}>Lengkapi transaksi ini?</div>
+            <div className={`${s.tersimpan} ${s.tanyaKartu}`}>Lengkapi transaksi ini?</div>
             {p.u.kandidat.length === 1 ? (
               <p style={{ margin: "4px 0" }}>{p.u.kandidat[0].label}</p>
             ) : (
@@ -985,19 +988,30 @@ export default function LembarCatat({
                 </BarisPilih>
               </div>
             )}
+            {p.memproses && (
+              <div className={s.statusObrolan} role="status">
+                <Spinner /> Melengkapi…
+              </div>
+            )}
             {buka && (
+              // Hierarki: Lengkapi utama, Catat sebagai baru sekunder, Batal netral (SPEC-perbaikan-uiux #9).
               <div className={s.aksiKartu}>
-                <button type="button" className={s.flat} onClick={() => void lengkapiDariKartu(i)}>Lengkapi</button>
-                <button type="button" className={s.flat} onClick={() => void catatSebagaiBaru(i)}>Catat sebagai baru</button>
+                <button type="button" className={`${s.tombol} ${s.tombolPenuh}`} onClick={() => void lengkapiDariKartu(i)}>
+                  Lengkapi
+                </button>
                 <button
                   type="button"
-                  className={s.flat}
+                  className={`${s.flat} ${s.flatNetral}`}
+                  style={{ fontSize: "inherit" }}
                   onClick={() => {
                     ubahPesan(i, { selesai: true });
                     tambah({ t: "saya", teks: "Batal" }, { t: "app", teks: "Oke, tidak dicatat." });
                   }}
                 >
                   Batal
+                </button>
+                <button type="button" className={s.flat} onClick={() => void catatSebagaiBaru(i)}>
+                  Catat sebagai baru
                 </button>
               </div>
             )}

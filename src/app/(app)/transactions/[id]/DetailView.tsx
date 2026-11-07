@@ -114,7 +114,7 @@ export default function DetailView({
         {/* Dari rekening koran tanpa kategori/merchant yang jelas (SPEC-impor-rekening K3). */}
         {!draft && t.perlu_dilengkapi && (
           <Pesan jenis="info" judul="Perlu dilengkapi">
-            Dari rekening koran: nominal & kantongnya sudah benar, kategori dan merchant-nya belum. Lengkapi lewat Edit transaksi di bawah.
+            Dari rekening koran: nominal & kantongnya sudah benar, kategori dan merchant-nya belum. Lengkapi dengan mengunggah struk atau screenshot pembayarannya di Catat, atau lewat Edit transaksi di bawah.
           </Pesan>
         )}
 
