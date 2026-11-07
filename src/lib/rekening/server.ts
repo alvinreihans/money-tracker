@@ -40,16 +40,19 @@ export async function bacaBerkas(berkas: File[]): Promise<{ bacaan: HasilBaca[];
 /** Tanda tangan berkas PDF ("%PDF-"), bukan ekstensi nama berkasnya. */
 export const isPdf = (d: Uint8Array) => d.length > 5 && d[0] === 0x25 && d[1] === 0x50 && d[2] === 0x44 && d[3] === 0x46 && d[4] === 0x2d;
 
-const KOLOM_TX = "id, amount, type, category, merchant, description, kantong_id, kantong_tujuan_id, transaction_date, waktu, ref_bank, ref_bank_tujuan, induk_id, created_at";
+const KOLOM_TX = "id, amount, type, category, merchant, description, kantong_id, kantong_tujuan_id, transaction_date, waktu, ref_bank, ref_bank_tujuan, induk_id, created_at, source";
 
 /** Rencana impor untuk user yang sedang masuk (RLS membatasi ke datanya sendiri). */
 export async function susunRencana(supabase: SupabaseClient, bacaan: HasilBaca[], pilihan: Pilihan): Promise<{ rencana: Rencana; kantong: KantongRencana[] }> {
-  const [{ data: akun }, { data: kategori }, { data: deposito }, { data: periode }] = await Promise.all([
+  const [{ data: akun }, { data: kategori }, { data: deposito }, { data: periode }, { data: saldo }] = await Promise.all([
     supabase.from("user_accounts").select("id, name, kind, nomor_akhir, induk_id, macam_simpanan, aliases, saldo_awal, saldo_per, saldo_sejak, emoji").order("created_at"),
     supabase.from("categories").select("type, slug"),
     supabase.from("deposito").select("kantong_id, bunga_persen, tenor, satuan_tenor, pajak_persen, pajak_otomatis, perpanjangan, selesai"),
     supabase.from("deposito_periode").select("id, deposito_id, ke, mulai, jatuh_tempo, pokok, bunga_kotor, pajak, bunga_bersih, bunga_diterima, dicairkan_awal, transaksi_tutup").order("ke"),
+    // Saldo sekarang: saldo akhir periode di pratinjau ikut menghitung transaksi sebelum rentang yang dimuat (R1).
+    supabase.rpc("saldo_kantong"),
   ]);
+  const saldoSekarang = Object.fromEntries(((saldo ?? []) as { id: string; saldo: number | string }[]).map((x) => [x.id, Number(x.saldo)]));
   // Deposito yang sudah selesai tidak ikut, kecuali yang jatuh tempo terakhirnya
   // di rentang rekening koran ini (pencairannya ditautkan, SPEC-deposito-jatuh-tempo).
   const dari = bacaan.flatMap((h) => h.rekening.map((r) => r.dari)).sort()[0];
@@ -113,7 +116,7 @@ export async function susunRencana(supabase: SupabaseClient, bacaan: HasilBaca[]
     if (error) throw new Error(`hasil evaluasi deposito: ${error.message}`);
     transaksi.push(...((data ?? []) as TransaksiLama[]));
   }
-  const rencana = rencanakan({ bacaan, kantong, transaksi, kategori: (kategori ?? []) as { type: string; slug: string }[], sudahAda, pilihan, deposito: daftarDeposito });
+  const rencana = rencanakan({ bacaan, kantong, transaksi, kategori: (kategori ?? []) as { type: string; slug: string }[], sudahAda, pilihan, deposito: daftarDeposito, saldoSekarang });
   return { rencana, kantong };
 }
 

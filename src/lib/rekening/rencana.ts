@@ -58,6 +58,18 @@ export interface TransaksiLama {
   induk_id?: string | null;
   created_at?: string;
   description?: string | null;
+  /** "statement" = dari rekening koran. */
+  source?: string | null;
+}
+
+/** Pengeluaran/pemasukan rekening koran yang ternyata pindah antar kantong sendiri (temuan UAT R2). */
+export interface UbahPindah {
+  id: string;
+  kantong_id: RujukanKantong;
+  kantong_tujuan_id: RujukanKantong;
+  ref_bank: string | null;
+  ref_bank_tujuan: string | null;
+  merchant: string;
 }
 
 /** Periode deposito yang sudah tersimpan (SPEC-deposito-jatuh-tempo). */
@@ -110,6 +122,12 @@ export interface MasukanRencana {
   pilihan?: Pilihan;
   /** Deposito & periodenya; tanpa ini jatuh tempo tidak dicocokkan. */
   deposito?: DepositoRencana[];
+  /**
+   * Saldo tiap kantong sekarang (RPC saldo_kantong), untuk saldo akhir periode di
+   * pratinjau: `transaksi` hanya sejak sehari sebelum periode, yang lebih lama
+   * terhitung lewat angka ini (temuan UAT R1).
+   */
+  saldoSekarang?: Record<string, number>;
 }
 
 // ---------------------------------------------------------------- keluaran
@@ -272,6 +290,8 @@ export interface RingkasRekening {
   saldoAplikasi: number | null;
   /** Tawaran K4 bila beda. */
   samakan: { saldo_awal: number; saldo_sejak: string; teks: string } | null;
+  /** Transaksi di kantong lain yang diubah jadi pindah kantong dengan rekening ini (R2): "2 transaksi di Jago …". */
+  diubahPindah: { nama: string; n: number }[];
   /** Deposito yang jatuh tempo di rekening koran ini; `peringatan` = bunga beda dengan perkiraan/isian. */
   deposito: { teks: string; peringatan: boolean; judul?: string }[];
 }
@@ -291,6 +311,8 @@ export interface Rencana {
   perbarui: { id: string; amount: number; description: string }[];
   /** Pengeluaran penempatan deposito dari impor sebelumnya → pindah kantong ke depositonya. */
   jadiPindah: { id: string; kantong_tujuan_id: RujukanKantong; merchant: string }[];
+  /** Pengeluaran/pemasukan di kantong lain yang ternyata pindah kantong dengan rekening ini (R2). */
+  ubahPindah: UbahPindah[];
   /** Pengeluaran penempatan yang sudah diganti pindah kantong pembuatan deposito (K3): dihapus. */
   hapus: string[];
   tawaranJadikan: TawaranJadikan[];
@@ -555,6 +577,7 @@ export function rencanakan(m: MasukanRencana): Rencana {
       saldoBank: urut.reduce((x, y) => (y.sampai >= x.sampai ? y : x)).saldoAkhir,
       saldoAplikasi: null,
       samakan: null,
+      diubahPindah: [],
       deposito: [],
     });
   }
@@ -1048,6 +1071,28 @@ export function rencanakan(m: MasukanRencana): Rencana {
     const t = catatPindah(a, b, a.kantong!, b.kantong!, `Pindah ke ${namaKantong(b.kantong) ?? "kantong sendiri"}`);
     for (const [biaya, induk] of indukBiaya) if (induk === a && t) tempelBiaya(biaya, t);
   }
+  /**
+   * R2: pasangan baris `a` di kantong lawan `ke` yang tercatat sebagai pengeluaran (a uang
+   * masuk) / pemasukan (a uang keluar) dari rekening koran: nominal sama, ±1 hari, menit sama
+   * bila keduanya berjam (aturan pasangan §6); tanggal terdekat dulu.
+   */
+  const ubahPindah: UbahPindah[] = [];
+  const cariBiasa = (a: BarisKerja, ke: RujukanKantong) =>
+    lama
+      .filter(
+        (t) =>
+          t.type === (a.nominal > 0 ? "expense" : "income") &&
+          t.kantong_id === ke &&
+          !t.kantong_tujuan_id &&
+          !t.ref_bank_tujuan &&
+          !t.induk_id &&
+          (t.source == null || t.source === "statement") &&
+          !ubahPindah.some((x) => x.id === t.id) &&
+          Math.abs(t.n - Math.abs(a.nominal)) < 0.005 &&
+          Math.abs(selisihHari(t.transaction_date, a.tanggal)) <= 1 &&
+          (!a.jam || !t.waktu || menit(a.jam) === menit(t.waktu)),
+      )
+      .sort((x, y) => Math.abs(selisihHari(x.transaction_date, a.tanggal)) - Math.abs(selisihHari(y.transaction_date, a.tanggal)))[0];
   // Satu sisi: lawannya kantong sendiri yang belum diimpor.
   for (const a of calonPindah) {
     if (a.selesai || (a.rek.bank === "jago" && !a.rek.utama)) continue;
@@ -1055,6 +1100,31 @@ export function rencanakan(m: MasukanRencana): Rencana {
     const pl = !lawan ? kantongPaylater(a) : null;
     const ke = lawan ?? pl?.id ?? null;
     if (!ke) continue;
+    // R2: rekening koran kantong lawan diimpor lebih dulu, saat kantong ini belum ada —
+    // pasangannya tercatat sebagai pengeluaran/pemasukan biasa. Transaksi itu diubah jadi
+    // pindah kantong (aturan pasangan §6), bukan pindah kantong baru di samping transaksi lama.
+    const biasa = lawan && !pl ? cariBiasa(a, ke) : undefined;
+    if (biasa) {
+      biasa.bebasAsal = false;
+      biasa.bebasTujuan = false;
+      const keluar = a.nominal < 0;
+      ubahPindah.push({
+        id: biasa.id,
+        kantong_id: keluar ? a.kantong! : ke,
+        kantong_tujuan_id: keluar ? ke : a.kantong!,
+        ref_bank: keluar ? a.ref : (biasa.ref_bank ?? null),
+        ref_bank_tujuan: keluar ? (biasa.ref_bank ?? null) : a.ref,
+        merchant: `${keluar ? "Pindah ke" : "Pindah dari"} ${namaKantong(ke)}`,
+      });
+      a.selesai = true;
+      const rr = ringkas.get(a.kunciRek)!;
+      rr.pindah++;
+      const nama = namaKantong(ke) ?? "kantong lain";
+      const ada = rr.diubahPindah.find((x) => x.nama === nama);
+      if (ada) ada.n++;
+      else rr.diubahPindah.push({ nama, n: 1 });
+      continue;
+    }
     const t =
       a.nominal < 0
         ? catatPindah(a, null, a.kantong!, ke, `${pl ? "Bayar" : "Pindah ke"} ${namaKantong(ke)}`)
@@ -1329,7 +1399,24 @@ export function rencanakan(m: MasukanRencana): Rencana {
     if (t.type === "expense") return t.kantong_id === id ? -n : 0;
     return (t.kantong_tujuan_id === id ? n : 0) - (t.kantong_id === id ? n : 0);
   };
-  const semuaTx = [...lama, ...sisip];
+  // Keadaan sesudah impor (R1): transaksi lama dengan perubahan rencana ini (dihapus,
+  // diubah jadi pindah kantong, bunga diperbarui) + transaksi baru.
+  const semuaTx = [
+    ...lama
+      .filter((t) => !hapus.includes(t.id))
+      .map((t) => {
+        const jp = jadiPindah.find((x) => x.id === t.id);
+        const up = ubahPindah.find((x) => x.id === t.id);
+        const pb = perbarui.find((x) => x.id === t.id);
+        return {
+          ...t,
+          ...(pb ? { amount: pb.amount } : {}),
+          ...(jp ? { type: "transfer", kantong_tujuan_id: jp.kantong_tujuan_id } : {}),
+          ...(up ? { type: "transfer", kantong_id: up.kantong_id, kantong_tujuan_id: up.kantong_tujuan_id } : {}),
+        };
+      }),
+    ...sisip,
+  ];
   for (const r of ringkas.values()) {
     if (!r.kantong) continue;
     const baru = kantongBaru.find((k) => k.kunci === r.kantong);
@@ -1347,7 +1434,14 @@ export function rencanakan(m: MasukanRencana): Rencana {
     const sebelumAkhir = (t: { transaction_date: string; waktu?: string | null }) => t.transaction_date <= r.sampai;
     let saldo: number;
     if (sejak.tanggal <= akhir.tanggal) {
-      saldo = Number(k.saldo_awal ?? 0) + terkait.filter((t) => sebelumAkhir(t) && ikutSaldo(t, sejak)).reduce((n, t) => n + efek(t, r.kantong!), 0);
+      // R1: transaksi sebelum rentang yang dimuat (sejak sehari sebelum periode) tetap
+      // terhitung — dari saldo kantong sekarang dikurangi yang dimuat.
+      const id = r.kantong;
+      const sebelumnya =
+        m.saldoSekarang && id in m.saldoSekarang
+          ? m.saldoSekarang[id] - Number(k.saldo_awal ?? 0) - m.transaksi.filter((t) => ikutSaldo(t, sejak)).reduce((n, t) => n + efek(t, id), 0)
+          : 0;
+      saldo = Number(k.saldo_awal ?? 0) + sebelumnya + terkait.filter((t) => sebelumAkhir(t) && ikutSaldo(t, sejak)).reduce((n, t) => n + efek(t, r.kantong!), 0);
     } else {
       // Saldo kantong diisi sesudah periode: mundur dari saldo itu.
       saldo = Number(k.saldo_awal ?? 0) - terkait.filter((t) => !sebelumAkhir(t) && !ikutSaldo(t, sejak)).reduce((n, t) => n + efek(t, r.kantong!), 0);
@@ -1383,6 +1477,7 @@ export function rencanakan(m: MasukanRencana): Rencana {
     tautkan,
     perbarui,
     jadiPindah,
+    ubahPindah,
     hapus,
     tawaranJadikan,
     jadikan,

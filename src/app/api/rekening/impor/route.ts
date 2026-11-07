@@ -39,6 +39,8 @@ export async function POST(req: NextRequest) {
         tautkan: rencana.tautkan,
         perbarui: rencana.perbarui,
         jadi_pindah: rencana.jadiPindah,
+        // Pengeluaran/pemasukan yang ternyata pindah antar rekening sendiri (SPEC-impor-rekening R2).
+        ubah_pindah: rencana.ubahPindah,
         // Deposito jatuh tempo (SPEC-deposito-jatuh-tempo).
         hapus: rencana.hapus,
         jadikan: rencana.jadikan,

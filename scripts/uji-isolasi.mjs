@@ -150,6 +150,8 @@ try {
     });
     cek(`${siapa} tidak bisa menjadikan kantong A deposito lewat impor_rekening`, Boolean(jadikanA));
     await sb.rpc("impor_rekening", { p: { hapus: [txA.id] } });
+    // Pindah antar rekening sendiri (SPEC-impor-rekening R2): transaksi A tidak bisa diubah jadi pindah kantong.
+    await sb.rpc("impor_rekening", { p: { ubah_pindah: [{ id: txA.id, kantong_id: kantongA.id, kantong_tujuan_id: kantongA.id, ref_bank: "uji:curian-3", ref_bank_tujuan: "uji:curian-4", merchant: "x" }] } });
     const { data: ganti } = await sb.rpc("ganti_penempatan", { p_deposito: depoA });
     cek(`${siapa} tidak bisa mengganti penempatan deposito A lewat ganti_penempatan`, !ganti, JSON.stringify(ganti));
     const { error: urungGanti } = await sb.rpc("urungkan_ganti_penempatan", {
@@ -243,7 +245,7 @@ try {
     ["cicilan", "id", cicilanA.id, (r) => r.nama === "HP A"],
     ["metode_budget", "user_id", A.id, (r) => r.metode === "pyf"],
     ["push_langganan", "id", pushA.id, (r) => r.endpoint === "https://contoh.invalid/a"],
-    ["transactions", "id", txA.id, (r) => r.merchant === RAHASIA && Number(r.amount) === 75000 && r.ref_bank === "uji:ref-a" && !r.ref_bank_tujuan && r.perlu_dilengkapi === true],
+    ["transactions", "id", txA.id, (r) => r.merchant === RAHASIA && Number(r.amount) === 75000 && r.ref_bank === "uji:ref-a" && !r.ref_bank_tujuan && r.perlu_dilengkapi === true && r.type === "expense"],
     ["deposito", "kantong_id", depoA, (r) => r.selesai === false && Number(r.bunga_persen) === 4.5],
     ["user_accounts", "id", depoA, (r) => r.macam_simpanan === "deposito"],
     ["deposito_periode", "deposito_id", depoA, (r) => r.id === perA.id && r.bunga_diterima === null],

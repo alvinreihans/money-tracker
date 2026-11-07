@@ -284,6 +284,11 @@ function KartuRekening({ r, baru, samakan, onSamakan }: { r: RingkasRekening; ba
                 {n} {label}
               </li>
             ))}
+          {(r.diubahPindah ?? []).map((x) => (
+            <li key={x.nama}>
+              {x.n} transaksi di {x.nama} diubah jadi pindah kantong
+            </li>
+          ))}
           {r.barisBunga > 0 && (
             <li>
               Bunga: {r.bunga ? `${r.bunga} transaksi per bulan` : "sudah tercatat"} ({r.barisBunga} baris digabung)
