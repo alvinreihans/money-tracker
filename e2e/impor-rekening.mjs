@@ -6,7 +6,7 @@
 import { createRequire } from "node:module";
 import path from "node:path";
 import { base, buka, cdp, edge, foto, fs, langkah, masalah, out, tidur } from "./kepala.mjs";
-import { bri, Halaman, jagoBulanan, jagoDepositoOkt, seabank } from "../scripts/contoh-rekening.mjs";
+import { bri, Halaman, jagoBulanan, jagoDepositoOkt, jagoKeSea, seabank, seabankBulan, seaDariJago } from "../scripts/contoh-rekening.mjs";
 const req = createRequire(import.meta.url);
 const { createClient } = req("@supabase/supabase-js");
 const { PDFDocument, StandardFonts } = req("pdf-lib");
@@ -33,6 +33,10 @@ const PDF = {
   bri: await buatPdf(bri()),
   seaSalah: await buatPdf(seabank("911.041")),
   jagoOkt: await buatPdf(jagoDepositoOkt()),
+  // Temuan UAT (SPEC-impor-rekening R1, R2).
+  seaOkt: await buatPdf(seabankBulan({ dari: "01 OCT 2026", sampai: "31 OCT 2026", awal: 911_040, baris: [{ tgl: "15 OCT", atas: ["Savings Interest"], n: 120, bawah: ["Interest"] }] })),
+  jagoAgu: await buatPdf(jagoKeSea()),
+  sea5555: await buatPdf(seaDariJago()),
   lain: await buatPdf([new Halaman().baris(700, [40, "REKENING KORAN"]).baris(680, [40, "Bank Contoh Lain"]).baris(660, [40, "01/09/2026 Setoran 100.000"])]),
 };
 for (const [k, v] of Object.entries(PDF)) fs.writeFileSync(path.join(out, `${k}.pdf`), v);
@@ -205,6 +209,57 @@ try {
     return { lain: lain.slice(0, 200), salah: salah.slice(0, 300), impor, jumlah: tx.length }`);
   cek("Bank lain: 'Rekening koran dari bank ini belum bisa dibaca.' (K5)", /Rekening koran dari bank ini belum bisa dibaca\./.test(tolak.lain), tolak.lain);
   cek("Saldo tidak cocok: ditolak tanpa tombol Impor, tidak ada yang tersimpan", /tidak bisa dicocokkan/.test(tolak.salah) && !tolak.impor && tolak.jumlah === db.jumlah, JSON.stringify(tolak));
+
+  // 5b. Temuan UAT R1: SeaBank (kantongnya dibuat dari rekening koran September, saldo sejak
+  //     1 Sep) lalu Oktober diimpor sendiri → saldo aplikasi di pratinjau = sesudah impor.
+  const SALDO_REST = `const akun = await rest('user_accounts?select=id,name');
+    const saldo = await rest('rpc/saldo_kantong', { method: 'POST', body: '{}' });
+    const s = (n) => Number(saldo.find((x) => x.id === akun.find((k) => k.name === n)?.id)?.saldo);`;
+  const r1 = await langkah("R1: SeaBank Oktober sendiri", `${seret(["seaOkt"])}
+    await sampai(() => /SeaBank …1234 1–31 Okt 2026/.test(${lembar}?.innerText ?? '') && ${lembar}.querySelector('[aria-busy=false]'), 60); await t(300);
+    const teks = ${lembar}.innerText.replace(/\\s+/g, ' ');
+    tombol('Impor', ${lembar}).click(); await sampai(() => /Rekening koran diimpor/.test(teksHalaman()), 60); await t(500);
+    ${SALDO_REST}
+    return { sama: /Saldo akhir menurut bank Rp 911\\.160 · sama dengan aplikasi/.test(teks), peringatan: /Saldo akhir tidak sama|Samakan saldo awal/.test(teks), sea: s('SeaBank') }`);
+  cek("R1: SeaBank Oktober sendiri — pratinjau \"sama dengan aplikasi\", tanpa peringatan/Samakan; sesudah impor Rp 911.160", r1?.sama === true && r1?.peringatan === false && r1?.sea === 911160, JSON.stringify(r1));
+
+  // 5c. Temuan UAT R2: Jago Agustus diimpor saat rekening SeaBank …5555 belum punya kantong
+  //     (transfernya jadi pengeluaran/pemasukan biasa), lalu SeaBank …5555 diimpor →
+  //     transaksi Jago itu diubah jadi pindah kantong, tanpa transaksi baru untuk pasangannya.
+  const r2a = await langkah("R2: Jago Agustus", `${seret(["jagoAgu"])}
+    await sampai(() => /Jago …5678 1–31 Agu 2026/.test(${lembar}?.innerText ?? '') && ${lembar}.querySelector('[aria-busy=false]'), 60); await t(300);
+    const teks = ${lembar}.innerText.replace(/\\s+/g, ' ');
+    tombol('Impor', ${lembar}).click(); await sampai(() => /Rekening koran diimpor/.test(teksHalaman()), 60); await t(500);
+    return { kabar: (teksHalaman().match(/Rekening koran diimpor[^.]*\\./) ?? [''])[0], peringatan: /Saldo akhir tidak sama/.test(teks) }`);
+  cek("R2: Jago Agustus diimpor (3 transaksi baru, saldo akhir sama)", /3 transaksi baru/.test(r2a?.kabar ?? "") && r2a?.peringatan === false, JSON.stringify(r2a));
+  const r2b = await langkah("R2: SeaBank …5555", `${seret(["sea5555"])}
+    await sampai(() => /kantong yang mana/.test(${lembar}?.innerText ?? ''), 60);
+    const d = ${lembar};
+    [...d.querySelector('[aria-label="Kantong untuk SeaBank …5555"]').querySelectorAll('[role=radio]')].find((b) => b.innerText.includes('Buat kantong SeaBank')).click(); await t(100);
+    tombol('Lanjut', d).click();
+    await sampai(() => /SeaBank …5555 1–31 Agu 2026/.test(${lembar}.innerText) && ${lembar}.querySelector('[aria-busy=false]'), 60); await t(300);
+    const teks = ${lembar}.innerText.replace(/\\s+/g, ' ');
+    tombol('Impor', ${lembar}).click(); await sampai(() => /Rekening koran diimpor/.test(teksHalaman()), 60); await t(500);
+    const kabar = (teksHalaman().match(/Rekening koran diimpor[^.]*\\./) ?? [''])[0];
+    const akun = await rest('user_accounts?select=id,name');
+    const nama = (id) => akun.find((k) => k.id === id)?.name;
+    const tx = await rest('transactions?select=type,amount,kantong_id,kantong_tujuan_id,ref_bank,ref_bank_tujuan,perlu_dilengkapi&source=eq.statement&transaction_date=gte.2026-08-01&transaction_date=lte.2026-08-31');
+    const saldo = await rest('rpc/saldo_kantong', { method: 'POST', body: '{}' });
+    return { kartu: teks.match(/SeaBank …5555[^]{0,260}/)?.[0], kabar,
+      tx: tx.map((x) => [x.type, Number(x.amount), nama(x.kantong_id), nama(x.kantong_tujuan_id) ?? null, Boolean(x.ref_bank), Boolean(x.ref_bank_tujuan), x.perlu_dilengkapi]).sort((a, b) => a[1] - b[1] || a[0].localeCompare(b[0])),
+      sea: Number(saldo.find((x) => nama(x.id) === 'SeaBank …5555')?.saldo) }`);
+  cek("R2: pratinjau SeaBank …5555 \"2 transaksi di Jago diubah jadi pindah kantong\", saldo sama", /2 transaksi di Jago diubah jadi pindah kantong/.test(r2b?.kartu ?? "") && /sama dengan aplikasi/.test(r2b?.kartu ?? ""), JSON.stringify(r2b?.kartu));
+  cek(
+    "R2: transfer Jago ↔ SeaBank …5555 jadi pindah kantong berpengenal dua sisi; transfer ke/dari orang lain tetap; hanya 1 transaksi baru",
+    JSON.stringify(r2b?.tx) === JSON.stringify([
+      ["expense", 75000, "Jago", null, true, false, true],
+      ["income", 75000, "SeaBank …5555", null, true, false, true],
+      ["transfer", 100000, "SeaBank …5555", "Jago", true, true, false],
+      ["transfer", 300000, "Jago", "SeaBank …5555", true, true, false],
+    ]) && /1 transaksi baru/.test(r2b?.kabar ?? ""),
+    JSON.stringify(r2b),
+  );
+  cek("R2: saldo SeaBank …5555 = saldo akhir bank Rp 425.000", r2b?.sea === 425000, String(r2b?.sea));
 
   // 6. Deposito jatuh tempo (SPEC-deposito-jatuh-tempo): laporan Jago Oktober dengan kantong
   //    "Deposito" baru → "Jadikan deposito?" (K2) → impor dulu: periode ditutup dari rekening
