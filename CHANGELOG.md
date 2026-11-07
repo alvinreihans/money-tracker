@@ -21,6 +21,18 @@ docs/specs/SPEC-catat-tuntas.md (fase 1 & 2 selesai di 2.4.0, fase 3 di 2.5.0, f
 
 ## [Unreleased]
 
+### Ditambah
+- **Deposito jatuh tempo dicocokkan dengan rekening koran** (SPEC-deposito-jatuh-tempo). Bila rekening koran yang diimpor memuat bunga (dan pajak) atau pencairan deposito di sekitar tanggal jatuh temponya (± 3 hari), periode itu ditutup dengan angka bank: bunga bersih dicatat sekali, deposito diperpanjang atau cair menurut setelannya, dan kartu "Deposito jatuh tempo" di Beranda hilang. Pratinjau menyebutnya, mis. "Deposito … jatuh tempo 10 Okt 2026: bunga bersih Rp 32.877 (perkiraan Rp 32.877) · diperpanjang sampai 10 Nov 2026"; bila beda dengan perkiraan, tampil sebagai peringatan.
+- **Urungkan penutupan dari rekening koran** di detail deposito (Riwayat periode): bunganya dihapus dan periodenya kembali menunggu dicek.
+- **"Jadikan deposito?"** untuk kantong Jago bernama Deposito saat impor: isi bunga, tenor, dan perpanjangannya (tanggal mulai & pokok dari baris Penempatan Dana). Kalau tidak dicentang, kantongnya tetap tabungan seperti sebelumnya.
+
+### Diubah
+- **Deposito yang sudah dicek di aplikasi** lalu rekening korannya diimpor: baris bunga & pencairannya ditautkan ke hasil cek itu, tidak dicatat lagi. Bila bunga yang diisi beda dengan bank, nominalnya ikut bank (catatan "disesuaikan dengan rekening koran"), supaya saldonya sama dengan bank.
+- **Membuat deposito "Sudah termasuk"** yang penempatannya sudah terimpor sebagai pengeluaran "Fund Placement" (tanggal & nominal sama): pengeluaran itu diganti pindah kantong ke deposito, dengan snackbar "… diganti" yang bisa diurungkan. Impor rekening koran berikutnya juga tidak lagi membuat pindah kantong kedua.
+
+### Diperbaiki
+- Jatuh tempo deposito tidak lagi tercatat dua kali (evaluasi di aplikasi + impor rekening koran): bunga & pajak deposito tidak ikut digabung ke bunga bulanan ("Bunga Okt 2026"), dan pencairan deposito SeaBank yang sudah dievaluasi tidak dicatat lagi sebagai pemasukan atau pindah kantong kedua.
+
 ## [2.12.0] — 2026-11-07
 
 ### Ditambah

@@ -1,6 +1,6 @@
 # Spec: Deposito jatuh tempo dari rekening koran
 
-Status: **disetujui** (K1–K4 usulan diterima user) · 7 November 2026 · branch `feat/deposito-jatuh-tempo` · lanjutan [SPEC-simpanan](SPEC-simpanan.md) §5 dan [SPEC-impor-rekening](SPEC-impor-rekening.md) §8 (butir "Belum diterapkan": deposito jatuh tempo)
+Status: **diterapkan, belum dirilis** (K1–K4 usulan diterima user) · 7 November 2026 · branch `feat/deposito-jatuh-tempo` · lanjutan [SPEC-simpanan](SPEC-simpanan.md) §5 dan [SPEC-impor-rekening](SPEC-impor-rekening.md) §8 (butir "Belum diterapkan": deposito jatuh tempo)
 
 ## Masalah
 
@@ -77,4 +77,25 @@ Deposito dibuat manual dengan "Sudah termasuk", padahal penempatannya sudah teri
 
 ## Belum diterapkan
 
-- Bentuk pencairan SeaBank yang sebenarnya (belum ada contoh).
+- Bentuk pencairan SeaBank yang sebenarnya (belum ada contoh). Aturan §3 diterapkan apa adanya (longgar) dan ditandai **perlu dicek ulang** di kode (`src/lib/rekening/rencana.ts`, bagian 3b).
+- Bentuk pencairan Jago (deposito sekali saja) juga belum ada contoh: dianggap baris "Pencairan Dana …" keluar dari kantong deposito, perlu dicek ulang.
+- Tabel TIME DEPOSIT bulan berikutnya (§3, cair vs diperpanjang) belum dipakai; lihat keputusan 6.
+- E2E (`simpanan`, `impor-rekening`): evaluasi dulu lalu impor, impor dulu lalu kartu evaluasi tidak muncul, urungkan penutupan dari rekening koran — ditulis & dijalankan sesudah migrasi `20261115000000_deposito_jatuh_tempo.sql` diterapkan.
+
+## Keputusan saat implementasi
+
+Hal yang tidak diatur spec, dipilih yang paling kecil dan sejalan dengannya:
+
+1. **Di perencana impor** (`rencanakan`, bagian 3b, sebelum bunga bulanan): murni & diuji di `uji:rekening`. Masukannya deposito user beserta periodenya (yang sudah selesai ikut bila jatuh tempo terakhirnya ≥ awal rekening koran − 3 hari, supaya pencairan yang sudah dievaluasi bisa ditautkan) dan transaksi hasil evaluasinya (`transaksi_tutup`).
+2. **Bunga dicatat di tempat barisnya**: Jago → kantong deposito itu (Bunga & Pajak Bunga ada di sana); SeaBank bunga terpisah → rekening induk; SeaBank digabung ke pencairan → deposito, lalu pencairan seluruhnya pindah ke induk (deposito berakhir Rp 0). Pokok periode berikutnya bertambah bunga hanya bila perpanjangannya "dengan bunga" dan bunganya masuk ke deposito.
+3. **Cair** hanya bila ada baris pencairan (SeaBank "Time Deposit" uang masuk ≥ pokok; Jago "Pencairan Dana …"). Deposito "Sekali saja" tanpa baris pencairan tidak ditutup otomatis (rekening korannya mungkin berakhir sebelum pencairan); kartu evaluasi tetap muncul.
+4. **Pengenal**: transaksi bunga memakai `ref_bank` baris Bunga/Interest pertama; bila bunganya digabung ke pencairan, `<ref pencairan>:bunga`. Baris Pajak tidak disimpan sendiri; impor ulang mengenalinya dari periode yang sudah ditutup (transaksi bunganya sudah berpengenal itu) → 0 baru.
+5. **Penutupan dari rekening koran** lewat `impor_rekening` (bagian `tutup`), bukan `tutup_periode_deposito`: tanggal transaksinya tanggal baris bank, bukan hari impor. Hanya periode terakhir yang belum dicek; boleh berantai (perpanjangan 1 bulan yang juga jatuh tempo di rekening koran yang sama). Pindah kantong pencairan yang dibuat impor ikut `transaksi_tutup`, jadi Urungkan (detail deposito → Riwayat periode → "Urungkan penutupan ke-n dari rekening koran", kolom baru `dari_rekening`) mengembalikan saldo deposito juga. Deposito yang sudah selesai tidak tampil di Profil → Kantong, jadi pencairan dari rekening koran tidak bisa diurungkan dari sana.
+6. **Tabel TIME DEPOSIT bulan berikutnya** belum dipakai: keputusan cair/diperpanjang cukup dari baris pencairan + setelan perpanjangan; yang tidak jelas dibiarkan terbuka (kartu evaluasi).
+7. **"Bunga <bulan>" yang sudah terimpor** sebelum fitur ini (kantong & bulan yang sama): bila isinya hanya baris deposito itu, transaksi itulah yang dipakai sebagai bunga deposito (nominal & keterangannya diperbarui, pengenalnya jadi baris Bunga); bila bercampur bunga lain, periodenya tidak ditutup otomatis (seperti sebelumnya).
+8. **Baris yang sudah tersimpan di transaksi lain** (mis. pencairan SeaBank yang dulu terimpor sebagai pemasukan) → periode tidak ditutup otomatis.
+9. **K1** juga berlaku bila evaluasi mengisi Rp 0 padahal bank memberi bunga: transaksi bunga baru dibuat dan ditambahkan ke `transaksi_tutup`. Kantong transaksi hasil evaluasi tidak dipindah (mis. evaluasi "tanpa bunga" ke induk sementara bank mengkreditkannya ke kantong deposito Jago) — hanya nominal & keterangannya.
+10. **K2** ditawarkan untuk kantong Jago bukan utama yang namanya mengandung "Deposito" dan belum menjadi deposito. Isian: bunga %/th, tenor (chip), perpanjangan; tanggal mulai & pokok dari baris "Penempatan Dana …" di kantong itu, atau (tanpa baris itu) tanggal mulai diisi user dan pokok = saldo kantong di awal rekening koran. Pajak otomatis menurut pokok. Kantong simpanan tabungan diubah jadi deposito (`macam_simpanan`, kini boleh diubah user), periode ke-1 dibuat, lalu periode itu langsung dicocokkan dengan rekening koran yang sama.
+11. **K3 saat deposito dibuat** (form "Sudah termasuk"): RPC `ganti_penempatan` sesudah `buat_simpanan` — pengeluaran "Fund Placement" dari rekening koran di kantong induk, bertanggal = mulai periode ke-1 dan bernominal = pokok, dihapus; pindah kantong pembuatannya mengambil tanggal, jam, dan pengenal baris pengeluaran itu, dan saldo deposito berlaku sejak 00.00 WIB tanggal itu (pola `didanai` di impor). Urungkan di snackbar (`urungkan_ganti_penempatan`) mengembalikan semuanya. **K3 saat impor**: bila pindah kantong pembuatan (tanpa pengenal) sudah ada, pengeluaran itu dihapus dan pengenalnya pindah ke pindah kantong itu (tanggalnya tidak diubah); selain itu tetap diubah jadi pindah kantong seperti sebelumnya.
+12. **Pratinjau**: kartu rekening menyebut tiap jatuh tempo; bunga yang beda dengan perkiraan/isian (dibulatkan per rupiah) tampil sebagai peringatan "Bunga deposito beda dengan perkiraan". Pesan selesai impor menyebut "N jatuh tempo deposito dicocokkan".
+13. **Migrasi** `20261115000000_deposito_jatuh_tempo.sql`: `deposito_periode.dari_rekening`, grant ubah `user_accounts.macam_simpanan`, `impor_rekening` (+ `hapus`, `jadikan`, `tutup`, `sesuaikan`), `urungkan_tutup_periode` (mengosongkan `dari_rekening`), `ganti_penempatan`, `urungkan_ganti_penempatan` — semuanya security invoker, `search_path` tetap, dicabut dari public/anon, dicek di `uji:isolasi`.
