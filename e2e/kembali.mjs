@@ -1,5 +1,5 @@
 import { createRequire } from "node:module";
-import { base, buka, cdp, edge, langkah } from "./kepala.mjs";
+import { base, buka, cdp, edge, jalankan, langkah, tidur } from "./kepala.mjs";
 const req = createRequire(import.meta.url);
 const { createClient } = req("@supabase/supabase-js");
 const U = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -66,6 +66,62 @@ try {
   await buka(`${base}/profil/tujuan`, 5000);
   const k6 = await kembali();
   cek("Dibuka langsung: Utang & Piutang → Beranda, Tujuan → Profil (cadangan)", k5 === "/" && k6 === "/profil", JSON.stringify([k5, k6]));
+
+  // --- 6. Tombol kembali browser/HP menutup lembar paling atas dulu (SPEC-perbaikan-uiux #12).
+  const keadaan = async () => JSON.parse(await jalankan(`JSON.stringify({ path: location.pathname + location.search, lembar: [...document.querySelectorAll('dialog[open]')].map((d) => d.getAttribute('aria-label')) })`));
+  const mundur = async () => {
+    await jalankan("history.back()");
+    await tidur(2000);
+    return keadaan();
+  };
+  const sama = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  await buka(`${base}/profil`, 5000);
+  await ketuk("Kantong", "/profil/kantong");
+  const tambah = `document.querySelector('button[aria-label="Tambah kantong"]').click(); await t(800);`;
+  await langkah("buka lembar", `${tambah} return document.querySelectorAll('dialog[open]').length`);
+  const b1 = await mundur();
+  cek("Kembali menutup lembar, halaman tetap", sama(b1, { path: "/profil/kantong", lembar: [] }), JSON.stringify(b1));
+
+  await langkah("buka & ketik", `${tambah} isi(dialog().querySelector('input[placeholder="Nama"]'), 'Coba'); await t(200); return 'ok'`);
+  const b2 = await mundur();
+  const batal = await langkah("Batal di konfirmasi", `tombol('Batal', dialog()).click(); await t(800); return JSON.stringify({ n: document.querySelectorAll('dialog[open]').length, nama: dialog()?.querySelector('input[placeholder="Nama"]')?.value })`);
+  const b3 = await mundur();
+  const buang = await langkah("Buang", `[...dialog().querySelectorAll('button')].find((b) => b.textContent.trim() === 'Buang').click(); await t(1200); return document.querySelectorAll('dialog[open]').length`);
+  cek(
+    "Isian berubah: kembali → \"Buang perubahan?\"; Batal = lembar tetap terbuka; kembali lagi → Buang = tertutup",
+    sama(b2.lembar, ["Tambah kantong", "Buang perubahan?"]) && batal === JSON.stringify({ n: 1, nama: "Coba" }) && sama(b3.lembar, ["Tambah kantong", "Buang perubahan?"]) && buang === 0,
+    JSON.stringify({ b2, batal, b3, buang }),
+  );
+
+  await langkah("lembar bertumpuk", `${tambah} [...dialog().querySelectorAll('button[aria-pressed]')].find((b) => b.textContent.trim() === 'Simpanan').click(); await t(300); dialog().querySelector('[data-kolom="induk_id"] button').click(); await t(900); return document.querySelectorAll('dialog[open]').length`);
+  const b4 = await mundur();
+  cek("Lembar bertumpuk: kembali menutup yang paling atas saja", sama(b4, { path: "/profil/kantong", lembar: ["Tambah kantong"] }), JSON.stringify(b4));
+  await langkah("tutup lewat Batal (pil)", `tombol('Batal', dialog()).click(); await t(800); const b = [...(dialog()?.querySelectorAll('button') ?? [])].find((x) => x.textContent.trim() === 'Buang'); b?.click(); await t(1000); return document.querySelectorAll('dialog[open]').length`);
+  await langkah("buka lalu Esc", `${tambah} dialog().dispatchEvent(new Event('cancel', { cancelable: true })); await t(1000); return document.querySelectorAll('dialog[open]').length`);
+  const b5 = await mundur();
+  cek("Ditutup lewat tombol/Esc: tanpa entri sisa, kembali sekali = halaman sebelumnya", sama(b5, { path: "/profil", lembar: [] }), JSON.stringify(b5));
+
+  // Lembar yang menutup sambil pindah halaman (router.push) tidak membatalkan perpindahannya.
+  await ketuk("Tujuan tabungan", "/profil/tujuan");
+  const lihat = await langkah("Tujuan → Lihat riwayat", `[...document.querySelectorAll('button')].find((b) => b.innerText.includes('Liburan')).click(); await t(800);
+    [...dialog().querySelectorAll('button')].find((b) => b.textContent.includes('Lihat riwayat')).click(); await sampai(() => location.pathname === '/riwayat', 30); await t(1500); return location.pathname`);
+  const b6 = await mundur();
+  const b7 = await mundur();
+  cek("Lembar → Lihat riwayat pindah halaman; kembali = Tujuan, kembali lagi = Profil (tanpa ketukan sia-sia)", lihat === "/riwayat" && sama(b6, { path: "/profil/tujuan", lembar: [] }) && b7.path === "/profil", JSON.stringify({ lihat, b6, b7 }));
+
+  // Lembar filter Riwayat: Terapkan → kembali = Riwayat tanpa filter.
+  await buka(`${base}/riwayat`, 5000);
+  const saring = await langkah("filter kantong", `[...document.querySelectorAll('button')].find((b) => b.textContent.includes('Kantong') && b.getAttribute('aria-haspopup')).click(); await t(900);
+    const d = dialog(); [...d.querySelectorAll('[role=checkbox],[role=radio]')].find((b) => b.textContent.includes('Tunai')).click(); await t(300);
+    tombol('Terapkan', d).click(); await sampai(() => location.search.includes('kantong'), 20); await t(1000); return location.search.includes('kantong')`);
+  const b8 = await mundur();
+  cek("Riwayat: Terapkan filter lalu kembali = Riwayat tanpa filter", saring === true && sama(b8, { path: "/riwayat", lembar: [] }), JSON.stringify({ saring, b8 }));
+
+  // Lembar Catat (obrolan) juga.
+  await buka(`${base}/`, 5000);
+  await langkah("buka Catat", `document.querySelector('button[aria-label="Catat transaksi"]').click(); await t(1000); return document.querySelectorAll('dialog[open]').length`);
+  const b9 = await mundur();
+  cek("Catat: kembali menutup lembar Catat, tetap di Beranda", sama(b9, { path: "/", lembar: [] }), JSON.stringify(b9));
 } catch (e) {
   console.log("GAGAL:", e.message);
   gagal++;

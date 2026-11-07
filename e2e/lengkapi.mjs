@@ -7,7 +7,7 @@
 // unggah banyak → ringkasan, lengkapi otomatis (urutan jam = urutan rekening),
 // Urungkan; "Catat sebagai baru" → duplikat → "Lengkapi yang sudah ada".
 import { createRequire } from "node:module";
-import { base, buka, cdp, edge, foto, langkah, masalah } from "./kepala.mjs";
+import { base, buka, cdp, edge, foto, jalankan, langkah, masalah } from "./kepala.mjs";
 import { seabankBulan } from "../scripts/contoh-rekening.mjs";
 const req = createRequire(import.meta.url);
 const { createClient } = req("@supabase/supabase-js");
@@ -90,9 +90,27 @@ try {
     return dialog().innerText.replace(/\\s+/g, ' ')`);
   cek("Kartu Lengkapi: transaksi rekening koran, perubahan, tawaran kantong ShopeePay", /Lengkapi transaksi ini\?/.test(kartu) && /ShopeePay · −Rp\s?32\.500 · 3 Sep/.test(kartu) && /Merchant: ShopeePay → Toko Contoh/.test(kartu) && /Jam 08\.45/.test(kartu) && /Buat kantong ShopeePay untuk cashback/.test(kartu), kartu.slice(0, 400));
   await foto("lengkapi-1-kartu.png");
+  // SPEC-perbaikan-uiux #1, #9, #13: baris checkbox ≥ 48px; judul bukan warna sukses; Lengkapi tombol utama
+  // selebar kartu, dua aksi lain sebaris (tidak ada yang turun sendirian).
+  const tataKartu = await langkah("tata kartu", `const k = [...dialog().querySelectorAll('[class*=kartuHasil]')].at(-1);
+    const cb = k.querySelector('[role=checkbox]').getBoundingClientRect();
+    const judul = getComputedStyle([...k.querySelectorAll('div')].find((x) => x.textContent === 'Lengkapi transaksi ini?')).color;
+    const aksi = [...k.querySelectorAll('[class*=aksiKartu] button')].map((b) => ({ t: b.textContent.trim(), y: Math.round(b.getBoundingClientRect().top), w: Math.round(b.getBoundingClientRect().width), kelas: b.className }));
+    return { cb: Math.round(cb.height), judul, aksi, lebarKartu: Math.round(k.getBoundingClientRect().width) }`);
+  const [utama, ...lain] = tataKartu.aksi ?? [];
+  cek(
+    "Kartu Lengkapi: checkbox ≥ 48px, judul biru (bukan hijau sukses), Lengkapi tombol utama di atas, dua aksi lain satu baris",
+    tataKartu.cb >= 48 && tataKartu.judul === "rgb(62, 145, 255)" && utama?.t === "Lengkapi" && /tombol/.test(utama.kelas) && lain.length === 2 && lain[0].y === lain[1].y && lain[0].y > utama.y,
+    JSON.stringify(tataKartu),
+  );
+  // #14: selama dilengkapi, kartu menampilkan "Melengkapi…" (role=status). Permintaannya ditunda sebentar.
+  await langkah("tunda lengkapi", `const asli = window.fetch; window.fetch = async (u, o) => { if (String(u).endsWith('/api/lengkapi')) { window.fetch = asli; await new Promise((r) => setTimeout(r, 1500)); } return asli(u, o); }; return 'ok'`);
   cek("Belum ada yang disimpan sebelum dipilih", (await semua()).length === 5);
   const sesudah = await langkah("Lengkapi", `[...dialog().querySelectorAll('button')].find((b) => b.textContent.trim() === 'Lengkapi').click();
+    await t(300); window.__memproses = [...dialog().querySelectorAll('[class*=kartuHasil] [role=status]')].map((x) => x.textContent.trim()).join('|');
     await sampai(() => /Sudah dilengkapi/.test(dialog()?.innerText ?? ''), 30); return dialog().innerText.replace(/\\s+/g, ' ').slice(-300)`);
+  const memproses = await jalankan("window.__memproses");
+  cek("Kartu menampilkan \"Melengkapi…\" (role=status) selama diproses", memproses === "Melengkapi…", memproses);
   tx = await semua();
   const a = tx.find((t) => t.id === A.id);
   const { data: spay } = await sb.from("user_accounts").select("id, name").eq("name", "ShopeePay").maybeSingle();
@@ -131,9 +149,13 @@ try {
   const urung = await langkah("ringkasan → Urungkan C", `[...document.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Lihat').click();
     await sampai(() => /Hasil unggah/.test(dialog()?.innerText ?? ''), 20);
     const baris = [...dialog().querySelectorAll('[class*=baris]')].find((b) => /Warung Contoh/.test(b.innerText));
-    [...baris.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Urungkan').click();
+    const tbl = [...baris.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Urungkan');
+    window.__ringkas = { tombol: Math.round(tbl.getBoundingClientRect().width), baris: Math.round(baris.getBoundingClientRect().width), h3: [...dialog().querySelectorAll('h3')].map((h) => h.textContent.trim()) };
+    tbl.click();
     await sampai(() => /Diurungkan/.test(dialog().innerText), 20); return dialog().innerText.replace(/\\s+/g, ' ').slice(0, 300)`);
   await foto("lengkapi-3-ringkasan.png");
+  const lembarHasil = await jalankan("window.__ringkas");
+  cek("Hasil unggah: Urungkan selebar isinya (< 35% baris), judul bagian h3", lembarHasil?.tombol < lembarHasil?.baris * 0.35 && lembarHasil.h3.includes("Melengkapi transaksi (3)"), JSON.stringify(lembarHasil));
   tx = await semua();
   const c2 = tx.find((t) => t.id === C.id);
   cek("Urungkan: C kembali (merchant bank, Lainnya, Perlu dilengkapi), cashback-nya hilang", c2.merchant === "ShopeePay" && c2.category === "other" && c2.perlu_dilengkapi === true && !c2.waktu && !c2.ref_bukti && !tx.some((t) => t.induk_id === C.id), JSON.stringify({ c2, urung }));
@@ -149,6 +171,10 @@ try {
     return [...dialog().querySelectorAll('[class*=pilihanJawab] button')].map((b) => b.textContent.trim())`);
   cek("Duplikat sama persis: pilihan ketiga \"Lengkapi yang sudah ada\"", Array.isArray(dup) && dup.includes("Lengkapi yang sudah ada") && dup.includes("Ya, catat lagi") && dup.includes("Bukan, buang"), JSON.stringify(dup));
   await foto("lengkapi-4-duplikat.png");
+  // #8: pilihan jawab tampak 36px, area sentuhnya 44px (diketuk 3px di luar tepi atas/bawah tetap kena).
+  const sentuh = await langkah("area sentuh pilihan jawab", `return [...dialog().querySelectorAll('[class*=pilihanJawab] button')].filter((b) => ['Lengkapi yang sudah ada', 'Ya, catat lagi', 'Bukan, buang'].includes(b.textContent.trim())).map((b) => { const r = b.getBoundingClientRect();
+    const kena = (y) => b.contains(document.elementFromPoint(r.left + 12, y)); return b.textContent.trim() + ':' + Math.round(r.height) + ':' + (kena(r.top - 3) && kena(r.bottom + 3)); })`);
+  cek("Pilihan jawab (Lengkapi yang sudah ada, Ya, catat lagi, Bukan, buang): area sentuh ≥ 44px", Array.isArray(sentuh) && sentuh.length >= 3 && sentuh.every((x) => x.endsWith(":true")), JSON.stringify(sentuh));
   await langkah("Lengkapi yang sudah ada", `[...dialog().querySelectorAll('button')].find((b) => b.textContent.trim() === 'Lengkapi yang sudah ada').click();
     await sampai(() => /tidak dicatat dua kali/.test(dialog()?.innerText ?? ''), 30); return 'ok'`);
   tx = await semua();

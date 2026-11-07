@@ -103,6 +103,19 @@ try {
   ])
     cek(`Pratinjau: ${nama}`, pola.test(pratinjau), pola.test(pratinjau) ? "" : pratinjau.slice(0, 600));
   await foto("pratinjau.png");
+  // SPEC-perbaikan-uiux #4, #16, #17: saldo tidak sama = peringatan (ikon + warna) dengan tawaran samakan tepat di bawahnya; minus "−Rp"; judul bagian h3.
+  const peringatan = await langkah("saldo tidak sama", `const d = ${lembar};
+    const kartu = [...d.querySelectorAll('section')].find((x) => /BRI …4321/.test(x.innerText));
+    const p = [...kartu.querySelectorAll('[role=status]')].find((x) => /Saldo akhir tidak sama/.test(x.innerText));
+    const cb = [...kartu.querySelectorAll('[role=checkbox]')].find((b) => b.innerText.includes('Samakan saldo awal BRI'));
+    return { teks: p?.innerText.replace(/\\s+/g, ' '), ikon: ((s) => s?.getAttribute('stroke') || s?.getAttribute('color'))(p?.querySelector('svg')), sesudahnya: Boolean(p && cb && p.compareDocumentPosition(cb) & Node.DOCUMENT_POSITION_FOLLOWING),
+      sama: [...d.querySelectorAll('[role=status]')].filter((x) => /Saldo akhir tidak sama/.test(x.innerText)).length,
+      h3: [...d.querySelectorAll('h3')].map((h) => h.textContent.trim()).slice(0, 4) }`);
+  cek(
+    "Pratinjau: saldo BRI tidak sama → peringatan \"−Rp 269.500\" + Samakan tepat di bawahnya; yang sama tetap teks biasa; judul rekening h3",
+    /Menurut bank Rp 730\.500, menurut aplikasi sesudah impor −Rp 269\.500/.test(peringatan.teks ?? "") && peringatan.ikon === "var(--peringatan)" && peringatan.sesudahnya && peringatan.sama === 1 && peringatan.h3.includes("BRI …4321"),
+    JSON.stringify(peringatan),
+  );
 
   const impor = await langkah("terima tawaran & impor", `const d = ${lembar};
     const centang = (teks) => [...d.querySelectorAll('[role=checkbox]')].find((b) => b.innerText.includes(teks));
@@ -154,8 +167,11 @@ try {
 
   // 3. Riwayat: filter & tanda "Perlu dilengkapi".
   await buka(`${base}/riwayat?lengkapi=1`, 6000);
-  const riwayat = await langkah("riwayat perlu dilengkapi", `return { chip: !!tombol('Perlu dilengkapi'), tekan: tombol('Perlu dilengkapi')?.getAttribute('aria-pressed'), lencana: [...document.querySelectorAll('[class*=lencana]')].filter((x) => x.textContent === 'Perlu dilengkapi').length }`);
+  const riwayat = await langkah("riwayat perlu dilengkapi", `return { chip: !!tombol('Perlu dilengkapi'), tekan: tombol('Perlu dilengkapi')?.getAttribute('aria-pressed'), lencana: [...document.querySelectorAll('[class*=lencana]')].filter((x) => x.textContent.trim() === 'Perlu dilengkapi').length,
+    chipTerlihat: (() => { const c = tombol('Perlu dilengkapi'); const r = c.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth; })(),
+    lencana13: (() => { const l = [...document.querySelectorAll('[class*=lencana]')].find((x) => x.textContent.trim() === 'Perlu dilengkapi'); return getComputedStyle(l).fontSize + (l.querySelector('svg') ? '+ikon' : ''); })() }`);
   cek("Riwayat: chip Perlu dilengkapi aktif & tiap kartu bertanda", riwayat.chip && riwayat.tekan === "true" && riwayat.lencana === db.perlu, JSON.stringify(riwayat));
+  cek("Riwayat 360 px: chip aktif terlihat tanpa digeser (#10), lencana 13px + ikon (#15)", riwayat.chipTerlihat === true && riwayat.lencana13 === "13px+ikon", JSON.stringify(riwayat));
   await foto("riwayat-lengkapi.png");
 
   // 4. Impor ulang SeaBank & Jago lewat lampiran Catat: tidak menggandakan.
