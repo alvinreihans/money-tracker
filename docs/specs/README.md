@@ -46,6 +46,7 @@ Bagian **Belum diterapkan** di akhir spec berisi rencana yang belum ada di kode.
 | [impor-rekening](SPEC-impor-rekening.md) | Impor rekening koran PDF SeaBank, Jago, BRI (parser per bank) | diterapkan, 2.12.0 |
 | [lengkapi](SPEC-lengkapi.md) | Lengkapi transaksi dari screenshot & struk, unggah banyak gambar | diterapkan, 2.12.0 |
 | [perbaikan-uiux](SPEC-perbaikan-uiux.md) | Perbaikan UI/UX layar baru (tinjauan ui-ux-pro-max), tombol kembali menutup lembar | diterapkan, 2.12.0 |
+| [deposito-jatuh-tempo](SPEC-deposito-jatuh-tempo.md) | Jatuh tempo deposito dari rekening koran: satu kejadian satu catatan, Jago "Jadikan deposito?" | disetujui |
 
 ## Spec baru
 

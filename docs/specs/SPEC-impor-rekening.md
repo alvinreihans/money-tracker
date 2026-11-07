@@ -149,6 +149,6 @@ Hal yang tidak diatur spec, dipilih yang paling kecil dan sejalan dengannya:
 ## Belum diterapkan
 
 - SPinjam / SPayLater ditautkan ke rencana cicilan (SPEC-lend-borrow / SPEC-paylater); sekarang hanya pindah kantong ke kantong orang/kartu bila ada.
-- Deposito SeaBank yang jatuh tempo: pencairan & bunganya di rekening koran belum dicocokkan dengan evaluasi jatuh tempo SPEC-simpanan (bisa tercatat dua kali bila keduanya dipakai).
+- **Dikerjakan di [SPEC-deposito-jatuh-tempo](SPEC-deposito-jatuh-tempo.md):** Deposito SeaBank yang jatuh tempo: pencairan & bunganya di rekening koran belum dicocokkan dengan evaluasi jatuh tempo SPEC-simpanan (bisa tercatat dua kali bila keduanya dipakai).
 - Biaya transfer yang tertulis **sebelum** transaksi induknya tidak ditempelkan (dicatat sendiri sebagai Biaya admin).
-- Penempatan deposito yang dulu terimpor sebagai pengeluaran lalu depositonya dibuat manual dengan "Sudah termasuk": pengeluaran itu diubah jadi pindah kantong (keputusan 10) di samping pindah kantong pembuatan — belum ditangani.
+- **Dikerjakan di [SPEC-deposito-jatuh-tempo](SPEC-deposito-jatuh-tempo.md) (K3):** Penempatan deposito yang dulu terimpor sebagai pengeluaran lalu depositonya dibuat manual dengan "Sudah termasuk": pengeluaran itu diubah jadi pindah kantong (keputusan 10) di samping pindah kantong pembuatan — belum ditangani.
