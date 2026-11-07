@@ -14,7 +14,7 @@ import { golongkan, rencanakan, ringkasRupiah, samaPemilik, type DepositoRencana
 import type { HasilBaca } from "../src/lib/rekening/jenis.ts";
 import { angkaID, angkaUS, susunBaris, tanggalTeks } from "../src/lib/rekening/teks.ts";
 import { pihakBri } from "../src/lib/rekening/bri.ts";
-import { bri as briContoh, Halaman, jagoBulanan, jagoDepositoOkt, jagoRiwayat, seabank as seabankContoh, seabankBulan } from "./contoh-rekening.mjs";
+import { bri as briContoh, Halaman, jagoBulanan, jagoDepositoOkt, jagoKeSea, jagoRiwayat, jagoUat, seabank as seabankContoh, seabankBulan, seaDariJago } from "./contoh-rekening.mjs";
 import { hitungSaldo, type Kantong } from "../src/lib/kantong.ts";
 import type { Rencana } from "../src/lib/rekening/rencana.ts";
 
@@ -342,6 +342,9 @@ function terapkan(db: Db, r: Rencana, sekarang: string) {
   }
   for (const x of r.tautkan) Object.assign(db.tx.find((t) => t.id === x.id)!, x.ref_bank ? { ref_bank: x.ref_bank } : {}, x.ref_bank_tujuan ? { ref_bank_tujuan: x.ref_bank_tujuan } : {});
   for (const x of r.jadiPindah) Object.assign(db.tx.find((t) => t.id === x.id)!, { type: "transfer", category: null, kantong_tujuan_id: id(x.kantong_tujuan_id), perlu_dilengkapi: false });
+  for (const x of r.ubahPindah ?? [])
+    Object.assign(db.tx.find((t) => t.id === x.id)!, { type: "transfer", category: null, merchant: x.merchant, kantong_id: id(x.kantong_id), kantong_tujuan_id: id(x.kantong_tujuan_id), ref_bank: x.ref_bank, ref_bank_tujuan: x.ref_bank_tujuan, perlu_dilengkapi: false });
+  db.tx = db.tx.filter((t) => !r.hapus.includes(t.id));
 }
 /** Impor dengan semua tawaran deposito diterima dan rekening baru → "Buat kantong". */
 function impor(db: Db, bacaan: ReturnType<typeof bacaRekening>[], sekarang: string) {
@@ -578,6 +581,70 @@ for (const [nama, urutan] of [
   assert.deepEqual(e2.tutup.map((x) => [x.periode, x.bunga, x.baru?.jatuh_tempo, x.baru?.pokok]), [["periode:jago:7001:1", 15_342, "2026-11-09", 10_015_342]]);
   assert.equal(e2.sisip.filter((x) => x.type === "transfer").length, 1, "penempatan: satu pindah kantong dua sisi");
   assert.deepEqual(e2.rekening.map((x) => x.saldoAplikasi === x.saldoBank), [true, true]);
+}
+
+// ------------------------------------------------------------ temuan UAT (SPEC-impor-rekening R1, R2)
+
+/**
+ * Impor seperti di server (src/lib/rekening/server.ts): transaksi lama hanya sejak
+ * sehari sebelum periode paling awal, saldo kantong sekarang dari saldo_kantong.
+ * Rekening baru → "Buat kantong". Mengembalikan rencana (= yang tampil di pratinjau).
+ */
+function imporServer(db: Db, bacaan: ReturnType<typeof bacaRekening>[], sekarang = SEKARANG) {
+  const dari = bacaan.flatMap((h) => h.rekening.map((x) => x.dari)).sort()[0];
+  const kemarin = new Date(Date.parse(`${dari}T00:00:00Z`) - 86_400_000).toISOString().slice(0, 10);
+  const masukan: MasukanRencana = {
+    bacaan,
+    kantong: db.kantong,
+    transaksi: db.tx.filter((t) => t.transaction_date >= kemarin).map((t) => ({ ...t, source: "statement" })),
+    kategori: null,
+    sudahAda: new Set(db.tx.flatMap((t) => [t.ref_bank, t.ref_bank_tujuan].filter((v): v is string => Boolean(v)))),
+    saldoSekarang: Object.fromEntries(hitungSaldo(db.kantong, db.tx).map((x) => [x.id, x.saldo])),
+  };
+  const peta = Object.fromEntries(rencanakan(masukan).belumDipetakan.map((b) => [b.kunci, "baru"]));
+  const r = rencanakan({ ...masukan, pilihan: { peta } });
+  terapkan(db, r, sekarang);
+  return r;
+}
+const tanpaPeringatan = (r: Rencana) => r.rekening.filter((x) => x.saldoAplikasi !== null).every((x) => x.saldoAplikasi === x.saldoBank && !x.samakan);
+
+// R1: beberapa bulan diimpor, lalu bulan berikutnya sendiri → pratinjau tidak boleh memperingatkan
+// saldo bila sesudah impor saldonya sama dengan bank (dulu transaksi sebelum periode tidak ikut dihitung).
+{
+  const db: Db = { kantong: [], tx: [] };
+  imporServer(db, [bacaRekening(pdf(...jagoUat(0))), bacaRekening(pdf(...jagoUat(1)))]);
+  const okt = bacaRekening(pdf(...jagoUat(2)));
+  const r = imporServer(db, [okt]);
+  assert.deepEqual(r.rekening.map((x) => [x.nama, x.saldoBank, x.saldoAplikasi]), [["Jago …5678", 1_900_240, 1_900_240], ["Jago · Tabungan", 600_120, 600_120]], "R1: pratinjau = sesudah impor");
+  assert.ok(tanpaPeringatan(r), "R1: tanpa peringatan & tawaran Samakan");
+  assert.deepEqual([saldoDb(db).Jago, saldoDb(db).Tabungan], [1_900_240, 600_120], "sesudah impor = bank");
+  // Pratinjau ulang berkas yang sama: 0 baru, tetap tanpa peringatan.
+  const ulang = imporServer(db, [okt]);
+  assert.deepEqual([ulang.sisip.length, tanpaPeringatan(ulang)], [0, true]);
+}
+
+// R2: rekening A (Jago) diimpor saat kantong B (SeaBank …5555) belum ada → transfer A↔B jadi
+// pengeluaran/pemasukan biasa. Lalu B diimpor: transaksi A diubah jadi pindah kantong, tidak ada
+// transaksi baru untuk pasangannya; transfer ke/dari orang lain tidak diubah.
+{
+  const db: Db = { kantong: [], tx: [] };
+  const a = imporServer(db, [bacaRekening(pdf(...jagoKeSea()))]);
+  assert.deepEqual(a.sisip.map((x) => [x.type, x.amount]), [["income", 100_000], ["expense", 300_000], ["expense", 75_000]], "A: belum ada kantong B");
+  const sea = bacaRekening(pdf(...seaDariJago()));
+  const r = imporServer(db, [sea]);
+  assert.equal(r.ubahPindah.length, 2, "dua transaksi Jago diubah jadi pindah kantong");
+  assert.deepEqual(r.sisip.map((x) => [x.type, x.amount, x.merchant]), [["income", 75_000, "ANI WIJAYA"]], "B: hanya uang masuk dari orang lain yang baru");
+  const kartu = r.rekening.find((x) => x.kunci === "seabank:5555")!;
+  assert.deepEqual(kartu.diubahPindah, [{ nama: "Jago", n: 2 }]);
+  assert.ok(tanpaPeringatan(r), "pratinjau B: saldo sama dengan bank");
+  const nama = (id: string | null) => db.kantong.find((k) => k.id === id)?.name;
+  const pindah = db.tx.filter((t) => t.type === "transfer").map((t) => [nama(t.kantong_id), nama(t.kantong_tujuan_id), Number(t.amount), Boolean(t.ref_bank), Boolean(t.ref_bank_tujuan)]);
+  assert.deepEqual(pindah, [["SeaBank", "Jago", 100_000, true, true], ["Jago", "SeaBank", 300_000, true, true]]);
+  assert.equal(db.tx.filter((t) => t.type === "expense" && Number(t.amount) === 75_000).length, 1, "transfer ke orang lain tetap pengeluaran");
+  assert.deepEqual([saldoDb(db).Jago, saldoDb(db).SeaBank], [1_000, 425_000], "saldo A & B = bank");
+  // Impor ulang keduanya: 0 baru, tidak ada yang diubah lagi.
+  const ulang = imporServer(db, [bacaRekening(pdf(...jagoKeSea())), sea]);
+  assert.deepEqual([ulang.sisip.length, ulang.ubahPindah.length, tanpaPeringatan(ulang)], [0, 0, true]);
 }
 
 console.log("uji:rekening lulus");

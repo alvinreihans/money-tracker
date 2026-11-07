@@ -110,7 +110,7 @@ const nominalJago = (n, tanda = true) => `${tanda ? (n < 0 ? "-" : "+") : ""}${r
 /**
  * Laporan bulanan Jago satu halaman dengan saldo dihitung sendiri (uji deposito
  * jatuh tempo): `bulan` "October 2026", `kantong` [{ nama, id, awal, baris:
- * [{ tgl: "12 Oct 2026", jam: "09.00", pihak, rincian, n }] }] — kantong
+ * [{ tgl: "12 Oct 2026", jam: "09.00", pihak, rincian, n, rekening? }] }] — kantong
  * pertama Kantong Utama (nomornya di kepala laporan).
  */
 export function jagoBulan({ bulan, kantong }) {
@@ -126,7 +126,8 @@ export function jagoBulan({ bulan, kantong }) {
     k.baris.forEach((b, i) => {
       saldo += b.n;
       nomor++;
-      barisJago(h, y - 87 - i * 40, b.tgl, b.jam, [[101, b.pihak], [191, b.rincian], [420, nominalJago(b.n)], [502, nominalJago(saldo, false)]], [[[191, `ID# 261000-BBBB-${String(nomor).padStart(6, "0")}`]]]);
+      const id = [[191, `ID# 261000-BBBB-${String(nomor).padStart(6, "0")}`]];
+      barisJago(h, y - 87 - i * 40, b.tgl, b.jam, [[101, b.pihak], [191, b.rincian], [420, nominalJago(b.n)], [502, nominalJago(saldo, false)]], b.rekening ? [id, [[101, b.rekening]]] : [id]);
     });
     y -= 87 + k.baris.length * 40 + 20;
   }
@@ -159,6 +160,72 @@ export const jagoDepositoOkt = () =>
           { tgl: "26 Oct 2026", jam: "00.15", pihak: "Pajak Bunga", rincian: "Pajak Bunga", n: -3_836 },
         ],
       },
+    ],
+  });
+
+// ------------------------------------------------------------ temuan UAT impor (SPEC-impor-rekening R1, R2)
+
+const BULAN_UAT = [["Aug", "August"], ["Sep", "September"], ["Oct", "October"]];
+/**
+ * R1: tiga bulan Jago berturut-turut (k = 0 Agustus, 1 September, 2 Oktober),
+ * Kantong Utama + kantong "Tabungan": transfer masuk, isi kantong, bunga.
+ * Saldo bersambung antarbulan.
+ */
+export function jagoUat(k) {
+  const [b, panjang] = BULAN_UAT[k];
+  const tgl = (h) => `${h} ${b} 2026`;
+  return jagoBulan({
+    bulan: `${panjang} 2026`,
+    kantong: [
+      {
+        nama: "Kantong Utama", id: "102000005678", awal: 1_000_000 + k * 300_080,
+        baris: [
+          { tgl: tgl("02"), jam: "08.00", pihak: "ANI WIJAYA", rincian: "Transfer Masuk", n: 500_000 },
+          { tgl: tgl("03"), jam: "09.00", pihak: "Tabungan", rincian: "Tambah Uang Kantong", n: -200_000 },
+          { tgl: tgl("28"), jam: "04.59", pihak: "Bunga", rincian: "Bunga", n: 100 },
+          { tgl: tgl("28"), jam: "04.59", pihak: "Pajak Bunga", rincian: "Pajak Bunga", n: -20 },
+        ],
+      },
+      {
+        nama: "Tabungan", id: "109000004444", awal: k * 200_040,
+        baris: [
+          { tgl: tgl("03"), jam: "09.00", pihak: "Kantong Utama", rincian: "Pindah uang antar Kantong", n: 200_000 },
+          { tgl: tgl("28"), jam: "06.24", pihak: "Bunga", rincian: "Bunga", n: 50 },
+          { tgl: tgl("28"), jam: "06.24", pihak: "Pajak Bunga", rincian: "Pajak Bunga", n: -10 },
+        ],
+      },
+    ],
+  });
+}
+
+/**
+ * R2 sisi A: Jago Agustus dengan transfer ke & dari rekening SeaBank sendiri
+ * …5555 (kantongnya belum ada), dan transfer ke orang lain (bukan pindah kantong).
+ * Berakhir Rp 1.000 = saldo awal jagoBulanan September.
+ */
+export const jagoKeSea = () =>
+  jagoBulan({
+    bulan: "August 2026",
+    kantong: [
+      {
+        nama: "Kantong Utama", id: "102000005678", awal: 276_000,
+        baris: [
+          { tgl: "05 Aug 2026", jam: "15.30", pihak: "BUDI SANTOSO", rincian: "Transfer Masuk", n: 100_000, rekening: "Seabank 901000005555" },
+          { tgl: "10 Aug 2026", jam: "10.00", pihak: "BUDI SANTOSO", rincian: "Transfer Keluar", n: -300_000, rekening: "Seabank 901000005555" },
+          { tgl: "12 Aug 2026", jam: "11.00", pihak: "ANI WIJAYA", rincian: "Transfer Keluar", n: -75_000, rekening: "Seabank 901000009999" },
+        ],
+      },
+    ],
+  });
+
+/** R2 sisi B: SeaBank …5555 Agustus, pasangan jagoKeSea (tanpa jam), plus uang masuk dari orang lain. */
+export const seaDariJago = () =>
+  seabankBulan({
+    dari: "01 AUG 2026", sampai: "31 AUG 2026", awal: 150_000, nomor: "901000005555",
+    baris: [
+      { tgl: "05 AUG", atas: ["BUDI SANTOSO"], n: -100_000, bawah: ["JAGO 102000005678", "Transfer"] },
+      { tgl: "10 AUG", atas: ["BUDI SANTOSO"], n: 300_000, bawah: ["JAGO 102000005678", "Transfer"] },
+      { tgl: "12 AUG", atas: ["ANI WIJAYA"], n: 75_000, bawah: ["SeaBank 901000009999", "Transfer"] },
     ],
   });
 
@@ -221,10 +288,10 @@ const ribuan = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
  * berisi { tgl: "06 JUL", atas, bawah, n (positif = masuk) }, `deposito`
  * opsional { nama, pokok } untuk tabel TIME DEPOSIT.
  */
-export function seabankBulan({ dari, sampai, awal, baris, deposito = null }) {
+export function seabankBulan({ dari, sampai, awal, baris, deposito = null, nomor = "901000001234" }) {
   const h = new Halaman();
   kepalaSea(h, 1);
-  h.baris(682, [38, "BUDI SANTOSO"]).baris(664, [38, "SEABANK ACCOUNT: 901000001234"]);
+  h.baris(682, [38, "BUDI SANTOSO"]).baris(664, [38, `SEABANK ACCOUNT: ${nomor}`]);
   let saldo = awal;
   const akhir = awal + baris.reduce((s, b) => s + b.n, 0);
   const keluar = -baris.filter((b) => b.n < 0).reduce((s, b) => s + b.n, 0);
