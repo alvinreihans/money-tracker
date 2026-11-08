@@ -1801,3 +1801,23 @@ button.blok { background: var(--blok); }
    tengahnya, tampilan tetap. */
 .areaSentuh { position: relative; }
 .areaSentuh::after { content: ""; position: absolute; top: 50%; left: 50%; width: max(100%, 48px); height: max(100%, 48px); transform: translate(-50%, -50%); }
+
+/* Kartu "Periksa dulu" (SPEC-periksa-dulu §1): rincian hasil Catat yang belum tersimpan. */
+.kartuPeriksa { padding-bottom: 12px; }
+.thumbPeriksa { width: 44px; height: 56px; flex-shrink: 0; object-fit: cover; border-radius: 10px; border: 1px solid var(--garis); background: var(--blok-2); }
+.rincianPeriksa { display: flex; flex-direction: column; gap: 4px; margin: 10px 0 0; font-size: 14px; }
+.rincianPeriksa > div { display: flex; justify-content: space-between; gap: 12px; }
+.rincianPeriksa dt { flex: none; color: var(--teks-2); }
+.rincianPeriksa dd { margin: 0; min-width: 0; text-align: right; overflow-wrap: anywhere; }
+.aksiPeriksa { display: flex; flex-direction: column; gap: 4px; margin-top: 12px; }
+.aksiPeriksa > div { display: flex; justify-content: flex-end; gap: 4px; }
+.aksiPeriksa .flat { flex: none; min-height: 44px; padding: 0 16px; }
+/* Simpan semua (SPEC-periksa-dulu §2) & "Cara dicatat" (§4). */
+.daftarPeriksa { display: flex; flex-direction: column; gap: 12px; }
+.lipatan > summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 52px; padding: 0 20px; cursor: pointer; list-style: none; font-weight: 600; }
+.lipatan > summary::-webkit-details-marker { display: none; }
+.lipatan > summary::after { content: "›"; color: var(--teks-2); font-size: 22px; transition: transform 200ms var(--gerak); }
+.lipatan[open] > summary::after { transform: rotate(90deg); }
+.lipatanIsi { display: flex; flex-direction: column; gap: 8px; padding: 4px 16px 16px; }
+.bubInfo { align-self: center; color: var(--teks-2); font-size: 13px; text-align: center; }
+.fotoJejak { align-self: flex-end; width: 96px; height: 128px; object-fit: cover; border-radius: 12px; border: 1px solid var(--garis); background: var(--blok-2); }
