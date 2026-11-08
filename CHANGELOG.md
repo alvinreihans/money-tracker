@@ -21,6 +21,8 @@ docs/specs/SPEC-catat-tuntas.md (fase 1 & 2 selesai di 2.4.0, fase 3 di 2.5.0, f
 
 ## [Unreleased]
 
+## [2.15.0] — 2026-11-09
+
 ### Ditambah
 - **Periksa dulu sebelum tersimpan** (SPEC-periksa-dulu). Hasil Catat dari ketikan, gambar, dan bukti transfer tidak lagi langsung tersimpan: begitu semua isiannya lengkap, muncul kartu **"Periksa dulu"** berisi jenis, nominal, merchant, kategori, kantong (atau dari → ke), tanggal & jam, keterangan, biaya admin/cashback, dan thumbnail gambarnya. **Simpan** baru menghitungnya ke saldo, laporan, dan budget; **Ubah** membuka form dengan isian terbaca; **Buang** menghapusnya dengan **Urungkan**. Ketikan tetap cepat: tombol Simpan langsung terfokus, jadi Enter langsung menyimpan, dan ketikan berikutnya saat kartu terbuka dibaca sebagai koreksi.
 - Kartu periksa yang ditinggal (lembar Catat ditutup) menunggu di **Belum selesai** dengan label **"Tinggal dicek"**, dan ikut dihitung pengingat. Di detail transaksinya ada tombol **Simpan** dan **Ubah**.

@@ -48,7 +48,7 @@ Bagian **Belum diterapkan** di akhir spec berisi rencana yang belum ada di kode.
 | [perbaikan-uiux](SPEC-perbaikan-uiux.md) | Perbaikan UI/UX layar baru (tinjauan ui-ux-pro-max), tombol kembali menutup lembar | diterapkan, 2.12.0 |
 | [deposito-jatuh-tempo](SPEC-deposito-jatuh-tempo.md) | Jatuh tempo deposito dari rekening koran: satu kejadian satu catatan, Jago "Jadikan deposito?" | diterapkan, 2.13.0 |
 | [kantong-sendiri](SPEC-kantong-sendiri.md) | Pindah antar kantong sendiri, buat kantong di tempat, impor ingat kategori, SPayLater | diterapkan, 2.14.0 |
-| [periksa-dulu](SPEC-periksa-dulu.md) | Hasil Catat dicek dulu sebelum tersimpan, Simpan semua, rincian pratinjau rekening koran, "Cara dicatat" | diterapkan, belum dirilis |
+| [periksa-dulu](SPEC-periksa-dulu.md) | Hasil Catat dicek dulu sebelum tersimpan, Simpan semua, rincian pratinjau rekening koran, "Cara dicatat" | diterapkan, 2.15.0 |
 | [asisten-agen](SPEC-asisten-agen.md) | Tanya AI jadi agen: alat baca lebar, usulan ubah data, model ringan/berat otomatis | usulan |
 
 ## Spec baru

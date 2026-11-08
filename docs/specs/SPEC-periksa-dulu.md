@@ -1,6 +1,6 @@
 # Spec: Periksa dulu sebelum tersimpan
 
-Status: **diterapkan, belum dirilis** (arah & K1–K2 diputuskan user 9 Nov 2026; diterapkan 9 Nov 2026) · 9 November 2026 · branch `feat/periksa-dulu` · dikerjakan **sebelum** [SPEC-asisten-agen](SPEC-asisten-agen.md) · menyentuh [SPEC-catat-chat](SPEC-catat-chat.md) (draft), [SPEC-catat-tuntas](SPEC-catat-tuntas.md), [SPEC-lengkapi](SPEC-lengkapi.md) (unggah banyak), [SPEC-impor-rekening](SPEC-impor-rekening.md) (pratinjau), [SPEC-enkripsi](SPEC-enkripsi.md)
+Status: **diterapkan · rilis 2.15.0** (arah & K1–K2 diputuskan user 9 Nov 2026; diterapkan 9 Nov 2026) · 9 November 2026 · branch `feat/periksa-dulu` · dikerjakan **sebelum** [SPEC-asisten-agen](SPEC-asisten-agen.md) · menyentuh [SPEC-catat-chat](SPEC-catat-chat.md) (draft), [SPEC-catat-tuntas](SPEC-catat-tuntas.md), [SPEC-lengkapi](SPEC-lengkapi.md) (unggah banyak), [SPEC-impor-rekening](SPEC-impor-rekening.md) (pratinjau), [SPEC-enkripsi](SPEC-enkripsi.md)
 
 ## Masalah
 
