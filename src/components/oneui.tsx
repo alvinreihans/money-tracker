@@ -479,12 +479,18 @@ export function Field({
   keterangan,
   galat,
   kolom,
+  awalan,
   children,
 }: {
   label: string;
   ikon?: React.ElementType;
   /** Di ujung kanan isian: chevron pilihan, tombol intip, dll. */
   kanan?: React.ReactNode;
+  /**
+   * Awalan tetap di kiri isian ("Rp"). Labelnya selalu tampil, juga saat kosong —
+   * placeholder-nya cukup "0" (SPEC-kantong-sendiri E-1).
+   */
+  awalan?: string;
   keterangan?: React.ReactNode;
   galat?: string | null;
   /** Nama isian untuk galat dari GalatForm (mis. "amount"). */
@@ -515,8 +521,13 @@ export function Field({
         </span>
       )}
       <span style={{ flex: 1, minWidth: 0 }}>
-        <label className={s.fieldKolom}>
+        <label className={`${s.fieldKolom} ${awalan ? s.fieldAwalan : ""}`}>
           <span className={s.fieldLabel}>{label}</span>
+          {awalan && (
+            <span className={s.awalan} aria-hidden>
+              {awalan}
+            </span>
+          )}
           {children}
           {kanan && <span className={s.fieldKanan}>{kanan}</span>}
         </label>

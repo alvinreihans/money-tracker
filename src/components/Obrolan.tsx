@@ -24,12 +24,18 @@ import s from "@/components/ui.module.css";
 import { adalahPdf, useCatat } from "@/components/Catat";
 import { useTawaranSerupa } from "@/components/TawaranSerupa";
 import { ACCEPT_STRUK } from "@/components/UploadReceiptForm";
-import { bacaBukti, kalimatArah, kantongBank, rapikanNama } from "@/lib/arah";
+import { bacaBukti, kalimatArah, rapikanNama } from "@/lib/arah";
+import { urungkanPindah } from "@/components/CalonPindah";
+import { bakukanPaylater } from "@/lib/paylater-nama";
+import { bacaPetunjuk, usulanKantongBaru } from "@/lib/petunjuk";
+import type { KantongBaru, UsulanPindahBukti } from "@/lib/pindah-server";
 import {
   apakahKoreksi,
+  bacaNominal,
   CERITA_ULANG,
   KALIMAT_TANYA,
   kalimatKartu,
+  kalimatTanya,
   MAKS_CERITA,
   mauHapus,
   pertanyaanDraft,
@@ -71,7 +77,20 @@ type Pesan =
   | { t: "foto"; src: string }
   | { t: "app"; teks: string; sub?: string }
   | { t: "status"; teks: string }
-  | { t: "tanya"; jenis: JenisTanya | "manual"; teks: string; selesai?: boolean; kandidat?: { id: string; label: string }[] }
+  | {
+      t: "tanya";
+      /** "buat": "Kantong 'GoPay' belum ada. Buat sekarang?"; "saldo": saldo kantong yang baru dibuat (SPEC-kantong-sendiri A-1, K1). */
+      jenis: JenisTanya | "manual" | "buat" | "saldo";
+      teks: string;
+      selesai?: boolean;
+      kandidat?: { id: string; label: string }[];
+      /** "buat": nama kantong yang ditawarkan & pertanyaan asalnya. */
+      buat?: string;
+      untuk?: JenisTanya;
+    }
+  // Screenshot sisi lawan pindah antar rekening sendiri (B-7): "Jadikan pindah BRI → DANA".
+  | { t: "pindahBukti"; u: UsulanPindahBukti; hasil: ExtractedReceipt; file: File; keterangan: string; selesai?: boolean; memproses?: boolean }
+  | { t: "dipindah"; arah: string; salinan: unknown[]; diurungkan?: boolean }
   // "Lengkapi transaksi ini?" (SPEC-lengkapi §2): belum ada yang disimpan sampai dipilih.
   | {
       t: "lengkapi";
@@ -133,6 +152,8 @@ const KURANG: Record<JenisTanya, string> = {
   cerita: "Belum kebaca sama sekali",
   nominal: "Nominal belum kebaca",
   arah: "Kirim atau terima belum jelas",
+  sendiri: "Rekening sendiri atau bukan belum jelas",
+  cicilan: "Cicilan yang mana belum jelas",
   kantong: "Kantong belum jelas",
   kantong_tujuan: "Kantong tujuan belum jelas",
   kartu: "Kartu kreditnya belum terdaftar",
@@ -169,7 +190,7 @@ export default function LembarCatat({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { kantong, kategori, tambahRekening, tambahStruk } = useCatat();
+  const { kantong, kategori, tambahRekening, tambahStruk, tambahKantong, periksaPindah } = useCatat();
   const serupa = useTawaranSerupa();
   // Struk campuran yang sedang dipecah dari kartu hasilnya (SPEC-tawar-pecah).
   const [pecah, setPecah] = useState<Transaction | null>(null);
@@ -198,6 +219,10 @@ export default function LembarCatat({
   const [detik, setDetik] = useState<number | null>(null);
   const [kamera, setKamera] = useState(false);
   const [dariDaftar, setDariDaftar] = useState(false);
+  // Kantong yang dibuat di tempat di obrolan ini (A-1): sesudah catatannya selesai ditanya
+  // saldonya sekali (K1). `tanyaSaldo` = pertanyaan saldo yang sedang terbuka.
+  const kantongSesi = useRef<KantongBaru[]>([]);
+  const [tanyaSaldo, setTanyaSaldo] = useState<{ k: KantongBaru; lagi: number } | null>(null);
 
   const dialogRef = useRef<HTMLDialogElement>(null);
   const badanRef = useRef<HTMLDivElement>(null);
@@ -253,25 +278,23 @@ export default function LembarCatat({
 
   /**
    * Chip jawaban "kirim atau terima?" (SPEC-catat-tuntas). "Pindah antar
-   * rekeningku" hanya bila kedua bank memang kantong user.
+   * rekeningku" selalu ada (SPEC-kantong-sendiri B-3); kantong yang belum ada
+   * ditawarkan dibuat di pertanyaan berikutnya.
    */
   function pilihanArah(tx: Transaction) {
     const b = bacaBukti(tx.bukti_transfer);
     const depan = (n: string | null) => rapikanNama(n)?.split(" ")[0];
     const ke = b && depan(b.penerima.nama);
     const dari = b && depan(b.pengirim.nama);
-    const keduanya = b && kantongBank(b.pengirim.bank, kantong) && kantongBank(b.penerima.bank, kantong);
     const kirim = ke ? `Aku kirim ke ${ke}` : "Uang keluar";
     const terima = dari ? `Aku terima dari ${dari}` : "Uang masuk";
     return (
       <div className={s.pilihanJawab}>
         <button type="button" onClick={() => void jawab("kirim", kirim)}>{kirim}</button>
         <button type="button" onClick={() => void jawab("terima", terima)}>{terima}</button>
-        {keduanya && (
-          <button type="button" onClick={() => void jawab("pindah", "Pindah antar rekeningku")}>
-            Pindah antar rekeningku
-          </button>
-        )}
+        <button type="button" onClick={() => void jawab("pindah", "Pindah antar rekeningku")}>
+          Pindah antar rekeningku
+        </button>
       </div>
     );
   }
@@ -315,6 +338,20 @@ export default function LembarCatat({
         });
       return;
     }
+    if (jenis === "cicilan") {
+      // "Bayar cicilan Shopee PayLater yang mana?" (D-2): rencana penyedia itu.
+      const penyedia = bacaPetunjuk(tx.bukti_transfer).cicilan;
+      void db
+        .from("cicilan")
+        .select("id, nama, penyedia, nominal")
+        .then(({ data }) => {
+          const kandidat = ((data ?? []) as { id: string; nama: string; penyedia: string | null; nominal: number }[])
+            .filter((c) => c.penyedia && bakukanPaylater(c.penyedia) === penyedia)
+            .map((c) => ({ id: c.id, label: `${c.nama} · ${fmtIDR(Number(c.nominal))}` }));
+          tambah({ t: "tanya", jenis, teks: kalimatTanya(jenis, tx), kandidat });
+        });
+      return;
+    }
     if (jenis === "cerita" && ronde >= MAKS_CERITA) {
       tambah({ t: "tanya", jenis: "manual", teks: "Masih belum kebaca nih. Isi manual aja?" });
     } else {
@@ -327,7 +364,7 @@ export default function LembarCatat({
               ? kalimatArah(bacaBukti(tx.bukti_transfer)!)
               : jenis === "kartu" && tx.merchant
                 ? kalimatKartu(tx.merchant)
-                : KALIMAT_TANYA[jenis];
+                : kalimatTanya(jenis, tx);
       tambah({ t: "tanya", jenis, teks });
     }
   }
@@ -343,6 +380,14 @@ export default function LembarCatat({
         teks: dipakai.draft ? "Gambar ini sudah dikirim dan menunggu di “Belum selesai”." : "Struk ini sudah dipakai untuk melengkapi transaksi ini, jadi tidak dicatat lagi:",
         sub: dipakai.label,
       });
+      return;
+    }
+    // Sisi lawan pindah antar rekening sendiri yang sudah tercatat (SPEC-kantong-sendiri B-7).
+    const pb = data.pindahBukti as UsulanPindahBukti | undefined;
+    if (pb && foto && data.hasil) {
+      setBesar(true);
+      setLayar("obrolan");
+      tambah({ t: "pindahBukti", u: pb, hasil: data.hasil as ExtractedReceipt, file: foto.file, keterangan: foto.keterangan });
       return;
     }
     // Cocok dengan transaksi yang sudah tercatat: tawarkan Lengkapi (SPEC-lengkapi §2).
@@ -438,8 +483,8 @@ export default function LembarCatat({
   /** Kartu Lengkapi → "Catat sebagai baru": hasil baca yang sama dikirim balik, tanpa AI lagi. */
   async function catatSebagaiBaru(i: number) {
     const p = pesan[i];
-    if (p?.t !== "lengkapi" || sibuk) return;
-    ubahPesan(i, { selesai: true });
+    if ((p?.t !== "lengkapi" && p?.t !== "pindahBukti") || sibuk) return;
+    setPesan((prev) => prev.map((x, j) => (j === i && (x.t === "lengkapi" || x.t === "pindahBukti") ? { ...x, selesai: true } : x)));
     tambah({ t: "saya", teks: "Catat sebagai baru" }, { t: "status", teks: "Mencatat…" });
     setSibuk(true);
     const fd = new FormData();
@@ -459,6 +504,38 @@ export default function LembarCatat({
     setPesan((prev) => prev.filter((x) => x.t !== "status"));
     setSibuk(false);
     terimaHasil(data, status);
+  }
+
+  const ubahPindah = (i: number, isi: Partial<Extract<Pesan, { t: "pindahBukti" }>>) =>
+    setPesan((prev) => prev.map((p, j) => (j === i && p.t === "pindahBukti" ? { ...p, ...isi } : p)));
+
+  /** Kartu B-7: transaksi rekening koran itu jadi pindah kantong; gambar ini tidak dicatat baru. */
+  async function jadikanPindahBukti(i: number) {
+    const p = pesan[i];
+    if (p?.t !== "pindahBukti" || sibuk) return;
+    ubahPindah(i, { selesai: true, memproses: true });
+    tambah({ t: "saya", teks: `Jadikan pindah ${p.u.arah}` });
+    setSibuk(true);
+    const r = await kirimJson("/api/kantong/pindah/bukti", { id: p.u.id, updated_at: p.u.updated_at, kantong_lawan: p.u.kantong_lawan, merchant: p.u.merchant });
+    setSibuk(false);
+    ubahPindah(i, { memproses: false });
+    if (r.status !== 200 || !Array.isArray(r.data.salinan)) {
+      ubahPindah(i, { selesai: false });
+      return tambah({ t: "app", teks: (r.data.error as string) ?? "Gagal menjadikan pindah kantong." });
+    }
+    tambah({ t: "dipindah", arah: p.u.arah, salinan: r.data.salinan as unknown[] });
+    router.refresh();
+  }
+
+  async function urungkanDipindah(i: number) {
+    const p = pesan[i];
+    if (p?.t !== "dipindah" || sibuk) return;
+    setSibuk(true);
+    const galat = await urungkanPindah(p.salinan);
+    setSibuk(false);
+    if (galat) return tambah({ t: "app", teks: galat });
+    setPesan((prev) => prev.map((x, j) => (j === i && x.t === "dipindah" ? { ...x, diurungkan: true } : x)));
+    router.refresh();
   }
 
   /** Urungkan Lengkapi dari kartu hasilnya. */
@@ -508,6 +585,11 @@ export default function LembarCatat({
     setPesan((prev) => prev.filter((p) => p.t !== "status"));
     setSibuk(false);
 
+    if (r.status === 422 && typeof r.data.buat === "string") {
+      // Kantong yang diketik belum ada (A-1): "Buat sekarang?" — bukan pertanyaan yang sama lagi.
+      tambah({ t: "tanya", jenis: "buat", teks: r.data.error as string, buat: r.data.buat, untuk: jenis });
+      return;
+    }
     if (r.status === 422) {
       // Jawaban tidak bisa dipakai: dibalas, pertanyaannya dibuka lagi.
       tambah({ t: "app", teks: r.data.error as string });
@@ -524,15 +606,66 @@ export default function LembarCatat({
       tambah({ t: "app", teks: (r.data.error as string) ?? "Gagal nyimpen jawabannya." });
       return;
     }
+    // Kantong yang baru dibuat di tempat (A-1): langsung ada di pilihan kantong, ditanya saldonya nanti (K1),
+    // dan transaksi rekening koran lama yang pindah ke/dari situ ditawarkan sesudah lembar ini tutup (A-3).
+    const baru = r.data.kantong_baru as KantongBaru | null | undefined;
+    if (baru) {
+      tambahKantong(baru);
+      kantongSesi.current.push(baru);
+      if (["bank", "ewallet", "cash"].includes(baru.kind)) periksaPindah([baru.id]);
+      tambah({ t: "app", teks: `Kantong ${baru.name} dibuat.`, sub: "Mulai Rp 0 — nanti aku tanya saldonya." });
+    }
     const lanjut = r.data.pertanyaan as JenisTanya | null;
     if (lanjut) return mulaiTanya(tx, lanjut, jenis === "cerita" ? aktif.ronde + 1 : aktif.ronde);
 
     // Selesai dilengkapi: kartu Ubah | Selesai, lalu tutup sendiri.
     setAktif(null);
     const { count } = await db.from("draft_catat").select("transaksi_id", { count: "exact", head: true });
-    tambah({ t: "kartu", tx, perbaikan: true }, { t: "tutup", lagi: count ?? 0 });
-    setDetik(TUTUP_DETIK);
+    tambah({ t: "kartu", tx, perbaikan: true });
     router.refresh();
+    if (kantongSesi.current.length) return mulaiSaldo(count ?? 0);
+    tambah({ t: "tutup", lagi: count ?? 0 });
+    setDetik(TUTUP_DETIK);
+  }
+
+  /** "Saldo DANA sekarang berapa?" untuk kantong yang dibuat di obrolan ini (K1), satu per satu. */
+  function mulaiSaldo(lagi: number) {
+    const k = kantongSesi.current.shift();
+    if (!k) {
+      setTanyaSaldo(null);
+      tambah({ t: "tutup", lagi });
+      setDetik(TUTUP_DETIK);
+      return;
+    }
+    setTanyaSaldo({ k, lagi });
+    tambah({ t: "tanya", jenis: "saldo", teks: k.kind === "kredit" ? `Utang ${k.name} sekarang berapa?` : `Saldo ${k.name} sekarang berapa?` });
+  }
+
+  /** Jawaban saldo (K1): saldo per sekarang (saldo_sejak = sekarang); kartu/paylater = utang, disimpan minus. Kosong = dilewati. */
+  async function simpanSaldo(isi: string | null) {
+    if (!tanyaSaldo || sibuk) return;
+    const { k, lagi } = tanyaSaldo;
+    const n = isi === null ? null : bacaNominal(isi) ?? (/^0+$/.test(isi.replace(/\D/g, "")) ? 0 : null);
+    if (isi !== null && n === null) return tambah({ t: "app", teks: "Angkanya belum kebaca. Coba ketik lagi, mis. 250.000" });
+    setPesan((prev) => prev.map((p) => (p.t === "tanya" ? { ...p, selesai: true } : p)));
+    tambah({ t: "saya", teks: n === null ? "Lewati" : `Rp ${angkaRibuan(String(n))}` });
+    if (n !== null) {
+      setSibuk(true);
+      const { error } = await db
+        .from("user_accounts")
+        .update({ saldo_awal: k.kind === "kredit" ? -Math.abs(n) : n, saldo_sejak: new Date().toISOString() })
+        .eq("id", k.id);
+      setSibuk(false);
+      if (error) {
+        setPesan((prev) => {
+          const j = prev.findLastIndex((p) => p.t === "tanya");
+          return prev.map((p, x) => (x === j && p.t === "tanya" ? { ...p, selesai: false } : p));
+        });
+        return tambah({ t: "app", teks: "Gagal menyimpan saldonya. Coba lagi." });
+      }
+      router.refresh();
+    }
+    mulaiSaldo(lagi);
   }
 
   // Kartu hasil di lembar ringkas hilang sendiri; saran muncul lagi dan
@@ -687,8 +820,10 @@ export default function LembarCatat({
   }
 
   // Pertanyaan yang masih terbuka menentukan jenis kolom ketik.
-  const tanyaBuka = aktif && pesan.some((p) => p.t === "tanya" && !p.selesai) ? aktif.jenis : null;
-  const modeNominal = tanyaBuka === "nominal" && !lampiran;
+  const tanyaTerbuka = pesan.findLast((p): p is Extract<Pesan, { t: "tanya" }> => p.t === "tanya" && !p.selesai);
+  const tanyaBuka = aktif && tanyaTerbuka ? aktif.jenis : null;
+  const saldoBuka = Boolean(tanyaSaldo && tanyaTerbuka?.jenis === "saldo");
+  const modeNominal = (tanyaBuka === "nominal" || saldoBuka) && !lampiran;
 
   function kirim(e?: FormEvent) {
     e?.preventDefault();
@@ -697,6 +832,12 @@ export default function LembarCatat({
     if (isi.length > TEKS_MAKS) return tambah({ t: "app", teks: `Maksimal ${TEKS_MAKS} karakter.` });
     setTeks("");
     if (cerita && !lampiran) return void simpanCerita(cerita, isi);
+    // Saldo kantong yang baru dibuat (K1).
+    if (saldoBuka && !lampiran) return void simpanSaldo(isi);
+    // "Kantong 'GoPay' belum ada. Buat sekarang?" dijawab ketik "ya"/"buat".
+    if (tanyaTerbuka?.jenis === "buat" && tanyaTerbuka.buat && /^(ya|iya|buat|bikin|oke|ok|boleh)\b/i.test(isi)) {
+      return void jawab(`buat:${tanyaTerbuka.buat}`, isi, tanyaTerbuka.untuk);
+    }
     if (lampiran) {
       const l = lampiran;
       setLampiran(null);
@@ -1024,6 +1165,57 @@ export default function LembarCatat({
           </div>
         );
       }
+      case "pindahBukti": {
+        const buka = !p.selesai && !sibuk;
+        return (
+          <div key={i} className={s.kartuHasil}>
+            <div className={`${s.tersimpan} ${s.tanyaKartu}`}>Jadikan pindah kantong?</div>
+            <p style={{ margin: "4px 0" }}>{p.u.label}</p>
+            <p className={s.redup} style={{ margin: "4px 0" }}>
+              Sepertinya ini pindah {p.u.arah} yang sudah tercatat dari rekening koran. Transaksi itu diubah jadi pindah kantong — tidak dicatat dua kali.
+            </p>
+            {p.memproses && (
+              <div className={s.statusObrolan} role="status">
+                <Spinner /> Mengubah…
+              </div>
+            )}
+            {buka && (
+              <div className={s.aksiKartu}>
+                <button type="button" className={`${s.tombol} ${s.tombolPenuh}`} onClick={() => void jadikanPindahBukti(i)}>
+                  Jadikan pindah {p.u.arah}
+                </button>
+                <button
+                  type="button"
+                  className={`${s.flat} ${s.flatNetral}`}
+                  style={{ fontSize: "inherit" }}
+                  onClick={() => {
+                    ubahPindah(i, { selesai: true });
+                    tambah({ t: "saya", teks: "Batal" }, { t: "app", teks: "Oke, tidak dicatat." });
+                  }}
+                >
+                  Batal
+                </button>
+                <button type="button" className={s.flat} onClick={() => void catatSebagaiBaru(i)}>
+                  Catat sebagai baru
+                </button>
+              </div>
+            )}
+          </div>
+        );
+      }
+      case "dipindah":
+        return (
+          <div key={i} className={`${s.bub} ${s.bubApp}`}>
+            {p.diurungkan ? "Pindah kantongnya diurungkan." : `Sudah jadi pindah kantong ${p.arah}.`}
+            {!p.diurungkan && (
+              <div className={s.pilihanJawab}>
+                <button type="button" disabled={sibuk} onClick={() => void urungkanDipindah(i)}>
+                  ↩ Urungkan
+                </button>
+              </div>
+            )}
+          </div>
+        );
       case "dilengkapi":
         return (
           <div key={i} className={`${s.bub} ${s.bubApp}`}>
@@ -1108,14 +1300,66 @@ export default function LembarCatat({
         return (
           <div key={i} className={`${s.bub} ${s.bubApp}`}>
             {p.teks}
-            {buka && (p.jenis === "kantong" || p.jenis === "kantong_tujuan") && (
+            {buka && (p.jenis === "kantong" || p.jenis === "kantong_tujuan") && (() => {
+              const jenis = p.jenis;
+              // "+ Buat kantong <nama>" (A-1): nama yang terbaca untuk sisi ini, bila belum ada kantongnya.
+              const usul = aktif ? usulanKantongBaru(jenis, aktif.tx, kantong) : null;
+              return (
+                <div className={s.pilihanJawab}>
+                  {pilihanKantong(jenis).map((k) => (
+                    <button key={k.id} type="button" onClick={() => void jawab(k.id, k.name)}>
+                      {k.emoji ? `${k.emoji} ` : ""}
+                      {k.name}
+                    </button>
+                  ))}
+                  {usul && (
+                    <button type="button" onClick={() => void jawab(`buat:${usul}`, `+ Buat kantong ${usul}`)}>
+                      + Buat kantong {usul}
+                    </button>
+                  )}
+                </div>
+              );
+            })()}
+            {buka && p.jenis === "buat" && p.buat && aktif && (
               <div className={s.pilihanJawab}>
-                {pilihanKantong(p.jenis).map((k) => (
-                  <button key={k.id} type="button" onClick={() => void jawab(k.id, k.name)}>
-                    {k.emoji ? `${k.emoji} ` : ""}
-                    {k.name}
+                <button type="button" onClick={() => void jawab(`buat:${p.buat}`, `Buat kantong ${p.buat}`, p.untuk)}>
+                  Buat kantong {p.buat}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPesan((prev) => prev.map((x) => (x.t === "tanya" ? { ...x, selesai: true } : x)));
+                    tambah({ t: "saya", teks: "Pilih yang ada" });
+                    mulaiTanya(aktif.tx, p.untuk ?? aktif.jenis, aktif.ronde);
+                  }}
+                >
+                  Pilih yang ada
+                </button>
+              </div>
+            )}
+            {buka && p.jenis === "sendiri" && aktif && (() => {
+              const lembaga = bacaPetunjuk(aktif.tx.bukti_transfer).lembaga ?? "rekening itu";
+              return (
+                <div className={s.pilihanJawab}>
+                  <button type="button" onClick={() => void jawab("ya", `Ya, pindah dari ${lembaga}`)}>Ya, pindah dari {lembaga}</button>
+                  <button type="button" onClick={() => void jawab("bukan", "Bukan, pemasukan")}>Bukan, pemasukan</button>
+                </div>
+              );
+            })()}
+            {buka && p.jenis === "cicilan" && (
+              <div className={s.pilihanJawab}>
+                {(p.kandidat ?? []).map((c) => (
+                  <button key={c.id} type="button" onClick={() => void jawab(c.id, c.label)}>
+                    {c.label}
                   </button>
                 ))}
+              </div>
+            )}
+            {!p.selesai && p.jenis === "saldo" && tanyaSaldo && (
+              <div className={s.pilihanJawab}>
+                <button type="button" disabled={sibuk} onClick={() => void simpanSaldo(null)}>
+                  Lewati
+                </button>
               </div>
             )}
             {buka && p.jenis === "kartu" && aktif && (
@@ -1359,8 +1603,10 @@ export default function LembarCatat({
                     ? "Ceritain singkat, mis. “kopi sama klien”"
                     : lampiran
                     ? "Tambah keterangan…"
-                    : tanyaBuka === "nominal"
-                      ? "mis. 150.000"
+                    : tanyaBuka === "nominal" || saldoBuka
+                      ? saldoBuka
+                        ? "mis. 250.000, atau Lewati"
+                        : "mis. 150.000"
                       : tanyaBuka === "kantong" || tanyaBuka === "kantong_tujuan"
                         ? "Ketik kantongnya"
                         : tanyaBuka === "kartu"

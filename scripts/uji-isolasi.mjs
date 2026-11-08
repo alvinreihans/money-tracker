@@ -152,6 +152,13 @@ try {
     await sb.rpc("impor_rekening", { p: { hapus: [txA.id] } });
     // Pindah antar rekening sendiri (SPEC-impor-rekening R2): transaksi A tidak bisa diubah jadi pindah kantong.
     await sb.rpc("impor_rekening", { p: { ubah_pindah: [{ id: txA.id, kantong_id: kantongA.id, kantong_tujuan_id: kantongA.id, ref_bank: "uji:curian-3", ref_bank_tujuan: "uji:curian-4", merchant: "x" }] } });
+    // Penautan ulang (SPEC-kantong-sendiri A-3): transaksi & kantong A tidak bisa dijadikan/diurungkan pindah kantong.
+    const { error: jadikanPindahA } = await sb.rpc("jadikan_pindah", { p: { ubah: [{ id: txA.id, updated_at: txA.updated_at, kantong_lawan: kantongA.id, merchant: "x", gabung: null }] } });
+    cek(`${siapa} tidak bisa menjadikan transaksi A pindah kantong lewat jadikan_pindah`, Boolean(jadikanPindahA));
+    const { error: urungPindahA } = await sb.rpc("urungkan_jadikan_pindah", {
+      p: { salinan: [{ id: txA.id, sesudah: txA.updated_at, semula: { type: "income", category: "other", merchant: "Dibajak", kantong_id: kantongA.id }, gabung: null }] },
+    });
+    cek(`${siapa} tidak bisa mengubah transaksi A lewat urungkan_jadikan_pindah`, Boolean(urungPindahA));
     const { data: ganti } = await sb.rpc("ganti_penempatan", { p_deposito: depoA });
     cek(`${siapa} tidak bisa mengganti penempatan deposito A lewat ganti_penempatan`, !ganti, JSON.stringify(ganti));
     const { error: urungGanti } = await sb.rpc("urungkan_ganti_penempatan", {
@@ -226,6 +233,19 @@ try {
   const { data: ubahKantong } = await B.sb.from("transactions").update({ kantong_id: kantongA.id }).eq("id", txB.id).select("kantong_id");
   cek("B tidak bisa mengubah transaksinya sendiri agar merujuk milik A", !(ubahRujuk ?? []).some((t) => t.pecahan_dari === txA.id) && !(ubahKantong ?? []).some((t) => t.kantong_id === kantongA.id), JSON.stringify({ ubahRujuk, ubahKantong }));
 
+  // jadikan_pindah: transaksi rekening koran B sendiri tidak bisa dipindah ke kantong A, dan
+  // sisi lawan yang "digabung" (dihapus) tidak bisa milik A.
+  const txBS = await satu(B.sb.from("transactions").insert({ user_id: B.id, amount: 75000, type: "expense", category: "other", merchant: "Top up B", transaction_date: hariIni, kantong_id: kantongB.id, status: "confirmed", source: "statement", ref_bank: "uji:ref-b-pindah" }));
+  // updated_at dibaca ulang: balikan insert lewat view bukan nilai yang tersimpan.
+  Object.assign(txBS, (await B.sb.from("transactions").select("updated_at").eq("id", txBS.id).single()).data);
+  const { error: pindahKeA } = await B.sb.rpc("jadikan_pindah", { p: { ubah: [{ id: txBS.id, updated_at: txBS.updated_at, kantong_lawan: kantongA.id, merchant: "x", gabung: null }] } });
+  cek("B tidak bisa menjadikan transaksinya pindah ke kantong A lewat jadikan_pindah", Boolean(pindahKeA));
+  const danaB = await satu(B.sb.from("user_accounts").insert({ user_id: B.id, name: "DANA B", kind: "ewallet", emoji: "📱", saldo_awal: 0, saldo_sejak: "2026-01-01T00:00:00+07:00" }));
+  const { error: gabungA } = await B.sb.rpc("jadikan_pindah", { p: { ubah: [{ id: txBS.id, updated_at: txBS.updated_at, kantong_lawan: danaB.id, merchant: "x", gabung: { id: txA.id, updated_at: txA.updated_at } }] } });
+  cek("B tidak bisa menghapus transaksi A sebagai sisi lawan lewat jadikan_pindah", Boolean(gabungA));
+  const { data: txBSlagi } = await B.sb.from("transactions").select("type").eq("id", txBS.id).single();
+  cek("Gagal = tidak ada yang berubah (atomik)", txBSlagi?.type === "expense", JSON.stringify(txBSlagi));
+
   // Pengenal baris unik per akun, bukan global: B boleh memakai pengenal yang sama
   // (kalau unik global, galat "sudah ada" membocorkan bahwa A punya baris itu).
   const { error: refSama } = await B.sb.from("transactions").insert({ user_id: B.id, amount: 1, type: "expense", category: "other", transaction_date: hariIni, kantong_id: kantongB.id, status: "confirmed", source: "statement", ref_bank: "uji:ref-a" });
@@ -261,11 +281,46 @@ try {
   await A.sb.from("transactions").update({ transaction_date: "2026-01-02" }).eq("id", txA.id);
   const { data: barisB } = await admin.from("transactions").select("id, transaction_date").eq("user_id", B.id);
   cek("Mengubah transaksi A tidak mengubah baris milik B", !(barisB ?? []).some((t) => t.transaction_date === "2026-01-02"), JSON.stringify(barisB));
+
+  // 8. jadikan_pindah & urungkan untuk A sendiri (SPEC-kantong-sendiri A-3): atomik, sisi lawan
+  //    digabung, gagal bila sudah berubah sejak ditampilkan, dan bisa diurungkan utuh.
+  const briA = await satu(A.sb.from("user_accounts").insert({ user_id: A.id, name: "BRI A2", kind: "bank", emoji: "🏦", saldo_awal: 500000, saldo_sejak: "2026-01-01T00:00:00+07:00" }));
+  const danaA = await satu(A.sb.from("user_accounts").insert({ user_id: A.id, name: "DANA A", kind: "ewallet", emoji: "📱", saldo_awal: 0, saldo_sejak: "2026-01-01T00:00:00+07:00" }));
+  const topUp = await satu(A.sb.from("transactions").insert({ user_id: A.id, amount: 50000, type: "expense", category: "other", merchant: "DANA", description: "Top Up DANA", transaction_date: "2026-02-05", waktu: "10:00", kantong_id: briA.id, status: "confirmed", source: "statement", ref_bank: "uji:ref-topup", perlu_dilengkapi: true }));
+  const masuk = await satu(A.sb.from("transactions").insert({ user_id: A.id, amount: 50000, type: "income", category: "other", merchant: "BRI", transaction_date: "2026-02-05", waktu: "10:00", kantong_id: danaA.id, status: "confirmed", source: "receipt" }));
+  for (const t of [topUp, masuk]) Object.assign(t, (await A.sb.from("transactions").select("updated_at").eq("id", t.id).single()).data);
+  const isian = { ubah: [{ id: topUp.id, updated_at: topUp.updated_at, kantong_lawan: danaA.id, merchant: "Pindah ke DANA A", gabung: { id: masuk.id, updated_at: masuk.updated_at } }] };
+  const { error: basi } = await A.sb.rpc("jadikan_pindah", { p: { ubah: [{ ...isian.ubah[0], updated_at: "2020-01-01T00:00:00+00:00" }] } });
+  cek("jadikan_pindah: gagal dengan pesan bila transaksinya sudah berubah", /sudah berubah/.test(basi?.message ?? ""), basi?.message);
+  const { data: jadi, error: eJadi } = await A.sb.rpc("jadikan_pindah", { p: isian });
+  const { data: sesudahJadi } = await A.sb.from("transactions").select("id, type, kantong_id, kantong_tujuan_id, merchant, perlu_dilengkapi, ref_bank").in("id", [topUp.id, masuk.id]);
+  const saldoJadi = Object.fromEntries(((await A.sb.rpc("saldo_kantong")).data ?? []).map((k) => [k.id, Number(k.saldo)]));
+  cek(
+    "jadikan_pindah: pengeluaran jadi pindah BRI → DANA, pemasukan DANA digabung (dihapus), saldo benar",
+    !eJadi && jadi?.n === 1 && sesudahJadi?.length === 1 && sesudahJadi[0].type === "transfer" && sesudahJadi[0].kantong_tujuan_id === danaA.id && sesudahJadi[0].merchant === "Pindah ke DANA A" && sesudahJadi[0].perlu_dilengkapi === false && sesudahJadi[0].ref_bank === "uji:ref-topup" && saldoJadi[briA.id] === 450000 && saldoJadi[danaA.id] === 50000,
+    JSON.stringify({ eJadi, jadi: jadi?.n, sesudahJadi, saldoJadi }),
+  );
+  const { error: eUrung } = await A.sb.rpc("urungkan_jadikan_pindah", { p: { salinan: jadi?.salinan ?? [] } });
+  const { data: sesudahUrung } = await A.sb.from("transactions").select("id, type, kantong_id, kantong_tujuan_id, merchant, perlu_dilengkapi, ref_bank").in("id", [topUp.id, masuk.id]).order("type");
+  cek(
+    "urungkan_jadikan_pindah: pengeluaran & pemasukan kembali seperti semula",
+    !eUrung && JSON.stringify(sesudahUrung?.map((t) => [t.id, t.type, t.kantong_id, t.kantong_tujuan_id, t.merchant, t.perlu_dilengkapi])) === JSON.stringify([[topUp.id, "expense", briA.id, null, "DANA", true], [masuk.id, "income", danaA.id, null, "BRI", false]]),
+    JSON.stringify({ eUrung, sesudahUrung }),
+  );
+  // Saldo sementara (SPEC-kantong-sendiri U1): mati begitu saldo diisi user; B tidak bisa mengubah milik A.
+  const sementara = await satu(A.sb.from("user_accounts").insert({ user_id: A.id, name: "SeaBank A", kind: "bank", emoji: "🏦", saldo_awal: 0, saldo_sejak: "2026-01-01T00:00:00+07:00", saldo_sementara: true }));
+  const { data: namaSaja } = await A.sb.from("user_accounts").update({ name: "SeaBank A2" }).eq("id", sementara.id).select("saldo_sementara").single();
+  const { data: diisi } = await A.sb.from("user_accounts").update({ saldo_awal: 250000, saldo_sejak: new Date().toISOString() }).eq("id", sementara.id).select("saldo_sementara").single();
+  cek("saldo_sementara: tetap saat nama diubah, mati saat saldo diisi user", namaSaja?.saldo_sementara === true && diisi?.saldo_sementara === false, JSON.stringify({ namaSaja, diisi }));
+  const { data: hidupkan } = await A.sb.from("user_accounts").update({ saldo_sementara: true }).eq("id", sementara.id).select("saldo_sementara");
+  cek("saldo_sementara tidak bisa dihidupkan lagi lewat update", !(hidupkan ?? []).some((k) => k.saldo_sementara), JSON.stringify(hidupkan));
+  const { error: urungDua } = await A.sb.rpc("urungkan_jadikan_pindah", { p: { salinan: jadi?.salinan ?? [] } });
+  cek("urungkan_jadikan_pindah dua kali: ditolak", Boolean(urungDua));
 } catch (e) {
   gagal++;
   console.log("✗ GAGAL:", e.message);
 } finally {
   for (const id of akun) await admin.auth.admin.deleteUser(id);
-  console.log(`\n${gagal ? `${gagal} cek gagal` : "✓ isolasi antar akun: baca, ubah, hapus, tulis atas nama orang lain, fungsi, dan kolom rujukan (termasuk simpanan, deposito, impor rekening koran & deposito jatuh tempo)"} · akun uji dihapus`);
+  console.log(`\n${gagal ? `${gagal} cek gagal` : "✓ isolasi antar akun: baca, ubah, hapus, tulis atas nama orang lain, fungsi, dan kolom rujukan (termasuk simpanan, deposito, impor rekening koran, deposito jatuh tempo & jadikan pindah)"} · akun uji dihapus`);
   process.exit(gagal ? 1 : 0);
 }

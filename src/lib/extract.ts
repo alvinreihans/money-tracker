@@ -4,6 +4,7 @@ import { runGroqChain, parseJsonLoose } from "@/lib/groq";
 import { isoLokal } from "@/lib/format";
 import type { BuktiTransfer } from "@/lib/arah";
 import type { InfoPaylater } from "@/lib/pinjaman";
+import { bakukanPaylater } from "@/lib/paylater-nama";
 import type { PetunjukJam } from "@/lib/waktu";
 import { KATEGORI_BAWAAN, kategoriJenis, LAINNYA, type Kategori } from "@/lib/kategori";
 import { KELOMPOK } from "@/lib/metode";
@@ -162,6 +163,15 @@ Aturan:
   yang memutuskan arah akhirnya.
   Topup ke e-wallet/akun layanan (tujuannya nama layanan, bukan nama orang)
   tetap "transfer" seperti biasa, dengan bukti_transfer null.
+  Uang MASUK ke e-wallet dari BANK atau E-WALLET lain — pengirimnya nama lembaga, bukan nama
+  orang ("Receive Money from PT Bank Jago", "Terima dari GoPay", "Top Up dari BCA") — adalah
+  calon pindah antar rekening sendiri: type "transfer", payment_method = bank/e-wallet pengirim
+  (nama singkat: "PT Bank Jago" -> "Jago"), payment_target = e-wallet penerima, bukti_transfer
+  null, category "other". BUKAN pemasukan "gift". Pengecualian: cashback, refund, bunga, atau
+  hadiah dari e-wallet itu sendiri tetap "income".
+  Top up lewat agen/kasir ("Top Up via Agent (ALFAMART)", Indomaret, kasir toko) = uang tunai
+  pemilik masuk ke e-wallet: type "transfer", payment_method "Tunai", payment_target = e-wallet
+  itu, merchant null (nama toko BUKAN merchant), description "Top up lewat <nama toko>".
 - bukti_transfer: HANYA untuk bukti transfer antar dua pihak (lihat type), selain itu null.
   nama = nama pengirim/penerima persis seperti tertulis (boleh tersamar, mis.
   "ALV*** R***"); bank = nama bank/dompet SINGKAT seperti payment_method
@@ -298,8 +308,9 @@ ${daftarPrompt(kategori, "income")}
 - ref_bukti: pengenal transaksi persis seperti tertulis: "Order SN", "No. Transaksi", "ID Transaksi"
   (tangkapan layar) atau nomor bon/struk ("Bon ZZ01-234-5678ABCD", "No. Struk") — gabungkan bila
   terpotong ke baris berikutnya. BUKAN "No. Referensi" bank bila Order SN ada. Tidak ada -> null.
-- rekening_tujuan: HANYA transfer ke rekening bank orang lain ("Kirim Ke NAMA / BCA 1234567890"):
-  nama bank singkat + "…" + 4 digit terakhir nomornya -> "BCA …7890". Selain itu null.`,
+- rekening_tujuan: HANYA bukti transfer ke rekening bank, siapa pun penerimanya (orang lain atau
+  pemilik sendiri): "Kirim Ke NAMA / BCA 1234567890", "Send Money to NAMA – JAGO ••4321":
+  nama bank singkat + "…" + 4 digit terakhir nomornya -> "BCA …7890", "Jago …4321". Selain itu null.`,
   )}
 
 Contoh (field lain mengikuti aturan di atas):
@@ -311,7 +322,11 @@ Contoh (field lain mengikuti aturan di atas):
     struk,
     `
 - bukti "Dikirim Dari RINA ***, Kirim Ke BUDI KUSNANDAR BCA: 6090069720, Sumber Dana Saldo ShopeePay, Rp10.000"
-  -> type "expense", amount 10000, merchant "Budi Kusnandar", payment_method "ShopeePay", payment_target null`,
+  -> type "expense", amount 10000, merchant "Budi Kusnandar", payment_method "ShopeePay", payment_target null
+- screenshot DANA "Receive Money from PT Bank Contoh, Rp50.000"
+  -> type "transfer", payment_method "Bank Contoh", payment_target "DANA", merchant null, bukti_transfer null
+- screenshot DANA "Top Up via Agent (ALFAMART), Rp100.000"
+  -> type "transfer", payment_method "Tunai", payment_target "DANA", merchant null, description "Top up lewat Alfamart"`,
   )}
 - "kopi 25rb gopay" -> type "expense", payment_method "GoPay"
 - "beli pulsa 50rb shopeepay cashback 5rb" -> type "expense", payment_method "ShopeePay", cashback 5000
@@ -429,13 +444,19 @@ export function normalize(parsed: Partial<ExtractedReceipt>, kategori: Kategori[
   const slug = typeof parsed.category === "string" ? parsed.category.trim() : "";
   const category = kategoriJenis(kategori, type).some((k) => k.slug === slug) ? slug : LAINNYA;
 
+  // Top up e-wallet lewat agen/kasir (SPEC-kantong-sendiri B-5): uangnya dari Tunai, nama tokonya keterangan.
+  // Tarik tunai di toko (tujuannya Tunai) bukan top up; merchant toko hanya dipakai bila sumbernya kosong/Tunai.
+  const keTunai = /tunai|cash/i.test(String(parsed.payment_target ?? ""));
+  const sumberKosong = !parsed.payment_method || /^(tunai|cash)$/i.test(String(parsed.payment_method).trim());
+  const agen = type === "transfer" && !keTunai ? (tokoAgen(parsed.payment_method) ?? (sumberKosong ? tokoAgen(parsed.merchant) : null)) : null;
+
   return {
     amount,
     type,
     category,
-    merchant: parsed.merchant?.toString().trim() || null,
-    description: parsed.description?.toString().trim() || null,
-    payment_method: parsed.payment_method?.toString().trim() || null,
+    merchant: agen ? null : parsed.merchant?.toString().trim() || null,
+    description: parsed.description?.toString().trim() || (agen ? `Top up lewat ${agen}` : null),
+    payment_method: agen ? "Tunai" : parsed.payment_method?.toString().trim() || null,
     payment_target: type === "transfer" ? parsed.payment_target?.toString().trim() || null : null,
     fee: type === "transfer" ? nominalAtauNull(parsed.fee) : null,
     cashback: type === "expense" ? nominalAtauNull(parsed.cashback) : null,
@@ -466,6 +487,12 @@ export function normalize(parsed: Partial<ExtractedReceipt>, kategori: Kategori[
   };
 }
 
+/** Toko agen top up ("ALFAMART", "Indomaret") dari teks, dirapikan; null bila bukan. */
+export function tokoAgen(teks: unknown): string | null {
+  const m = typeof teks === "string" ? teks.match(/\b(alfamart|alfamidi|indomaret|lawson|circle ?k)\b/i) : null;
+  return m ? m[1].toLowerCase().replace(/(^|\s)\S/g, (h) => h.toUpperCase()) : null;
+}
+
 /** "BCA 1234567890" / "BCA …67890" → "BCA …7890": nama bank + 4 digit terakhir saja. */
 export function rekeningTujuan(t: string | null): string | null {
   const m = t?.match(/^(.*?)[\s.*…:-]*(\d{4,})\s*$/);
@@ -478,9 +505,9 @@ function paylaterAtauNull(p: unknown): InfoPaylater | null {
   if (!x || typeof x.penyedia !== "string" || !x.penyedia.trim()) return null;
   const tenor = Number(x.tenor);
   return {
-    // Satu ejaan per penyedia (sama dengan saran di form cicilan): model kadang
-    // menulis "SPayLater", "Shopee PayLater", bahkan "ShopeePay".
-    penyedia: /shopee|spay/i.test(x.penyedia) ? "Shopee PayLater" : /gopay|gojek/i.test(x.penyedia) ? "GoPayLater" : x.penyedia.trim().slice(0, 40),
+    // Satu ejaan per penyedia (pembaku bersama, SPEC-kantong-sendiri D-1): model
+    // kadang menulis "SPayLater", "Shopee PayLater", bahkan "ShopeePay".
+    penyedia: bakukanPaylater(x.penyedia, true),
     tenor: Number.isInteger(tenor) && tenor >= 1 && tenor <= 120 ? tenor : null,
     per_cicilan: nominalAtauNull(x.per_cicilan),
     jatuh_tempo: typeof x.jatuh_tempo === "string" && /^\d{4}-\d{2}-\d{2}$/.test(x.jatuh_tempo) ? x.jatuh_tempo : null,

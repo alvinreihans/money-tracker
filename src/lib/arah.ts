@@ -70,21 +70,48 @@ export function kantongBank<K extends Pick<Kantong, "name"> & Partial<Pick<Kanto
 }
 
 /**
- * Arah transaksi, atau null kalau harus ditanyakan. Urutannya: nama user
- * (pengirim/penerima), lalu kantong (bank penerima saja yang milik user →
- * masuk; bank pengirim saja → keluar).
+ * Kantong dengan 4 digit akhir rekening tujuan dari gambar ("JAGO …4321",
+ * SPEC-kantong-sendiri B-2). Beberapa kantong bernomor sama → yang nama banknya cocok.
  */
-export function tentukanArah<K extends Pick<Kantong, "name"> & Partial<Pick<Kantong, "aliases">>>(bukti: BuktiTransfer, namaUser: string[], kantong: K[]): Arah | null {
+export function kantongNomor<K extends Pick<Kantong, "name"> & Partial<Pick<Kantong, "aliases">> & { nomor_akhir?: string | null }>(
+  rekening: string | null | undefined,
+  daftar: K[],
+): K | null {
+  const nomor = rekening?.match(/(\d{4})\D*$/)?.[1];
+  if (!nomor) return null;
+  const cocok = daftar.filter((k) => k.nomor_akhir === nomor);
+  if (cocok.length <= 1) return cocok[0] ?? null;
+  const bank = rekening!.replace(/[\s.*…:•-]*\d[\d\s]*$/, "").trim();
+  return kantongBank(bank, cocok);
+}
+
+/**
+ * Arah transaksi, atau null kalau harus ditanyakan. Urutannya:
+ * - nomor rekening tujuan = kantong user (B-2): pindah bila pengirimnya juga user
+ *   (nama, atau tanpa nama dari kantong user), selain itu masuk;
+ * - nama user (pengirim/penerima); penerima = user tanpa nama pengirim, dari kantong
+ *   user → pindah (kirim ke rekening sendiri, B-2);
+ * - kantong (bank penerima saja yang milik user → masuk; bank pengirim saja → keluar).
+ */
+export function tentukanArah<K extends Pick<Kantong, "name"> & Partial<Pick<Kantong, "aliases">> & { nomor_akhir?: string | null }>(
+  bukti: BuktiTransfer,
+  namaUser: string[],
+  kantong: K[],
+  rekeningTujuan?: string | null,
+): Arah | null {
   const milikUser = (nama: string | null) => Boolean(nama) && namaUser.some((n) => namaSama(n, nama!));
   const kirim = milikUser(bukti.pengirim.nama);
   const terima = milikUser(bukti.penerima.nama);
+  const dariKantong = kantongBank(bukti.pengirim.bank, kantong);
+  const keNomor = kantongNomor(rekeningTujuan, kantong);
+  if (keNomor) return kirim || (!bukti.pengirim.nama && dariKantong && dariKantong !== keNomor) ? "pindah" : "masuk";
   if (kirim && terima) return "pindah";
+  if (terima && !bukti.pengirim.nama && dariKantong) return "pindah";
   if (terima) return "masuk";
   if (kirim) return "keluar";
-  const dari = kantongBank(bukti.pengirim.bank, kantong);
   const ke = kantongBank(bukti.penerima.bank, kantong);
-  if (ke && !dari) return "masuk";
-  if (dari && !ke) return "keluar";
+  if (ke && !dariKantong) return "masuk";
+  if (dariKantong && !ke) return "keluar";
   return null;
 }
 

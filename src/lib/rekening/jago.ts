@@ -1,4 +1,5 @@
 import { GalatRekening, type BarisBank, type BarisPdf, type HasilBaca, type Potongan, type RekeningBank } from "@/lib/rekening/jenis";
+import { bersihkanMerchant, layananGopay } from "@/lib/rekening/merchant";
 import { akhirBulanIso, angkaID, empatAkhir, isoTanggal, nomorBulan, rapikan, sen, tanggalTeks } from "@/lib/rekening/teks";
 
 /**
@@ -77,15 +78,24 @@ function jadiBaris(r: Mentah, urut: number, nomorAkhir: string): BarisBank {
   const iRek = sumber.findIndex((s) => /^([A-Za-z][\w .-]*? )?\d{6,}$/.test(s));
   const rek = iRek >= 0 ? sumber[iRek].match(/^(?:(.+) )?(\d{6,})$/) : null;
   const nama = rapikan(sumber.filter((s, i) => i !== iRek && !/^Pindah uang antar Kantong$/i.test(s)).join(" ")) || null;
+  const catatan = rapikan(r.catatan.join(" ")) || null;
+  // Kode referensi tidak jadi nama pihak (SPEC-kantong-sendiri C-2); tetap ada di uraian
+  // (keterangan). Jago Pay ke GoPay: "GoPay · GO-RIDE".
+  let pihak = antarKantong ? nama : bersihkanMerchant(nama).nama;
+  const layanan = !antarKantong && /\b(go\s*-?\s*pay|gojek)\b/i.test(nama ?? "") ? layananGopay([nama, rincian, catatan].join(" ")) : null;
+  if (layanan) pihak = `GoPay · ${layanan}`;
+  // Bank & 4 digit akhir rekening lawan ikut di uraian, supaya penautan ulang
+  // (cariCalonPindah, A-3) masih mengenalinya dari keterangan transaksi.
+  const rekLawan = rek && rek[1] && !antarKantong ? `${rek[1]} …${rek[2].slice(-4)}` : null;
   return {
     tanggal: r.tanggal,
     jam: r.jam,
     nominal: r.nominal!,
     saldo: r.saldo,
-    uraian: [nama, rincian].filter(Boolean).join(" · "),
+    uraian: [nama, rincian, rekLawan].filter(Boolean).join(" · "),
     jenis: antarKantong ? "Pindah uang antar Kantong" : rincian || null,
-    pihak: { nama, bank: antarKantong ? "Jago" : (rek?.[1] ?? null), nomor: rek?.[2] ?? null },
-    catatan: rapikan(r.catatan.join(" ")) || null,
+    pihak: { nama: pihak, bank: antarKantong ? "Jago" : (rek?.[1] ?? null), nomor: rek?.[2] ?? null },
+    catatan,
     // Bukan ID#: transfer BI-Fast punya ID# berbeda di laporan bulanan dan
     // riwayat. Saldo sesudah baris sama di kedua format.
     ref: r.saldo !== null ? `jago:${nomorAkhir}:${r.tanggal}T${r.jam ?? ""}:${r.nominal}:${r.saldo}` : `jago:${r.id}`,

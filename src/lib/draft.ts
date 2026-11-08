@@ -1,7 +1,9 @@
+import { bacaBukti } from "@/lib/arah";
 import { geserHari, isoLokal } from "@/lib/format";
 import { cocokkanKantong, type Kantong } from "@/lib/kantong";
 import { UMUR_DRAFT_HARI } from "@/lib/notifikasi";
 import { tampakKartuKredit } from "@/lib/pinjaman";
+import { bacaPetunjuk } from "@/lib/petunjuk";
 import { perluTanyaJam, type SaldoSejak } from "@/lib/waktu";
 
 /**
@@ -10,7 +12,19 @@ import { perluTanyaJam, type SaldoSejak } from "@/lib/waktu";
  * scripts/uji-draft.mts.
  */
 
-export type JenisTanya = "cerita" | "nominal" | "arah" | "kantong" | "kantong_tujuan" | "kartu" | "waktu" | "tenor" | "duplikat" | "konfirmasi";
+export type JenisTanya =
+  | "cerita"
+  | "nominal"
+  | "arah"
+  | "sendiri"
+  | "cicilan"
+  | "kantong"
+  | "kantong_tujuan"
+  | "kartu"
+  | "waktu"
+  | "tenor"
+  | "duplikat"
+  | "konfirmasi";
 
 interface BarisDraft {
   status: string;
@@ -26,8 +40,9 @@ interface BarisDraft {
   paylater?: string | null;
   /** Transaksi tercatat yang sama persis (SPEC-catat-andal): ditanya "Catat lagi?". */
   duplikat_dari?: string | null;
-  /** Bukti transfer yang arahnya belum dipastikan (SPEC-catat-tuntas). */
+  /** Bukti transfer yang arahnya belum dipastikan (SPEC-catat-tuntas), dan/atau petunjuk kantong (src/lib/petunjuk.ts). */
   bukti_transfer?: string | null;
+  cicilan_id?: string | null;
 }
 
 /**
@@ -45,9 +60,15 @@ export function pertanyaanDraft(t: BarisDraft, saldoDari?: (id: string) => Saldo
   if (t.status !== "needs_review") return null;
   if (!(Number(t.amount) > 0)) return t.merchant || (t.category && t.category !== "other") ? "nominal" : "cerita";
   // Bukti transfer antar dua pihak: kirim atau terima dulu — kantongnya ikut arah itu.
-  if (t.bukti_transfer) return "arah";
+  if (bacaBukti(t.bukti_transfer)) return "arah";
   // Paylater tidak memakai kantong: begitu tenornya dijawab, jadi rencana cicilan.
+  // (Draft lama; belanja paylater tanpa tenor kini dari kantong utangnya — SPEC-kantong-sendiri D-4.)
   if (t.paylater) return "tenor";
+  const p = bacaPetunjuk(t.bukti_transfer);
+  // Uang masuk dari bank/e-wallet yang belum jadi kantong (B-4): rekening sendiri atau bukan?
+  if (p.lembaga && t.type === "transfer" && !t.kantong_id) return "sendiri";
+  // Bayar tagihan paylater dengan beberapa rencana cicilan yang cocok (D-2).
+  if (p.cicilan && t.type === "expense" && !t.cicilan_id) return "cicilan";
   if (!t.kantong_id) return "kantong";
   // Bayar tagihan kartu kredit yang belum terdaftar (SPEC-tagihan-cicilan): tujuannya hanya kartu.
   if (t.type === "transfer" && !t.kantong_tujuan_id) return t.merchant && tampakKartuKredit(t.merchant) ? "kartu" : "kantong_tujuan";
@@ -64,6 +85,9 @@ export const KALIMAT_TANYA: Record<JenisTanya, string> = {
   nominal: "Berapa nominalnya?",
   // Biasanya diganti kalimatArah() yang menyebut nama kedua pihak.
   arah: "Ini uang keluar atau masuk?",
+  // Biasanya diganti kalimatTanya() yang menyebut nama banknya.
+  sendiri: "Uang ini dari rekeningmu sendiri?",
+  cicilan: "Cicilan yang mana?",
   kantong: "Pakai kantong apa?",
   kantong_tujuan: "Pindah ke kantong mana?",
   // Biasanya diganti kalimatKartu() yang menyebut nama kartunya.
@@ -73,6 +97,21 @@ export const KALIMAT_TANYA: Record<JenisTanya, string> = {
   duplikat: "Sepertinya ini sudah tercatat. Catat lagi?",
   konfirmasi: "Sudah benar begini?",
 };
+
+/**
+ * Kalimat pertanyaan untuk draft ini: pindah kantong menanyakan asalnya
+ * ("Uangnya dari kantong mana?", B-6), uang dari bank/e-wallet menyebut namanya (B-4).
+ */
+export function kalimatTanya(jenis: JenisTanya, t: Pick<BarisDraft, "type" | "bukti_transfer">): string {
+  if (jenis === "kantong" && t.type === "transfer") return "Uangnya dari kantong mana?";
+  const p = bacaPetunjuk(t.bukti_transfer);
+  if (jenis === "sendiri" && p.lembaga) return `Uang dari ${p.lembaga} ini dari rekeningmu sendiri?`;
+  if (jenis === "cicilan" && p.cicilan) return `Bayar cicilan ${p.cicilan} yang mana?`;
+  return KALIMAT_TANYA[jenis];
+}
+
+/** "Kantong 'GoPay' belum ada. Buat sekarang?" (A-1): jawaban ketik yang tidak cocok dengan kantong mana pun. */
+export const kalimatBelumAda = (nama: string) => `Kantong “${nama}” belum ada. Buat sekarang?`;
 
 /** Pertanyaan `kartu`: "Kartu kredit Mandiri belum terdaftar. Bayar ke kartu yang mana?" */
 export const kalimatKartu = (merchant: string) => `${merchant} belum terdaftar. Bayar ke kartu yang mana?`;

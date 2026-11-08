@@ -6,6 +6,7 @@ import { ArrowDownLeft, ArrowUpRight, Banknote, CalendarClock, CalendarDays, Cre
 import { AppBar, Field, InputNominal, Konfirmasi, Kosong, Lembar, Pesan, Spinner, useGalat } from "@/components/oneui";
 import s from "@/components/ui.module.css";
 import { dbErrorMessage } from "@/lib/errors";
+import { penyediaPaylater } from "@/lib/paylater-nama";
 import { fmtIDR, fmtTanggalPendek, isoLokal } from "@/lib/format";
 import { emojiKantong, pesanGagalKantong, type Kantong } from "@/lib/kantong";
 import {
@@ -91,7 +92,8 @@ export default function PinjamanView({
   }
 
   /** Keterangan baris kartu kredit + jatuh tempo berikutnya bila diisi (juga tanpa tagihan). */
-  const ketKartu = (k: KantongSaldo, teks = "Tagihan kartu kredit") => (
+  // Kantong utang paylater (SPEC-kantong-sendiri D-4) tampil bersama kartu kredit.
+  const ketKartu = (k: KantongSaldo, teks = penyediaPaylater(k.name) ? "Tagihan paylater" : "Tagihan kartu kredit") => (
     <span className={s.redup}>
       {teks}
       {k.jatuh_tempo_hari ? ` · jatuh tempo ${fmtTanggalPendek(jatuhTempoKartu(k.jatuh_tempo_hari, hariIni))}` : ""}

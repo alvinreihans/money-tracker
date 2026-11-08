@@ -6,14 +6,16 @@
 import { createRequire } from "node:module";
 import path from "node:path";
 import { base, buka, cdp, edge, foto, fs, langkah, masalah, out, tidur } from "./kepala.mjs";
-import { bri, Halaman, jagoBulanan, jagoDepositoOkt, jagoKeSea, seabank, seabankBulan, seaDariJago } from "../scripts/contoh-rekening.mjs";
+import { bri, briNov, briOkt, Halaman, jagoBulanan, jagoDepositoOkt, jagoGopay, jagoKeSea, seabank, seabankBulan, seaDariJago } from "../scripts/contoh-rekening.mjs";
 const req = createRequire(import.meta.url);
 const { createClient } = req("@supabase/supabase-js");
 const { PDFDocument, StandardFonts } = req("pdf-lib");
 const U = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const admin = createClient(U, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 const EMAIL = "uji-rekening-sementara@example.com", SANDI = "Uji12345#";
-let uid, gagal = 0;
+// Akun kedua untuk temuan UAT U1 (belum punya kantong SeaBank sama sekali).
+const EMAIL2 = "uji-rekening-2-sementara@example.com";
+let uid, uid2, gagal = 0;
 const cek = (nama, ok, info = "") => { console.log(`${ok ? "✓" : "✗"} ${nama}${info ? " — " + info : ""}`); if (!ok) gagal++; };
 const norm = (s) => String(s ?? "").replace(/\u00a0/g, " ").replace(/\s+/g, " ");
 
@@ -37,6 +39,10 @@ const PDF = {
   seaOkt: await buatPdf(seabankBulan({ dari: "01 OCT 2026", sampai: "31 OCT 2026", awal: 911_040, baris: [{ tgl: "15 OCT", atas: ["Savings Interest"], n: 120, bawah: ["Interest"] }] })),
   jagoAgu: await buatPdf(jagoKeSea()),
   sea5555: await buatPdf(seaDariJago()),
+  // SPEC-kantong-sendiri: top up DANA tanpa kantong, bulan kedua, Jago Pay ke GoPay.
+  briOkt: await buatPdf(briOkt()),
+  briNov: await buatPdf(briNov()),
+  jagoGopay: await buatPdf(jagoGopay()),
   lain: await buatPdf([new Halaman().baris(700, [40, "REKENING KORAN"]).baris(680, [40, "Bank Contoh Lain"]).baris(660, [40, "01/09/2026 Setoran 100.000"])]),
 };
 for (const [k, v] of Object.entries(PDF)) fs.writeFileSync(path.join(out, `${k}.pdf`), v);
@@ -60,7 +66,8 @@ try {
   const sb = createClient(U, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY, { auth: { persistSession: false } });
   const { data: sesi } = await sb.auth.signInWithPassword({ email: EMAIL, password: SANDI });
   // Kantong yang sudah ada: BRI (4 digit akhir sudah diingat, saldo awal asal-asalan),
-  // Jago (belum diingat), BCA & ShopeePay (lawan pindah kantong).
+  // Jago (belum diingat: satu-satunya kantong Jago tanpa nomor → dipetakan otomatis, E-3),
+  // BCA & ShopeePay (lawan pindah kantong).
   const sekarang = new Date().toISOString();
   const kantong = [
     { name: "BRI", kind: "bank", emoji: "🏦", nomor_akhir: "4321", saldo_awal: 0, saldo_sejak: "2026-01-01T00:00:00+07:00" },
@@ -85,13 +92,12 @@ try {
     await sampai(() => /kantong yang mana/.test(${lembar}?.innerText ?? ''), 60);
     const d = ${lembar};
     return { teks: d.innerText.replace(/\\s+/g, ' ').slice(0, 300), grup: [...d.querySelectorAll('[role=radiogroup]')].map((g) => g.getAttribute('aria-label')) }`);
-  cek("Rekening SeaBank & Jago ditanya kantongnya, BRI langsung (4 digit akhir)", JSON.stringify(tanya.grup) === JSON.stringify(["Kantong untuk SeaBank …1234", "Kantong untuk Jago …5678"]), JSON.stringify(tanya));
+  cek("Rekening SeaBank ditanya kantongnya; BRI langsung (4 digit akhir), Jago otomatis ke kantong Jago tanpa nomor (E-3)", JSON.stringify(tanya.grup) === JSON.stringify(["Kantong untuk SeaBank …1234"]), JSON.stringify(tanya));
   cek("Pilihan Buat kantong SeaBank", /Buat kantong SeaBank/.test(tanya.teks), tanya.teks);
 
   const pratinjau = await langkah("jawab & pratinjau", `const d = ${lembar};
     const pilih = (grup, teks) => [...d.querySelector('[aria-label="' + grup + '"]').querySelectorAll('[role=radio]')].find((b) => b.innerText.includes(teks)).click();
     pilih('Kantong untuk SeaBank …1234', 'Buat kantong SeaBank'); await t(100);
-    pilih('Kantong untuk Jago …5678', 'Jago'); await t(100);
     tombol('Lanjut', d).click();
     await sampai(() => /transaksi baru/.test(${lembar}.innerText), 60);
     return ${lembar}.innerText.replace(/\\s+/g, ' ')`);
@@ -408,13 +414,125 @@ try {
   );
   await cdp("Emulation.setDeviceMetricsOverride", { width: 360, height: 860, deviceScaleFactor: 1, mobile: true });
 
+  // 7. SPEC-kantong-sendiri. A-2: BRI dengan 3 top up DANA atas nama sendiri, kantong DANA
+  //    belum ada → "Kantong baru DANA (3 top up dari BRI)" tercentang → pindah kantong, lalu
+  //    "Saldo DANA sekarang berapa?" (K1).
+  await buka(`${base}/`, 5000);
+  const a2 = await langkah("A-2: BRI top up DANA", `${seret(["briOkt"])}
+    await sampai(() => /BRI …4321 1–31 Okt 2026/.test(${lembar}?.innerText ?? '') && ${lembar}.querySelector('[aria-busy=false]'), 60); await t(300);
+    const d = ${lembar};
+    const cb = [...d.querySelectorAll('[role=checkbox]')].find((b) => /Kantong baru DANA/.test(b.innerText));
+    const teks = cb?.innerText.replace(/\\s+/g, ' ');
+    const dicentang = cb?.getAttribute('aria-checked');
+    tombol('Impor', d).click();
+    await sampai(() => /Saldo DANA sekarang berapa\\?/.test(${lembar}?.innerText ?? ''), 60); await t(300);
+    const tanya = ${lembar}.innerText.replace(/\\s+/g, ' ');
+    isi(${lembar}.querySelector('input[placeholder="0"]'), '80000'); await t(200);
+    tombol('Simpan', ${lembar}).click();
+    await sampai(() => !${lembar} && /Rekening koran diimpor/.test(teksHalaman()), 30); await t(800);
+    const akun = await rest('user_accounts?select=id,name,kind,saldo_awal');
+    const nama = (id) => akun.find((k) => k.id === id)?.name;
+    const tx = await rest('transactions?select=type,amount,kantong_id,kantong_tujuan_id,merchant&source=eq.statement&transaction_date=gte.2026-10-01&transaction_date=lte.2026-10-31&kantong_id=eq.' + akun.find((k) => k.name === 'BRI')?.id);
+    const saldo = await rest('rpc/saldo_kantong', { method: 'POST', body: '{}' });
+    const dana = akun.find((k) => k.name === 'DANA');
+    return { teks, dicentang, tanya: tanya.match(/Saldo DANA sekarang berapa\\?[^]{0,80}/)?.[0], kind: dana?.kind,
+      pindah: tx.filter((x) => x.type === 'transfer').map((x) => nama(x.kantong_id) + '>' + nama(x.kantong_tujuan_id) + ':' + Number(x.amount)),
+      keluarDana: tx.filter((x) => x.type === 'expense' && /DANA/.test(x.merchant ?? '')).length,
+      saldoDana: Number(saldo.find((x) => x.id === dana?.id)?.saldo) }`);
+  cek("A-2: pratinjau \"Kantong baru DANA (3 top up dari BRI)\" tercentang", /Kantong baru DANA \(3 top up dari BRI\)/.test(a2?.teks ?? "") && a2?.dicentang === "true", JSON.stringify(a2));
+  cek("A-2: top up jadi pindah kantong BRI → DANA (bukan pengeluaran), kantong DANA berjenis e-wallet", JSON.stringify([...(a2?.pindah ?? [])].sort()) === JSON.stringify(["BRI>DANA:100000", "BRI>DANA:25000", "BRI>DANA:50000"]) && a2?.keluarDana === 0 && a2?.kind === "ewallet", JSON.stringify(a2));
+  cek("K1: sesudah impor ditanya \"Saldo DANA sekarang berapa?\"; diisi Rp 80.000 → saldo DANA Rp 80.000", Boolean(a2?.tanya) && a2?.saldoDana === 80000, JSON.stringify(a2));
+  await foto("kantong-sendiri-1-dana.png");
+
+  // C-1: user membetulkan kategori gaji & tagihan wifi bulan Oktober; November diimpor →
+  //      kategorinya diingat, tanpa "Perlu dilengkapi" (K2).
+  const c1 = await langkah("C-1: bulan kedua", `const okt = await rest('transactions?select=id,merchant&source=eq.statement&transaction_date=gte.2026-10-01&transaction_date=lte.2026-10-31');
+    for (const [m, k] of [['PT Contoh Kerja', 'salary'], ['PT Wifi Contoh', 'bills']]) {
+      const t = okt.find((x) => x.merchant === m);
+      await rest('transactions?id=eq.' + t.id, { method: 'PATCH', body: JSON.stringify({ category: k, perlu_dilengkapi: false }) });
+    }
+    ${seret(["briNov"])}
+    await sampai(() => /BRI …4321 1–30 Nov 2026/.test(${lembar}?.innerText ?? '') && ${lembar}.querySelector('[aria-busy=false]'), 60); await t(300);
+    const teks = ${lembar}.innerText.replace(/\\s+/g, ' ');
+    tombol('Impor', ${lembar}).click(); await sampai(() => /Rekening koran diimpor/.test(teksHalaman()), 60); await t(500);
+    const nov = await rest('transactions?select=merchant,type,category,perlu_dilengkapi&source=eq.statement&transaction_date=gte.2026-11-01&transaction_date=lte.2026-11-30&order=transaction_date');
+    return { kartu: teks.match(/\\d+ transaksi baru[^]{0,60}/)?.[0], nov: nov.map((x) => [x.merchant, x.category, x.perlu_dilengkapi]) }`);
+  cek("C-1: pratinjau \"3 transaksi baru · 2 berkategori dari bulan lalu\"", /^3 transaksi baru · 2 berkategori dari bulan lalu/.test(c1?.kartu ?? ""), JSON.stringify(c1));
+  cek(
+    "C-1: gaji & wifi November berkategori Gaji/Tagihan tanpa Perlu dilengkapi; QRIS tetap perlu dilengkapi",
+    JSON.stringify(c1?.nov) === JSON.stringify([["PT Contoh Kerja", "salary", false], ["PT Wifi Contoh", "bills", false], ["QRIS", "other", true]]),
+    JSON.stringify(c1?.nov),
+  );
+
+  // C-2: Jago Pay ke GoPay → judul "GoPay · GO-RIDE" (bukan kode referensi), kategori dari layanan.
+  const c2 = await langkah("C-2: Jago Pay GoPay", `${seret(["jagoGopay"])}
+    await sampai(() => /Jago …5678 1–31 Okt 2026/.test(${lembar}?.innerText ?? '') && ${lembar}.querySelector('[aria-busy=false]'), 60); await t(300);
+    tombol('Impor', ${lembar}).click(); await sampai(() => /Rekening koran diimpor/.test(teksHalaman()), 60); await t(500);
+    const tx = await rest('transactions?select=merchant,category,description,perlu_dilengkapi&source=eq.statement&amount=in.(18000,32000,9000)&transaction_date=gte.2026-10-06&transaction_date=lte.2026-10-15&order=transaction_date');
+    return tx.map((x) => [x.merchant, x.category, x.perlu_dilengkapi, /0220260527A1B2C3D4|#RB-778899/.test(x.description ?? '')])`);
+  cek(
+    "C-2: \"GoPay · GO-RIDE\" Transportasi, \"GoPay · GO-FOOD\" Makan, \"Toko Contoh\" (kode referensi di keterangan)",
+    JSON.stringify(c2) === JSON.stringify([["GoPay · GO-RIDE", "transport", false, true], ["GoPay · GO-FOOD", "food", false, false], ["Toko Contoh", "other", true, true]]),
+    JSON.stringify(c2),
+  );
+
+  // 8. Temuan UAT U1 (SPEC-kantong-sendiri), akun baru yang hanya punya kantong Jago: Jago Agustus →
+  //    tawaran "Kantong baru SeaBank" (transfer atas nama sendiri ke Seabank …5555) → saldonya dilewati
+  //    → rekening koran SeaBank …5555 → terpetakan, saldo awal diambil dari rekening koran,
+  //    tanpa peringatan/Samakan, saldo kedua kantong = bank.
+  await cdp("Emulation.setDeviceMetricsOverride", { width: 360, height: 860, deviceScaleFactor: 1, mobile: true });
+  const { data: u2, error: e2 } = await admin.auth.admin.createUser({ email: EMAIL2, password: SANDI, email_confirm: true, user_metadata: { onboarding_selesai: new Date().toISOString() } });
+  if (e2) throw e2;
+  uid2 = u2.user.id;
+  const sb2 = createClient(U, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY, { auth: { persistSession: false } });
+  const { data: sesi2 } = await sb2.auth.signInWithPassword({ email: EMAIL2, password: SANDI });
+  const { error: eK2 } = await sb2.from("user_accounts").insert({ user_id: uid2, name: "Jago", kind: "bank", emoji: "🏦", nomor_akhir: "5678", saldo_awal: 276000, saldo_sejak: "2026-08-01T00:00:00+07:00" });
+  if (eK2) throw eK2;
+  await cdp("Network.clearBrowserCookies");
+  {
+    const isi2 = "base64-" + Buffer.from(JSON.stringify(sesi2.session)).toString("base64url");
+    const p2 = [];
+    for (let i = 0; i < isi2.length; i += 3180) p2.push(isi2.slice(i, i + 3180));
+    const kue2 = p2.length === 1 ? [[`sb-${ref}-auth-token`, isi2]] : p2.map((x, i) => [`sb-${ref}-auth-token.${i}`, x]);
+    for (const [name, value] of kue2) await cdp("Network.setCookie", { name, value, url: base, path: "/" });
+  }
+  await buka(`${base}/`, 6000);
+  const u1a = await langkah("U1: Jago dulu", `${seret(["jagoAgu"])}
+    await sampai(() => /Kantong baru SeaBank/.test(${lembar}?.innerText ?? '') && ${lembar}.querySelector('[aria-busy=false]'), 60); await t(300);
+    const cb = [...${lembar}.querySelectorAll('[role=checkbox]')].find((b) => /Kantong baru SeaBank/.test(b.innerText));
+    const dicentang = cb?.getAttribute('aria-checked');
+    tombol('Impor', ${lembar}).click();
+    await sampai(() => /Saldo SeaBank sekarang berapa/.test(${lembar}?.innerText ?? ''), 60); await t(300);
+    tombol('Lewati', ${lembar}).click();
+    await sampai(() => !${lembar} && /Rekening koran diimpor/.test(teksHalaman()), 30); await t(500);
+    const akun = await rest('user_accounts?select=name,kind,nomor_akhir,saldo_awal,saldo_sementara&name=eq.SeaBank');
+    return { dicentang, akun }`);
+  cek("U1: Jago dulu → \"Kantong baru SeaBank\" tercentang; dibuat bersaldo Rp 0 sementara dengan 4 digit akhir", u1a?.dicentang === "true" && JSON.stringify(u1a?.akun) === JSON.stringify([{ name: "SeaBank", kind: "bank", nomor_akhir: "5555", saldo_awal: 0, saldo_sementara: true }]), JSON.stringify(u1a));
+  const u1b = await langkah("U1: lalu SeaBank", `${seret(["sea5555"])}
+    await sampai(() => /SeaBank …5555 1–31 Agu 2026/.test(${lembar}?.innerText ?? '') && ${lembar}.querySelector('[aria-busy=false]'), 60); await t(300);
+    const teks = ${lembar}.innerText.replace(/\\s+/g, ' ');
+    tombol('Impor', ${lembar}).click(); await sampai(() => /Rekening koran diimpor/.test(teksHalaman()), 60); await t(500);
+    const akun = await rest('user_accounts?select=id,name,saldo_sementara');
+    const saldo = await rest('rpc/saldo_kantong', { method: 'POST', body: '{}' });
+    const s = (n) => Number(saldo.find((x) => x.id === akun.find((k) => k.name === n)?.id)?.saldo);
+    const pindah = await rest('transactions?select=id&type=eq.transfer');
+    return { ditanya: /kantong yang mana/.test(teks), diambil: /Saldo awal SeaBank diambil dari rekening koran ini/.test(teks), sama: /Saldo akhir menurut bank Rp 425\\.000 · sama dengan aplikasi/.test(teks),
+      peringatan: /Saldo akhir tidak sama|Samakan saldo awal/.test(teks), sea: s('SeaBank'), jago: s('Jago'), pindah: pindah.length, sementara: akun.find((k) => k.name === 'SeaBank')?.saldo_sementara }`);
+  cek(
+    "U1: SeaBank …5555 terpetakan, \"Saldo awal SeaBank diambil dari rekening koran ini\", sama dengan aplikasi, tanpa peringatan/Samakan",
+    u1b?.ditanya === false && u1b?.diambil === true && u1b?.sama === true && u1b?.peringatan === false,
+    JSON.stringify(u1b),
+  );
+  cek("U1: saldo SeaBank Rp 425.000 & Jago Rp 1.000 = bank; 2 pindah kantong (tidak dobel); penanda saldo sementara mati", u1b?.sea === 425000 && u1b?.jago === 1000 && u1b?.pindah === 2 && u1b?.sementara === false, JSON.stringify(u1b));
+  await foto("u1-seabank.png");
+
   cek("tidak ada error console", masalah.length === 0, JSON.stringify(masalah));
 } catch (e) {
   console.log("GAGAL:", e.message);
   gagal++;
 } finally {
-  if (uid) {
-    const { error } = await admin.auth.admin.deleteUser(uid);
+  for (const id of [uid, uid2].filter(Boolean)) {
+    const { error } = await admin.auth.admin.deleteUser(id);
     console.log(error ? "GAGAL hapus akun uji" : "✓ akun uji dihapus");
   }
   console.log(gagal ? `${gagal} cek gagal` : "semua cek lulus");

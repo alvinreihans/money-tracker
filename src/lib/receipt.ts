@@ -93,6 +93,8 @@ export interface TransactionRow {
   ref_bukti?: string | null;
   /** Bukan kolom: e-wallet perantara, tempat cashback dikreditkan (SPEC-lengkapi K2). */
   dompet?: string | null;
+  /** Bukan kolom: "JAGO …4321" dari gambar — dibandingkan dengan nomor_akhir kantong (SPEC-kantong-sendiri B-2). */
+  rekening_tujuan?: string | null;
 }
 
 /** Hari ini menurut WIB (server berjalan di UTC). */
@@ -307,6 +309,7 @@ export function toTransactionRow(
     raw_ocr_text: result.rawOcrText,
     // Membedakan screenshot bukti bayar dari struk kertas di halaman detail.
     source: e.document_type,
+    rekening_tujuan: e.rekening_tujuan ?? null,
   };
 }
 

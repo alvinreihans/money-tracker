@@ -5,7 +5,8 @@
 import assert from "node:assert/strict";
 import { pertanyaanDraft } from "../src/lib/draft.ts";
 import { alasanDraft } from "../src/lib/kantong.ts";
-import { bacaArah, bacaBukti, gabungNama, isianArah, kalimatArah, kantongBank, namaDariJawaban, namaSama, tentukanArah, type BuktiTransfer } from "../src/lib/arah.ts";
+import { bacaArah, bacaBukti, gabungNama, isianArah, kalimatArah, kantongBank, kantongNomor, namaDariJawaban, namaSama, tentukanArah, type BuktiTransfer } from "../src/lib/arah.ts";
+import { simpanPetunjuk } from "../src/lib/petunjuk.ts";
 
 // --- Nama
 assert.ok(namaSama("Rina Kartika Sari", "RINA KARTIKA SARI"));
@@ -72,4 +73,31 @@ assert.equal(pertanyaanDraft({ ...draft, amount: 0 }), "nominal", "nominal tetap
 assert.equal(pertanyaanDraft({ ...draft, bukti_transfer: null }), "kantong", "setelah dijawab → kantong");
 assert.equal(alasanDraft(draft), "arah");
 
-console.log("✓ arah bukti transfer: nama (tersamar, inisial, gelar, satu kata), kantong bank, keputusan arah, isian, belajar nama, jawaban");
+// --- SPEC-kantong-sendiri B-1–B-3: nomor rekening tujuan & nama pemilik (data BUATAN).
+const milik = [
+  { id: "dana", name: "DANA", aliases: [], nomor_akhir: null },
+  { id: "jago", name: "Jago", aliases: [], nomor_akhir: "4321" },
+  { id: "bca", name: "BCA", aliases: [], nomor_akhir: "4321" },
+];
+assert.equal(kantongNomor("JAGO …4321", milik)?.id, "jago", "nomor sama di dua kantong → nama bank menentukan");
+assert.equal(kantongNomor("BCA 0000004321", milik)?.id, "bca");
+assert.equal(kantongNomor("Jago …9999", milik), null);
+assert.equal(kantongNomor(null, milik), null);
+// "Send Money to <nama user> – JAGO ••4321" dari DANA (tanpa nama pengirim).
+const kirimSendiri: BuktiTransfer = { pengirim: { nama: null, bank: "DANA" }, penerima: { nama: "SITI AMINAH", bank: "JAGO" } };
+assert.equal(tentukanArah(kirimSendiri, [], milik, "JAGO …4321"), "pindah", "nomor tujuan = kantong user, dikirim dari kantong user");
+assert.equal(tentukanArah(kirimSendiri, ["Siti Aminah"], milik.slice(0, 1)), "pindah", "nama penerima = user, dari kantong user, tanpa nama pengirim");
+assert.equal(tentukanArah(kirimSendiri, ["Siti Aminah"], []), "masuk", "pengirim bukan kantong user → tetap masuk");
+const dariOrang: BuktiTransfer = { pengirim: { nama: "BUDI HARTONO", bank: "BRI" }, penerima: { nama: "SITI AMINAH", bank: "JAGO" } };
+assert.equal(tentukanArah(dariOrang, [], milik, "JAGO …4321"), "masuk", "orang lain mengirim ke rekening user");
+assert.equal(tentukanArah({ ...dariOrang, pengirim: { nama: "SITI AMINAH", bank: "BRI" } }, ["Siti Aminah"], milik, "JAGO …4321"), "pindah");
+// Kolom bukti_transfer yang hanya berisi petunjuk kantong bukan bukti: tidak ditanya arah.
+const petunjukSaja = simpanPetunjuk(null, { sumber: "GoPay" });
+assert.equal(bacaBukti(petunjukSaja), null);
+assert.equal(pertanyaanDraft({ ...draft, bukti_transfer: petunjukSaja }), "kantong");
+assert.equal(alasanDraft({ ...draft, bukti_transfer: petunjukSaja }), "kantong");
+const buktiDanPetunjuk = simpanPetunjuk(JSON.stringify(laporan), { nomor_tujuan: "4321" });
+assert.deepEqual(bacaBukti(buktiDanPetunjuk)?.pengirim, laporan.pengirim);
+assert.equal(pertanyaanDraft({ ...draft, bukti_transfer: buktiDanPetunjuk }), "arah");
+
+console.log("✓ arah bukti transfer: nama (tersamar, inisial, gelar, satu kata), kantong bank, keputusan arah, isian, belajar nama, jawaban, nomor rekening tujuan & kirim ke rekening sendiri (B-2/B-3), petunjuk kantong bukan bukti");

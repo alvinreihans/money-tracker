@@ -1,5 +1,6 @@
 import { fmtIDR } from "@/lib/format";
 import { kantongDeposito, normal } from "@/lib/kantong";
+import { bakukanPaylater } from "@/lib/paylater-nama";
 
 /**
  * Lend & Borrow dan cicilan (docs/specs/SPEC-lend-borrow.md). Fungsi murni — diuji di
@@ -281,15 +282,29 @@ export function pilihCicilan<R extends Pick<Cicilan, "id" | "nama" | "penyedia" 
   dibayar: Record<string, number[]>,
   hariIni: string,
 ): { rencana: R; ke: number } | null {
-  const cari = normal(sebutan);
-  if (!cari) return null;
-  const kandidat = rencana
+  return kandidatCicilan(sebutan, rencana, dibayar, hariIni)[0] ?? null;
+}
+
+/**
+ * Semua rencana cicilan berjalan yang cocok dengan sebutan, jatuh tempo terdekat dulu
+ * (SPEC-kantong-sendiri D-2: beberapa → ditanya "Cicilan yang mana?").
+ */
+export function kandidatCicilan<R extends Pick<Cicilan, "id" | "nama" | "penyedia" | "tenor" | "jatuh_tempo_awal" | "nominal">>(
+  sebutan: string,
+  rencana: R[],
+  dibayar: Record<string, number[]>,
+  hariIni: string,
+): { rencana: R; ke: number }[] {
+  if (!normal(sebutan)) return [];
+  // Dibakukan dua arah (SPEC-kantong-sendiri D-1): "SPayLater" = rencana berpenyedia "Shopee PayLater" dan sebaliknya.
+  const cari = new Set([normal(sebutan), normal(bakukanPaylater(sebutan))]);
+  return rencana
     // Gabungan nama + penyedia: model kadang menyalin format daftar di prompt ("Uji — Shopee PayLater").
-    .filter((r) => [r.nama, r.penyedia, r.penyedia && r.nama + r.penyedia].some((n) => n && normal(n) === cari))
+    .filter((r) => [r.nama, r.penyedia, r.penyedia && bakukanPaylater(r.penyedia), r.penyedia && r.nama + r.penyedia].some((n) => n && cari.has(normal(n))))
     .map((r) => ({ r, berikutnya: statusCicilan(r, dibayar[r.id] ?? [], hariIni).berikutnya }))
     .filter((x) => x.berikutnya)
-    .sort((a, b) => a.berikutnya!.jatuhTempo.localeCompare(b.berikutnya!.jatuhTempo));
-  return kandidat[0] ? { rencana: kandidat[0].r, ke: kandidat[0].berikutnya!.ke } : null;
+    .sort((a, b) => a.berikutnya!.jatuhTempo.localeCompare(b.berikutnya!.jatuhTempo))
+    .map((x) => ({ rencana: x.r, ke: x.berikutnya!.ke }));
 }
 
 /**

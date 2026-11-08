@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ImagePlus, Plus } from "lucide-react";
 import LembarCatat, { type PerintahCatat } from "@/components/Obrolan";
 import ImporRekening from "@/components/ImporRekening";
+import KartuCalonPindah, { KUNCI_PERIKSA_PINDAH, muatCalon, urungkanPindah, type DataCalon } from "@/components/CalonPindah";
 import { GalatForm, Lembar, Pesan, Spinner, useGalat } from "@/components/oneui";
 import TransactionFields, { nilaiAwal, type NilaiTransaksi } from "@/components/TransactionFields";
 import s from "@/components/ui.module.css";
@@ -53,6 +54,17 @@ const CatatContext = createContext<{
   /** Snackbar singkat (mis. "2 struk diproses di latar"), opsional dengan satu aksi. */
   kabari: (teks: string, aksi?: Kabar["aksi"]) => void;
   kantong: PilihanKantong[];
+  /**
+   * Kantong yang baru dibuat di tempat (obrolan, SPEC-kantong-sendiri A-1): langsung ada
+   * di pilihan kantong obrolan & form, tanpa menunggu daftar dari server dimuat ulang.
+   */
+  tambahKantong: (k: PilihanKantong) => void;
+  /**
+   * Kantong uang yang baru dibuat: cari transaksi rekening koran lama yang tampaknya pindah
+   * ke/dari situ, tawarkan "Jadikan pindah" (A-3). Ditampilkan begitu tidak ada lembar
+   * Catat/impor/manual yang terbuka (snackbar Urungkan tidak tertutup dialog).
+   */
+  periksaPindah: (kantongIds: string[]) => void;
   kategori: Kategori[];
   /** Email yang sedang masuk, untuk tab Profil. */
   email: string | null;
@@ -113,6 +125,13 @@ export function CatatProvider({
   const [ringkasan, setRingkasan] = useState<ItemStruk[] | null>(null);
   const [lihatRingkasan, setLihatRingkasan] = useState(false);
   const urut = useRef(0);
+  // Kantong yang dibuat di tempat sejak halaman dimuat (A-1); yang sudah ada di daftar server dilewati.
+  const [tambahan, setTambahan] = useState<PilihanKantong[]>([]);
+  const semuaKantong = [...kantong, ...tambahan.filter((t) => !kantong.some((k) => k.id === t.id))];
+  // Antrean kantong yang diperiksa calon pindahnya (A-3) dan kartu yang sedang tampil.
+  const [antreanPindah, setAntreanPindah] = useState<string[]>([]);
+  const [calon, setCalon] = useState<DataCalon | null>(null);
+  const memeriksa = useRef(false);
 
   const bukaLembar = (p: Omit<PerintahCatat, "id">) => setPerintah({ ...p, id: ++urut.current });
 
@@ -192,6 +211,33 @@ export function CatatProvider({
     else if (el.matches(":popover-open")) el.hidePopover();
   }, [seret]);
 
+  // Kantong dari layar awal (sessionStorage, MulaiView): diperiksa sekali saat aplikasi terbuka.
+  useEffect(() => {
+    try {
+      const ids = JSON.parse(sessionStorage.getItem(KUNCI_PERIKSA_PINDAH) ?? "[]") as unknown;
+      sessionStorage.removeItem(KUNCI_PERIKSA_PINDAH);
+      // Aksi tertunda dari layar awal, bukan state turunan.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (Array.isArray(ids) && ids.length) setAntreanPindah(ids.filter((x): x is string => typeof x === "string"));
+    } catch {
+      // Penyimpanan diblokir: penautan ulang dilewati, tidak apa-apa.
+    }
+  }, []);
+
+  // Calon pindah satu per satu, hanya bila tidak ada lembar lain yang terbuka.
+  const adaLembar = Boolean(perintah || rekening || manual || lihatRingkasan);
+  useEffect(() => {
+    if (adaLembar || calon || memeriksa.current || !antreanPindah.length) return;
+    const id = antreanPindah[0];
+    memeriksa.current = true;
+    void muatCalon(id).then((d) => {
+      memeriksa.current = false;
+      // Fungsional: kantong yang ditambahkan selama memuat tidak ikut terbuang.
+      setAntreanPindah((x) => x.filter((y) => y !== id));
+      if (d) setCalon(d);
+    });
+  }, [adaLembar, calon, antreanPindah]);
+
   /** Gambar ke antrean; yang lewat batas K3 dikabari. */
   function tambahStruk(berkas: File[]) {
     const lebih = antrean.tambah(berkas);
@@ -219,7 +265,9 @@ export function CatatProvider({
           if (berkas.length) setRekening(berkas);
         },
         kabari: (teks, aksi) => setKabar({ teks, aksi }),
-        kantong,
+        kantong: semuaKantong,
+        tambahKantong: (k) => setTambahan((x) => [...x.filter((y) => y.id !== k.id), k]),
+        periksaPindah: (ids) => setAntreanPindah((x) => [...x, ...ids.filter((id) => !x.includes(id))]),
         kategori,
         email,
         jumlahDraft,
@@ -284,6 +332,31 @@ export function CatatProvider({
       )}
 
       {manual && <ManualDialog awal={manual} onClose={() => setManual(null)} onTersimpan={tersimpan} />}
+
+      {calon && (
+        <KartuCalonPindah
+          key={calon.kantong.id}
+          data={calon}
+          onTutup={() => setCalon(null)}
+          onSelesai={(n, salinan) => {
+            const nama = calon.kantong.name;
+            setCalon(null);
+            router.refresh();
+            setKabar({
+              teks: `${n} transaksi jadi pindah kantong ${nama}`,
+              lama: 10000,
+              aksi: {
+                label: "Urungkan",
+                jalankan: async () => {
+                  const galat = await urungkanPindah(salinan);
+                  setKabar({ teks: galat ?? "Pindah kantong diurungkan" });
+                  router.refresh();
+                },
+              },
+            });
+          }}
+        />
+      )}
 
       {rekening && (
         <ImporRekening

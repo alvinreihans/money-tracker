@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ambilUser, createSupabaseServerClient } from "@/lib/supabase/server";
 import { ambilKonteksAI } from "@/lib/kategori-server";
-import { bacaNominal, bacaTenor, kantongDariJawaban, pertanyaanDraft, type JenisTanya } from "@/lib/draft";
+import { bacaNominal, bacaTenor, kalimatBelumAda, kantongDariJawaban, pertanyaanDraft, type JenisTanya } from "@/lib/draft";
+import { namaLembaga } from "@/lib/lembaga";
+import { penyediaPaylater } from "@/lib/paylater-nama";
+import { bacaPetunjuk, namaKantongBaru, simpanPetunjuk, sudahAda, type Petunjuk } from "@/lib/petunjuk";
+import { buatKantongDiTempat, GalatPindah, type KantongBaru } from "@/lib/pindah-server";
 import { EMOJI_KREDIT, type InfoPaylater } from "@/lib/pinjaman";
 import { bacaArah, bacaBukti, gabungNama, isianArah, kantongBank, namaDariJawaban } from "@/lib/arah";
 import { jadikanCicilan, namaRekening, tetapkanCicilan } from "@/lib/simpan-transaksi";
@@ -17,16 +21,23 @@ export const dynamic = "force-dynamic";
 // "cerita" membaca ulang lewat rantai Groq.
 export const maxDuration = 30;
 
-const JENIS: JenisTanya[] = ["cerita", "nominal", "arah", "kantong", "kantong_tujuan", "kartu", "waktu", "tenor", "duplikat", "konfirmasi"];
+const JENIS: JenisTanya[] = ["cerita", "nominal", "arah", "sendiri", "cicilan", "kantong", "kantong_tujuan", "kartu", "waktu", "tenor", "duplikat", "konfirmasi"];
+
+/** "buat:GoPay" dari pilihan "+ Buat kantong GoPay" (SPEC-kantong-sendiri A-1). */
+const namaBuat = (nilai: string) => (nilai.startsWith("buat:") ? nilai.slice(5).trim().slice(0, 40) : null);
+/** Jawaban ya/bukan untuk "dari rekeningmu sendiri?". */
+const bacaYa = (t: string) => (/^(ya|iya|y|yes|betul|benar|sendiri|pindah)\b/i.test(t.trim()) ? true : /^(bukan|tidak|ga|gak|nggak|enggak|no|pemasukan)\b/i.test(t.trim()) ? false : null);
 
 /**
  * Jawaban user untuk pertanyaan di percakapan sebuah draft (SPEC-catat-chat).
  * Jawaban mengisi draft; begitu tidak ada yang kurang, draft dikonfirmasi
  * (ikut dihitung) dan percakapan + fotonya hilang lewat trigger database.
  *
- * Balasan: { transaction, pertanyaan } — pertanyaan null = selesai; atau
+ * Balasan: { transaction, pertanyaan, kantong_baru? } — pertanyaan null = selesai;
+ * kantong_baru = kantong yang dibuat di tempat (SPEC-kantong-sendiri A-1); atau
  * { cicilan } kalau belanja paylater-nya jadi rencana cicilan (SPEC-paylater).
- * 422 = jawaban tidak bisa dipakai; pertanyaannya tetap terbuka.
+ * 422 = jawaban tidak bisa dipakai; pertanyaannya tetap terbuka. 422 dengan
+ * `buat` = kantong yang diketik belum ada: ditawari "Buat sekarang?".
  */
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const user = await ambilUser();
@@ -46,6 +57,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const { data: daftarKantong } = await supabase.from("user_accounts").select("id, name, kind, aliases, saldo_per, saldo_sejak, macam_simpanan");
   // Deposito bukan jawaban "kantong mana?" (SPEC-simpanan).
   const semua = ((daftarKantong ?? []) as Pick<Kantong, "id" | "name" | "kind" | "aliases" | "saldo_per" | "saldo_sejak" | "macam_simpanan">[]).filter((k) => !kantongDeposito(k));
+  const petunjuk = bacaPetunjuk(tx.bukti_transfer);
   const saldoDari = (id: string) => {
     const k = semua.find((x) => x.id === id);
     return k ? saldoSejak(k) : undefined;
@@ -55,9 +67,32 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     [t.kantong_id, t.kantong_tujuan_id].some((kid) => kid && perluTanyaJam({ transaction_date: t.transaction_date, waktu, perkiraan }, saldoDari(kid)));
   // Orang (Lend & Borrow) hanya lewat pindah kantong, seperti di simpanTransaksi.
   const pilihan = (type: string) => (type === "transfer" ? semua : semua.filter((k) => k.kind !== "orang"));
-  const tolak = (error: string) => NextResponse.json({ error }, { status: 422 });
+  // `buat`: nama kantong yang diketik tapi belum ada → "Kantong 'GoPay' belum ada. Buat sekarang?" (A-1).
+  const tolak = (error: string, buat?: string | null) =>
+    NextResponse.json(buat ? { error: kalimatBelumAda(buat), buat } : { error }, { status: 422 });
 
   const patch: Partial<Transaction> = {};
+  // Kantong yang dibuat di tempat lewat "+ Buat kantong <nama>" (A-1): saldo 0 sejak tanggal transaksinya (K1).
+  let kantongBaru: KantongBaru | null = null;
+  const buat = async (nama: string, sisi: "sumber" | "tujuan") => {
+    const k = await buatKantongDiTempat(supabase, user.id, nama, { tanggal: tx.transaction_date, nomor_akhir: sisi === "tujuan" ? petunjuk.nomor_tujuan : null });
+    if (!semua.some((x) => x.id === k.id)) {
+      kantongBaru = k;
+      semua.push(k as unknown as (typeof semua)[number]);
+    }
+    return k;
+  };
+  // Petunjuk kantong di draft (src/lib/petunjuk.ts) ikut diperbarui.
+  const ubahPetunjuk = (p: Petunjuk) => {
+    patch.bukti_transfer = simpanPetunjuk(patch.bukti_transfer !== undefined ? patch.bukti_transfer : tx.bukti_transfer, p);
+  };
+  // Ketikan nama kantong yang belum ada: ditawari dibuat (A-1), bukan diulang terus.
+  let usulBuat: string | null = null;
+  const usulan = (teks: string) => {
+    const nama = namaKantongBaru(teks);
+    if (!nama || sudahAda(nama, semua) || /\d/.test(teks) || teks.trim().split(/\s+/).length > 3) return { nama: null, kuat: false };
+    return { nama, kuat: Boolean(namaLembaga(teks) || penyediaPaylater(teks) || /\b(tunai|cash)\b/i.test(teks)) };
+  };
   // Ketikan yang bukan jawaban langsung ("nominalnya 40rb", "pakai yang biru")
   // dibaca AI seperti cerita; kalau tetap tidak ada yang berubah, baru ditolak.
   let gagal: string | null = null;
@@ -84,17 +119,70 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       const ke = isi.payment_target ? kantongBank(isi.payment_target, uang) : null;
       Object.assign(patch, dari ? { kantong_id: dari.id, payment_method: dari.name } : { kantong_id: null, payment_method: isi.payment_method });
       patch.kantong_tujuan_id = ke && ke.id !== dari?.id ? ke.id : null;
+      // Kantong yang belum ada (B-3): ditawarkan dibuat di pertanyaan berikutnya, nomor rekeningnya ikut (B-2).
+      patch.bukti_transfer = simpanPetunjuk(null, {
+        nomor_tujuan: petunjuk.nomor_tujuan,
+        sumber: dari ? null : isi.payment_method,
+        tujuan: isi.payment_target && !ke ? isi.payment_target : null,
+      });
       const nama = gabungNama(await namaRekening(supabase), namaDariJawaban(bukti, arah));
       await supabase.auth.updateUser({ data: { nama_rekening: nama } });
     }
-  } else if (jenis === "kantong") {
-    const k = kantongDariJawaban(nilai, pilihan(tx.type));
-    if (k) Object.assign(patch, { kantong_id: k.id, payment_method: k.name });
-    else gagal = "Kantong itu belum ada. Pilih salah satu ya.";
-  } else if (jenis === "kantong_tujuan") {
-    const k = kantongDariJawaban(nilai, semua);
-    if (k && k.id !== tx.kantong_id) patch.kantong_tujuan_id = k.id;
-    else gagal = "Pilih kantong tujuan yang lain ya.";
+  } else if (jenis === "sendiri") {
+    // "Uang dari Jago ini dari rekeningmu sendiri?" (B-4).
+    const ya = bacaYa(nilai);
+    if (ya === null || !petunjuk.lembaga) return tolak("Pilih “Ya, pindah” atau “Bukan, pemasukan” ya.");
+    if (ya) {
+      let k: { id: string; name: string } | null = kantongDariJawaban(petunjuk.lembaga, semua.filter((x) => x.kind !== "orang"));
+      try {
+        k ??= await buat(petunjuk.lembaga, "sumber");
+      } catch (e) {
+        if (e instanceof GalatPindah) return tolak(e.message);
+        throw e;
+      }
+      Object.assign(patch, { kantong_id: k.id, payment_method: k.name });
+      if (k.id === tx.kantong_tujuan_id) patch.kantong_tujuan_id = null;
+      ubahPetunjuk({ lembaga: null, sumber: null });
+    } else {
+      // Pemasukan ke e-wallet penerimanya, dari lembaga itu.
+      const ke = semua.find((x) => x.id === tx.kantong_tujuan_id);
+      Object.assign(patch, { type: "income", category: "other", merchant: petunjuk.lembaga, kantong_id: ke?.id ?? null, payment_method: ke?.name ?? petunjuk.tujuan ?? null, kantong_tujuan_id: null });
+      ubahPetunjuk({ lembaga: null, sumber: ke ? null : (petunjuk.tujuan ?? null), tujuan: null });
+    }
+  } else if (jenis === "cicilan") {
+    // "Bayar cicilan Shopee PayLater yang mana?" (D-2): id rencananya.
+    const { data: r } = await supabase.from("cicilan").select("id, nama, category").eq("id", nilai).maybeSingle();
+    if (!r) return tolak("Pilih salah satu cicilannya ya.");
+    Object.assign(patch, { cicilan_id: r.id, merchant: r.nama, category: r.category ?? tx.category });
+    ubahPetunjuk({ cicilan: null });
+  } else if (jenis === "kantong" || jenis === "kantong_tujuan") {
+    const tujuan = jenis === "kantong_tujuan";
+    const nama = namaBuat(nilai);
+    if (nama) {
+      // "+ Buat kantong <nama>" (A-1).
+      try {
+        const k = await buat(nama, tujuan ? "tujuan" : "sumber");
+        if (tujuan && k.id === tx.kantong_id) return tolak("Pilih kantong tujuan yang lain ya.");
+        if (tujuan) patch.kantong_tujuan_id = k.id;
+        else Object.assign(patch, { kantong_id: k.id, payment_method: k.name });
+        ubahPetunjuk(tujuan ? { tujuan: null, nomor_tujuan: null } : { sumber: null });
+      } catch (e) {
+        if (e instanceof GalatPindah) return tolak(e.message);
+        throw e;
+      }
+    } else {
+      const k = kantongDariJawaban(nilai, tujuan ? semua : pilihan(tx.type));
+      if (k && !(tujuan && k.id === tx.kantong_id)) {
+        if (tujuan) patch.kantong_tujuan_id = k.id;
+        else Object.assign(patch, { kantong_id: k.id, payment_method: k.name });
+      } else {
+        const u = k ? { nama: null, kuat: false } : usulan(nilai);
+        // Nama bank/e-wallet/tunai yang jelas: langsung ditawari dibuat, tanpa dibaca ulang AI.
+        if (u.nama && u.kuat) return tolak("", u.nama);
+        usulBuat = u.nama;
+        gagal = tujuan ? "Pilih kantong tujuan yang lain ya." : "Kantong itu belum ada. Pilih salah satu ya.";
+      }
+    }
   } else if (jenis === "kartu") {
     // Tagihan kartu kredit yang belum terdaftar (SPEC-tagihan-cicilan): kartu
     // yang sudah ada, atau kartu baru bertagihan = pembayaran ini sejak awal
@@ -177,15 +265,21 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       const ditanya = { kantong: ["kantong_id", "payment_method"], kantong_tujuan: ["kantong_tujuan_id"], waktu: ["waktu"] } as const;
       for (const k of ditanya[jenis as keyof typeof ditanya] ?? []) delete patch[k];
     }
-    // "pakai spaylater": belanjanya ternyata paylater → jadi cicilan, bukan dari kantong.
+    // "pakai spaylater 3x": belanjanya ternyata paylater bertenor → jadi cicilan, bukan dari kantong.
+    // Tanpa tenor → dari kantong utang penyedianya (SPEC-kantong-sendiri D-4).
     if (e?.paylater && ((patch.type as string | undefined) ?? tx.type) === "expense") {
       infoPaylater = e.paylater;
       tenor ??= e.paylater.tenor;
-      Object.assign(patch, { paylater: e.paylater.penyedia, payment_method: e.paylater.penyedia, kantong_id: null, kantong_tujuan_id: null });
+      if (tenor) Object.assign(patch, { paylater: e.paylater.penyedia, payment_method: e.paylater.penyedia, kantong_id: null, kantong_tujuan_id: null });
+      else {
+        const k = kantongDariJawaban(e.paylater.penyedia, pilihan("expense"));
+        Object.assign(patch, { payment_method: k?.name ?? e.paylater.penyedia, kantong_id: k?.id ?? null, kantong_tujuan_id: null });
+        if (!k) ubahPetunjuk({ sumber: e.paylater.penyedia });
+      }
     }
     const PENTING = ["amount", "type", "transaction_date", "waktu", "kantong_id", "kantong_tujuan_id", "paylater"] as const;
-    if (gagal && !tenor && PENTING.every((k) => !(k in patch) || sama(patch[k], tx[k]))) return tolak(gagal);
-  } else if (gagal) return tolak(gagal);
+    if (gagal && !tenor && PENTING.every((k) => !(k in patch) || sama(patch[k], tx[k]))) return tolak(gagal, usulBuat);
+  } else if (gagal) return tolak(gagal, usulBuat);
 
   // Paylater dengan tenor: jadi rencana cicilan, draft-nya dihapus.
   const paylater = patch.paylater ?? tx.paylater;
@@ -210,9 +304,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   // dikonfirmasi. Pertanyaan konfirmasi hanya diajukan saat draft dibuka.
   const sesudah = pertanyaanDraft({ ...tx, ...patch }, saldoDari);
   const selesai = sesudah === null || sesudah === "konfirmasi";
-  if (selesai) Object.assign(patch, { status: "confirmed", raw_ocr_text: null });
+  // Petunjuk kantong (kolom bukti_transfer) tidak dibawa transaksi yang sudah selesai.
+  if (selesai) Object.assign(patch, { status: "confirmed", raw_ocr_text: null, bukti_transfer: null });
   // Bayar cicilan: nomornya baru ditetapkan sekarang (SPEC-tagihan-cicilan).
-  if (selesai && tx.cicilan_id) Object.assign(patch, await tetapkanCicilan(supabase, tx.cicilan_id, isoLokal(new Date())));
+  const cicilanId = patch.cicilan_id ?? tx.cicilan_id;
+  if (selesai && cicilanId) Object.assign(patch, await tetapkanCicilan(supabase, cicilanId, isoLokal(new Date())));
 
   const { data: baru, error } = await supabase.from("transactions").update(patch).eq("id", id).select().single();
   if (error) return NextResponse.json({ error: "Gagal menyimpan jawabannya." }, { status: 500 });
@@ -229,5 +325,5 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     await supabase.from("transactions").update({ status: "confirmed" }).eq("induk_id", id);
   }
 
-  return NextResponse.json({ transaction: baru as Transaction, pertanyaan: selesai ? null : sesudah });
+  return NextResponse.json({ transaction: baru as Transaction, pertanyaan: selesai ? null : sesudah, kantong_baru: kantongBaru });
 }
