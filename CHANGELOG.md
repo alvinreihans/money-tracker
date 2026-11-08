@@ -21,6 +21,8 @@ docs/specs/SPEC-catat-tuntas.md (fase 1 & 2 selesai di 2.4.0, fase 3 di 2.5.0, f
 
 ## [Unreleased]
 
+## [2.14.0] — 2026-11-08
+
 ### Ditambah
 - **Impor rekening koran: kantong baru untuk e-wallet sendiri** (SPEC-kantong-sendiri A-2). Top up atau transfer ke e-wallet/bank atas nama sendiri yang kantongnya belum ada kini ditawarkan di pratinjau, mis. "Kantong baru DANA (3 top up dari BRI)" (tercentang). Barisnya dicatat sebagai pindah kantong BRI → DANA, bukan pengeluaran; kalau tidak dicentang, tetap pengeluaran seperti sebelumnya.
 - **"Saldo DANA sekarang berapa?"** sekali sesudah impor untuk kantong yang baru dibuat dari rekening koran (mulai Rp 0 sejak transaksi pertamanya). Boleh dilewati. Untuk kantong utang paylater: "Utang Shopee PayLater sekarang berapa?".

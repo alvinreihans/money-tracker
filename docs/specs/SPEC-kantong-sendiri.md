@@ -1,6 +1,6 @@
 # Spec: Uang antar kantong sendiri, kantong yang belum ada, dan impor yang belajar
 
-Status: **diterapkan, belum dirilis** (K1–K5 diputuskan/dijelaskan user 8 Nov; disetujui user 8 Nov; tahap 1 — impor, RPC, API — dan tahap 2 — catat/obrolan, kartu, layar awal — selesai 8 Nov) · 8 November 2026 · branch `feat/kantong-sendiri` · dikerjakan **sebelum** [SPEC-asisten-agen](SPEC-asisten-agen.md) (P7 di sana) · menyentuh [SPEC-catat-tuntas](SPEC-catat-tuntas.md) (arah), [SPEC-impor-rekening](SPEC-impor-rekening.md), [SPEC-lengkapi](SPEC-lengkapi.md), [SPEC-ingat-kategori](SPEC-ingat-kategori.md), [SPEC-paylater](SPEC-paylater.md)
+Status: **diterapkan · rilis 2.14.0** (K1–K5 diputuskan/dijelaskan user 8 Nov; disetujui user 8 Nov; tahap 1 — impor, RPC, API — dan tahap 2 — catat/obrolan, kartu, layar awal — selesai 8 Nov) · 8 November 2026 · branch `feat/kantong-sendiri` · dikerjakan **sebelum** [SPEC-asisten-agen](SPEC-asisten-agen.md) (P7 di sana) · menyentuh [SPEC-catat-tuntas](SPEC-catat-tuntas.md) (arah), [SPEC-impor-rekening](SPEC-impor-rekening.md), [SPEC-lengkapi](SPEC-lengkapi.md), [SPEC-ingat-kategori](SPEC-ingat-kategori.md), [SPEC-paylater](SPEC-paylater.md)
 
 ## Masalah
 
