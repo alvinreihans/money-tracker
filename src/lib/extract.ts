@@ -445,7 +445,10 @@ export function normalize(parsed: Partial<ExtractedReceipt>, kategori: Kategori[
   const category = kategoriJenis(kategori, type).some((k) => k.slug === slug) ? slug : LAINNYA;
 
   // Top up e-wallet lewat agen/kasir (SPEC-kantong-sendiri B-5): uangnya dari Tunai, nama tokonya keterangan.
-  const agen = type === "transfer" ? tokoAgen(parsed.payment_method) ?? tokoAgen(parsed.merchant) : null;
+  // Tarik tunai di toko (tujuannya Tunai) bukan top up; merchant toko hanya dipakai bila sumbernya kosong/Tunai.
+  const keTunai = /tunai|cash/i.test(String(parsed.payment_target ?? ""));
+  const sumberKosong = !parsed.payment_method || /^(tunai|cash)$/i.test(String(parsed.payment_method).trim());
+  const agen = type === "transfer" && !keTunai ? (tokoAgen(parsed.payment_method) ?? (sumberKosong ? tokoAgen(parsed.merchant) : null)) : null;
 
   return {
     amount,

@@ -228,11 +228,12 @@ export function CatatProvider({
   const adaLembar = Boolean(perintah || rekening || manual || lihatRingkasan);
   useEffect(() => {
     if (adaLembar || calon || memeriksa.current || !antreanPindah.length) return;
-    const [id, ...sisa] = antreanPindah;
+    const id = antreanPindah[0];
     memeriksa.current = true;
     void muatCalon(id).then((d) => {
       memeriksa.current = false;
-      setAntreanPindah(sisa);
+      // Fungsional: kantong yang ditambahkan selama memuat tidak ikut terbuang.
+      setAntreanPindah((x) => x.filter((y) => y !== id));
       if (d) setCalon(d);
     });
   }, [adaLembar, calon, antreanPindah]);

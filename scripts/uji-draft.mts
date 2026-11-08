@@ -189,6 +189,8 @@ const ai = (groq: number | Error, gemini: number | Error) => {
   // Belanja di Alfamart (bukan top up) tidak disentuh.
   const belanja = normalize({ ...dasar, type: "expense", category: "groceries", payment_method: "DANA", merchant: "ALFAMART" }, undefined, true);
   assert.deepEqual([belanja.merchant, belanja.payment_method], ["ALFAMART", "DANA"]);
+  const tarik = normalize({ ...dasar, type: "transfer", payment_method: "BCA", payment_target: "Tunai", merchant: "Indomaret" }, undefined, true);
+  assert.deepEqual([tarik.payment_method, tarik.merchant], ["BCA", "Indomaret"], "tarik tunai di toko bukan top up");
   assert.equal(tokoAgen("Top Up via Agent (ALFAMART)"), "Alfamart");
   assert.equal(tokoAgen("BCA"), null);
 }
