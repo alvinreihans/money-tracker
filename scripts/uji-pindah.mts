@@ -8,7 +8,7 @@
 import assert from "node:assert/strict";
 import { cariCalonPindah, isianJadikanPindah, kalimatCalonPindah, namaLembaga, pihakDariTeks, tebakJenisKantong, type TransaksiPindah } from "../src/lib/pindah.ts";
 import { bakukanPaylater, penyediaPaylater } from "../src/lib/paylater-nama.ts";
-import { pilihCicilan } from "../src/lib/pinjaman.ts";
+import { kandidatCicilan, pilihCicilan } from "../src/lib/pinjaman.ts";
 import { namaDariMetadata, namaRekeningBaru, namaTersamar } from "../src/lib/nama-rekening.ts";
 import type { HasilBaca } from "../src/lib/rekening/jenis.ts";
 
@@ -68,6 +68,15 @@ const rencana = [{ id: "c1", nama: "Sepatu", penyedia: "Shopee PayLater", tenor:
 assert.deepEqual(pilihCicilan("SPayLater", rencana, {}, "2026-10-01"), { rencana: rencana[0], ke: 1 }, "sebutan AI SPayLater → penyedia Shopee PayLater");
 assert.deepEqual(pilihCicilan("Shopee PayLater", [{ ...rencana[0], penyedia: "SPayLater" }], {}, "2026-10-01")?.ke, 1, "penyedia tersimpan SPayLater → sebutan baku");
 assert.equal(pilihCicilan("SPinjam", rencana, {}, "2026-10-01"), null, "SPinjam bukan Shopee PayLater");
+
+// D-2: beberapa rencana penyedia yang sama → semua jadi kandidat (ditanya "Cicilan yang mana?"), jatuh tempo terdekat dulu.
+{
+  const dua = [rencana[0], { ...rencana[0], id: "c2", nama: "Jaket", jatuh_tempo_awal: "2026-09-25" }];
+  assert.deepEqual(kandidatCicilan("SPayLater", dua, {}, "2026-09-20").map((k) => k.rencana.id), ["c2", "c1"]);
+  assert.deepEqual(kandidatCicilan("Sepatu", dua, {}, "2026-09-20").map((k) => k.rencana.id), ["c1"], "nama barang → satu");
+  assert.deepEqual(kandidatCicilan("SPayLater", dua, { c2: [1, 2, 3] }, "2026-09-20").map((k) => k.rencana.id), ["c1"], "yang lunas tidak ditawarkan");
+  assert.deepEqual(kandidatCicilan("Kredivo", dua, {}, "2026-09-20"), [], "tidak ada → kantong utang (D-4)");
+}
 
 // ------------------------------------------------------------ nama pemilik dari rekening koran (B-1)
 
@@ -152,4 +161,4 @@ const tx = (isi: Partial<TransaksiPindah>): TransaksiPindah => ({
 // Rekening koran kantong itu sendiri tidak ditimbang (itu urusan impor, R2).
 assert.deepEqual(cariCalonPindah(DANA, [tx({ kantong_id: "dana" })], konteks), []);
 
-console.log("✓ pindah: tebakan jenis kantong, pembaku paylater & pilihCicilan, nama pemilik rekening koran, cariCalonPindah (nama/nomor/tanpa tanda/sisi lawan digabung)");
+console.log("✓ pindah: tebakan jenis kantong, pembaku paylater & pilihCicilan/kandidatCicilan, nama pemilik rekening koran, cariCalonPindah (nama/nomor/tanpa tanda/sisi lawan digabung)");

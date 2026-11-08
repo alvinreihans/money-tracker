@@ -1,6 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isoLokal } from "@/lib/format";
-import { isianArah, kantongBank, tentukanArah, type BuktiTransfer } from "@/lib/arah";
+import { isianArah, kantongBank, kantongNomor, tentukanArah, type BuktiTransfer } from "@/lib/arah";
+import { namaLembaga } from "@/lib/lembaga";
+import { penyediaPaylater } from "@/lib/paylater-nama";
+import { nomorAkhir, simpanPetunjuk, type Petunjuk } from "@/lib/petunjuk";
 import { ambilIngatan } from "@/lib/ingat";
 import { cocokkanKantong, kantongDeposito, type Kantong } from "@/lib/kantong";
 import {
@@ -8,7 +11,7 @@ import {
   EMOJI_ORANG,
   kantongUang,
   keteranganCicilan,
-  pilihCicilan,
+  kandidatCicilan,
   rencanaPaylater,
   statusCicilan,
   SALDO_PER_PINJAMAN,
@@ -92,13 +95,35 @@ export async function simpanTransaksi(
   userId: string,
   input: Record<string, unknown>,
 ): Promise<{ transaction: unknown; pertanyaan: JenisTanya | null; cicilan?: Cicilan }> {
-  const { payment_target, biaya_admin, cashback, pinjaman, cicilan: sebutanCicilan, jam, petunjuk_jam, info_paylater, bukti_transfer, rincian, usulan_pecah, dompet, ...row } = input;
+  const {
+    payment_target,
+    biaya_admin,
+    cashback,
+    pinjaman,
+    cicilan: sebutanCicilan,
+    jam,
+    petunjuk_jam,
+    info_paylater,
+    bukti_transfer,
+    rincian,
+    usulan_pecah,
+    dompet,
+    rekening_tujuan,
+    ...row
+  } = input;
   const dariAi = "payment_target" in input;
+  // Nama kantong yang terbaca tapi belum ada: disimpan di draft untuk "+ Buat kantong" (src/lib/petunjuk.ts).
+  const petunjuk: Petunjuk = {};
 
-  // Belanja pakai paylater: bukan pengeluaran dari kantong mana pun. Tenor
-  // diketahui → langsung jadi rencana cicilan; belum → draft yang menanyakannya.
+  // Belanja pakai paylater. Tenor diketahui → langsung jadi rencana cicilan
+  // (SPEC-paylater). Tanpa tenor → pengeluaran dari kantong utang penyedianya,
+  // tanpa ditanya tenornya (SPEC-kantong-sendiri D-4, K3); kantongnya belum ada →
+  // ditanya dengan tawaran "+ Buat kantong Shopee PayLater".
   const paylater = dariAi && row.type === "expense" ? (info_paylater as InfoPaylater | null) : null;
-  if (paylater) {
+  if (paylater && !paylater.tenor && Number(row.amount) > 0) {
+    row.payment_method = paylater.penyedia;
+    petunjuk.sumber = paylater.penyedia;
+  } else if (paylater) {
     const belanja = {
       amount: Number(row.amount),
       merchant: (row.merchant as string | null) ?? null,
@@ -110,6 +135,7 @@ export async function simpanTransaksi(
       const cicilan = await jadikanCicilan(supabase, userId, belanja, { ...paylater, tenor: paylater.tenor });
       return { transaction: null, pertanyaan: null, cicilan };
     }
+    // Nominal belum terbaca: draft paylater seperti dulu (nominal lalu tenor).
     const draft = {
       ...row,
       paylater: paylater.penyedia,
@@ -125,9 +151,9 @@ export async function simpanTransaksi(
 
   // Tautkan ke kantong. Form mengirim id-nya langsung (dicek memang milik
   // user); teks dan struk membawa nama ("gopay", "BRImo") yang dicocokkan.
-  const KOLOM = "id, name, kind, aliases, saldo_per, saldo_sejak, macam_simpanan";
+  const KOLOM = "id, name, kind, aliases, saldo_per, saldo_sejak, macam_simpanan, nomor_akhir";
   const { data } = await supabase.from("user_accounts").select(KOLOM).eq("user_id", userId);
-  const daftar = (data ?? []) as Pick<Kantong, "id" | "name" | "kind" | "aliases" | "saldo_per" | "saldo_sejak" | "macam_simpanan">[];
+  const daftar = (data ?? []) as (Pick<Kantong, "id" | "name" | "kind" | "aliases" | "saldo_per" | "saldo_sejak" | "macam_simpanan"> & { nomor_akhir?: string | null })[];
   // Nama yang ditulis/terbaca tidak pernah dicocokkan ke deposito: "pakai
   // deposito" → ditanya kantongnya (SPEC-simpanan). Id dari form tetap berlaku.
   const dicocokkan = daftar.filter((k) => !kantongDeposito(k));
@@ -138,18 +164,61 @@ export async function simpanTransaksi(
   // belum ditautkan, karena belum jelas sisi mana yang milik user.
   let target = payment_target as string | null;
   const bukti = dariAi ? ((bukti_transfer as BuktiTransfer | null) ?? null) : null;
+  // Rekening tujuan dari gambar ("JAGO …4321", SPEC-kantong-sendiri B-2).
+  const rekTujuan = dariAi && typeof rekening_tujuan === "string" ? rekening_tujuan : null;
   if (bukti) {
     const uang = dicocokkan.filter((k) => k.kind !== "orang");
-    const arah = tentukanArah(bukti, await namaRekening(supabase), uang);
+    const arah = tentukanArah(bukti, await namaRekening(supabase), uang, rekTujuan);
     if (arah) {
       const isi = isianArah(bukti, arah);
       Object.assign(row, { type: isi.type, merchant: isi.merchant, ...("category" in isi ? { category: isi.category } : {}) });
       row.payment_method = kantongBank(isi.payment_method, uang)?.name ?? isi.payment_method;
-      target = isi.payment_target ? (kantongBank(isi.payment_target, uang)?.name ?? isi.payment_target) : null;
+      // Pindah: tujuan dari nomor rekening, lalu nama bank; yang belum ada ditawarkan dibuat (A-1) dengan nomornya.
+      target = isi.payment_target ? (kantongNomor(rekTujuan, uang)?.name ?? kantongBank(isi.payment_target, uang)?.name ?? isi.payment_target) : null;
+      if (arah === "pindah") Object.assign(petunjuk, { sumber: isi.payment_method, tujuan: isi.payment_target, nomor_tujuan: nomorAkhir(rekTujuan) });
     } else {
       row.bukti_transfer = JSON.stringify(bukti);
       row.payment_method = null;
       row.status = "needs_review";
+      petunjuk.nomor_tujuan = nomorAkhir(rekTujuan);
+    }
+  }
+
+  // Bayar cicilan dari AI ("bayar cicilan spaylater 150rb"): tempelkan ke
+  // rencananya sebagai cicilan berikutnya. Beberapa rencana penyedia itu →
+  // ditanya yang mana (SPEC-kantong-sendiri D-2). Tidak ada rencana: tagihan
+  // paylater → pindah kantong ke kantong utang penyedianya (D-4); selain itu
+  // tetap pengeluaran biasa (uangnya memang keluar), dengan catatan.
+  if (dariAi && typeof sebutanCicilan === "string" && row.type === "expense") {
+    const [{ data: rencana }, { data: bayar }] = await Promise.all([
+      supabase.from("cicilan").select("id, nama, penyedia, category, tenor, jatuh_tempo_awal, nominal"),
+      // Hanya yang sudah tercatat: draft belum membayar apa pun (SPEC-tagihan-cicilan).
+      supabase.from("transactions").select("cicilan_id, cicilan_ke").not("cicilan_id", "is", null).eq("status", "confirmed"),
+    ]);
+    const dibayar: Record<string, number[]> = {};
+    for (const b of (bayar ?? []) as { cicilan_id: string; cicilan_ke: number | null }[]) {
+      if (b.cicilan_ke) (dibayar[b.cicilan_id] ??= []).push(b.cicilan_ke);
+    }
+    const kandidat = kandidatCicilan(sebutanCicilan, (rencana ?? []) as Cicilan[], dibayar, isoLokal(new Date()));
+    const penyedia = penyediaPaylater(sebutanCicilan);
+    // Sebutan nama barang ("cicilan hp") cukup yang jatuh temponya terdekat; sebutan penyedia saja ditanyakan.
+    const pilih = kandidat.length === 1 || (kandidat.length > 1 && !penyedia) ? kandidat[0] : null;
+    if (pilih) {
+      row.cicilan_id = pilih.rencana.id;
+      row.cicilan_ke = pilih.ke;
+      row.category = pilih.rencana.category;
+      row.merchant = pilih.rencana.nama;
+      row.description = keteranganCicilan(pilih.rencana, pilih.ke);
+    } else if (kandidat.length > 1) {
+      petunjuk.cicilan = penyedia;
+      row.merchant = penyedia;
+      row.status = "needs_review";
+    } else if (penyedia) {
+      Object.assign(row, { type: "transfer", category: "other", merchant: penyedia, kelompok: null });
+      target = penyedia;
+      petunjuk.tujuan = penyedia;
+    } else {
+      row.description = [row.description, `Rencana cicilan “${sebutanCicilan}” belum dicatat`].filter(Boolean).join(" · ");
     }
   }
 
@@ -195,30 +264,13 @@ export async function simpanTransaksi(
   row.kantong_tujuan_id = tujuan && tujuan.id !== kantong?.id ? tujuan.id : null;
   if (kantong) row.payment_method = kantong.name;
 
-  // Bayar cicilan dari AI ("bayar cicilan spaylater 150rb"): tempelkan ke
-  // rencananya sebagai cicilan berikutnya. Rencana yang tidak ketemu tetap
-  // dicatat sebagai pengeluaran biasa (uangnya memang keluar), dengan catatan.
-  if (dariAi && typeof sebutanCicilan === "string" && row.type === "expense") {
-    const [{ data: rencana }, { data: bayar }] = await Promise.all([
-      supabase.from("cicilan").select("id, nama, penyedia, category, tenor, jatuh_tempo_awal, nominal"),
-      // Hanya yang sudah tercatat: draft belum membayar apa pun (SPEC-tagihan-cicilan).
-      supabase.from("transactions").select("cicilan_id, cicilan_ke").not("cicilan_id", "is", null).eq("status", "confirmed"),
-    ]);
-    const dibayar: Record<string, number[]> = {};
-    for (const b of (bayar ?? []) as { cicilan_id: string; cicilan_ke: number | null }[]) {
-      if (b.cicilan_ke) (dibayar[b.cicilan_id] ??= []).push(b.cicilan_ke);
-    }
-    const pilih = pilihCicilan(sebutanCicilan, (rencana ?? []) as Cicilan[], dibayar, isoLokal(new Date()));
-    if (pilih) {
-      row.cicilan_id = pilih.rencana.id;
-      row.cicilan_ke = pilih.ke;
-      row.category = pilih.rencana.category;
-      row.merchant = pilih.rencana.nama;
-      row.description = keteranganCicilan(pilih.rencana, pilih.ke);
-    } else {
-      row.description = [row.description, `Rencana cicilan “${sebutanCicilan}” belum dicatat`].filter(Boolean).join(" · ");
-    }
-  }
+  // Sisi yang kantongnya belum ada: namanya diingat untuk "+ Buat kantong <nama>" (A-1).
+  if (!kantong && typeof row.payment_method === "string") petunjuk.sumber ??= row.payment_method;
+  if (row.type === "transfer" && !row.kantong_tujuan_id && target) petunjuk.tujuan ??= target;
+  // Uang masuk dari bank/e-wallet (bukan orang) yang belum jadi kantong, dari gambar (B-4):
+  // ditanya "Uang dari Jago ini dari rekeningmu sendiri?" — bukan langsung kantong asalnya.
+  const lembaga = !p && row.type === "transfer" && !kantong && row.source !== "text" ? namaLembaga(row.payment_method as string | null) : null;
+  if (lembaga) petunjuk.lembaga = lembaga;
 
   // Ingat kategori per merchant (SPEC-ingat-kategori): transaksi terakhir dari
   // merchant yang sama menggantikan tebakan AI ("WAITENJOY" yang pernah
@@ -286,6 +338,8 @@ export async function simpanTransaksi(
 
   // Teks asli/OCR hanya disimpan untuk draft, sebagai bahan membetulkan.
   if (row.status === "confirmed") row.raw_ocr_text = null;
+  // Petunjuk kantong hanya berguna selama jadi draft.
+  if (row.status === "needs_review" && Object.values(petunjuk).some(Boolean)) row.bukti_transfer = simpanPetunjuk(row.bukti_transfer, petunjuk);
 
   // Belanja campuran yang diketik dengan rinciannya (SPEC-metode-budget):
   // satu transaksi dengan beberapa bagian — aslinya memegang bagian pertama,

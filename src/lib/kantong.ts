@@ -162,7 +162,8 @@ export function alasanDraft(t: {
 }): "baca" | "kantong" | "arah" | null {
   if (t.status !== "needs_review") return null;
   // Bukti transfer antar dua pihak yang belum jelas kirim atau terima (SPEC-catat-tuntas).
-  if (t.bukti_transfer && Number(t.amount) > 0) return "arah";
+  // Kolom yang sama juga memuat petunjuk kantong (src/lib/petunjuk.ts): hanya pengirim/penerima = bukti.
+  if (t.bukti_transfer && /"pengirim"/.test(t.bukti_transfer) && Number(t.amount) > 0) return "arah";
   const kurangKantong = !t.kantong_id || (t.type === "transfer" && !t.kantong_tujuan_id);
   return Number(t.amount) > 0 && kurangKantong ? "kantong" : "baca";
 }

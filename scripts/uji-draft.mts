@@ -6,7 +6,9 @@
 import assert from "node:assert/strict";
 import { processReceiptText, type AiTeks } from "../src/lib/receipt.ts";
 import { isoLokal } from "../src/lib/format.ts";
-import { apakahKoreksi, bacaNominal, bacaTenor, kalimatKartu, kantongDariJawaban, mauHapus, pertanyaanDraft, tanggalHapusDraft } from "../src/lib/draft.ts";
+import { apakahKoreksi, bacaNominal, bacaTenor, kalimatBelumAda, kalimatKartu, kalimatTanya, kantongDariJawaban, mauHapus, pertanyaanDraft, tanggalHapusDraft } from "../src/lib/draft.ts";
+import { bacaPetunjuk, bankRekening, namaKantongBaru, nomorAkhir, simpanPetunjuk, usulanKantongBaru } from "../src/lib/petunjuk.ts";
+import { normalize, tokoAgen } from "../src/lib/extract.ts";
 
 const d = (t: Partial<Parameters<typeof pertanyaanDraft>[0]>) =>
   pertanyaanDraft({ status: "needs_review", amount: 0, type: "expense", category: "other", merchant: null, kantong_id: null, kantong_tujuan_id: null, ...t });
@@ -125,4 +127,70 @@ const ai = (groq: number | Error, gemini: number | Error) => {
   assert.deepEqual([r.status, r.source], ["needs_review", "none"], "semua galat: draft kosong");
 }
 
-console.log("✓ draft: urutan pertanyaan, nominal ketikan (rb/jt/Rp/titik), kantong dari chip & kalimat, koreksi vs catatan baru, minta hapus, tenor paylater, duplikat, tanggal hapus WIB, cadangan Gemini untuk ketikan");
+// ---- SPEC-kantong-sendiri: petunjuk kantong, "+ Buat kantong", kalimat (data BUATAN).
+{
+  const pj = (p: Parameters<typeof simpanPetunjuk>[1]) => simpanPetunjuk(null, p);
+  // Petunjuk disimpan di kolom bukti_transfer & dibaca lagi; kosong → null.
+  assert.deepEqual(bacaPetunjuk(pj({ sumber: "GoPay", tujuan: null })), { sumber: "GoPay" });
+  assert.equal(simpanPetunjuk(null, {}), null);
+  assert.equal(simpanPetunjuk(pj({ sumber: "GoPay" }), { sumber: null }), null, "petunjuk yang dikosongkan hilang");
+  assert.deepEqual(bacaPetunjuk(simpanPetunjuk(pj({ sumber: "GoPay" }), { tujuan: "DANA" })), { sumber: "GoPay", tujuan: "DANA" }, "digabung");
+  assert.deepEqual(bacaPetunjuk("rusak"), {});
+  // Urutan: B-4 "dari rekeningmu sendiri?" sebelum kantong; D-2 "cicilan yang mana?" sebelum kantong.
+  assert.equal(d({ amount: 50000, type: "transfer", kantong_tujuan_id: "dana", bukti_transfer: pj({ lembaga: "Jago" }) }), "sendiri");
+  assert.equal(d({ amount: 50000, type: "transfer", kantong_id: "jago", kantong_tujuan_id: "dana", bukti_transfer: pj({ lembaga: "Jago" }) }), "konfirmasi");
+  assert.equal(d({ amount: 150000, type: "expense", bukti_transfer: pj({ cicilan: "Shopee PayLater" }) }), "cicilan");
+  assert.equal(d({ amount: 150000, type: "expense", cicilan_id: "c1", bukti_transfer: pj({ cicilan: "Shopee PayLater" }) }), "kantong");
+  // B-6: pindah kantong menanyakan asalnya; B-4 menyebut banknya.
+  assert.equal(kalimatTanya("kantong", { type: "transfer" }), "Uangnya dari kantong mana?");
+  assert.equal(kalimatTanya("kantong", { type: "expense" }), "Pakai kantong apa?");
+  assert.equal(kalimatTanya("kantong_tujuan", { type: "transfer" }), "Pindah ke kantong mana?");
+  assert.equal(kalimatTanya("sendiri", { type: "transfer", bukti_transfer: pj({ lembaga: "Jago" }) }), "Uang dari Jago ini dari rekeningmu sendiri?");
+  assert.equal(kalimatBelumAda("GoPay"), "Kantong “GoPay” belum ada. Buat sekarang?");
+  // Nama kantong baru dari yang terbaca/diketik (A-1).
+  for (const [teks, nama] of [
+    ["kantong GoPay", "GoPay"],
+    ["bank jago", "Jago"],
+    ["PT Bank Jago", "Jago"],
+    ["SPayLater", "Shopee PayLater"],
+    ["Tunai", "Tunai"],
+    ["cash", "Tunai"],
+    ["QRIS", null],
+    ["Transfer", null],
+    ["dompet merah", "dompet merah"],
+    ["nominalnya 40rb", null],
+    ["BANK KOPERASI", "Bank Koperasi"],
+    ["", null],
+  ] as const)
+    assert.equal(namaKantongBaru(teks), nama, `nama kantong baru dari "${teks}"`);
+  // "+ Buat kantong <nama>" hanya untuk sisi yang ditanya, dan hanya bila belum ada kantongnya.
+  const ada = [{ name: "BRI" }, { name: "DANA" }];
+  assert.equal(usulanKantongBaru("kantong", { payment_method: "GoPay", bukti_transfer: null }, ada), "GoPay");
+  assert.equal(usulanKantongBaru("kantong", { payment_method: "Bank BRI", bukti_transfer: null }, ada), null, "sudah ada (alias)");
+  assert.equal(usulanKantongBaru("kantong", { payment_method: null, bukti_transfer: pj({ sumber: "Tunai" }) }, ada), "Tunai", "B-5 top up agen tanpa kantong Tunai");
+  assert.equal(usulanKantongBaru("kantong_tujuan", { payment_method: "BRI", bukti_transfer: pj({ tujuan: "JAGO" }) }, ada), "Jago");
+  assert.equal(usulanKantongBaru("kantong_tujuan", { payment_method: "BRI", bukti_transfer: null }, ada), null, "tujuan tidak terbaca");
+  assert.equal(usulanKantongBaru("kantong_tujuan", { payment_method: "BRI", bukti_transfer: pj({ tujuan: "Shopee PayLater" }) }, ada), "Shopee PayLater", "D-4 kantong utang");
+  assert.equal(nomorAkhir("Jago …4321"), "4321");
+  assert.equal(nomorAkhir("BCA 1234567890"), "7890");
+  assert.equal(nomorAkhir(null), null);
+  assert.equal(bankRekening("Jago …4321"), "Jago");
+}
+
+// ---- Hasil baca tiruan: "Receive Money from <lembaga>" (B-4) & top up lewat agen (B-5).
+{
+  const dasar = { amount: 50000, transaction_date: "2026-09-03", category: "other", document_type: "payment_proof" as const };
+  const terima = normalize({ ...dasar, type: "transfer", payment_method: "Bank Contoh", payment_target: "DANA", merchant: null }, undefined, true);
+  assert.deepEqual([terima.type, terima.payment_method, terima.payment_target, terima.bukti_transfer], ["transfer", "Bank Contoh", "DANA", null]);
+  const agen = normalize({ ...dasar, type: "transfer", payment_method: "ALFAMART", payment_target: "DANA", merchant: "Alfamart" }, undefined, true);
+  assert.deepEqual([agen.payment_method, agen.merchant, agen.description], ["Tunai", null, "Top up lewat Alfamart"], "nama toko → keterangan, sumbernya Tunai");
+  const agen2 = normalize({ ...dasar, type: "transfer", payment_method: "Tunai", payment_target: "DANA", merchant: null, description: "Top up lewat Indomaret" }, undefined, true);
+  assert.deepEqual([agen2.payment_method, agen2.description], ["Tunai", "Top up lewat Indomaret"]);
+  // Belanja di Alfamart (bukan top up) tidak disentuh.
+  const belanja = normalize({ ...dasar, type: "expense", category: "groceries", payment_method: "DANA", merchant: "ALFAMART" }, undefined, true);
+  assert.deepEqual([belanja.merchant, belanja.payment_method], ["ALFAMART", "DANA"]);
+  assert.equal(tokoAgen("Top Up via Agent (ALFAMART)"), "Alfamart");
+  assert.equal(tokoAgen("BCA"), null);
+}
+
+console.log("✓ draft: urutan pertanyaan, nominal ketikan (rb/jt/Rp/titik), kantong dari chip & kalimat, koreksi vs catatan baru, minta hapus, tenor paylater, duplikat, tanggal hapus WIB, cadangan Gemini untuk ketikan, petunjuk kantong & “+ Buat kantong” (A-1), kalimat pindah (B-6), B-4/B-5 dari hasil baca tiruan");

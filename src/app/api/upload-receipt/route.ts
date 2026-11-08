@@ -5,6 +5,7 @@ import { cariKandidat, dipakaiSebelumAI, dipakaiSesudahAI, GalatLengkapi, sidikG
 import { isiDariEkstraksi, jenisBukti, tambahRef } from "@/lib/lengkapi";
 import { ambilKonteksAI } from "@/lib/kategori-server";
 import { simpanTransaksi } from "@/lib/simpan-transaksi";
+import { cariPindahBukti } from "@/lib/pindah-server";
 import { dbErrorMessage } from "@/lib/errors";
 import type { JenisTanya } from "@/lib/draft";
 import { kabariDraft, simpanThumbnail } from "@/lib/draft-server";
@@ -91,6 +92,12 @@ export async function POST(req: NextRequest) {
     if (e && result.status === "confirmed" && !baru) {
       const dipakai = await dipakaiSesudahAI(supabase, e);
       if (dipakai) return NextResponse.json({ success: true, dipakai, sidik, hasil: e }, { status: 200 });
+      // Sisi lawan pindah antar rekening sendiri yang sudah tercatat dari rekening koran
+      // (SPEC-kantong-sendiri B-7): tawarkan "Jadikan pindah", bukan mencatat baru.
+      if (!banyak) {
+        const pindahBukti = await cariPindahBukti(supabase, e);
+        if (pindahBukti) return NextResponse.json({ success: true, pindahBukti, hasil: e, sidik, source: result.source }, { status: 200 });
+      }
       const cari = await cariKandidat(supabase, e, peringkat);
       if (cari.hasil.kandidat.length) {
         if (!banyak) {
