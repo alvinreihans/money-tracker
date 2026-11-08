@@ -1,6 +1,6 @@
 # Spec: Asisten AI yang bisa bertindak (Tanya AI jadi agen)
 
-Status: **usulan, menunggu jawaban user** (lihat [Pertanyaan terbuka](#pertanyaan-terbuka)) · 8 November 2026 · branch belum dibuat · lanjutan [SPEC-analitik-ai](SPEC-analitik-ai.md) dan [SPEC-cerita-tanya](SPEC-cerita-tanya.md)
+Status: **usulan** (P1–P9 & P4b dijawab user 9 Nov; dikerjakan sesudah SPEC-periksa-dulu) · 8 November 2026 · branch belum dibuat · lanjutan [SPEC-analitik-ai](SPEC-analitik-ai.md) dan [SPEC-cerita-tanya](SPEC-cerita-tanya.md)
 
 ## Masalah
 
@@ -153,9 +153,25 @@ Perbaikan "top up e-wallet tanpa kantong" (impor rekening koran menawarkan **Bua
 - **E2E:** kartu usulan → Terapkan → Riwayat & saldo berubah → Urungkan → kembali. Langkah yang dialirkan tampil. Catatan "model ringan" saat kuota habis (ditiru). Di 360px & 1024px.
 - **UAT data asli user** (lokal, akun uji sementara): impor semua rekening koran, lalu minta asisten merapikan; saldo semua kantong sama dengan bank.
 
+## Jawaban user (9 Nov 2026)
+
+| # | Jawaban |
+|---|---|
+| P1 | **Semua perubahan oleh asisten lewat kartu Terapkan** (tanpa aksi langsung). Hasil Catat/unggah juga dicek dulu sebelum tersimpan, diatur terpisah di [SPEC-periksa-dulu](SPEC-periksa-dulu.md). |
+| P2 | Belum ada contoh. Set uji awal disusun dari masalah nyata yang sudah ditemui (lihat Pengujian); user menambah contoh nanti. |
+| P3 | **Terpisah dulu**: Catat tetap, Tanya AI jadi asisten. |
+| P4 | **Riwayat percakapan disimpan, bergaya ChatGPT/Claude, hanya untuk Tanya AI**: daftar percakapan (judul otomatis dari pertanyaan pertama), buka/lanjutkan/hapus, tombol Percakapan baru. Di HP: tombol riwayat & Percakapan baru di kanan atas lembar Tanya AI; daftar menggantikan isi lembar. Di layar lebar: daftar di samping obrolan. Percakapan Catat tidak masuk daftar ini; jejaknya disimpan per transaksi ("Cara dicatat", [SPEC-periksa-dulu](SPEC-periksa-dulu.md)). |
+| P5 | 200 transaksi per usulan cukup. |
+| P6 | **Urungkan tanpa batas waktu**, selama baris-baris yang diubah belum diubah lagi. |
+| P7 | Sudah tidak relevan: perbaikan impor DANA sudah dirilis lebih dulu di 2.14.0 ([SPEC-kantong-sendiri](SPEC-kantong-sendiri.md)). Asisten memakai fungsi bersamanya (`jadikan_pindah`, `cariCalonPindah`, buat kantong). |
+| P8 | **Tanpa tanda** model besar; hanya catatan saat kuota habis. |
+| P9 | Angka jatah harian belum diketahui. **Tanpa batas hitung di awal**: pakai 3.8 Flash sampai Gemini menolak (429/kuota), lalu jatuh ke Flash-Lite dengan catatan. `GEMINI_MODEL_BERAT_RPD` opsional (kosong = tanpa batas hitung); pemakaian harian tetap dicatat supaya angkanya bisa dilihat dan diisi nanti. |
+
 ## Pertanyaan terbuka
 
-Dijawab user sebelum spec ini disetujui.
+- **P4b (terjawab: a, hanya Tanya AI). Bentuk riwayat percakapan.** (a) Seperti ChatGPT/Claude: daftar percakapan (judul otomatis dari pertanyaan pertama), bisa dibuka lagi, dilanjutkan, dan dihapus; tombol "Percakapan baru". (b) Sederhana: hanya percakapan terakhir yang diingat (dibuka lagi saat lembar dibuka), dengan tombol "Percakapan baru" yang menghapusnya.
+
+Riwayat pertanyaan awal (P1–P9):
 
 - **P1. Persetujuan.** Semua perubahan lewat kartu Terapkan, atau ada aksi kecil yang boleh langsung jalan (tetap bisa diurungkan)? Calon aksi langsung: isi kategori satu transaksi, buat kantong e-wallet yang memang belum ada. *Usulan: semua lewat kartu dulu; longgarkan nanti setelah terbukti jarang salah.*
 - **P2. Contoh perintah.** 5–10 kalimat yang ingin user ketik ke asisten. Dipakai untuk memastikan alatnya cukup dan sebagai set uji `eval:tanya`.

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ambilUser, createSupabaseServerClient } from "@/lib/supabase/server";
-import { processReceiptText, toTransactionRow } from "@/lib/receipt";
+import { hasilKirimanUlang, processReceiptText, toTransactionRow } from "@/lib/receipt";
+import { bacaanDari } from "@/lib/jejak";
+import { catatJejakDraft } from "@/lib/jejak-server";
 import { ambilKonteksAI } from "@/lib/kategori-server";
 import { simpanTransaksi } from "@/lib/simpan-transaksi";
 import { dbErrorMessage } from "@/lib/errors";
@@ -14,8 +16,9 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
 /**
- * Catat transaksi dari teks bebas ("kopi 25rb gopay"). Kegagalan turun jadi
- * draft, bukan error.
+ * Catat transaksi dari teks bebas ("kopi 25rb gopay"). Hasilnya selalu draft
+ * yang dicek dulu di kartu "Periksa dulu" (SPEC-periksa-dulu); kegagalan juga
+ * turun jadi draft, bukan error.
  */
 export async function POST(req: NextRequest) {
   const supabase = await createSupabaseServerClient();
@@ -37,7 +40,11 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const result = await processReceiptText(text, await ambilKonteksAI(supabase));
+  // `hasil`: hasil baca yang dikirim balik klien (tanpa AI lagi), seperti di
+  // /api/upload-receipt — mis. uji E2E yang meniru jawaban AI.
+  const konteks = await ambilKonteksAI(supabase);
+  const kiriman = (body as { hasil?: unknown } | null)?.hasil;
+  const result = kiriman && typeof kiriman === "object" ? hasilKirimanUlang(kiriman, konteks) : await processReceiptText(text, konteks);
 
   try {
     const { transaction, pertanyaan, cicilan } = await simpanTransaksi(supabase, user.id, {
@@ -49,6 +56,9 @@ export async function POST(req: NextRequest) {
     });
     // Belanja paylater yang langsung jadi rencana cicilan (SPEC-paylater).
     if (cicilan) return NextResponse.json({ cicilan }, { status: 201 });
+    // Jejak "Cara dicatat" (SPEC-periksa-dulu §4): teks ketikan & hasil bacanya.
+    const tx = transaction as Transaction;
+    if (tx.status === "needs_review") await catatJejakDraft(supabase, tx.id, { asal: "ketikan", teks: text, bacaan: bacaanDari(result.extracted) });
 
     return NextResponse.json(
       {

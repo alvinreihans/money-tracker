@@ -18,6 +18,7 @@ import { bri as briContoh, briNov, briOkt, Halaman, jagoBulanan, jagoDepositoOkt
 import { bersihkanMerchant, kategoriLayanan, layananGopay } from "../src/lib/rekening/merchant.ts";
 import { hitungSaldo, type Kantong } from "../src/lib/kantong.ts";
 import type { Rencana } from "../src/lib/rekening/rencana.ts";
+import { rincianImpor, ubahKecuali } from "../src/lib/rekening/rincian.ts";
 
 const pdf = (...hal: { items: { x: number; y: number; s: string }[] }[]): BarisPdf[] => susunBaris(hal);
 const seabank = (akhir?: string) => pdf(...seabankContoh(akhir));
@@ -827,6 +828,49 @@ for (const isiSendiri of [false, true]) {
     assert.ok(!kartu.saldoDariRekening && kartu.samakan, "saldo yang diisi user tidak ditimpa; peringatan + Samakan seperti biasa");
     assert.deepEqual(r.saldo, []);
   }
+}
+
+// ------------------------------------------------------------ rincian pratinjau (SPEC-periksa-dulu §3)
+{
+  const r = rencanakan(dasar());
+  const rin = rincianImpor(r);
+  const rsea = rin.find((x) => x.kunci === "seabank:1234")!;
+  // Yang perlu perhatian di atas.
+  const batas = rsea.baris.findIndex((b) => !b.perhatian);
+  assert.ok(batas > 0 && rsea.baris.slice(batas).every((b) => !b.perhatian), JSON.stringify(rsea.baris.map((b) => b.tanda)));
+  // Pasangan pindah kantong dua sisi: satu baris, dua ref, dicentang bersama; tidak muncul lagi di Jago.
+  const pasangan = rsea.baris.find((b) => b.refs.includes(rs.baris[3].ref))!;
+  assert.deepEqual([pasangan.tanda, pasangan.label, [...pasangan.refs].sort(), pasangan.nominal], ["pindah", "Pindah ke Jago", [rs.baris[3].ref, ju[2].ref].sort(), -100_000]);
+  assert.ok(!rin.some((x) => x.baris.some((b) => b !== pasangan && b.refs.includes(ju[2].ref))));
+  // Biaya BI-Fast menempel ke transfernya.
+  const bf = rin.find((x) => x.kunci === "bri:4321")!.baris.find((b) => b.refs.includes(rb.baris[0].ref))!;
+  assert.ok(bf.refs.includes(rb.baris[1].ref));
+  // Kantong baru (simpanan Jago) ditandai.
+  assert.ok(rin.find((x) => x.kunci === "jago:5678")!.baris.some((b) => b.tanda === "kantongBaru" && b.label === "Kantong baru Dana Darurat"));
+  // Hapus centang satu baris: tidak diimpor, saldo menurut aplikasi dihitung ulang, peringatan muncul.
+  const satu = rsea.baris.find((b) => b.refs[0] === rs.baris[1].ref)!;
+  const tanpa = rencanakan(dasar({ pilihan: { kecuali: satu.refs } }));
+  const s1 = r.rekening.find((x) => x.kunci === "seabank:1234")!;
+  const s2 = tanpa.rekening.find((x) => x.kunci === "seabank:1234")!;
+  assert.equal(s2.saldoAplikasi, s1.saldoAplikasi! - satu.nominal);
+  assert.equal(s2.saldoBank, s1.saldoBank);
+  assert.ok(s2.samakan, "beda dengan bank: ditawari disamakan");
+  assert.ok(!tanpa.sisip.some((t) => t.ref_bank === rs.baris[1].ref));
+  assert.equal(tanpa.sisip.length, r.sisip.length - 1);
+  // Pasangan tidak dicentang bersama: kedua sisinya tidak diimpor (sisi Jago tidak jadi pemasukan biasa).
+  const tanpaPasangan = rencanakan(dasar({ pilihan: { kecuali: pasangan.refs } }));
+  assert.ok(!tanpaPasangan.sisip.some((t) => [t.ref_bank, t.ref_bank_tujuan].some((x) => x && pasangan.refs.includes(x))));
+  // Bunga bulanan bisa tidak dicentang.
+  const bunga = rsea.baris.find((b) => b.refs[0] === "seabank:1234:bunga:2026-09")!;
+  assert.ok(bunga);
+  assert.ok(!rencanakan(dasar({ pilihan: { kecuali: bunga.refs } })).sisip.some((t) => t.ref_bank === "seabank:1234:bunga:2026-09"));
+  // Tidak dicentang tidak diingat: rincian dari rencana tanpa pengecualian tetap memuatnya.
+  assert.ok(rincianImpor(r).find((x) => x.kunci === "seabank:1234")!.baris.some((b) => b.refs[0] === rs.baris[1].ref));
+  assert.deepEqual(ubahKecuali(["a"], ["b", "c"], false), ["a", "b", "c"]);
+  assert.deepEqual(ubahKecuali(["a", "b", "c"], ["b", "c"], true), ["a"]);
+  // Kategori dari bulan lalu ditandai.
+  const ingat = rencanakan(dasar({ ingatan: [{ merchant: "ANI WIJAYA", category: "salary", type: "income" }], kategori: null }));
+  assert.ok(rincianImpor(ingat).find((x) => x.kunci === "seabank:1234")!.baris.some((b) => b.tanda === "ingatan" && b.label === "Kategori dari bulan lalu"));
 }
 
 console.log("uji:rekening lulus");

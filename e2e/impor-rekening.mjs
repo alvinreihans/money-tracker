@@ -342,8 +342,10 @@ try {
   cek("Kantong yang dijadikan deposito berganti emoji bawaan 💰", d1?.emoji === "💰", d1?.emoji);
   cek("Satu pemasukan bunga Rp 15.342 berpengenal baris bank; saldo Deposito Rp 10.015.342, Jago = saldo akhir bank Rp 176.008", d1?.bunga?.length === 1 && d1.bunga[0][0] === 15342 && d1.bunga[0][2] && d1.deposito === 10015342 && d1.jago === 176008, JSON.stringify(d1));
   await buka(`${base}/`, 6000);
-  const berandaImpor = await langkah("beranda sesudah impor", `return /Deposito jatuh tempo/.test(teksHalaman())`);
-  cek("Impor dulu: kartu \"Deposito jatuh tempo\" tidak muncul", berandaImpor === false, String(berandaImpor));
+  // Hanya periode yang ditutup dari rekening koran (jatuh tempo 26 Okt) yang tidak boleh ditanya lagi.
+  // Periode ke-2 (diperpanjang, jatuh tempo 9 Nov 2026) sah muncul mulai tanggal itu.
+  const berandaImpor = await langkah("beranda sesudah impor", `return /Jatuh tempo 26 Okt/.test(teksHalaman())`);
+  cek("Impor dulu: periode yang ditutup dari rekening koran (26 Okt) tidak muncul di kartu \"Deposito jatuh tempo\"", berandaImpor === false, String(berandaImpor));
 
   // Urungkan penutupan dari detail deposito (Profil → Kantong).
   await buka(`${base}/profil/kantong`, 6000);

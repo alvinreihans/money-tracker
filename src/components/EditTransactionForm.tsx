@@ -25,18 +25,30 @@ export default function EditTransactionForm({
   tx,
   ikutan,
   terpecah = false,
+  terbuka = false,
+  ubahSaja = false,
+  onTutup,
+  onTersimpan,
 }: {
   tx: Transaction;
   /** Biaya admin / cashback yang menempel ke transaksi ini, kalau ada. */
   ikutan?: { id: string; amount: number } | null;
   /** Transaksi yang dipecah: nominal, kategori, kelompok, keterangan diatur per bagian. */
   terpecah?: boolean;
+  /** Langsung terbuka tanpa tombol pemicu (Ubah dari kartu "Periksa dulu"); ditutup lewat onTutup. */
+  terbuka?: boolean;
+  /** Draft yang tinggal dicek: pemicunya tombol sekunder "Ubah" di samping Simpan. */
+  ubahSaja?: boolean;
+  onTutup?: () => void;
+  onTersimpan?: (tx: Transaction) => void;
 }) {
   const router = useRouter();
   const draft = tx.status === "needs_review";
   const { kantong } = useCatat();
   const kategori = useKategori();
-  const [buka, setBuka] = useState(false);
+  const [bukaSendiri, setBukaSendiri] = useState(false);
+  const buka = terbuka || bukaSendiri;
+  const setBuka = (b: boolean) => (terbuka ? !b && onTutup?.() : setBukaSendiri(b));
   const [loading, setLoading] = useState(false);
   const [nilai, setNilai] = useState(() => nilaiAwal(tx, undefined, ikutan?.amount));
   const { galat, gagal, bersihkan } = useGalat(nilai);
@@ -61,11 +73,11 @@ export default function EditTransactionForm({
     const baru = {
       ...kolom,
       // Begitu dibetulkan manual, nominalnya sudah bisa dipercaya — jadi
-      // ikut dihitung di laporan dan penanda merahnya dilepas.
-      status: "confirmed",
-      raw_ocr_text: null,
-      // Bukti transfer yang belum dijawab: arahnya kini dipilih di form.
-      bukti_transfer: null,
+      // ikut dihitung di laporan dan penanda merahnya dilepas. Draft tetap draft
+      // dulu: disimpan lewat logika Simpan bersama di bawah (SPEC-periksa-dulu §1).
+      status: draft ? "needs_review" : "confirmed",
+      // Bukti transfer yang belum dijawab: arahnya kini dipilih di form; dugaan dobel sudah dilihat user.
+      ...(draft ? { bukti_transfer: null, duplikat_dari: null } : { raw_ocr_text: null, bukti_transfer: null }),
       // Dari rekening koran: sudah dilihat & dilengkapi user (SPEC-impor-rekening).
       perlu_dilengkapi: false,
     };
@@ -88,12 +100,27 @@ export default function EditTransactionForm({
       : ikutan
         ? await db.from("transactions").delete().eq("id", ikutan.id)
         : { error: null };
-    setLoading(false);
+    if (errIkutan) {
+      setLoading(false);
+      return gagal(dbErrorMessage(errIkutan));
+    }
 
-    if (errIkutan) return gagal(dbErrorMessage(errIkutan));
+    // Menyimpan form = Simpan (SPEC-periksa-dulu §1): ikutan, nomor cicilan, dan "Cara dicatat".
+    let tersimpan = { ...tx, ...baru } as Transaction;
+    if (draft) {
+      const r = await fetch(`/api/draft/${tx.id}/simpan`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ form: true }) }).catch(() => null);
+      const d = (await r?.json().catch(() => null)) as { transaction?: Transaction; error?: string } | null;
+      if (!r?.ok || !d?.transaction) {
+        setLoading(false);
+        return gagal(d?.error ?? "Gagal menyimpan. Coba lagi.");
+      }
+      tersimpan = d.transaction;
+    }
+    setLoading(false);
 
     setBuka(false);
     router.refresh();
+    onTersimpan?.(tersimpan);
 
     // Kategori dibetulkan: tawarkan ikut membetulkan transaksi lain dari
     // merchant yang sama (SPEC-ingat-kategori).
@@ -106,9 +133,9 @@ export default function EditTransactionForm({
 
   return (
     <>
-      {draft ? (
-        <button type="button" className={s.tombol} onClick={bukaForm}>
-          Betulkan sekarang
+      {terbuka ? null : draft ? (
+        <button type="button" className={ubahSaja ? `${s.tombol} ${s.tombolSekunder} ${s.tombolPenuh}` : s.tombol} onClick={bukaForm}>
+          {ubahSaja ? "Ubah" : "Betulkan sekarang"}
         </button>
       ) : (
         <button type="button" className={`${s.blok} ${s.baris}`} onClick={bukaForm}>

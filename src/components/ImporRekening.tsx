@@ -9,6 +9,7 @@ import s from "@/components/ui.module.css";
 import { dbErrorMessage } from "@/lib/errors";
 import { fmtIDR } from "@/lib/format";
 import type { IsianJadikan, Pilihan, Ragu, RingkasRekening, TawaranDeposito, TawaranJadikan, TawaranKantong } from "@/lib/rekening/rencana";
+import { ubahKecuali, type BarisRincian, type RincianRekening } from "@/lib/rekening/rincian";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { bacaPersen, CHIP_TENOR, KET_PERPANJANGAN, NAMA_PERPANJANGAN, type Perpanjangan, type SatuanTenor } from "@/lib/simpanan";
 
@@ -30,6 +31,8 @@ interface Pratinjau {
   ragu: Ragu[];
   pilihanKantong: { id: string; name: string; kind: string; emoji: string | null }[];
   bank: Record<string, string>;
+  /** Rincian per baris yang bisa dicentang (SPEC-periksa-dulu §3). */
+  rincian?: RincianRekening[];
 }
 
 /** Kantong yang dibuat di tempat saat impor, ditanya saldonya sesudahnya (SPEC-kantong-sendiri K1). */
@@ -82,6 +85,8 @@ export default function ImporRekening({ berkas, onClose, onSelesai }: { berkas: 
   const [selesai, setSelesai] = useState<{ kabar: string; kantong: KantongTanya[] } | null>(null);
   const [saldo, setSaldo] = useState<Record<string, string>>({});
   const [galatSaldo, setGalatSaldo] = useState<string | null>(null);
+  // Rekening yang rinciannya sedang dibuka (SPEC-periksa-dulu §3).
+  const [rincianBuka, setRincianBuka] = useState<string | null>(null);
   const urut = useRef(0);
 
   function muat(p: Pilihan) {
@@ -228,9 +233,20 @@ export default function ImporRekening({ berkas, onClose, onSelesai }: { berkas: 
   } else {
     isi = (
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        {tampil.map((r) => (
-          <KartuRekening key={r.kunci} r={r} baru={data.kantongBaru.some((k) => k.kunci === r.kantong)} samakan={Boolean(pilihan.samakan?.includes(r.kunci))} onSamakan={(ya) => ubah({ samakan: ya ? [...(pilihan.samakan ?? []), r.kunci] : (pilihan.samakan ?? []).filter((k) => k !== r.kunci) })} />
-        ))}
+        {tampil.map((r) => {
+          const rinci = data.rincian?.find((x) => x.kunci === r.kunci);
+          return (
+            <KartuRekening
+              key={r.kunci}
+              r={r}
+              baru={data.kantongBaru.some((k) => k.kunci === r.kantong)}
+              samakan={Boolean(pilihan.samakan?.includes(r.kunci))}
+              onSamakan={(ya) => ubah({ samakan: ya ? [...(pilihan.samakan ?? []), r.kunci] : (pilihan.samakan ?? []).filter((k) => k !== r.kunci) })}
+              rincian={rinci ? { n: rinci.baris.length, tidak: rinci.baris.filter((b) => b.refs.some((x) => pilihan.kecuali?.includes(x))).length } : null}
+              onRincian={() => setRincianBuka(r.kunci)}
+            />
+          );
+        })}
         {/* Kantong e-wallet/bank/paylater sendiri yang belum ada (SPEC-kantong-sendiri A-2, D-3): tercentang. */}
         {(data.tawaranKantong ?? []).map((t) => (
           <div key={t.kunci} className={s.blok}>
@@ -334,16 +350,140 @@ export default function ImporRekening({ berkas, onClose, onSelesai }: { berkas: 
           { label: mengimpor ? <Spinner /> : "Impor", disabled: sibuk || !data, onClick: () => void impor() },
         ];
 
+  const rinciBuka = rincianBuka ? data?.rincian?.find((x) => x.kunci === rincianBuka) : null;
+  const ringkasBuka = rincianBuka ? data?.rekening.find((x) => x.kunci === rincianBuka) : null;
+
   return (
     <Lembar judul="Impor rekening koran" posisi="penuh" onClose={() => !mengimpor && (selesai ? onSelesai(selesai.kabar) : onClose())} pil={pil}>
       <div aria-busy={sibuk} style={{ opacity: memuat && data ? 0.6 : 1, transition: "opacity .2s" }}>
         {isi}
       </div>
+      {rinciBuka && ringkasBuka && (
+        <LembarRincian
+          rek={rinciBuka}
+          ringkas={ringkasBuka}
+          kecuali={pilihan.kecuali ?? []}
+          memuat={memuat}
+          onUbah={(b, centang) => ubah({ kecuali: ubahKecuali(pilihan.kecuali ?? [], b.refs, centang) })}
+          onClose={() => setRincianBuka(null)}
+        />
+      )}
     </Lembar>
   );
 }
 
-function KartuRekening({ r, baru, samakan, onSamakan }: { r: RingkasRekening; baru: boolean; samakan: boolean; onSamakan: (ya: boolean) => void }) {
+/**
+ * Rincian satu rekening (SPEC-periksa-dulu §3): yang perlu perhatian di atas,
+ * baris biasa dilipat per tanggal. Tiap baris bisa dicentang/tidak (bawaan:
+ * tercentang); yang tidak dicentang tidak diimpor dan saldo menurut aplikasi
+ * dihitung ulang tanpa baris itu.
+ */
+function LembarRincian({
+  rek,
+  ringkas,
+  kecuali,
+  memuat,
+  onUbah,
+  onClose,
+}: {
+  rek: RincianRekening;
+  ringkas: RingkasRekening;
+  kecuali: string[];
+  memuat: boolean;
+  onUbah: (b: BarisRincian, centang: boolean) => void;
+  onClose: () => void;
+}) {
+  const perhatian = rek.baris.filter((b) => b.perhatian);
+  const biasa = rek.baris.filter((b) => !b.perhatian);
+  const perTanggal = [...new Set(biasa.map((b) => b.tanggal))].sort().map((t) => [t, biasa.filter((b) => b.tanggal === t)] as const);
+  const dicentang = (b: BarisRincian) => !b.refs.some((x) => kecuali.includes(x));
+  const beda = ringkas.saldoAplikasi !== null && Math.abs(ringkas.saldoAplikasi - ringkas.saldoBank) >= 0.005;
+  const baris = (b: BarisRincian, tanggal: boolean) => {
+    const isi = (
+      <>
+        <span className={s.barisTeks}>
+          <span className={s.barisJudul} style={{ whiteSpace: "normal" }}>
+            {b.judul}
+          </span>
+          <span className={s.redup} style={{ whiteSpace: "normal" }}>
+            {[tanggal ? teksPeriode(b.tanggal, b.tanggal) : null, b.label].filter(Boolean).join(" · ")}
+          </span>
+        </span>
+        <span className={s.nominal} style={{ fontSize: 15 }}>
+          {rp(b.nominal)}
+        </span>
+      </>
+    );
+    return b.refs.length ? (
+      <BarisPilih key={b.kunci} peran="checkbox" dipilih={dicentang(b)} onClick={() => !memuat && onUbah(b, !dicentang(b))}>
+        {isi}
+      </BarisPilih>
+    ) : (
+      <div key={b.kunci} className={s.baris}>
+        {isi}
+      </div>
+    );
+  };
+  return (
+    <Lembar judul={`Rincian ${rek.nama}`} sub={`${rek.baris.length} baris · yang tidak dicentang tidak diimpor`} posisi="penuh" onClose={onClose} pil={[{ label: "Selesai", onClick: onClose }]}>
+      <div aria-busy={memuat} style={{ display: "flex", flexDirection: "column", gap: 16, opacity: memuat ? 0.6 : 1, transition: "opacity .2s" }}>
+        {ringkas.saldoAplikasi !== null &&
+          (beda ? (
+            <Pesan jenis="peringatan" judul="Saldo akhir tidak sama">
+              Menurut bank {rp(ringkas.saldoBank)}, menurut aplikasi sesudah impor {rp(ringkas.saldoAplikasi)}.
+            </Pesan>
+          ) : (
+            <span className={s.redup}>
+              Saldo akhir menurut aplikasi {rp(ringkas.saldoAplikasi)} · sama dengan bank
+            </span>
+          ))}
+        {perhatian.length > 0 && (
+          <section className={s.blok} aria-labelledby="rincian-perhatian">
+            <h3 id="rincian-perhatian" className={s.judulBagian}>
+              Perlu perhatian ({perhatian.length})
+            </h3>
+            {perhatian.map((b) => baris(b, true))}
+          </section>
+        )}
+        {perTanggal.length > 0 && (
+          <section className={s.blok} aria-labelledby="rincian-lain">
+            <h3 id="rincian-lain" className={s.judulBagian}>
+              Lainnya ({biasa.length})
+            </h3>
+            {perTanggal.map(([t, isi]) => (
+              <details key={t} className={s.lipatan}>
+                <summary>
+                  <span>
+                    {teksPeriode(t, t)} · {isi.length} baris
+                    {isi.some((b) => !dicentang(b)) ? ` · ${isi.filter((b) => !dicentang(b)).length} tidak diimpor` : ""}
+                  </span>
+                </summary>
+                {isi.map((b) => baris(b, false))}
+              </details>
+            ))}
+          </section>
+        )}
+      </div>
+    </Lembar>
+  );
+}
+
+function KartuRekening({
+  r,
+  baru,
+  samakan,
+  onSamakan,
+  rincian,
+  onRincian,
+}: {
+  r: RingkasRekening;
+  baru: boolean;
+  samakan: boolean;
+  onSamakan: (ya: boolean) => void;
+  /** Jumlah baris di rincian & yang tidak dicentang (SPEC-periksa-dulu §3). */
+  rincian: { n: number; tidak: number } | null;
+  onRincian: () => void;
+}) {
   const angka = [
     // "· 2 berkategori dari bulan lalu" (ingat kategori, SPEC-kantong-sendiri C-1).
     [r.baru, `transaksi baru${r.dariIngatan ? ` · ${r.dariIngatan} berkategori dari bulan lalu` : ""}`],
@@ -421,6 +561,16 @@ function KartuRekening({ r, baru, samakan, onSamakan }: { r: RingkasRekening; ba
             <span style={{ whiteSpace: "normal" }}>{r.samakan.teks}</span>
           </span>
         </BarisPilih>
+      )}
+      {rincian && (
+        <button type="button" className={`${s.baris} ${s.tekan}`} onClick={onRincian}>
+          <span className={s.barisTeks}>
+            <span className={s.barisJudul} style={{ color: "var(--primer)" }}>
+              Lihat rincian ({rincian.n} baris)
+            </span>
+            {rincian.tidak > 0 && <span className={s.redup}>{rincian.tidak} tidak dicentang, tidak diimpor</span>}
+          </span>
+        </button>
       )}
     </section>
   );

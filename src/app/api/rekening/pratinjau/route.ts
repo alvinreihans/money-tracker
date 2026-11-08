@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ambilUser, createSupabaseServerClient } from "@/lib/supabase/server";
 import { ambilBerkas, bacaBerkas, bacaPilihan, susunRencana } from "@/lib/rekening/server";
 import { NAMA_BANK } from "@/lib/rekening/jenis";
+import { rincianImpor } from "@/lib/rekening/rincian";
 
 /**
  * Pratinjau impor rekening koran (SPEC-impor-rekening §3): membaca PDF dan
@@ -27,7 +28,7 @@ export async function POST(req: NextRequest) {
     const { bacaan, galat } = await bacaBerkas(berkas);
     // Satu berkas tidak terbaca/tidak cocok → impor ditolak seluruhnya (spec §2).
     if (galat.length) return NextResponse.json({ galat }, { status: 422 });
-    const { rencana, kantong } = await susunRencana(supabase, bacaan, bacaPilihan(form.get("pilihan")));
+    const { rencana, kantong, penuh } = await susunRencana(supabase, bacaan, bacaPilihan(form.get("pilihan")));
     return NextResponse.json({
       rekening: rencana.rekening,
       belumDipetakan: rencana.belumDipetakan,
@@ -38,6 +39,8 @@ export async function POST(req: NextRequest) {
       tawaranKantong: rencana.tawaranKantong,
       ragu: rencana.ragu,
       ringkas: rencana.ringkas,
+      // Rincian per baris yang bisa dicentang (SPEC-periksa-dulu §3).
+      rincian: rincianImpor(penuh),
       // Pilihan jawaban "kantong yang mana?": kantong uang milik user.
       pilihanKantong: kantong
         .filter((k) => k.kind === "bank" || k.kind === "ewallet" || k.kind === "cash")

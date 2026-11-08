@@ -88,7 +88,8 @@ export async function namaRekening(supabase: SupabaseClient): Promise<string[]> 
 /**
  * Simpan satu transaksi (dari struk, teks, atau isian manual): tautkan
  * kantong, putuskan arah bukti transfer, pinjaman & cicilan, ingat kategori
- * per merchant, tandai duplikat, lalu pecah rincian ketikan bila ada.
+ * per merchant, tandai duplikat, lalu pecah rincian ketikan bila ada. Hasil AI
+ * selalu jadi draft yang dicek dulu (SPEC-periksa-dulu); isian manual langsung tersimpan.
  */
 export async function simpanTransaksi(
   supabase: SupabaseClient,
@@ -112,6 +113,9 @@ export async function simpanTransaksi(
     ...row
   } = input;
   const dariAi = "payment_target" in input;
+  // Hasil AI yang dianggap tidak valid oleh pipeline (angka tidak terbaca pasti): ragu,
+  // tidak ikut "Simpan semua" (SPEC-periksa-dulu §2). Dugaan dobel punya tandanya sendiri.
+  const raguAi = dariAi && row.status !== "confirmed" && !row.duplikat_dari;
   // Nama kantong yang terbaca tapi belum ada: disimpan di draft untuk "+ Buat kantong" (src/lib/petunjuk.ts).
   const petunjuk: Petunjuk = {};
 
@@ -334,6 +338,15 @@ export async function simpanTransaksi(
       row.duplikat_dari = (kembar[0] as { id: string }).id;
       row.status = "needs_review";
     }
+  }
+
+  // Periksa dulu (SPEC-periksa-dulu D1): hasil Catat selalu jadi draft dulu, juga
+  // bila semua isian sudah lengkap — tersimpan (dihitung) baru setelah user menekan
+  // Simpan. Catat manual tidak berubah: formnya sendiri adalah cek.
+  if (dariAi) {
+    if (raguAi) petunjuk.ragu = true;
+    if (daftar.length === 0) petunjuk.tanpa_kantong = true;
+    row.status = "needs_review";
   }
 
   // Teks asli/OCR hanya disimpan untuk draft, sebagai bahan membetulkan.

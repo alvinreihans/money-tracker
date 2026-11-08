@@ -17,6 +17,8 @@ import {
   X,
 } from "lucide-react";
 import CameraCapture from "@/components/CameraCapture";
+import EditTransactionForm from "@/components/EditTransactionForm";
+import KartuPeriksa from "@/components/KartuPeriksa";
 import { tandaTransaksi } from "@/components/kategori";
 import { BarisPilih, Spinner } from "@/components/oneui";
 import PecahTransaksi, { bacaUsulan, ringkasUsulan } from "@/components/PecahTransaksi";
@@ -27,6 +29,7 @@ import { ACCEPT_STRUK } from "@/components/UploadReceiptForm";
 import { bacaBukti, kalimatArah, rapikanNama } from "@/lib/arah";
 import { urungkanPindah } from "@/components/CalonPindah";
 import { bakukanPaylater } from "@/lib/paylater-nama";
+import { buangDraft, urungkanBuang, type SalinanDraft } from "@/lib/buang-draft";
 import { bacaPetunjuk, usulanKantongBaru } from "@/lib/petunjuk";
 import type { KantongBaru, UsulanPindahBukti } from "@/lib/pindah-server";
 import {
@@ -35,6 +38,7 @@ import {
   CERITA_ULANG,
   KALIMAT_TANYA,
   kalimatKartu,
+  LABEL_KURANG,
   kalimatTanya,
   MAKS_CERITA,
   mauHapus,
@@ -60,10 +64,12 @@ import type { ExtractedReceipt, Transaction } from "@/types/transaction";
  * Ringkas = pintasan + kolom ketik seperti dulu; besar = obrolan satu
  * transaksi, atau daftar catatan yang belum selesai.
  *
- * Satu gambar/teks = satu transaksi = satu sesi. Yang langsung lengkap
- * tersimpan dengan kartu Batalkan | Ubah. Yang kurang ditanya di tempat;
- * begitu terjawab, kartu Ubah | Selesai lalu lembar menutup sendiri —
- * sama dari mana pun datangnya (ketik, kamera, galeri, bagikan, daftar).
+ * Satu gambar/teks = satu transaksi = satu sesi. Yang kurang ditanya di
+ * tempat; begitu lengkap, kartu "Periksa dulu" (SPEC-periksa-dulu): Simpan |
+ * Ubah | Buang — belum ada yang dihitung sebelum Simpan. Sesudah Simpan, kartu
+ * Tersimpan (Batalkan | Ubah), atau Ubah | Selesai lalu lembar menutup sendiri
+ * bila tadi ada yang ditanyakan — sama dari mana pun datangnya (ketik, kamera,
+ * galeri, bagikan, daftar).
  */
 
 /** Lama hitung mundur penutup perbaikan (detik). */
@@ -108,6 +114,10 @@ type Pesan =
     }
   | { t: "dilengkapi"; r: HasilLengkapi; diurungkan?: boolean }
   | { t: "kartu"; tx: Transaction; perbaikan: boolean; batal?: boolean }
+  // Kartu "Periksa dulu" (SPEC-periksa-dulu §1): draft lengkap yang belum tersimpan.
+  | { t: "periksa"; tx: Transaction; foto: string | null; selesai?: boolean }
+  // Draft yang dibuang dari kartu periksa, bisa diurungkan.
+  | { t: "dibuang"; salinan: SalinanDraft; diurungkan?: boolean }
   | { t: "koreksi"; id: string; perubahan: string[]; sebelum: Partial<Transaction>; dibatalkan?: boolean; dihapus?: boolean }
   | { t: "cicilan"; c: Cicilan }
   | { t: "tutup"; lagi: number; teks?: string };
@@ -148,20 +158,6 @@ export interface PerintahCatat {
   draft?: string;
 }
 
-const KURANG: Record<JenisTanya, string> = {
-  cerita: "Belum kebaca sama sekali",
-  nominal: "Nominal belum kebaca",
-  arah: "Kirim atau terima belum jelas",
-  sendiri: "Rekening sendiri atau bukan belum jelas",
-  cicilan: "Cicilan yang mana belum jelas",
-  kantong: "Kantong belum jelas",
-  kantong_tujuan: "Kantong tujuan belum jelas",
-  kartu: "Kartu kreditnya belum terdaftar",
-  waktu: "Jamnya belum jelas",
-  tenor: "Berapa kali cicilannya belum jelas",
-  duplikat: "Mungkin sudah tercatat",
-  konfirmasi: "Tinggal dicek",
-};
 
 /** Dalam WIB seperti cron & pengingat H+7, bukan tanggal lokal browser. */
 const tanggalHapus = (dibuat: string) => fmtTanggalPendek(tanggalHapusDraft(dibuat));
@@ -223,6 +219,11 @@ export default function LembarCatat({
   // saldonya sekali (K1). `tanyaSaldo` = pertanyaan saldo yang sedang terbuka.
   const kantongSesi = useRef<KantongBaru[]>([]);
   const [tanyaSaldo, setTanyaSaldo] = useState<{ k: KantongBaru; lagi: number } | null>(null);
+  // Form Ubah dari kartu periksa (menyimpan form = Simpan) dan tombol Simpan yang sedang berjalan.
+  const [ubah, setUbah] = useState<{ tx: Transaction; ikutan: { id: string; amount: number } | null; i: number } | null>(null);
+  const [menyimpan, setMenyimpan] = useState(false);
+  // Thumbnail catatan yang sedang dibahas (foto yang dikirim, atau foto draft), untuk kartu periksa.
+  const fotoRef = useRef<string | null>(null);
 
   const dialogRef = useRef<HTMLDialogElement>(null);
   const badanRef = useRef<HTMLDivElement>(null);
@@ -302,6 +303,13 @@ export default function LembarCatat({
   /** Ajukan pertanyaan untuk draft yang sedang dibahas. */
   function mulaiTanya(tx: Transaction, jenis: JenisTanya, ronde: number) {
     setAktif({ tx, jenis, ronde });
+    // Kartu periksa lama tidak berlaku lagi (koreksi membuka pertanyaan atau kartu baru).
+    setPesan((prev) => prev.map((p) => (p.t === "periksa" ? { ...p, selesai: true } : p)));
+    // Semua sudah terisi: kartu "Periksa dulu", bukan pertanyaan (SPEC-periksa-dulu §1).
+    if (jenis === "konfirmasi") {
+      tambah({ t: "periksa", tx, foto: fotoRef.current });
+      return;
+    }
     if (jenis === "duplikat" && tx.duplikat_dari) {
       // Tunjukkan transaksi yang sudah tercatat, supaya user bisa memutuskan;
       // dari gambar, beserta transaksi lain yang mungkin pasangannya (SPEC-lengkapi §4).
@@ -415,18 +423,24 @@ export default function LembarCatat({
     }
     const jenis = data.pertanyaan as JenisTanya | null;
     router.refresh();
-    if (!jenis && status < 300) {
+    if (!jenis && status < 300 && tx.status === "confirmed") {
       tambah({ t: "kartu", tx, perbaikan: false });
       if (!besar) setRingkas({ tx });
       return;
     }
-    setBesar(true);
-    setLayar("obrolan");
-    mulaiTanya(tx, jenis ?? "konfirmasi", 0);
+    // Lengkap -> kartu periksa di tempat (lembar ringkas tetap ringkas: Enter = Simpan, K2);
+    // ada yang kurang -> obrolan besar.
+    const j = jenis ?? "konfirmasi";
+    if (j !== "konfirmasi") {
+      setBesar(true);
+      setLayar("obrolan");
+    }
+    mulaiTanya(tx, j, 0);
   }
 
   async function catatTeks(isi: string) {
     sesiBaru();
+    fotoRef.current = null;
     tambah({ t: "saya", teks: isi });
     setSibuk(true);
     if (besar) tambah({ t: "status", teks: "Membaca…" });
@@ -438,6 +452,7 @@ export default function LembarCatat({
 
   async function catatFoto(file: File, url: string, keterangan: string) {
     sesiBaru();
+    fotoRef.current = url;
     setBesar(true);
     setLayar("obrolan");
     tambah({ t: "foto", src: url }, ...(keterangan ? [{ t: "saya", teks: keterangan } as Pesan] : []), { t: "status", teks: "Membaca struk…" });
@@ -478,6 +493,11 @@ export default function LembarCatat({
     }
     tambah({ t: "dilengkapi", r: r.data as unknown as HasilLengkapi });
     router.refresh();
+    // Gambar pelengkapnya masuk "Cara dicatat" transaksi itu (SPEC-periksa-dulu K1). Pelengkap saja.
+    const fd = new FormData();
+    fd.append("file", p.file);
+    fd.append("hasil", JSON.stringify(p.hasil));
+    void fetch(`/api/transaksi/${p.pilih}/jejak`, { method: "POST", body: fd }).catch(() => null);
   }
 
   /** Kartu Lengkapi → "Catat sebagai baru": hasil baca yang sama dikirim balik, tanpa AI lagi. */
@@ -581,7 +601,7 @@ export default function LembarCatat({
     setSibuk(true);
     // Ketikan yang bukan jawaban langsung juga dibaca ulang oleh AI.
     if (jenis === "cerita" || !label) tambah({ t: "status", teks: "Membaca ulang…" });
-    const r = await kirimJson(`/api/draft/${aktif.tx.id}/jawab`, { jenis, nilai });
+    const r = await kirimJson(`/api/draft/${aktif.tx.id}/jawab`, { jenis, nilai, label });
     setPesan((prev) => prev.filter((p) => p.t !== "status"));
     setSibuk(false);
 
@@ -615,17 +635,91 @@ export default function LembarCatat({
       if (["bank", "ewallet", "cash"].includes(baru.kind)) periksaPindah([baru.id]);
       tambah({ t: "app", teks: `Kantong ${baru.name} dibuat.`, sub: "Mulai Rp 0 — nanti aku tanya saldonya." });
     }
-    const lanjut = r.data.pertanyaan as JenisTanya | null;
-    if (lanjut) return mulaiTanya(tx, lanjut, jenis === "cerita" ? aktif.ronde + 1 : aktif.ronde);
+    // Tidak ada yang kurang lagi -> kartu periksa (SPEC-periksa-dulu §1); tersimpan baru lewat Simpan.
+    const lanjut = (r.data.pertanyaan as JenisTanya | null) ?? "konfirmasi";
+    if (lanjut !== "konfirmasi" && !besar) {
+      setBesar(true);
+      setLayar("obrolan");
+    }
+    router.refresh();
+    mulaiTanya(tx, lanjut, jenis === "cerita" ? aktif.ronde + 1 : aktif.ronde);
+  }
 
-    // Selesai dilengkapi: kartu Ubah | Selesai, lalu tutup sendiri.
+  /** Kartu periksa → Simpan: ikut dihitung (logika selesai bersama di server). */
+  async function simpanPeriksa(i: number) {
+    const p = pesan[i];
+    if (p?.t !== "periksa" || p.selesai || sibuk) return;
+    setSibuk(true);
+    setMenyimpan(true);
+    const r = await kirimJson(`/api/draft/${p.tx.id}/simpan`, {});
+    setSibuk(false);
+    setMenyimpan(false);
+    const tx = r.data.transaction as Transaction | undefined;
+    if (r.status === 409 && typeof r.data.pertanyaan === "string") {
+      // Ternyata masih ada yang kurang (mis. kantongnya baru dihapus): ditanyakan dulu.
+      setPesan((prev) => prev.map((x, j) => (j === i && x.t === "periksa" ? { ...x, selesai: true } : x)));
+      setBesar(true);
+      setLayar("obrolan");
+      return mulaiTanya(p.tx, r.data.pertanyaan as JenisTanya, aktif?.ronde ?? 0);
+    }
+    if (r.status !== 200 || !tx) return tambah({ t: "app", teks: (r.data.error as string) ?? "Gagal menyimpan. Coba lagi." });
+    await sesudahSimpan(i, tx);
+  }
+
+  /**
+   * Sesudah Simpan (kartu atau form Ubah): kartu "✓ Tersimpan". Langsung lengkap →
+   * Batalkan | Ubah (lembar ringkas: hilang sendiri); tadi ada yang ditanyakan →
+   * Ubah | Selesai, "Makasih udah dilengkapi!", lalu tutup sendiri.
+   */
+  async function sesudahSimpan(i: number, tx: Transaction) {
+    const ditanya = dariDaftar || Boolean(perintah.draft) || pesan.some((x) => x.t === "tanya");
+    setPesan((prev) => prev.map((x, j) => (j === i && x.t === "periksa" ? { ...x, selesai: true } : x)));
     setAktif(null);
+    router.refresh();
+    if (!ditanya) {
+      tambah({ t: "kartu", tx, perbaikan: false });
+      if (!besar) setRingkas({ tx });
+      return;
+    }
     const { count } = await db.from("draft_catat").select("transaksi_id", { count: "exact", head: true });
     tambah({ t: "kartu", tx, perbaikan: true });
-    router.refresh();
     if (kantongSesi.current.length) return mulaiSaldo(count ?? 0);
     tambah({ t: "tutup", lagi: count ?? 0 });
     setDetik(TUTUP_DETIK);
+  }
+
+  /** Kartu periksa → Ubah: form dengan isian terbaca; menyimpan form = Simpan. */
+  async function ubahPeriksa(i: number, tx: Transaction) {
+    if (sibuk) return;
+    const { data } = await db.from("transactions").select("id, amount").eq("induk_id", tx.id).limit(1).maybeSingle();
+    setUbah({ tx, ikutan: data ? { id: data.id as string, amount: Number(data.amount) } : null, i });
+  }
+
+  /** Kartu periksa → Buang: draft dihapus, bisa diurungkan. */
+  async function buangPeriksa(i: number) {
+    const p = pesan[i];
+    if (p?.t !== "periksa" || p.selesai || sibuk) return;
+    setSibuk(true);
+    const salinan = await buangDraft(db, p.tx.id);
+    setSibuk(false);
+    if (!salinan) return tambah({ t: "app", teks: "Gagal membuang catatannya." });
+    setPesan((prev) => [...prev.map((x, j) => (j === i && x.t === "periksa" ? { ...x, selesai: true } : x)), { t: "saya", teks: "Buang" }, { t: "dibuang", salinan }]);
+    setAktif(null);
+    router.refresh();
+  }
+
+  async function urungkanDibuang(i: number) {
+    const p = pesan[i];
+    if (p?.t !== "dibuang" || p.diurungkan || sibuk) return;
+    setSibuk(true);
+    const galat = await urungkanBuang(db, p.salinan);
+    setSibuk(false);
+    if (galat) return tambah({ t: "app", teks: galat });
+    setPesan((prev) => prev.map((x, j) => (j === i && x.t === "dibuang" ? { ...x, diurungkan: true } : x)));
+    router.refresh();
+    const tx = p.salinan.baris[0] as unknown as Transaction;
+    if (p.salinan.foto && !fotoRef.current) fotoRef.current = `/api/draft/${tx.id}/foto`;
+    mulaiTanya(tx, pertanyaanDraft(tx, saldoDari) ?? "konfirmasi", 0);
   }
 
   /** "Saldo DANA sekarang berapa?" untuk kantong yang dibuat di obrolan ini (K1), satu per satu. */
@@ -718,12 +812,15 @@ export default function LembarCatat({
         tambah({ t: "app", teks: "Catatan ini sudah selesai atau sudah dihapus." });
         return;
       }
-      // Dibangun ulang dari draftnya: asli → yang sudah kebaca → pertanyaan.
+      // Dibangun ulang dari draftnya: asli → yang sudah kebaca → pertanyaan (atau kartu periksa).
+      fotoRef.current = meta?.ada_foto ? `/api/draft/${id}/foto` : null;
       tambah(
         meta?.ada_foto
           ? { t: "foto", src: `/api/draft/${id}/foto` }
           : { t: "saya", teks: t.source === "text" && t.raw_ocr_text ? t.raw_ocr_text : "📷 Struk" },
       );
+      const jenis = pertanyaanDraft(t, saldoDari) ?? "konfirmasi";
+      if (jenis === "konfirmasi") return mulaiTanya(t, jenis, 0);
       const tujuan = kantong.find((k) => k.id === t.kantong_tujuan_id)?.name;
       const kebaca = [
         t.merchant,
@@ -733,7 +830,7 @@ export default function LembarCatat({
         tujuan ? `ke ${tujuan}` : null,
       ].filter(Boolean);
       tambah(kebaca.length ? { t: "app", teks: "Yang sudah kebaca:", sub: kebaca.join(" · ") } : { t: "app", teks: "Belum ada yang kebaca." });
-      mulaiTanya(t, pertanyaanDraft(t, saldoDari) ?? "konfirmasi", 0);
+      mulaiTanya(t, jenis, 0);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [db, kantong, kategori],
@@ -821,7 +918,9 @@ export default function LembarCatat({
 
   // Pertanyaan yang masih terbuka menentukan jenis kolom ketik.
   const tanyaTerbuka = pesan.findLast((p): p is Extract<Pesan, { t: "tanya" }> => p.t === "tanya" && !p.selesai);
-  const tanyaBuka = aktif && tanyaTerbuka ? aktif.jenis : null;
+  // Kartu periksa yang masih terbuka: ketikan = koreksi (pola `cerita`), bukan transaksi baru.
+  const iPeriksa = pesan.findLastIndex((p) => p.t === "periksa" && !p.selesai);
+  const tanyaBuka = aktif && tanyaTerbuka ? aktif.jenis : aktif && iPeriksa >= 0 ? "konfirmasi" : null;
   const saldoBuka = Boolean(tanyaSaldo && tanyaTerbuka?.jenis === "saldo");
   const modeNominal = (tanyaBuka === "nominal" || saldoBuka) && !lampiran;
 
@@ -1051,6 +1150,24 @@ export default function LembarCatat({
     );
   }
 
+  function kartuPeriksa(p: Extract<Pesan, { t: "periksa" }>, i: number) {
+    return (
+      <KartuPeriksa
+        key={`periksa-${i}`}
+        tx={p.tx}
+        foto={p.foto}
+        kategori={kategori}
+        kantong={kantong}
+        sibuk={sibuk}
+        menyimpan={menyimpan}
+        fokus={i === iPeriksa}
+        onSimpan={() => void simpanPeriksa(i)}
+        onUbah={() => void ubahPeriksa(i, p.tx)}
+        onBuang={() => void buangPeriksa(i)}
+      />
+    );
+  }
+
   function isiPesan(p: Pesan, i: number) {
     switch (p.t) {
       case "saya":
@@ -1073,6 +1190,21 @@ export default function LembarCatat({
         );
       case "kartu":
         return kartu(p.tx, p.perbaikan, p.batal, i);
+      case "periksa":
+        return p.selesai ? null : kartuPeriksa(p, i);
+      case "dibuang":
+        return (
+          <div key={i} className={`${s.bub} ${s.bubApp}`}>
+            {p.diurungkan ? "Catatannya dikembalikan." : "Catatannya dibuang."}
+            {!p.diurungkan && (
+              <div className={s.pilihanJawab}>
+                <button type="button" disabled={sibuk} onClick={() => void urungkanDibuang(i)}>
+                  ↩ Urungkan
+                </button>
+              </div>
+            )}
+          </div>
+        );
       case "koreksi": {
         // Transaksinya sudah dibatalkan (dihapus) dari kartunya → tidak ada lagi yang bisa dikembalikan.
         const txBatal = p.dihapus || pesan.some((x) => x.t === "kartu" && x.tx.id === p.id && x.batal);
@@ -1401,15 +1533,9 @@ export default function LembarCatat({
                 ))}
               </div>
             )}
-            {buka && p.jenis === "konfirmasi" && aktif && (
-              <div className={s.pilihanJawab}>
-                <button type="button" onClick={() => void jawab("ya", "Ya, simpan")}>✓ Ya, simpan</button>
-                <button type="button" onClick={() => keDetail(aktif.tx)}>📝 Ubah manual</button>
-              </div>
-            )}
             {buka && p.jenis === "manual" && aktif && (
               <div className={s.pilihanJawab}>
-                <button type="button" onClick={() => keDetail(aktif.tx)}>📝 Isi manual</button>
+                <button type="button" onClick={() => void ubahPeriksa(-1, aktif.tx)}>📝 Isi manual</button>
               </div>
             )}
           </div>
@@ -1458,7 +1584,12 @@ export default function LembarCatat({
                   <ChevronRight size={20} color="var(--teks-2)" aria-hidden />
                 </button>
               )}
-              {ringkas ? (
+              {iPeriksa >= 0 && pesan[iPeriksa].t === "periksa" ? (
+                // Ketikan yang lengkap: kartu periksa di lembar ringkas, Simpan terfokus (K2).
+                kartuPeriksa(pesan[iPeriksa] as Extract<Pesan, { t: "periksa" }>, iPeriksa)
+              ) : pesan.at(-1)?.t === "dibuang" ? (
+                isiPesan(pesan.at(-1)!, pesan.length - 1)
+              ) : ringkas ? (
                 kartu(ringkas.tx, false, ringkas.batal, undefined, true)
               ) : (
                 // Saran hanya sebelum mengetik, seperti saran pencarian One UI.
@@ -1498,8 +1629,8 @@ export default function LembarCatat({
           {besar && layar === "daftar" && (
             <>
               <p className={s.redup} style={{ margin: "0 4px" }}>
-                Yang belum lengkap disimpan di sini sampai {UMUR_DRAFT_HARI} hari, lalu dihapus otomatis. Begitu dilengkapi, foto &amp;
-                obrolannya ikut dihapus.
+                Yang belum lengkap atau belum dicek disimpan di sini sampai {UMUR_DRAFT_HARI} hari, lalu dihapus otomatis. Begitu
+                disimpan, foto &amp; obrolannya pindah ke “Cara dicatat” di detail transaksinya.
               </p>
               {drafts === null ? (
                 <Spinner label="Memuat…" />
@@ -1528,7 +1659,7 @@ export default function LembarCatat({
                           {fmtTanggalPendek(d.tx.transaction_date)}
                         </span>
                         <span className={s.peringatan} style={{ fontSize: 14 }}>
-                          {KURANG[pertanyaanDraft(d.tx, saldoDari) ?? "konfirmasi"]}
+                          {LABEL_KURANG[pertanyaanDraft(d.tx, saldoDari) ?? "konfirmasi"]}
                         </span>
                         <span className={s.redup} style={{ fontSize: 12 }}>
                           Dihapus otomatis {tanggalHapus(d.dibuat)}
@@ -1567,7 +1698,7 @@ export default function LembarCatat({
                   className={s.ikonKetik}
                   aria-label={aktif ? "Isi manual catatan ini" : "Catat manual (form)"}
                   disabled={sibuk}
-                  onClick={() => (aktif ? keDetail(aktif.tx) : onManual())}
+                  onClick={() => (aktif ? void ubahPeriksa(-1, aktif.tx) : onManual())}
                 >
                   <ClipboardPen size={22} />
                 </button>
@@ -1689,6 +1820,21 @@ export default function LembarCatat({
             // Sudah dipecah: tawarannya hilang dari kartu (usulan dikosongkan di database).
             if (disimpan) setPesan((prev) => prev.map((p) => (p.t === "kartu" && p.tx.id === pecah.id ? { ...p, tx: { ...p.tx, usulan_pecah: null } } : p)));
             setPecah(null);
+          }}
+        />
+      )}
+      {ubah && (
+        <EditTransactionForm
+          key={ubah.tx.id}
+          tx={ubah.tx}
+          ikutan={ubah.ikutan}
+          terbuka
+          onTutup={() => setUbah(null)}
+          onTersimpan={(tx) => {
+            const i = ubah.i >= 0 ? ubah.i : iPeriksa;
+            setUbah(null);
+            setPesan((prev) => prev.map((x) => (x.t === "tanya" ? { ...x, selesai: true } : x)));
+            void sesudahSimpan(i, tx);
           }}
         />
       )}

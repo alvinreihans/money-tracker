@@ -69,7 +69,8 @@ export function pertanyaanDraft(t: BarisDraft, saldoDari?: (id: string) => Saldo
   if (p.lembaga && t.type === "transfer" && !t.kantong_id) return "sendiri";
   // Bayar tagihan paylater dengan beberapa rencana cicilan yang cocok (D-2).
   if (p.cicilan && t.type === "expense" && !t.cicilan_id) return "cicilan";
-  if (!t.kantong_id) return "kantong";
+  // Belum punya kantong sama sekali: dicatat tanpa kantong, seperti sebelum periksa dulu.
+  if (!t.kantong_id && !p.tanpa_kantong) return "kantong";
   // Bayar tagihan kartu kredit yang belum terdaftar (SPEC-tagihan-cicilan): tujuannya hanya kartu.
   if (t.type === "transfer" && !t.kantong_tujuan_id) return t.merchant && tampakKartuKredit(t.merchant) ? "kartu" : "kantong_tujuan";
   if (t.transaction_date && saldoDari && !t.waktu) {
@@ -79,6 +80,35 @@ export function pertanyaanDraft(t: BarisDraft, saldoDari?: (id: string) => Saldo
   if (t.duplikat_dari) return "duplikat";
   return "konfirmasi";
 }
+
+/**
+ * Kenapa draft ini tidak ikut "Simpan semua" (SPEC-periksa-dulu §2): masih ada
+ * pertanyaan, ditandai dugaan dobel, atau hasil AI-nya ragu. Null = lengkap &
+ * tidak ditandai, boleh disimpan sekaligus. Diperiksa ulang di server per id.
+ */
+export function alasanTidakIkut(t: BarisDraft, saldoDari?: (id: string) => SaldoSejak | undefined): "tanya" | "dobel" | "ragu" | null {
+  const q = pertanyaanDraft(t, saldoDari);
+  if (q === null) return "tanya";
+  if (t.duplikat_dari || q === "duplikat") return "dobel";
+  if (q !== "konfirmasi") return "tanya";
+  return bacaPetunjuk(t.bukti_transfer).ragu ? "ragu" : null;
+}
+
+/** Label "apa yang kurang" sebuah draft di daftar Belum selesai; `konfirmasi` = lengkap, tinggal dicek. */
+export const LABEL_KURANG: Record<JenisTanya, string> = {
+  cerita: "Belum kebaca sama sekali",
+  nominal: "Nominal belum kebaca",
+  arah: "Kirim atau terima belum jelas",
+  sendiri: "Rekening sendiri atau bukan belum jelas",
+  cicilan: "Cicilan yang mana belum jelas",
+  kantong: "Kantong belum jelas",
+  kantong_tujuan: "Kantong tujuan belum jelas",
+  kartu: "Kartu kreditnya belum terdaftar",
+  waktu: "Jamnya belum jelas",
+  tenor: "Berapa kali cicilannya belum jelas",
+  duplikat: "Mungkin sudah tercatat",
+  konfirmasi: "Tinggal dicek",
+};
 
 export const KALIMAT_TANYA: Record<JenisTanya, string> = {
   cerita: "Aku belum nangkep. Ceritain transaksinya? Misalnya “bensin 150rb pakai BCA”.",

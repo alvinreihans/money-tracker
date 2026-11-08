@@ -45,7 +45,7 @@ export const isPdf = (d: Uint8Array) => d.length > 5 && d[0] === 0x25 && d[1] ==
 const KOLOM_TX = "id, amount, type, category, merchant, description, kantong_id, kantong_tujuan_id, transaction_date, waktu, ref_bank, ref_bank_tujuan, induk_id, created_at, source";
 
 /** Rencana impor untuk user yang sedang masuk (RLS membatasi ke datanya sendiri). */
-export async function susunRencana(supabase: SupabaseClient, bacaan: HasilBaca[], pilihan: Pilihan): Promise<{ rencana: Rencana; kantong: KantongRencana[] }> {
+export async function susunRencana(supabase: SupabaseClient, bacaan: HasilBaca[], pilihan: Pilihan): Promise<{ rencana: Rencana; kantong: KantongRencana[]; penuh: Rencana }> {
   const [{ data: akun }, { data: kategori }, { data: deposito }, { data: periode }, { data: saldo }, { data: ingatan }, { data: cicilan }, { data: bayarCicilan }, { data: pengguna }] = await Promise.all([
     supabase.from("user_accounts").select("id, name, kind, nomor_akhir, induk_id, macam_simpanan, aliases, saldo_awal, saldo_per, saldo_sejak, saldo_sementara, emoji").order("created_at"),
     supabase.from("categories").select("type, slug"),
@@ -140,20 +140,24 @@ export async function susunRencana(supabase: SupabaseClient, bacaan: HasilBaca[]
     if (error) throw new Error(`hasil evaluasi deposito: ${error.message}`);
     transaksi.push(...((data ?? []) as TransaksiLama[]));
   }
-  const rencana = rencanakan({
+  const masukan = {
     bacaan,
     kantong,
     transaksi,
     kategori: (kategori ?? []) as { type: string; slug: string }[],
     sudahAda,
-    pilihan,
     deposito: daftarDeposito,
     saldoSekarang,
     ingatan: (ingatan ?? []) as BarisIngat[],
     namaUser: namaDariMetadata(pengguna?.user?.user_metadata),
     cicilan: daftarCicilan,
-  });
-  return { rencana, kantong };
+  };
+  // rencanakan tidak mengubah masukannya kecuali salinan kerjanya; deposito disalin per panggilan.
+  const salin = () => ({ ...masukan, transaksi: masukan.transaksi.map((t) => ({ ...t })), deposito: masukan.deposito.map((d) => ({ ...d, periode: d.periode.map((p) => ({ ...p })) })) });
+  const rencana = rencanakan({ ...salin(), pilihan });
+  // Rincian pratinjau (SPEC-periksa-dulu §3) dari rencana tanpa pengecualian: baris yang tidak dicentang tetap tampil.
+  const penuh = pilihan.kecuali?.length ? rencanakan({ ...salin(), pilihan: { ...pilihan, kecuali: [] } }) : rencana;
+  return { rencana, kantong, penuh };
 }
 
 // ponytail: 1000 transaksi berkategori terakhir dalam setahun; naikkan bila merchant bulanan terlupa.
@@ -180,7 +184,9 @@ export function bacaPilihan(teks: unknown): Pilihan {
               }),
           )
         : undefined;
-    return { peta: peta(p.peta), ragu: peta(p.ragu), deposito: daftar(p.deposito), samakan: daftar(p.samakan), jadikan, tolakKantong: daftar(p.tolakKantong) };
+    // Baris yang tidak dicentang di rincian (SPEC-periksa-dulu §3): bisa ratusan.
+    const kecuali = Array.isArray(p.kecuali) ? p.kecuali.filter((x): x is string => typeof x === "string" && x.length <= 200).slice(0, 2000) : undefined;
+    return { peta: peta(p.peta), ragu: peta(p.ragu), deposito: daftar(p.deposito), samakan: daftar(p.samakan), jadikan, tolakKantong: daftar(p.tolakKantong), kecuali };
   } catch {
     return {};
   }

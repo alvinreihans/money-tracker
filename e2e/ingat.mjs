@@ -50,7 +50,8 @@ try {
     langkah(`catat "${teks}"`, `if (!dialog()) { document.querySelector('button[aria-label="Catat transaksi"]').click(); await sampai(() => dialog()?.querySelector('textarea')); await t(300); }
       const n = (dialog().innerText.match(/Tersimpan/g) || []).length;
       isi(dialog().querySelector('textarea'), ${JSON.stringify(teks)}); await t(200); dialog().querySelector('button[aria-label="Kirim"]').click();
-      await sampai(() => (dialog()?.innerText.match(/Tersimpan/g) || []).length > n, 90); await t(1500); return 'ok'`);
+      await sampai(() => tombol('Simpan', dialog()) && !tombol('Simpan', dialog()).disabled, 90); tombol('Simpan', dialog()).click();
+      await sampai(() => (dialog()?.innerText.match(/Tersimpan/g) || []).length > n, 30); await t(1500); return 'ok'`);
   const baru = async (merchantKecil, amount) => (await sb.from("transactions").select("id, category, merchant").eq("amount", amount).order("created_at", { ascending: false })).data.find((r) => (r.merchant ?? "").toLowerCase().replace(/[^a-z]/g, "").startsWith(merchantKecil));
   const tanya = (teks) =>
     langkah(`tanya "${teks}"`, `await sampai(() => document.querySelector('button[aria-label="Tanya AI soal keuanganmu"]'), 20);

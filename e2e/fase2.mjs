@@ -31,7 +31,9 @@ try {
     document.querySelector('button[aria-label="Catat transaksi"]').click(); await sampai(() => dialog()?.querySelector('textarea'));
     isi(dialog().querySelector('textarea'), 'kopi 18rb tunai'); await t(200);
     dialog().querySelector('button[aria-label="Kirim"]').click();
-    await sampai(() => tombol('+ Tambah cerita', dialog()), 60);
+    // Kartu "Periksa dulu" (SPEC-periksa-dulu): disimpan dulu, baru ada "+ Tambah cerita".
+    await sampai(() => tombol('Simpan', dialog()) && !tombol('Simpan', dialog()).disabled, 60); tombol('Simpan', dialog()).click();
+    await sampai(() => tombol('+ Tambah cerita', dialog()), 30);
     tombol('+ Tambah cerita', dialog()).click(); await t(300);
     const placeholder = dialog().querySelector('textarea').placeholder;
     await t(6000); // lewat batas hilang-sendiri kartu ringkas: harus tetap ada selama menulis cerita

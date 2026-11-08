@@ -4,6 +4,7 @@ import { ambilKonteksAI } from "@/lib/kategori-server";
 import { hasilKirimanUlang } from "@/lib/receipt";
 import { GalatLengkapi, isiDariDraft, terapkanLengkapi } from "@/lib/lengkapi-server";
 import { isiDariEkstraksi } from "@/lib/lengkapi";
+import { simpanJejak } from "@/lib/jejak-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -32,6 +33,8 @@ export async function POST(req: NextRequest) {
       const d = await isiDariDraft(supabase, b.draft);
       if (!d) return NextResponse.json({ error: "Catatan ini sudah selesai atau sudah dihapus." }, { status: 404 });
       const r = await terapkanLengkapi(supabase, user.id, id, d.isi, { paksa: true, dompet: d.dompet, buatDompet: false });
+      // Jejak & thumbnail draft itu pindah ke "Cara dicatat" transaksi yang dilengkapi (SPEC-periksa-dulu K1).
+      await simpanJejak(supabase, id, { disimpan: new Date().toISOString(), cara: "lengkapi" }, { dari: b.draft });
       await supabase.from("transactions").delete().eq("id", b.draft);
       return NextResponse.json(r);
     }

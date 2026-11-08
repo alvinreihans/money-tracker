@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { useCatat, useKategori } from "@/components/Catat";
 import DeleteTransactionButton from "@/components/DeleteTransactionButton";
 import EditTransactionForm from "@/components/EditTransactionForm";
+import CaraDicatat from "@/components/CaraDicatat";
+import SimpanDraft from "@/components/SimpanDraft";
 import { tandaTransaksi } from "@/components/kategori";
 import { LAYAR_LEBAR } from "@/components/navigasi";
 import { AppBar, Pesan } from "@/components/oneui";
@@ -13,6 +15,7 @@ import BayarDariTujuan from "@/components/BayarDariTujuan";
 import s from "@/components/ui.module.css";
 import { bacaBukti, rapikanNama } from "@/lib/arah";
 import { alasanDraft } from "@/lib/kantong";
+import { pertanyaanDraft } from "@/lib/draft";
 import { judulTransaksi, namaKategori } from "@/lib/kategori";
 import { NAMA_KELOMPOK, type Kelompok } from "@/lib/metode";
 import { fmtIDR, fmtTanggal, fmtWaktu, JENIS, labelSumber } from "@/lib/format";
@@ -48,6 +51,8 @@ export default function DetailView({
   }, [halaman, router, t.id]);
   const draft = t.status === "needs_review";
   const alasan = alasanDraft(t);
+  // Lengkap tapi belum disimpan: "Tinggal dicek" (SPEC-periksa-dulu §1).
+  const tinggalCek = draft && pertanyaanDraft(t) === "konfirmasi";
   const bukti = bacaBukti(t.bukti_transfer);
   const pihak = bukti && [bukti.pengirim.nama, bukti.penerima.nama].map(rapikanNama).filter(Boolean).join(" dan ");
   const kategori = useKategori();
@@ -95,7 +100,13 @@ export default function DetailView({
       />
 
       <div className={s.isi}>
-        {draft && (
+        {tinggalCek && (
+          <Pesan jenis="info" judul="Tinggal dicek" aksi={<SimpanDraft tx={t} ikutan={ikutan} />}>
+            Isinya sudah lengkap tapi belum disimpan, jadi belum ikut dihitung di saldo & laporan. Cek rinciannya, lalu Simpan.
+          </Pesan>
+        )}
+
+        {draft && !tinggalCek && (
           <Pesan
             jenis="peringatan"
             judul="Belum selesai"
@@ -130,7 +141,10 @@ export default function DetailView({
           ))}
         </dl>
 
-        {draft && (alasan === "baca" || t.raw_ocr_text) && (
+        {/* Di bawah "Masuk lewat": jejak pencatatannya (SPEC-periksa-dulu §4). */}
+        {!draft && <CaraDicatat t={t} />}
+
+        {draft && !tinggalCek && (alasan === "baca" || t.raw_ocr_text) && (
           <>
             <h2 className={s.subheader}>{alasan === "kantong" ? "Teks aslinya" : "Teks yang sempat kebaca"}</h2>
             <div className={`${s.blok} ${s.blokIsi}`}>

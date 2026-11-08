@@ -327,6 +327,10 @@ export function CatatProvider({
             setLihatRingkasan(false);
             bukaLembar({ besar: true, layar: "daftar" });
           }}
+          onBuka={(id) => {
+            setLihatRingkasan(false);
+            bukaLembar({ besar: true, layar: "obrolan", draft: id });
+          }}
           onClose={() => setLihatRingkasan(false)}
         />
       )}

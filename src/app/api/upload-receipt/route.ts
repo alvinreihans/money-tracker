@@ -9,6 +9,8 @@ import { cariPindahBukti } from "@/lib/pindah-server";
 import { dbErrorMessage } from "@/lib/errors";
 import type { JenisTanya } from "@/lib/draft";
 import { kabariDraft, simpanThumbnail } from "@/lib/draft-server";
+import { asalJejak, bacaanDari } from "@/lib/jejak";
+import { catatJejakDraft, simpanJejak } from "@/lib/jejak-server";
 import { TEKS_MAKS } from "@/lib/transaksi-input";
 import type { Transaction } from "@/types/transaction";
 
@@ -107,6 +109,8 @@ export async function POST(req: NextRequest) {
         if (cari.hasil.pasti) {
           try {
             const r = await terapkanLengkapi(supabase, user.id, cari.hasil.kandidat[0].id, isiDariEkstraksi(e, sidik), { dompet: e.dompet, kantong: cari.kantong });
+            // Gambar pelengkapnya masuk "Cara dicatat" (SPEC-periksa-dulu K1).
+            await simpanJejak(supabase, r.transaction.id, { asal: "lengkapi", bacaan: bacaanDari(e), disimpan: new Date().toISOString(), cara: "lengkapi" }, { gambar: image });
             return NextResponse.json({ success: true, dilengkapi: r, hasil: e, sidik, source: result.source }, { status: 200 });
           } catch (err) {
             if (!(err instanceof GalatLengkapi)) throw err;
@@ -142,10 +146,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Belum lengkap → jadi percakapan; thumbnail-nya disimpan (terenkripsi)
-    // supaya nanti masih ingat ini transaksi apa.
+    // Draft yang dicek dulu (SPEC-periksa-dulu) atau belum lengkap → percakapan;
+    // thumbnail-nya disimpan (terenkripsi) supaya nanti masih ingat ini transaksi
+    // apa, lalu ikut pindah ke "Cara dicatat" saat disimpan (K1).
     if (inserted.status === "needs_review") {
       await simpanThumbnail(supabase, inserted.id, image);
+      await catatJejakDraft(supabase, inserted.id, { asal: asalJejak(inserted.source, banyak), teks: catatan || null, bacaan: bacaanDari(e) });
       // Dari "Bagikan" di latar (service worker): user mungkin sudah menutup
       // aplikasinya, jadi langsung dikabari lewat push.
       if (formData.get("latar") === "1") await kabariDraft(supabase, inserted, new URL(req.url).origin);

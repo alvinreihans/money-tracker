@@ -21,6 +21,21 @@ docs/specs/SPEC-catat-tuntas.md (fase 1 & 2 selesai di 2.4.0, fase 3 di 2.5.0, f
 
 ## [Unreleased]
 
+## [2.15.0] — 2026-11-09
+
+### Ditambah
+- **Periksa dulu sebelum tersimpan** (SPEC-periksa-dulu). Hasil Catat dari ketikan, gambar, dan bukti transfer tidak lagi langsung tersimpan: begitu semua isiannya lengkap, muncul kartu **"Periksa dulu"** berisi jenis, nominal, merchant, kategori, kantong (atau dari → ke), tanggal & jam, keterangan, biaya admin/cashback, dan thumbnail gambarnya. **Simpan** baru menghitungnya ke saldo, laporan, dan budget; **Ubah** membuka form dengan isian terbaca; **Buang** menghapusnya dengan **Urungkan**. Ketikan tetap cepat: tombol Simpan langsung terfokus, jadi Enter langsung menyimpan, dan ketikan berikutnya saat kartu terbuka dibaca sebagai koreksi.
+- Kartu periksa yang ditinggal (lembar Catat ditutup) menunggu di **Belum selesai** dengan label **"Tinggal dicek"**, dan ikut dihitung pengingat. Di detail transaksinya ada tombol **Simpan** dan **Ubah**.
+- **Simpan semua (n)** di "Hasil unggah" sesudah mengunggah beberapa gambar: menyimpan sekaligus kartu yang lengkap; yang masih ditanya, mungkin dobel, atau hasil bacanya kurang yakin tetap dicek sendiri. Sesudahnya "5 tersimpan · 2 perlu dicek" dengan **Urungkan**.
+- **Rincian di pratinjau rekening koran**: **Lihat rincian (n baris)** per rekening, yang perlu perhatian di atas (pindah kantong, kantong baru, kategori dari bulan lalu, diubah jadi pindah kantong, deposito jatuh tempo, mungkin sudah tercatat) dan baris biasa dilipat per tanggal. Tiap baris bisa tidak dicentang supaya tidak diimpor; saldo menurut aplikasi langsung dihitung ulang dan peringatannya muncul bila jadi beda dengan bank. Pasangan pindah kantong dua sisi dicentang bersama. Baris yang tidak dicentang tidak diingat, jadi impor ulang berkas yang sama menawarkannya lagi.
+- **"Cara dicatat" di detail transaksi**: bagian terlipat berisi asal catatan, teks ketikan atau hasil baca AI, tanya-jawab & koreksi berurutan, waktu Simpan, dan thumbnail gambarnya. Gambar pelengkap dari Lengkapi ikut ditambahkan; transaksi rekening koran menampilkan bank & baris bank asalnya (PDF-nya tidak disimpan). Terenkripsi dan ikut terhapus bersama transaksinya.
+
+### Diubah
+- Snackbar unggah banyak kini menyebut gambar yang membuat transaksi baru sebagai "perlu dicek", mis. "3 struk: 1 melengkapi transaksi, 2 perlu dicek"; **Lihat** membuka daftar kartunya.
+- Foto & obrolan catatan yang disimpan tidak lagi dihapus, tapi pindah ke "Cara dicatat".
+- "Saldo GoPay sekarang berapa?" untuk kantong yang dibuat di obrolan ditanya sesudah catatannya disimpan.
+- "Isi manual" di obrolan Catat membuka form di tempat, tanpa pindah ke halaman detail.
+
 ## [2.14.0] — 2026-11-08
 
 ### Ditambah
