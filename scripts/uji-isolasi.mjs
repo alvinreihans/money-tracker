@@ -307,6 +307,13 @@ try {
     !eUrung && JSON.stringify(sesudahUrung?.map((t) => [t.id, t.type, t.kantong_id, t.kantong_tujuan_id, t.merchant, t.perlu_dilengkapi])) === JSON.stringify([[topUp.id, "expense", briA.id, null, "DANA", true], [masuk.id, "income", danaA.id, null, "BRI", false]]),
     JSON.stringify({ eUrung, sesudahUrung }),
   );
+  // Saldo sementara (SPEC-kantong-sendiri U1): mati begitu saldo diisi user; B tidak bisa mengubah milik A.
+  const sementara = await satu(A.sb.from("user_accounts").insert({ user_id: A.id, name: "SeaBank A", kind: "bank", emoji: "🏦", saldo_awal: 0, saldo_sejak: "2026-01-01T00:00:00+07:00", saldo_sementara: true }));
+  const { data: namaSaja } = await A.sb.from("user_accounts").update({ name: "SeaBank A2" }).eq("id", sementara.id).select("saldo_sementara").single();
+  const { data: diisi } = await A.sb.from("user_accounts").update({ saldo_awal: 250000, saldo_sejak: new Date().toISOString() }).eq("id", sementara.id).select("saldo_sementara").single();
+  cek("saldo_sementara: tetap saat nama diubah, mati saat saldo diisi user", namaSaja?.saldo_sementara === true && diisi?.saldo_sementara === false, JSON.stringify({ namaSaja, diisi }));
+  const { data: hidupkan } = await A.sb.from("user_accounts").update({ saldo_sementara: true }).eq("id", sementara.id).select("saldo_sementara");
+  cek("saldo_sementara tidak bisa dihidupkan lagi lewat update", !(hidupkan ?? []).some((k) => k.saldo_sementara), JSON.stringify(hidupkan));
   const { error: urungDua } = await A.sb.rpc("urungkan_jadikan_pindah", { p: { salinan: jadi?.salinan ?? [] } });
   cek("urungkan_jadikan_pindah dua kali: ditolak", Boolean(urungDua));
 } catch (e) {
