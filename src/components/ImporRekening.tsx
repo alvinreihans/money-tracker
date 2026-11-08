@@ -3,10 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CalendarDays, FileText, Landmark, Percent, Plus } from "lucide-react";
-import { BarisPilih, Field, Lembar, Pesan, Spinner } from "@/components/oneui";
+import { BarisPilih, Field, InputNominal, Lembar, Pesan, Spinner } from "@/components/oneui";
 import s from "@/components/ui.module.css";
+import { dbErrorMessage } from "@/lib/errors";
 import { fmtIDR } from "@/lib/format";
-import type { IsianJadikan, Pilihan, Ragu, RingkasRekening, TawaranDeposito, TawaranJadikan } from "@/lib/rekening/rencana";
+import type { IsianJadikan, Pilihan, Ragu, RingkasRekening, TawaranDeposito, TawaranJadikan, TawaranKantong } from "@/lib/rekening/rencana";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { bacaPersen, CHIP_TENOR, KET_PERPANJANGAN, NAMA_PERPANJANGAN, type Perpanjangan, type SatuanTenor } from "@/lib/simpanan";
 
 /**
@@ -23,9 +25,18 @@ interface Pratinjau {
   kantongBaru: { kunci: string; name: string; kind: string }[];
   tawaranDeposito: TawaranDeposito[];
   tawaranJadikan: TawaranJadikan[];
+  tawaranKantong?: TawaranKantong[];
   ragu: Ragu[];
   pilihanKantong: { id: string; name: string; kind: string; emoji: string | null }[];
   bank: Record<string, string>;
+}
+
+/** Kantong yang dibuat di tempat saat impor, ditanya saldonya sesudahnya (SPEC-kantong-sendiri K1). */
+interface KantongTanya {
+  id: string;
+  name: string;
+  kind: string;
+  emoji: string;
 }
 
 /** Nominal bertanda seperti daftar transaksi: "−Rp 18.000" (tanda minus, bukan tanda hubung). */
@@ -65,6 +76,10 @@ export default function ImporRekening({ berkas, onClose, onSelesai }: { berkas: 
   const [mengimpor, setMengimpor] = useState(false);
   // Jawaban "kantong yang mana?" yang belum dikirim.
   const [jawab, setJawab] = useState<Record<string, string>>({});
+  // Sesudah impor: kabar + kantong baru yang ditanya saldonya (K1).
+  const [selesai, setSelesai] = useState<{ kabar: string; kantong: KantongTanya[] } | null>(null);
+  const [saldo, setSaldo] = useState<Record<string, string>>({});
+  const [galatSaldo, setGalatSaldo] = useState<string | null>(null);
   const urut = useRef(0);
 
   function muat(p: Pilihan) {
@@ -105,8 +120,35 @@ export default function ImporRekening({ berkas, onClose, onSelesai }: { berkas: 
       h.tautan ? `${h.tautan} ditautkan ke yang sudah tercatat` : null,
       h.deposito ? `${h.deposito} jatuh tempo deposito dicocokkan` : null,
     ].filter(Boolean);
+    const kabar = `Rekening koran diimpor: ${bagian.join(", ")}.`;
+    const tanyaSaldo = (Array.isArray(d.tanyaSaldo) ? d.tanyaSaldo : []) as KantongTanya[];
     router.refresh();
-    onSelesai(`Rekening koran diimpor: ${bagian.join(", ")}.`);
+    if (tanyaSaldo.length) return setSelesai({ kabar, kantong: tanyaSaldo });
+    onSelesai(kabar);
+  }
+
+  /**
+   * "Saldo DANA sekarang berapa?" (K1): saldo per sekarang (saldo_sejak = sekarang), pola
+   * layar awal. Kantong utang paylater diisi utangnya (disimpan minus). Kosong = dilewati.
+   */
+  async function simpanSaldo() {
+    if (!selesai) return;
+    setMengimpor(true);
+    setGalatSaldo(null);
+    const db = createSupabaseBrowserClient().from("user_accounts");
+    for (const k of selesai.kantong) {
+      const isian = saldo[k.id];
+      if (!isian) continue;
+      const n = Number(isian);
+      const { error } = await db.update({ saldo_awal: k.kind === "kredit" ? -Math.abs(n) : n, saldo_sejak: new Date().toISOString() }).eq("id", k.id);
+      if (error) {
+        setMengimpor(false);
+        return setGalatSaldo(dbErrorMessage(error));
+      }
+    }
+    setMengimpor(false);
+    router.refresh();
+    onSelesai(selesai.kabar);
   }
 
   const tanya = data?.belumDipetakan.filter((r) => r.utama) ?? [];
@@ -114,7 +156,27 @@ export default function ImporRekening({ berkas, onClose, onSelesai }: { berkas: 
   const sibuk = memuat || mengimpor;
 
   let isi: React.ReactNode;
-  if (galat) {
+  if (selesai) {
+    const satu = selesai.kantong.length === 1 ? selesai.kantong[0] : null;
+    isi = (
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <Pesan jenis="sukses">{selesai.kabar}</Pesan>
+        <section className={`${s.blok} ${s.blokForm}`} aria-labelledby="saldo-baru-judul">
+          <h3 id="saldo-baru-judul" className={s.judulBagian} style={{ paddingBottom: 4 }}>
+            {satu ? (satu.kind === "kredit" ? `Utang ${satu.name} sekarang berapa?` : `Saldo ${satu.name} sekarang berapa?`) : "Saldo kantong baru sekarang berapa?"}
+          </h3>
+          <p className={s.redup} style={{ margin: 0, padding: "0 20px 8px" }}>
+            Kantongnya baru dibuat dari rekening koran, mulai Rp 0. Isi saldonya sekarang supaya Total aset benar. Boleh dilewati.
+          </p>
+          {selesai.kantong.map((k) => (
+            <Field key={k.id} label={k.kind === "kredit" ? `${k.emoji} Utang ${k.name}` : `${k.emoji} ${k.name}`} galat={galatSaldo}>
+              <InputNominal value={saldo[k.id] ?? ""} onChange={(v) => setSaldo((x) => ({ ...x, [k.id]: v }))} placeholder="0" />
+            </Field>
+          ))}
+        </section>
+      </div>
+    );
+  } else if (galat) {
     isi = (
       <>
         {galat.map((g, i) => (
@@ -163,6 +225,26 @@ export default function ImporRekening({ berkas, onClose, onSelesai }: { berkas: 
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         {tampil.map((r) => (
           <KartuRekening key={r.kunci} r={r} baru={data.kantongBaru.some((k) => k.kunci === r.kantong)} samakan={Boolean(pilihan.samakan?.includes(r.kunci))} onSamakan={(ya) => ubah({ samakan: ya ? [...(pilihan.samakan ?? []), r.kunci] : (pilihan.samakan ?? []).filter((k) => k !== r.kunci) })} />
+        ))}
+        {/* Kantong e-wallet/bank/paylater sendiri yang belum ada (SPEC-kantong-sendiri A-2, D-3): tercentang. */}
+        {(data.tawaranKantong ?? []).map((t) => (
+          <div key={t.kunci} className={s.blok}>
+            <BarisPilih
+              peran="checkbox"
+              dipilih={t.dipilih}
+              onClick={() => ubah({ tolakKantong: t.dipilih ? [...(pilihan.tolakKantong ?? []), t.kunci] : (pilihan.tolakKantong ?? []).filter((k) => k !== t.kunci) })}
+            >
+              <span className={s.barisEmoji} aria-hidden>
+                {t.kind === "ewallet" ? "📱" : t.kind === "kredit" ? "💳" : "🏦"}
+              </span>
+              <span className={s.barisTeks}>
+                <span style={{ whiteSpace: "normal" }}>{t.teks}</span>
+                <span className={s.redup} style={{ whiteSpace: "normal" }}>
+                  {t.dipilih ? "Dicatat sebagai pindah kantong, bukan pengeluaran." : "Tetap dicatat sebagai pengeluaran/pemasukan."}
+                </span>
+              </span>
+            </BarisPilih>
+          </div>
         ))}
         {(data.tawaranJadikan ?? []).map((t) => (
           <KartuJadikan
@@ -226,7 +308,12 @@ export default function ImporRekening({ berkas, onClose, onSelesai }: { berkas: 
     );
   }
 
-  const pil = galat
+  const pil = selesai
+    ? [
+        { label: "Lewati", disabled: mengimpor, onClick: () => onSelesai(selesai.kabar) },
+        { label: mengimpor ? <Spinner /> : "Simpan", disabled: mengimpor, onClick: () => void simpanSaldo() },
+      ]
+    : galat
     ? [{ label: "Tutup", onClick: onClose }]
     : tanya.length
       ? [
@@ -243,7 +330,7 @@ export default function ImporRekening({ berkas, onClose, onSelesai }: { berkas: 
         ];
 
   return (
-    <Lembar judul="Impor rekening koran" posisi="penuh" onClose={() => !mengimpor && onClose()} pil={pil}>
+    <Lembar judul="Impor rekening koran" posisi="penuh" onClose={() => !mengimpor && (selesai ? onSelesai(selesai.kabar) : onClose())} pil={pil}>
       <div aria-busy={sibuk} style={{ opacity: memuat && data ? 0.6 : 1, transition: "opacity .2s" }}>
         {isi}
       </div>
@@ -253,7 +340,9 @@ export default function ImporRekening({ berkas, onClose, onSelesai }: { berkas: 
 
 function KartuRekening({ r, baru, samakan, onSamakan }: { r: RingkasRekening; baru: boolean; samakan: boolean; onSamakan: (ya: boolean) => void }) {
   const angka = [
-    [r.baru, "transaksi baru"],
+    // "· 2 berkategori dari bulan lalu" (ingat kategori, SPEC-kantong-sendiri C-1).
+    [r.baru, `transaksi baru${r.dariIngatan ? ` · ${r.dariIngatan} berkategori dari bulan lalu` : ""}`],
+    [r.cicilan ?? 0, "dibayar ke rencana cicilan"],
     [r.tercatat, "sudah tercatat"],
     [r.pindah, "pindah kantong"],
     [r.perluDilengkapi, "perlu dilengkapi"],
