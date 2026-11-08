@@ -357,11 +357,36 @@ try {
   await A.sb.from("transactions").delete().eq("id", draftJ.id);
   const { data: jejakHapus } = await A.sb.rpc("jejak_catat", { p_id: draftJ.id });
   cek("jejak_catat terhapus bersama transaksinya", !(jejakHapus ?? []).length, JSON.stringify(jejakHapus));
+
+  // Pemakaian model AI harian (SPEC-asisten-agen §1, P9): baris per akun, hanya lewat catat_pemakaian_ai.
+  const MODEL_UJI = "model-uji-isolasi";
+  const { data: pakai1 } = await A.sb.rpc("catat_pemakaian_ai", { p_model: MODEL_UJI });
+  const { data: pakai2 } = await A.sb.rpc("catat_pemakaian_ai", { p_model: MODEL_UJI, p_jumlah: 2 });
+  const { data: hariIniA } = await A.sb.rpc("pemakaian_ai_hari_ini", { p_model: MODEL_UJI });
+  cek("catat_pemakaian_ai: hitungan A bertambah (1 → 3)", pakai1 === 1 && pakai2 === 3 && hariIniA === 3, JSON.stringify({ pakai1, pakai2, hariIniA }));
+  const { error: eLangsung } = await A.sb.from("pemakaian_ai").insert({ user_id: A.id, tanggal: hariIni, model: "langsung", jumlah: 999 });
+  cek("pemakaian_ai: pemilik pun tidak bisa insert langsung", Boolean(eLangsung));
+  const { error: eAneh } = await A.sb.rpc("catat_pemakaian_ai", { p_model: MODEL_UJI, p_jumlah: 1000 });
+  cek("catat_pemakaian_ai: jumlah di luar batas ditolak", Boolean(eAneh));
+  for (const [siapa, sb] of [["B", B.sb], ["Anon", anon]]) {
+    const { data: baca } = await sb.from("pemakaian_ai").select("*").eq("user_id", A.id);
+    cek(`${siapa} tidak bisa membaca pemakaian_ai A`, !(baca ?? []).length, JSON.stringify(baca));
+    await sb.from("pemakaian_ai").update({ jumlah: 0 }).eq("user_id", A.id);
+    await sb.from("pemakaian_ai").delete().eq("user_id", A.id);
+    const { error: eSisip } = await sb.from("pemakaian_ai").insert({ user_id: A.id, tanggal: hariIni, model: MODEL_UJI, jumlah: 50 });
+    cek(`${siapa} tidak bisa menulis pemakaian_ai atas nama A`, Boolean(eSisip));
+  }
+  const { data: pakaiB } = await B.sb.rpc("catat_pemakaian_ai", { p_model: MODEL_UJI });
+  cek("catat_pemakaian_ai B menulis baris B sendiri (mulai 1)", pakaiB === 1, JSON.stringify(pakaiB));
+  const { data: anonPakai, error: eAnonPakai } = await anon.rpc("catat_pemakaian_ai", { p_model: MODEL_UJI });
+  cek("Anon tidak bisa memanggil catat_pemakaian_ai", Boolean(eAnonPakai) && anonPakai == null);
+  const { data: tetapA } = await A.sb.rpc("pemakaian_ai_hari_ini", { p_model: MODEL_UJI });
+  cek("Hitungan A tetap 3 sesudah percobaan B & anon", tetapA === 3, JSON.stringify(tetapA));
 } catch (e) {
   gagal++;
   console.log("✗ GAGAL:", e.message);
 } finally {
   for (const id of akun) await admin.auth.admin.deleteUser(id);
-  console.log(`\n${gagal ? `${gagal} cek gagal` : "✓ isolasi antar akun: baca, ubah, hapus, tulis atas nama orang lain, fungsi, dan kolom rujukan (termasuk simpanan, deposito, impor rekening koran, deposito jatuh tempo, jadikan pindah & jejak “Cara dicatat”)"} · akun uji dihapus`);
+  console.log(`\n${gagal ? `${gagal} cek gagal` : "✓ isolasi antar akun: baca, ubah, hapus, tulis atas nama orang lain, fungsi, dan kolom rujukan (termasuk simpanan, deposito, impor rekening koran, deposito jatuh tempo, jadikan pindah, jejak “Cara dicatat” & pemakaian AI)"} · akun uji dihapus`);
   process.exit(gagal ? 1 : 0);
 }
