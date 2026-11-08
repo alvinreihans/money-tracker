@@ -26,6 +26,10 @@ export interface Petunjuk {
   lembaga?: string | null;
   /** D-2: bayar tagihan paylater penyedia ini, beberapa rencana cicilan cocok — ditanya "Cicilan yang mana?". */
   cicilan?: string | null;
+  /** Hasil AI ragu (angka tidak terbaca pasti): tidak ikut "Simpan semua" (SPEC-periksa-dulu §2). */
+  ragu?: boolean | null;
+  /** User belum punya kantong sama sekali: tidak ditanya "Pakai kantong apa?" (dicatat tanpa kantong seperti dulu). */
+  tanpa_kantong?: boolean | null;
 }
 
 /** Petunjuk dari kolom `bukti_transfer` (JSON); {} bila kosong/rusak. */

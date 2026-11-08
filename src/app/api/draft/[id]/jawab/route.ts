@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ambilUser, createSupabaseServerClient } from "@/lib/supabase/server";
 import { ambilKonteksAI } from "@/lib/kategori-server";
-import { bacaNominal, bacaTenor, kalimatBelumAda, kantongDariJawaban, pertanyaanDraft, type JenisTanya } from "@/lib/draft";
+import { bacaNominal, bacaTenor, kalimatBelumAda, kalimatKartu, kalimatTanya, kantongDariJawaban, pertanyaanDraft, type JenisTanya } from "@/lib/draft";
+import { langkahJawab } from "@/lib/jejak";
+import { tambahLangkah } from "@/lib/jejak-server";
 import { namaLembaga } from "@/lib/lembaga";
 import { penyediaPaylater } from "@/lib/paylater-nama";
 import { bacaPetunjuk, namaKantongBaru, simpanPetunjuk, sudahAda, type Petunjuk } from "@/lib/petunjuk";
 import { buatKantongDiTempat, GalatPindah, type KantongBaru } from "@/lib/pindah-server";
 import { EMOJI_KREDIT, type InfoPaylater } from "@/lib/pinjaman";
-import { bacaArah, bacaBukti, gabungNama, isianArah, kantongBank, namaDariJawaban } from "@/lib/arah";
-import { jadikanCicilan, namaRekening, tetapkanCicilan } from "@/lib/simpan-transaksi";
-import { isoLokal } from "@/lib/format";
+import { bacaArah, bacaBukti, gabungNama, isianArah, kalimatArah, kantongBank, namaDariJawaban } from "@/lib/arah";
+import { jadikanCicilan, namaRekening } from "@/lib/simpan-transaksi";
 import { processReceiptText } from "@/lib/receipt";
 import { TEKS_MAKS } from "@/lib/transaksi-input";
 import { kantongDeposito, pesanGagalKantong, type Kantong } from "@/lib/kantong";
@@ -30,10 +31,11 @@ const bacaYa = (t: string) => (/^(ya|iya|y|yes|betul|benar|sendiri|pindah)\b/i.t
 
 /**
  * Jawaban user untuk pertanyaan di percakapan sebuah draft (SPEC-catat-chat).
- * Jawaban mengisi draft; begitu tidak ada yang kurang, draft dikonfirmasi
- * (ikut dihitung) dan percakapan + fotonya hilang lewat trigger database.
+ * Jawaban mengisi draft dan dicatat di jejaknya ("Cara dicatat"); begitu tidak
+ * ada yang kurang, pertanyaannya `konfirmasi` = kartu "Periksa dulu" — draft
+ * baru tersimpan lewat Simpan (SPEC-periksa-dulu §1).
  *
- * Balasan: { transaction, pertanyaan, kantong_baru? } — pertanyaan null = selesai;
+ * Balasan: { transaction, pertanyaan, kantong_baru? } — pertanyaan `konfirmasi` = tinggal dicek;
  * kantong_baru = kantong yang dibuat di tempat (SPEC-kantong-sendiri A-1); atau
  * { cicilan } kalau belanja paylater-nya jadi rencana cicilan (SPEC-paylater).
  * 422 = jawaban tidak bisa dipakai; pertanyaannya tetap terbuka. 422 dengan
@@ -44,9 +46,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
-  const body = (await req.json().catch(() => null)) as { jenis?: unknown; nilai?: unknown } | null;
+  const body = (await req.json().catch(() => null)) as { jenis?: unknown; nilai?: unknown; label?: unknown } | null;
   const jenis = JENIS.find((j) => j === body?.jenis);
   const nilai = typeof body?.nilai === "string" ? body.nilai.trim().slice(0, TEKS_MAKS) : "";
+  // Label chip yang ditekan ("Aku kirim ke Rina"), untuk jejak "Cara dicatat".
+  const label = typeof body?.label === "string" ? body.label.trim().slice(0, 200) : "";
   if (!jenis) return NextResponse.json({ error: "Jenis jawaban tidak dikenal." }, { status: 400 });
 
   const supabase = await createSupabaseServerClient();
@@ -300,30 +304,36 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
   }
 
-  // Setelah dijawab, "konfirmasi" berarti tidak ada yang kurang lagi: langsung
-  // dikonfirmasi. Pertanyaan konfirmasi hanya diajukan saat draft dibuka.
-  const sesudah = pertanyaanDraft({ ...tx, ...patch }, saldoDari);
-  const selesai = sesudah === null || sesudah === "konfirmasi";
-  // Petunjuk kantong (kolom bukti_transfer) tidak dibawa transaksi yang sudah selesai.
-  if (selesai) Object.assign(patch, { status: "confirmed", raw_ocr_text: null, bukti_transfer: null });
-  // Bayar cicilan: nomornya baru ditetapkan sekarang (SPEC-tagihan-cicilan).
-  const cicilanId = patch.cicilan_id ?? tx.cicilan_id;
-  if (selesai && cicilanId) Object.assign(patch, await tetapkanCicilan(supabase, cicilanId, isoLokal(new Date())));
-
-  const { data: baru, error } = await supabase.from("transactions").update(patch).eq("id", id).select().single();
+  // Setelah dijawab, "konfirmasi" berarti tidak ada yang kurang lagi: kartu
+  // "Periksa dulu" (SPEC-periksa-dulu §1). Tersimpan baru lewat Simpan
+  // (/api/draft/[id]/simpan, logika selesai bersama di src/lib/simpan-draft.ts).
+  const sesudah = pertanyaanDraft({ ...tx, ...patch }, saldoDari) ?? "konfirmasi";
+  const { data: baru, error } = Object.keys(patch).length
+    ? await supabase.from("transactions").update(patch).eq("id", id).select().single()
+    : { data: tx, error: null };
   if (error) return NextResponse.json({ error: "Gagal menyimpan jawabannya." }, { status: 500 });
 
-  // Biaya admin / cashback mengikuti induknya: ikut dihitung, dari kantong yang sama.
-  if (selesai) {
-    const t = baru as Transaction;
-    await supabase
-      .from("transactions")
-      .update({ status: "confirmed", kantong_id: t.kantong_id, payment_method: t.payment_method })
-      .eq("induk_id", id)
-      .or(`type.eq.expense,kantong_id.is.null${tx.kantong_id ? `,kantong_id.eq.${tx.kantong_id}` : ""}`);
-    // Cashback yang sudah di kantong e-wallet perantaranya (SPEC-lengkapi K2) tetap di sana.
-    await supabase.from("transactions").update({ status: "confirmed" }).eq("induk_id", id);
-  }
+  // Jejak "Cara dicatat" (§4): tanya-jawab berurutan; ketikan saat kartu periksa terbuka = koreksi.
+  const tadi = pertanyaanDraft(tx, saldoDari);
+  if (jenis === "cerita" && tadi === "konfirmasi") await tambahLangkah(supabase, id, [{ t: "koreksi", teks: nilai.slice(0, 300) }]);
+  else if (jenis !== "konfirmasi") await tambahLangkah(supabase, id, langkahJawab(teksTanya(jenis, tx), labelJawab(jenis, nilai, label, semua)));
 
-  return NextResponse.json({ transaction: baru as Transaction, pertanyaan: selesai ? null : sesudah, kantong_baru: kantongBaru });
+  return NextResponse.json({ transaction: baru as Transaction, pertanyaan: sesudah, kantong_baru: kantongBaru });
+}
+
+/** Kalimat pertanyaan yang dijawab, seperti yang tampil di obrolan. */
+function teksTanya(jenis: JenisTanya, tx: Transaction): string {
+  const bukti = bacaBukti(tx.bukti_transfer);
+  if (jenis === "arah" && bukti) return kalimatArah(bukti);
+  if (jenis === "kartu" && tx.merchant) return kalimatKartu(tx.merchant);
+  return kalimatTanya(jenis, tx);
+}
+
+/** Jawaban seperti yang tampil di obrolan: label chip, nama kantong untuk id, atau ketikannya. */
+function labelJawab(jenis: JenisTanya, nilai: string, label: string, semua: { id: string; name: string }[]): string {
+  if (label) return label;
+  const buat = namaBuat(nilai);
+  if (buat) return `+ Buat kantong ${buat}`;
+  if (jenis === "kantong" || jenis === "kantong_tujuan" || jenis === "kartu") return semua.find((k) => k.id === nilai)?.name ?? nilai;
+  return nilai;
 }

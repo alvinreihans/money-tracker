@@ -9,6 +9,12 @@ import { isoLokal } from "../src/lib/format.ts";
 import { apakahKoreksi, bacaNominal, bacaTenor, kalimatBelumAda, kalimatKartu, kalimatTanya, kantongDariJawaban, mauHapus, pertanyaanDraft, tanggalHapusDraft } from "../src/lib/draft.ts";
 import { bacaPetunjuk, bankRekening, namaKantongBaru, nomorAkhir, simpanPetunjuk, usulanKantongBaru } from "../src/lib/petunjuk.ts";
 import { normalize, tokoAgen } from "../src/lib/extract.ts";
+import { alasanTidakIkut } from "../src/lib/draft.ts";
+import { asalJejak, bacaanDari, gabungJejak, gelembungJejak, jejakRekening, langkahJawab, teksBacaan } from "../src/lib/jejak.ts";
+import { simpanTransaksi } from "../src/lib/simpan-transaksi.ts";
+import { selesaikanDraft, urungkanSimpan } from "../src/lib/simpan-draft.ts";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { ExtractedReceipt, Transaction } from "../src/types/transaction.ts";
 
 const d = (t: Partial<Parameters<typeof pertanyaanDraft>[0]>) =>
   pertanyaanDraft({ status: "needs_review", amount: 0, type: "expense", category: "other", merchant: null, kantong_id: null, kantong_tujuan_id: null, ...t });
@@ -195,4 +201,125 @@ const ai = (groq: number | Error, gemini: number | Error) => {
   assert.equal(tokoAgen("BCA"), null);
 }
 
-console.log("✓ draft: urutan pertanyaan, nominal ketikan (rb/jt/Rp/titik), kantong dari chip & kalimat, koreksi vs catatan baru, minta hapus, tenor paylater, duplikat, tanggal hapus WIB, cadangan Gemini untuk ketikan, petunjuk kantong & “+ Buat kantong” (A-1), kalimat pindah (B-6), B-4/B-5 dari hasil baca tiruan");
+// ---- Periksa dulu (SPEC-periksa-dulu): database tiruan yang mencatat tulisan & RPC berurutan.
+type Log = { jenis: string; tabel?: string; isi?: unknown; filter?: unknown[] };
+function dbTiruan(data: Record<string, unknown[]>) {
+  const log: Log[] = [];
+  const from = (tabel: string) => {
+    let aksi = "select";
+    let isi: unknown = null;
+    const filter: unknown[] = [];
+    const hasil = () => (aksi === "insert" ? (Array.isArray(isi) ? isi : [{ id: "tx-baru", created_at: "2026-11-08T03:00:00Z", ...(isi as object) }]) : aksi === "update" ? [{ id: "tx-1", ...(data[tabel]?.[0] as object), ...(isi as object) }] : (data[tabel] ?? []));
+    const q: Record<string, unknown> = {};
+    for (const f of ["select", "eq", "is", "in", "not", "neq", "gte", "order", "limit", "or", "range"]) q[f] = (...a: unknown[]) => (f === "select" ? q : (filter.push([f, ...a]), q));
+    q.insert = (x: unknown) => ((aksi = "insert"), (isi = x), log.push({ jenis: "insert", tabel, isi: x }), q);
+    q.update = (x: unknown) => ((aksi = "update"), (isi = x), log.push({ jenis: "update", tabel, isi: x, filter }), q);
+    q.delete = () => ((aksi = "delete"), log.push({ jenis: "delete", tabel, filter }), q);
+    q.single = async () => ({ data: hasil()[0] ?? null, error: null });
+    q.maybeSingle = q.single;
+    q.then = (ok: (v: unknown) => void) => ok({ data: hasil(), error: null });
+    return q;
+  };
+  const db = {
+    from,
+    rpc: async (nama: string, arg: unknown) => (log.push({ jenis: "rpc", tabel: nama, isi: arg }), { data: true, error: null }),
+    auth: { getUser: async () => ({ data: { user: { user_metadata: {} } } }) },
+  };
+  return { db: db as unknown as SupabaseClient, log };
+}
+{
+  const KANTONG = [{ id: "k1", name: "GoPay", kind: "ewallet", aliases: [], saldo_per: "2026-01-01", saldo_sejak: null, macam_simpanan: null, nomor_akhir: null }];
+  const dasarAi = { payment_target: null, amount: 25_000, type: "expense", category: "food", merchant: "Kopi Contoh", description: null, payment_method: "GoPay", transaction_date: "2026-11-08", jam: "08:15", petunjuk_jam: null, status: "confirmed", source: "text", raw_ocr_text: "kopi 25rb gopay", user_id: "u1" };
+  // Hasil Catat yang lengkap tetap draft (D1) dengan pertanyaan konfirmasi; teks aslinya dibawa untuk jejak.
+  const a = dbTiruan({ user_accounts: KANTONG, transactions: [] });
+  const r = await simpanTransaksi(a.db, "u1", { ...dasarAi });
+  const sisip = a.log.find((x) => x.jenis === "insert" && x.tabel === "transactions")!.isi as Record<string, unknown>;
+  assert.equal(r.pertanyaan, "konfirmasi");
+  assert.deepEqual([sisip.status, sisip.kantong_id, sisip.raw_ocr_text], ["needs_review", "k1", "kopi 25rb gopay"]);
+  assert.equal(alasanTidakIkut(sisip as never), null, "lengkap & tidak ditandai: ikut Simpan semua");
+  // Catat manual (tanpa payment_target) tetap langsung tersimpan.
+  const m = dbTiruan({ user_accounts: KANTONG, transactions: [] });
+  const { payment_target: _, ...manual } = { ...dasarAi, kantong_id: "k1" };
+  void _;
+  await simpanTransaksi(m.db, "u1", manual);
+  assert.equal((m.log.find((x) => x.jenis === "insert")!.isi as Record<string, unknown>).status, "confirmed");
+  // Hasil AI yang ragu (pipeline: tidak valid): ditandai, tidak ikut Simpan semua.
+  const g = dbTiruan({ user_accounts: KANTONG, transactions: [] });
+  await simpanTransaksi(g.db, "u1", { ...dasarAi, status: "needs_review" });
+  const ragu = g.log.find((x) => x.jenis === "insert")!.isi as Record<string, unknown>;
+  assert.equal(pertanyaanDraft(ragu as never), "konfirmasi");
+  assert.equal(alasanTidakIkut(ragu as never), "ragu");
+  // Belum punya kantong sama sekali: tidak ditanya "Pakai kantong apa?".
+  const t = dbTiruan({ user_accounts: [], transactions: [] });
+  const rt = await simpanTransaksi(t.db, "u1", { ...dasarAi });
+  assert.equal(rt.pertanyaan, "konfirmasi");
+
+  // Syarat Simpan semua: pertanyaan terbuka, dugaan dobel → tidak ikut.
+  const dr = { status: "needs_review", amount: 10_000, type: "expense", category: "food", merchant: "X", kantong_id: "k1", kantong_tujuan_id: null };
+  assert.equal(alasanTidakIkut({ ...dr, kantong_id: null }), "tanya");
+  assert.equal(alasanTidakIkut({ ...dr, duplikat_dari: "lama" }), "dobel");
+  assert.equal(alasanTidakIkut({ ...dr, bukti_transfer: simpanPetunjuk(null, { sumber: "Jago" }) }), null);
+  assert.equal(alasanTidakIkut({ ...dr, status: "confirmed" }), "tanya");
+
+  // Simpan memakai logika selesai bersama: jejak dulu (sebelum baris draft-nya hilang), lalu status,
+  // nomor cicilan ditetapkan, ikutan ikut dihitung.
+  const tx = { id: "tx-1", status: "needs_review", amount: 100_000, type: "expense", category: "shopping", merchant: "HP", kantong_id: "k1", kantong_tujuan_id: null, payment_method: "GoPay", cicilan_id: "c1", cicilan_ke: null, description: null, raw_ocr_text: "bayar cicilan hp", bukti_transfer: null, transaction_date: "2026-11-08" } as unknown as Transaction;
+  const s = dbTiruan({ cicilan: [{ nama: "HP", penyedia: null, tenor: 3, jatuh_tempo_awal: "2026-10-01", nominal: 100_000 }], transactions: [tx] });
+  const hasil = await selesaikanDraft(s.db, tx, "kartu");
+  const urut = s.log.map((x) => `${x.jenis}:${x.tabel}`);
+  assert.ok(urut.indexOf("rpc:tambah_jejak") < urut.indexOf("update:transactions"), urut.join(" "));
+  const patch = s.log.find((x) => x.jenis === "update")!.isi as Record<string, unknown>;
+  assert.deepEqual([patch.status, patch.raw_ocr_text, patch.cicilan_id, patch.cicilan_ke], ["confirmed", null, "c1", 1]);
+  assert.equal(s.log.filter((x) => x.jenis === "update" && JSON.stringify(x.filter).includes("induk_id")).length, 2, "ikutan ikut");
+  assert.deepEqual((s.log.find((x) => x.tabel === "tambah_jejak")!.isi as { p_isi: { cara: string } }).p_isi.cara, "kartu");
+  assert.deepEqual([hasil.sebelum.raw_ocr_text, hasil.sebelum.cicilan_ke], ["bayar cicilan hp", null]);
+  // Urungkan: kembali draft dengan isi sebelumnya; jejak & thumbnail dikembalikan ke draft.
+  const u = dbTiruan({ transactions: [{ id: "tx-1" }] });
+  assert.equal(await urungkanSimpan(u.db, "tx-1", hasil.sebelum), true);
+  assert.equal((u.log[0].isi as Record<string, unknown>).status, "needs_review");
+  assert.equal((u.log[0].isi as Record<string, unknown>).raw_ocr_text, "bayar cicilan hp");
+  assert.ok(u.log.some((x) => x.tabel === "urungkan_jejak"));
+}
+
+// ---- "Cara dicatat": isi jejak (urutan tanya-jawab, koreksi), gelembung hanya-baca.
+{
+  const e = { amount: 400_000, type: "transfer", merchant: null, transaction_date: "2026-11-08", time: "10:05", payment_method: "BRI", payment_target: "Jago", bukti_transfer: { pengirim: { nama: "Rina Contoh", bank: "BRI" }, penerima: { nama: "Rina Contoh", bank: "Jago" } } } as unknown as ExtractedReceipt;
+  const b = bacaanDari(e)!;
+  assert.deepEqual([b.nominal, b.sumber, b.tujuan, b.pengirim, b.jam], [400_000, "BRI", "Jago", "Rina Contoh", "10:05"]);
+  assert.equal(bacaanDari(null), null);
+  assert.match(teksBacaan(b)!, /^Kebaca: Rp\s?400\.000 · pindah kantong · 8 Nov 10\.05 · Rina Contoh → Rina Contoh · dari BRI · ke Jago$/);
+  assert.equal(asalJejak("text"), "ketikan");
+  assert.equal(asalJejak("payment_proof"), "bukti");
+  assert.equal(asalJejak("receipt", true), "banyak");
+  assert.deepEqual(langkahJawab("Ini uang keluar atau masuk?", "  "), []);
+  // Digabung seperti di database: tanya-jawab berurutan, koreksi menyusul, kunci lain ditimpa.
+  let isi = gabungJejak(null, { asal: "bukti", bacaan: b });
+  isi = gabungJejak(isi, { langkah: langkahJawab("Ini uang keluar atau masuk?", "Aku kirim ke Rina") });
+  isi = gabungJejak(isi, { langkah: [{ t: "koreksi", teks: "eh itu ke rekeningku sendiri" }] });
+  isi = gabungJejak(isi, { disimpan: "2026-11-08T03:10:00Z", cara: "kartu" });
+  assert.deepEqual(isi.langkah!.map((l) => l.t), ["tanya", "jawab", "koreksi"]);
+  assert.equal(isi.asal, "bukti");
+  const gel = gelembungJejak([{ id: 7, isi, ada_foto: true }], () => "8 Nov 10.10");
+  assert.deepEqual(
+    gel.map((x) => [x.dari, x.foto ?? x.teks]),
+    [
+      ["info", "Dari bukti transfer di Catat"],
+      ["saya", 7],
+      ["app", teksBacaan(b)],
+      ["app", "Ini uang keluar atau masuk?"],
+      ["saya", "Aku kirim ke Rina"],
+      ["saya", "Koreksi: eh itu ke rekeningku sendiri"],
+      ["info", "Disimpan dari kartu periksa · 8 Nov 10.10"],
+    ],
+  );
+  assert.equal(gabungJejak({ langkah: Array.from({ length: 59 }, () => ({ t: "tanya" as const, teks: "a" })) }, { langkah: langkahJawab("b", "c") }).langkah!.length, 60);
+  // Rekening koran: dari kolom yang sudah ada, tanpa PDF (K1).
+  assert.deepEqual(jejakRekening({ source: "statement", ref_bank: "bri:4321:2026-09-02T10:00:00:-50000:100", description: "Transfer ke Contoh" }), [
+    { dari: "info", teks: "Diimpor dari rekening koran BRI" },
+    { dari: "saya", teks: "Baris bank: Transfer ke Contoh" },
+  ]);
+  assert.equal(jejakRekening({ source: "statement", ref_bank: "sea:1234:2026-09-03:-32500:967500" })![0].teks, "Diimpor dari rekening koran SeaBank");
+  assert.equal(jejakRekening({ source: "text" }), null);
+}
+
+console.log("✓ draft: urutan pertanyaan, nominal ketikan (rb/jt/Rp/titik), kantong dari chip & kalimat, koreksi vs catatan baru, minta hapus, tenor paylater, duplikat, tanggal hapus WIB, cadangan Gemini untuk ketikan, petunjuk kantong & “+ Buat kantong” (A-1), kalimat pindah (B-6), B-4/B-5 dari hasil baca tiruan, periksa dulu (draft + konfirmasi, syarat Simpan semua, Simpan bersama, Urungkan), isi jejak “Cara dicatat”");

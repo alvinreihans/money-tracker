@@ -1,5 +1,6 @@
 import sharp from "sharp";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { pertanyaanDraft } from "@/lib/draft";
 import { fmtIDR } from "@/lib/format";
 import { kirimPush, type Langganan } from "@/lib/push";
 import type { Transaction } from "@/types/transaction";
@@ -19,7 +20,10 @@ export async function kabariDraft(supabase: SupabaseClient, tx: Transaction, asa
       [
         tx.duplikat_dari
           ? { judul: "Struk barusan sepertinya sudah tercatat", isi: `${apa} — ketuk untuk memastikan.`, url: `/?catat=${tx.id}`, tag: `draft-${tx.id}` }
-          : { judul: "Struk barusan belum lengkap", isi: `${apa} — ketuk untuk melengkapi.`, url: `/?catat=${tx.id}`, tag: `draft-${tx.id}` },
+          : pertanyaanDraft(tx) === "konfirmasi"
+            ? // Lengkap, tinggal dicek sebelum tersimpan (SPEC-periksa-dulu).
+              { judul: "Struk barusan tinggal dicek", isi: `${apa} — ketuk untuk mengecek & menyimpan.`, url: `/?catat=${tx.id}`, tag: `draft-${tx.id}` }
+            : { judul: "Struk barusan belum lengkap", isi: `${apa} — ketuk untuk melengkapi.`, url: `/?catat=${tx.id}`, tag: `draft-${tx.id}` },
       ],
       asal,
     );
@@ -32,8 +36,8 @@ export async function kabariDraft(supabase: SupabaseClient, tx: Transaction, asa
 /**
  * Thumbnail struk untuk percakapan yang belum selesai (docs/specs/SPEC-catat-chat.md):
  * supaya besok pagi user masih ingat itu transaksi apa. WebP ±720 px (masih
- * terbaca saat diperbesar), disimpan terenkripsi lewat RPC; ikut terhapus
- * begitu catatannya selesai. Gagal = tanpa foto, catatannya tetap aman.
+ * terbaca saat diperbesar), disimpan terenkripsi lewat RPC; begitu catatannya
+ * disimpan, pindah ke "Cara dicatat" (SPEC-periksa-dulu K1). Gagal = tanpa foto, catatannya tetap aman.
  */
 export async function simpanThumbnail(supabase: SupabaseClient, transaksiId: string, gambar: Buffer): Promise<void> {
   try {

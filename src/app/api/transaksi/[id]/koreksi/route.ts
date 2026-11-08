@@ -8,6 +8,7 @@ import { processReceiptText } from "@/lib/receipt";
 import { TEKS_MAKS } from "@/lib/transaksi-input";
 import { kantongDeposito, type Kantong } from "@/lib/kantong";
 import { fmtJam } from "@/lib/waktu";
+import { simpanJejak } from "@/lib/jejak-server";
 import type { Transaction } from "@/types/transaction";
 
 export const runtime = "nodejs";
@@ -119,5 +120,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (patch.kantong_id) await supabase.from("transactions").update({ kantong_id: patch.kantong_id, payment_method: patch.payment_method }).eq("induk_id", id);
 
   const sebelum = Object.fromEntries(Object.keys(patch).map((kolom) => [kolom, tx[kolom as keyof Transaction]]));
+  // "Cara dicatat" (SPEC-periksa-dulu §4): koreksi lewat ketikan ikut jejaknya.
+  await simpanJejak(supabase, id, { asal: "koreksi", langkah: [{ t: "koreksi", teks }] });
   return NextResponse.json({ transaction: baru as Transaction, sebelum, perubahan });
 }
