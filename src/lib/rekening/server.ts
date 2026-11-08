@@ -2,8 +2,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { bacaRekening } from "@/lib/rekening/baca";
 import { GalatRekening, type HasilBaca } from "@/lib/rekening/jenis";
 import { GalatPdf, teksPdf } from "@/lib/rekening/pdf";
-import { rencanakan, type DepositoRencana, type IsianJadikan, type KantongRencana, type PeriodeRencana, type Pilihan, type Rencana, type TransaksiLama } from "@/lib/rekening/rencana";
-import { geserHari } from "@/lib/format";
+import { rencanakan, type CicilanRencana, type DepositoRencana, type IsianJadikan, type KantongRencana, type PeriodeRencana, type Pilihan, type Rencana, type TransaksiLama } from "@/lib/rekening/rencana";
+import { geserHari, isoLokal } from "@/lib/format";
+import type { BarisIngat } from "@/lib/ingat";
+import { namaDariMetadata } from "@/lib/nama-rekening";
 
 /**
  * Jalur server impor rekening koran: PDF → teks (pdfjs) → parser → rencana,
@@ -44,14 +46,36 @@ const KOLOM_TX = "id, amount, type, category, merchant, description, kantong_id,
 
 /** Rencana impor untuk user yang sedang masuk (RLS membatasi ke datanya sendiri). */
 export async function susunRencana(supabase: SupabaseClient, bacaan: HasilBaca[], pilihan: Pilihan): Promise<{ rencana: Rencana; kantong: KantongRencana[] }> {
-  const [{ data: akun }, { data: kategori }, { data: deposito }, { data: periode }, { data: saldo }] = await Promise.all([
+  const [{ data: akun }, { data: kategori }, { data: deposito }, { data: periode }, { data: saldo }, { data: ingatan }, { data: cicilan }, { data: bayarCicilan }, { data: pengguna }] = await Promise.all([
     supabase.from("user_accounts").select("id, name, kind, nomor_akhir, induk_id, macam_simpanan, aliases, saldo_awal, saldo_per, saldo_sejak, emoji").order("created_at"),
     supabase.from("categories").select("type, slug"),
     supabase.from("deposito").select("kantong_id, bunga_persen, tenor, satuan_tenor, pajak_persen, pajak_otomatis, perpanjangan, selesai"),
     supabase.from("deposito_periode").select("id, deposito_id, ke, mulai, jatuh_tempo, pokok, bunga_kotor, pajak, bunga_bersih, bunga_diterima, dicairkan_awal, transaksi_tutup").order("ke"),
     // Saldo sekarang: saldo akhir periode di pratinjau ikut menghitung transaksi sebelum rentang yang dimuat (R1).
     supabase.rpc("saldo_kantong"),
+    // Ingat kategori (SPEC-kantong-sendiri C-1): sama dengan ambilIngatan, untuk semua merchant sekaligus.
+    supabase
+      .from("transactions")
+      .select("merchant, category, kelompok, type, cicilan_id")
+      .in("type", ["expense", "income"])
+      .eq("status", "confirmed")
+      .is("pecahan_dari", null)
+      .is("induk_id", null)
+      .is("cicilan_id", null)
+      .neq("category", "other")
+      .gte("transaction_date", geserHari(isoLokal(new Date()), -365))
+      .order("transaction_date", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(BATAS_INGAT_IMPOR),
+    // Rencana cicilan & yang sudah dibayar (D-3).
+    supabase.from("cicilan").select("id, nama, penyedia, category, tenor, jatuh_tempo_awal, nominal"),
+    supabase.from("transactions").select("cicilan_id, cicilan_ke").not("cicilan_id", "is", null).eq("status", "confirmed"),
+    // Nama user di rekening/dompetnya (B-1): tanda rekening sendiri.
+    supabase.auth.getUser(),
   ]);
+  const dibayar: Record<string, number[]> = {};
+  for (const b of (bayarCicilan ?? []) as { cicilan_id: string; cicilan_ke: number | null }[]) if (b.cicilan_ke) (dibayar[b.cicilan_id] ??= []).push(b.cicilan_ke);
+  const daftarCicilan: CicilanRencana[] = ((cicilan ?? []) as Omit<CicilanRencana, "dibayar">[]).map((c) => ({ ...c, dibayar: dibayar[c.id] ?? [] }));
   const saldoSekarang = Object.fromEntries(((saldo ?? []) as { id: string; saldo: number | string }[]).map((x) => [x.id, Number(x.saldo)]));
   // Deposito yang sudah selesai tidak ikut, kecuali yang jatuh tempo terakhirnya
   // di rentang rekening koran ini (pencairannya ditautkan, SPEC-deposito-jatuh-tempo).
@@ -116,9 +140,24 @@ export async function susunRencana(supabase: SupabaseClient, bacaan: HasilBaca[]
     if (error) throw new Error(`hasil evaluasi deposito: ${error.message}`);
     transaksi.push(...((data ?? []) as TransaksiLama[]));
   }
-  const rencana = rencanakan({ bacaan, kantong, transaksi, kategori: (kategori ?? []) as { type: string; slug: string }[], sudahAda, pilihan, deposito: daftarDeposito, saldoSekarang });
+  const rencana = rencanakan({
+    bacaan,
+    kantong,
+    transaksi,
+    kategori: (kategori ?? []) as { type: string; slug: string }[],
+    sudahAda,
+    pilihan,
+    deposito: daftarDeposito,
+    saldoSekarang,
+    ingatan: (ingatan ?? []) as BarisIngat[],
+    namaUser: namaDariMetadata(pengguna?.user?.user_metadata),
+    cicilan: daftarCicilan,
+  });
   return { rencana, kantong };
 }
+
+// ponytail: 1000 transaksi berkategori terakhir dalam setahun; naikkan bila merchant bulanan terlupa.
+const BATAS_INGAT_IMPOR = 1000;
 
 /** Pilihan dari FormData (JSON), dibersihkan. */
 export function bacaPilihan(teks: unknown): Pilihan {
@@ -141,7 +180,7 @@ export function bacaPilihan(teks: unknown): Pilihan {
               }),
           )
         : undefined;
-    return { peta: peta(p.peta), ragu: peta(p.ragu), deposito: daftar(p.deposito), samakan: daftar(p.samakan), jadikan };
+    return { peta: peta(p.peta), ragu: peta(p.ragu), deposito: daftar(p.deposito), samakan: daftar(p.samakan), jadikan, tolakKantong: daftar(p.tolakKantong) };
   } catch {
     return {};
   }

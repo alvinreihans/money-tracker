@@ -280,6 +280,81 @@ export function bri(akhir = "730,500.00") {
   return [h, h2];
 }
 
+/** 1234567.5 → "1,234,567.50" (format AS seperti BRI). */
+const angkaBri = (n) => Math.abs(n).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+
+/**
+ * BRI satu bulan dengan saldo dihitung sendiri (SPEC-kantong-sendiri): `dari`/`sampai`
+ * "01/10/26", `baris` [{ waktu: "05/10/26 10:00:00", uraian: [baris1, baris2?], n }]
+ * (n negatif = debet). Pemilik "BUDI SANTOSO", rekening …4321.
+ */
+export function briBulan({ dari, sampai, awal, baris }) {
+  const h = new Halaman();
+  h.baris(808, [458, "LAPORAN TRANSAKSI FINANSIAL"]).baris(797, [471, "STATEMENT OF FINANCIAL TRANSACTION"]);
+  h.baris(727, [40, "Kepada Yth. /"], [104, "To :"]).baris(704, [331, "Periode Transaksi"], [417, ":"], [434, `${dari} - ${sampai}`]);
+  h.baris(702, [40, "BUDI SANTOSO"]).baris(673, [40, "JALAN CONTOH 2"]);
+  h.baris(620, [34, "No. Rekening"], [116, ":"], [125, "013000000004321"], [330, "Unit Kerja"], [434, "KC Contoh"]);
+  h.baris(521, [37, "Tanggal Transaksi"], [170, "Uraian Transaksi"], [305, "Teller"], [382, "Debet"], [483, "Kredit"], [580, "Saldo"]);
+  h.baris(511, [38, "Transaction Date"], [157, "Transaction Description"], [301, "User ID"], [381, "Debit"], [481, "Credit"], [575, "Balance"]);
+  let saldo = awal;
+  let y = 492;
+  for (const b of baris) {
+    saldo = Math.round((saldo + b.n) * 100) / 100;
+    h.baris(y, [38, b.waktu], [110, b.uraian[0]], [299, "8888001"], [404, b.n < 0 ? angkaBri(b.n) : "0.00"], [500, b.n > 0 ? angkaBri(b.n) : "0.00"], [585, angkaBri(saldo)]);
+    if (b.uraian[1]) h.baris(y - 9, [110, b.uraian[1]]);
+    y -= 30;
+  }
+  h.baris(41, [576, "Created By BRIMO"]);
+  const h2 = new Halaman();
+  const debet = -baris.filter((b) => b.n < 0).reduce((s, b) => s + b.n, 0);
+  const kredit = baris.filter((b) => b.n > 0).reduce((s, b) => s + b.n, 0);
+  h2.baris(683, [86, "Saldo Awal"], [218, "Total Transaksi Debet"], [373, "Total Transaksi Kredit"], [543, "Saldo Akhir"]);
+  h2.baris(673, [75, "Opening Balance"], [215, "Total Debit Transaction"], [368, "Total Credit Transaction"], [534, "Closing Balance"]);
+  h2.baris(655, [121, angkaBri(awal)], [275, angkaBri(debet)], [425, angkaBri(kredit)], [589, angkaBri(saldo)]);
+  h2.baris(41, [576, "Created By BRIMO"]);
+  return [h, h2];
+}
+
+/** BRI Oktober: gaji (BI-Fast), tagihan wifi (BRIVA), 3 top up DANA atas nama sendiri (tersamar). */
+export const briOkt = () =>
+  briBulan({
+    dari: "01/10/26", sampai: "31/10/26", awal: 1_000_000,
+    baris: [
+      { waktu: "01/10/26 08:00:00", uraian: ["Transfer BI-Fast dari PT BANK CONTOH - 1234567890 -", "PT Contoh Kerja"], n: 5_000_000 },
+      { waktu: "03/10/26 09:15:00", uraian: ["Pembayaran BRIVA ke PT Wifi Contoh - 88800012345 -", "Budi via BRImo"], n: -350_000 },
+      { waktu: "05/10/26 10:00:00", uraian: ["Top Up DANA 0812xxxx345 BUDX SAXXXXX via", "BRImo"], n: -100_000 },
+      { waktu: "12/10/26 19:30:00", uraian: ["Top Up DANA 0812xxxx345 BUDX SAXXXXX via", "BRImo"], n: -50_000 },
+      { waktu: "20/10/26 07:45:00", uraian: ["Top Up DANA 0812xxxx345 BUDX SAXXXXX via", "BRImo"], n: -25_000 },
+    ],
+  });
+
+/** BRI November (bulan kedua): gaji & wifi yang sama → kategori dari bulan Oktober (C-1). */
+export const briNov = () =>
+  briBulan({
+    dari: "01/11/26", sampai: "30/11/26", awal: 5_475_000,
+    baris: [
+      { waktu: "01/11/26 08:00:00", uraian: ["Transfer BI-Fast dari PT BANK CONTOH - 1234567890 -", "PT Contoh Kerja"], n: 5_000_000 },
+      { waktu: "03/11/26 09:10:00", uraian: ["Pembayaran BRIVA ke PT Wifi Contoh - 88800012345 -", "Budi via BRImo"], n: -350_000 },
+      { waktu: "08/11/26 12:00:00", uraian: ["QRIS000000000002#9360000000000000002"], n: -20_000 },
+    ],
+  });
+
+/** Jago: pembayaran Jago Pay ke GoPay (kode referensi berhuruf + layanan GO-RIDE), C-2. */
+export const jagoGopay = () =>
+  jagoBulan({
+    bulan: "October 2026",
+    kantong: [
+      {
+        nama: "Kantong Utama", id: "102000005678", awal: 176_008,
+        baris: [
+          { tgl: "06 Oct 2026", jam: "07.40", pihak: "GoPay 0220260527A1B2C3D4", rincian: "Pembayaran dengan Jago Pay", n: -18_000, rekening: "GO-RIDE" },
+          { tgl: "09 Oct 2026", jam: "12.10", pihak: "GoPay 0220261009Z9Y8X7W6", rincian: "Pembayaran dengan Jago Pay", n: -32_000, rekening: "GO-FOOD" },
+          { tgl: "15 Oct 2026", jam: "20.00", pihak: "Toko Contoh #RB-778899", rincian: "Pembayaran QRIS", n: -9_000 },
+        ],
+      },
+    ],
+  });
+
 /** "1234567" → "1.234.567" */
 const ribuan = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 

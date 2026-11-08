@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ambilUser, createSupabaseServerClient } from "@/lib/supabase/server";
 import { ambilBerkas, bacaBerkas, bacaPilihan, susunRencana } from "@/lib/rekening/server";
+import { namaDariMetadata, namaRekeningBaru } from "@/lib/nama-rekening";
 import { dbErrorMessage } from "@/lib/errors";
 
 /**
@@ -52,7 +53,19 @@ export async function POST(req: NextRequest) {
       const pesan = error.code === "23505" && /diimpor/.test(error.message) ? error.message : dbErrorMessage(error);
       return NextResponse.json({ error: pesan }, { status: error.code === "23505" ? 409 : 500 });
     }
-    return NextResponse.json({ ok: true, hasil: data, ringkas: rencana.ringkas });
+    // B-1 (SPEC-kantong-sendiri): nama pemilik rekening koran → nama_rekening user, supaya
+    // bukti transfer atas nama sendiri langsung dikenali. Gagal di sini tidak menggagalkan impor.
+    // Dari Auth, bukan token: nama yang baru disimpan belum ada di token.
+    const { data: pengguna } = await supabase.auth.getUser();
+    const nama = namaRekeningBaru(namaDariMetadata(pengguna.user?.user_metadata), bacaan);
+    if (nama) {
+      const { error: eNama } = await supabase.auth.updateUser({ data: { nama_rekening: nama } });
+      if (eNama) console.error("impor rekening: nama_rekening:", eNama.message);
+    }
+    // K1: kantong e-wallet/bank/paylater yang dibuat di tempat → sesudah impor ditanya saldonya.
+    const id = ((data as { kantong_baru?: Record<string, string> } | null)?.kantong_baru ?? {}) as Record<string, string>;
+    const tanyaSaldo = rencana.kantongBaru.filter((k) => k.tanyaSaldo && id[k.kunci]).map((k) => ({ id: id[k.kunci], name: k.name, kind: k.kind, emoji: k.emoji }));
+    return NextResponse.json({ ok: true, hasil: data, ringkas: rencana.ringkas, tanyaSaldo });
   } catch (e) {
     console.error("impor rekening:", e instanceof Error ? e.message : e);
     return NextResponse.json({ error: "Rekening korannya gagal diimpor. Coba lagi." }, { status: 500 });

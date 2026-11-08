@@ -34,6 +34,8 @@ export async function POST(req: NextRequest) {
       kantongBaru: rencana.kantongBaru.map((k) => ({ kunci: k.kunci, name: k.name, kind: k.kind })),
       tawaranDeposito: rencana.tawaranDeposito,
       tawaranJadikan: rencana.tawaranJadikan,
+      // Kantong e-wallet/bank/paylater sendiri yang belum ada (SPEC-kantong-sendiri A-2, D-3).
+      tawaranKantong: rencana.tawaranKantong,
       ragu: rencana.ragu,
       ringkas: rencana.ringkas,
       // Pilihan jawaban "kantong yang mana?": kantong uang milik user.
