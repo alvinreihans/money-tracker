@@ -1,6 +1,6 @@
 # Spec: Uang antar kantong sendiri, kantong yang belum ada, dan impor yang belajar
 
-Status: **usulan** (K1–K5 diputuskan/dijelaskan user 8 Nov; disetujui user 8 Nov) · 8 November 2026 · branch `feat/kantong-sendiri` · dikerjakan **sebelum** [SPEC-asisten-agen](SPEC-asisten-agen.md) (P7 di sana) · menyentuh [SPEC-catat-tuntas](SPEC-catat-tuntas.md) (arah), [SPEC-impor-rekening](SPEC-impor-rekening.md), [SPEC-lengkapi](SPEC-lengkapi.md), [SPEC-ingat-kategori](SPEC-ingat-kategori.md), [SPEC-paylater](SPEC-paylater.md)
+Status: **disetujui, dikerjakan** (K1–K5 diputuskan/dijelaskan user 8 Nov; disetujui user 8 Nov; tahap 1 — impor, RPC, API — selesai, tahap 2 — catat/obrolan, kartu, layar awal — menyusul) · 8 November 2026 · branch `feat/kantong-sendiri` · dikerjakan **sebelum** [SPEC-asisten-agen](SPEC-asisten-agen.md) (P7 di sana) · menyentuh [SPEC-catat-tuntas](SPEC-catat-tuntas.md) (arah), [SPEC-impor-rekening](SPEC-impor-rekening.md), [SPEC-lengkapi](SPEC-lengkapi.md), [SPEC-ingat-kategori](SPEC-ingat-kategori.md), [SPEC-paylater](SPEC-paylater.md)
 
 ## Masalah
 
@@ -201,6 +201,27 @@ Dari pemakaian user (8 Nov 2026): impor rekening koran BRI, lalu screenshot DANA
   *Usulan: (b)*, dengan rencana cicilan tetap bisa dipakai bila user mencatat belanjanya per cicilan.
 - **K4 (terjawab). Penautan ulang otomatis (A-3) juga untuk transaksi lama yang dicatat dari gambar/ketikan,** bukan hanya dari rekening koran? *Usulan: hanya rekening koran dulu* (angkanya pasti). Yang dari gambar/ketikan masuk daftar asisten agen nanti.
 - **K5 (terjawab).** Screenshot layar awal: muncul saat tidak memilih bank/e-wallet apa pun → E-0.
+
+## Keputusan saat implementasi
+
+Tahap 1 (8 Nov 2026): migrasi, pustaka bersama, impor rekening koran, API penautan ulang. Tahap 2 (belum): A-1, B-2–B-7, D-2, D-4 sisi catat, kartu "Jadikan pindah", E-0–E-2.
+
+1. **Migrasi `20261118000000_kantong_sendiri.sql`.** `impor_rekening` = versi 20261117 ditambah kolom `kelompok`, `cicilan_id`, `cicilan_ke` di `sisip[]`, dan hasil `kantong_baru: { kunci: id }` (untuk pertanyaan saldo K1). `grant update (nomor_akhir)` sudah ada sejak 20261112; diulang (idempoten).
+2. **`jadikan_pindah(p)`** — `p = { ubah: [{ id, updated_at, kantong_lawan, merchant, gabung: { id, updated_at } | null }] }`. Syarat baris: milik sendiri (view RLS), `status = confirmed`, `source = statement` (K4), expense/income, tanpa kantong tujuan / `ref_bank_tujuan`, bukan ikutan/cicilan/pecahan, dan `updated_at` sama dengan saat ditampilkan; `kantong_lawan` kantong uang sendiri (bank/ewallet/cash) selain kantongnya. Pengeluaran → pindah kantongnya → lawan; pemasukan → pindah lawan → kantongnya. `gabung` = sisi lawan di `kantong_lawan` (jenis berlawanan, nominal sama, sumber apa pun) → dihapus; `ref_bank`-nya, jam & keterangannya (bila kosong) pindah ke pindah kantong. Kategori Lainnya, kelompok kosong, tanda Perlu dilengkapi hilang. Hasil `{ n, salinan }`; galat `22023` "Transaksinya sudah berubah sejak ditampilkan. Muat ulang dulu." Semua atau tidak sama sekali.
+3. **`urungkan_jadikan_pindah(p)`** — `p = { salinan }` dari hasil di atas: pindah kantong dikembalikan ke isian semula (hanya bila `updated_at`-nya masih sama dengan sesudah diubah), sisi lawan dimasukkan lagi dengan id yang sama. Dua kali → ditolak. `updated_at` yang dipakai harus dibaca lewat `select`, bukan balikan `insert` lewat view.
+4. **API untuk tahap 2** (kartu "3 transaksi lama sepertinya pindah ke DANA"):
+   - `GET /api/kantong/[id]/calon-pindah` → `{ kantong, calon: CalonPindah[], kalimat }` (`src/lib/pindah-server.ts` `muatCalonPindah`; 3.000 transaksi rekening koran terbaru).
+   - `POST /api/kantong/pindah` `{ kantong_id, ids? }` → `{ ok, n, salinan }`; calon dihitung ulang di server, klien hanya memilih id. 409 + pesan bila sudah berubah.
+   - `POST /api/kantong/pindah/urungkan` `{ salinan }` → `{ ok, n }` (snackbar Urungkan).
+   - Fungsi murni di `src/lib/pindah.ts`: `cariCalonPindah(kantong, transaksi, { namaUser })`, `isianJadikanPindah`, `kalimatCalonPindah`, `pihakDariTeks`, dan (diekspor ulang dari `src/lib/lembaga.ts`) `tebakJenisKantong`, `namaLembaga`, `emojiJenis`.
+5. **Tanda rekening sendiri di `cariCalonPindah`** dibaca dari merchant & keterangan tersimpan: uraian BRI utuh (`pihakBri`, nama tersamar di "Top Up …"), dan segmen "Bank …1234". Supaya baris Jago tetap bisa dikenali, uraian Jago kini menyertakan bank & 4 digit akhir rekening lawan ("BUDI · Transfer Keluar · Seabank …5555"); baris Jago yang diimpor sebelum ini hanya dikenali lewat nama.
+6. **A-2 hanya untuk bank/e-wallet yang dikenal** (`namaLembaga`: daftar e-wallet & bank umum). Nama bank yang tidak dikenal ("Bank Lain", "PT BANK X") tidak ditawarkan jadi kantong — tidak jelas namanya. Bank/e-wallet yang sudah punya kantong (nomor lain) juga tidak ditawarkan. Tanda milik sendiri: aturan §6 yang sama, ditambah `nama_rekening` user (B-1). Nama bentrok dengan kantong lain → "DANA (e-wallet)". Kantong bank baru mengambil 4 digit akhir dari nomor lawan bila tertulis.
+7. **Tawaran tidak dicentang** disimpan sebagai `Pilihan.tolakKantong` (bawaan tercentang). Kantong utang paylater (D-3) memakai tawaran yang sama dengan jenis `kredit`, emoji 💳, kunci `baru:lawan:<nama>`. Rencana cicilan dicocokkan lebih dulu (cicilan berikutnya yang belum dibayar, jatuh tempo ± 7 hari terdekat, nominal sama); baris yang sudah dicatat sendiri sebagai pengeluaran (nominal & kantong sama, ± 1 hari) dibiarkan ditautkan seperti biasa.
+8. **K1 di impor**: kantong baru bersaldo 0 sejak 00.00 WIB tanggal baris pertamanya; sesudah impor lembar impor menampilkan "Saldo DANA sekarang berapa?" (satu kolom per kantong baru, "Utang … sekarang berapa?" untuk kantong utang, disimpan minus). Simpan = `saldo_awal` + `saldo_sejak = sekarang` (pola layar awal); Lewati = tetap Rp 0.
+9. **C-2: kategori dari layanan GoPay** menghapus tanda Perlu dilengkapi bila kategorinya bukan Lainnya (sama dengan K2); GO-SEND tetap Lainnya + Perlu dilengkapi. Layanan dibaca dari semua teks baris (sumber, rincian, catatan). Pembersih kode referensi juga dipakai untuk merchant semua baris rekening koran yang perlu dilengkapi.
+10. **C-1** memakai 1.000 transaksi berkategori terakhir setahun (bukan Lainnya, bukan ikutan/cicilan/pecahan), `merchantSama` seperti `ingatKategori`; kelompok ikut untuk pengeluaran. Kategori yang sudah dihapus user tidak dipakai.
+11. **E-3** hanya bila tepat satu kantong `bank` bernama sama (nama/alias) tanpa `nomor_akhir` **dan** tepat satu rekening bank itu yang belum dikenal di impor yang sama; selain itu tetap ditanya.
+12. **B-1** dijalankan di `/api/rekening/impor` sesudah RPC berhasil (`auth.updateUser`, gagalnya hanya dicatat di log). Nama dianggap tersamar bila ada "*" atau "XX".
 
 ## Belum diterapkan
 

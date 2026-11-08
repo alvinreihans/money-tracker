@@ -21,6 +21,21 @@ docs/specs/SPEC-catat-tuntas.md (fase 1 & 2 selesai di 2.4.0, fase 3 di 2.5.0, f
 
 ## [Unreleased]
 
+### Ditambah
+- **Impor rekening koran: kantong baru untuk e-wallet sendiri** (SPEC-kantong-sendiri A-2). Top up atau transfer ke e-wallet/bank atas nama sendiri yang kantongnya belum ada kini ditawarkan di pratinjau, mis. "Kantong baru DANA (3 top up dari BRI)" (tercentang). Barisnya dicatat sebagai pindah kantong BRI → DANA, bukan pengeluaran; kalau tidak dicentang, tetap pengeluaran seperti sebelumnya.
+- **"Saldo DANA sekarang berapa?"** sekali sesudah impor untuk kantong yang baru dibuat dari rekening koran (mulai Rp 0 sejak transaksi pertamanya). Boleh dilewati. Untuk kantong utang paylater: "Utang Shopee PayLater sekarang berapa?".
+- **Bayar tagihan SPayLater/SPinjam di rekening koran** (D-3): ditautkan ke cicilan rencana penyedia itu yang jatuh tempo sekitar tanggalnya (± 7 hari) dengan nominal sama ("Cicilan 2/3 · Shopee PayLater"). Tanpa rencana yang cocok, jadi pindah kantong ke kantong utang penyedianya (jenis kartu/utang), yang ditawarkan dibuat bila belum ada; SPinjam punya kantong utangnya sendiri.
+- Dasar **"Jadikan pindah kantong?"** untuk transaksi lama (A-3): pengeluaran/pemasukan dari rekening koran yang ternyata pindah ke/dari kantong yang baru dibuat bisa diubah jadi pindah kantong (sisi lawan yang sudah tercatat digabung) dan diurungkan. Kartunya menyusul.
+
+### Diubah
+- **Impor rekening koran mengingat kategori bulan lalu** (C-1): gaji, tagihan BRIVA, dan transfer berulang lain yang pernah kamu beri kategori langsung berkategori sama, tanpa tanda "Perlu dilengkapi". Pratinjau menyebutnya: "5 transaksi baru · 2 berkategori dari bulan lalu".
+- **Nama pemilik dari rekening koran diingat** (B-1) sebagai nama kamu di rekening, jadi transfer ke rekening sendiri lebih cepat dikenali. Nama yang tersamar tidak disimpan.
+- **Rekening koran pertama dari bank yang kantongnya sudah ada** (mis. kantong "BRI" dari layar awal) langsung masuk ke kantong itu dan nomor rekeningnya diingat, tanpa ditanya "kantong yang mana?", asalkan hanya ada satu kantong bank bernama sama tanpa nomor (E-3).
+- Sebutan paylater dibakukan di mana-mana (D-1): "SPayLater", "ShopeePay Later", dan "Shopee PayLater" dianggap sama, termasuk saat mencocokkan rencana cicilan.
+
+### Diperbaiki
+- **Judul transaksi Jago bukan lagi kode referensi** (C-2): pembayaran Jago Pay ke GoPay berjudul layanannya, mis. "GoPay · GO-RIDE", dengan kategori Transportasi (GO-FOOD → Makan, GO-MART → Belanja); kode seperti "#RB-…" atau "0220…A1B2" pindah ke keterangan.
+
 ## [2.13.0] — 2026-11-07
 
 ### Ditambah
