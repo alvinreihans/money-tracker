@@ -202,6 +202,16 @@ Dari pemakaian user (8 Nov 2026): impor rekening koran BRI, lalu screenshot DANA
 - **K4 (terjawab). Penautan ulang otomatis (A-3) juga untuk transaksi lama yang dicatat dari gambar/ketikan,** bukan hanya dari rekening koran? *Usulan: hanya rekening koran dulu* (angkanya pasti). Yang dari gambar/ketikan masuk daftar asisten agen nanti.
 - **K5 (terjawab).** Screenshot layar awal: muncul saat tidak memilih bank/e-wallet apa pun → E-0.
 
+## Temuan UAT (8 Nov 2026, data asli lokal, laporan agregat)
+
+UAT bagian rekening koran & layar awal: E-0–E-3, A-2, A-3, C-1, D-3, regresi deposito & R2 lulus. Bagian screenshot (A-1, B-2–B-7, D-2/D-4) belum diuji: unggahan gambar asli ke AI diblokir sistem izin alat pengembang; user akan mencobanya sendiri setelah rilis.
+
+| # | Temuan | Seharusnya | Keputusan user |
+|---|---|---|---|
+| U1 | Kantong bank yang dibuat di tempat (tawaran A-2, mis. "Kantong baru SeaBank" dari transfer di rekening koran Jago; saldo Rp 0 sejak transaksi pertama, K1) lalu rekening koran banknya sendiri diimpor: rekeningnya terpetakan ke kantong itu (4 digit), tapi saldo awal tetap Rp 0 → "Saldo akhir tidak sama", baru cocok bila "Samakan" dicentang. | Kantong yang **belum pernah** menerima rekening koran banknya sendiri mengambil saldo awal dari rekening koran pertamanya (saldo awal bank pada awal periode, `saldo_sejak` = awal periode), sama seperti kantong yang dibuat oleh impor. Transaksi yang sudah ada di kantong itu (pindah kantong dari bank lain) tetap, dan bertaut/berpasangan dengan baris bank seperti biasa. Tanpa peringatan dan tanpa perlu Samakan. Pratinjau menyebutnya: "Saldo awal SeaBank diambil dari rekening koran ini". Bila user sudah mengisi saldo sendiri (pertanyaan K1 dijawab, atau diubah di Profil), saldo itu **tidak** ditimpa; perilaku lama (peringatan + Samakan) berlaku. | Perbaiki sebelum rilis |
+| U2 | Judul pembayaran Jago Pay ke GoPay **tanpa** layanan GO-… masih menyisakan potongan kode referensi di ujung ("GoPay …ID-1"). | Potongan sisa kode (mis. `…ID-1`, akhiran pecahan kode yang terpotong baris) ikut dibuang: judul "GoPay". | Perbaiki sebelum rilis |
+| U3 | Top up e-wallet lewat Jago Pay ("GoPay Top up") tetap pengeluaran walau kantong GoPay sudah ada, karena tidak ada tanda milik sendiri (nama/nomor). | **Top up** (bukan pembayaran) ke e-wallet yang **kantongnya sudah ada** dianggap pindah kantong ke kantong itu walau tanpa tanda milik sendiri. Pembayaran ke e-wallet (merchant lewat GoPay/ShopeePay) tetap pengeluaran. Top up ke e-wallet yang kantongnya belum ada tetap butuh tanda milik sendiri untuk tawaran kantong baru (A-2). | Dianggap pindah |
+
 ## Keputusan saat implementasi
 
 Tahap 1 (8 Nov 2026): migrasi, pustaka bersama, impor rekening koran, API penautan ulang. Tahap 2 (8 Nov 2026): A-1, B-2–B-7, D-2, D-4 sisi catat, kartu "Jadikan pindah", E-0–E-2 (butir 13–24).
