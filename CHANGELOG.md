@@ -41,8 +41,11 @@ docs/specs/SPEC-catat-tuntas.md (fase 1 & 2 selesai di 2.4.0, fase 3 di 2.5.0, f
 - Pindah kantong yang kantong asalnya belum jelas ditanya **"Uangnya dari kantong mana?"** (B-6), bukan "Pakai kantong apa?".
 - **Layar awal** (E-0–E-2): bila belum punya kantong dan tidak memilih apa pun, langkah "Berapa saldonya sekarang?" dilewati (maju & mundur, titik langkah menyesuaikan). Kolom saldo selalu menampilkan nama kantongnya dengan awalan "Rp", juga saat kosong. E-wallet yang dipilih tersimpan berjenis e-wallet (sebelumnya bank).
 - Kantong baru di Profil ditebak jenisnya dari nama (DANA → e-wallet, Tunai → tunai).
+- **Top up e-wallet yang kantongnya sudah ada = pindah kantong** (temuan UAT U3): top up GoPay/DANA/ShopeePay di rekening koran (mis. "GoPay Top up" lewat Jago Pay) dicatat sebagai pindah kantong ke kantong e-wallet itu, walau tanpa nama atau nomor kamu. Pembayaran ke toko lewat e-wallet tetap pengeluaran.
 
 ### Diperbaiki
+- **Saldo kantong bank yang dibuat dari tawaran impor tidak lagi meleset** (temuan UAT U1): kantong yang dibuat di tempat (mis. "Kantong baru SeaBank" dari transfer di rekening koran Jago, saldo Rp 0) mengambil saldo awal dari rekening koran pertamanya sendiri, jadi tidak muncul "Saldo akhir tidak sama" dan tidak perlu "Samakan". Pratinjau menyebutnya: "Saldo awal SeaBank diambil dari rekening koran ini". Saldo yang sudah kamu isi sendiri tidak ditimpa.
+- **Judul GoPay dari Jago Pay tanpa sisa kode** (temuan UAT U2): potongan kode referensi yang terpotong baris ("…ID-1") ikut dibuang, judulnya "GoPay".
 - **"Jadikan pindah" tidak lagi menghilangkan cashback/biaya** yang menempel ke transaksi yang digabung atau diubah: ikutannya dilepas (tetap tercatat di kantongnya) dan Urungkan menempelkannya lagi.
 - **Judul transaksi Jago bukan lagi kode referensi** (C-2): pembayaran Jago Pay ke GoPay berjudul layanannya, mis. "GoPay · GO-RIDE", dengan kategori Transportasi (GO-FOOD → Makan, GO-MART → Belanja); kode seperti "#RB-…" atau "0220…A1B2" pindah ke keterangan.
 
