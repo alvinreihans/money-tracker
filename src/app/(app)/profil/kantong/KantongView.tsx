@@ -5,6 +5,7 @@ import NextLink from "next/link";
 import { useRouter } from "next/navigation";
 import { Banknote, CalendarDays, ChevronDown, Clock, Landmark, Percent, Plus, Repeat, Smile, Wallet } from "lucide-react";
 import { useCatat } from "@/components/Catat";
+import { tebakJenisKantong } from "@/lib/lembaga";
 import { DetailDeposito, LembarBunga } from "@/components/Deposito";
 import { AppBar, Field, GalatForm, InputNominal, Konfirmasi, Kosong, Lembar, Pesan, Pilih, Segmen, Spinner, useGalat } from "@/components/oneui";
 import s from "@/components/ui.module.css";
@@ -77,6 +78,12 @@ const EMOJI_SIMPANAN: Record<MacamSimpanan, string> = { tabungan: "🐷", deposi
  * (SPEC-simpanan).
  */
 /** Baris induk di Profil → Kantong: "Saldo sendiri Rp 500.000 · 1 simpanan, 1 tujuan" (isinya tampil di bawah). */
+/** Jenis kantong uang baru dari namanya; kartu/paylater tidak ditambah dari sini (ada di Utang & Piutang), jadi tetap bank. */
+const jenisDariNama = (nama: string) => {
+  const j = tebakJenisKantong(nama);
+  return j === "kredit" ? "bank" : j;
+};
+
 function ringkasIsi(sendiri: number, isi: { kind: string }[]): string {
   const n = (kind: string) => isi.filter((k) => k.kind === kind).length;
   const bagian = [n("simpanan") && `${n("simpanan")} simpanan`, n("tujuan") && `${n("tujuan")} tujuan`].filter(Boolean);
@@ -119,7 +126,7 @@ export default function KantongView({
   const [detail, setDetail] = useState<InfoDeposito | null>(null);
   const [yakinHapus, setYakinHapus] = useState(false);
   const [lanjutan, setLanjutan] = useState(false);
-  const { kabari } = useCatat();
+  const { kabari, periksaPindah } = useCatat();
   const [loading, setLoading] = useState(false);
   const { galat, gagal, bersihkan } = useGalat(edit?.isian);
   const hariIni = isoLokal(new Date());
@@ -274,7 +281,10 @@ export default function KantongView({
     setLoading(true);
     const db = createSupabaseBrowserClient();
     const tabel = db.from("user_accounts");
-    const { error: err } = asal ? await tabel.update(data).eq("id", asal.id) : await tabel.insert({ ...data, user_id: userId });
+    const { data: dibuat, error: err } = asal
+      ? await tabel.update(data).eq("id", asal.id).select("id, kind").maybeSingle()
+      : // Kantong baru: jenisnya ditebak dari nama (DANA → e-wallet, Tunai → tunai), seperti kantong yang dibuat di obrolan (SPEC-kantong-sendiri A-1).
+        await tabel.insert({ ...data, user_id: userId, kind: jenisDariNama(cek.data.name) }).select("id, kind").single();
 
     // Nama kembar (tanpa beda huruf): sebut di mana nama itu dipakai (SPEC-perbaikan-temuan C4).
     const pesan = err ? await pesanGagalKantong(db, err, cek.data.name, asal?.id ?? null, dbErrorMessage(err, `Kantong "${cek.data.name}"`)) : null;
@@ -282,6 +292,8 @@ export default function KantongView({
     if (err) return gagal(pesan!, err.code === "23505" ? "name" : undefined);
     setEdit(null);
     router.refresh();
+    // Kantong uang baru: transaksi rekening koran lama yang pindah ke/dari situ ditawarkan (SPEC-kantong-sendiri A-3).
+    if (!asal && dibuat && ["bank", "ewallet", "cash"].includes(dibuat.kind)) periksaPindah([dibuat.id]);
   }
 
   // Isi kantong yang akan dihapus: simpanan menahan penghapusan, tujuan dilepas.

@@ -803,6 +803,19 @@ button.blok { background: var(--blok); }
 .fieldKolom:has(> input:placeholder-shown) > .fieldLabel,
 .fieldKolom:has(> textarea:placeholder-shown) > .fieldLabel { visibility: hidden; }
 
+/* Isian berawalan ("Rp", SPEC-kantong-sendiri E-1): label selalu tampil, awalan di kiri isian. */
+.fieldKolom.fieldAwalan:has(> input) > .fieldLabel { visibility: visible; }
+.fieldAwalan > .awalan {
+  position: absolute;
+  left: 0;
+  bottom: 10px;
+  font-size: 18px;
+  line-height: 26px;
+  color: var(--teks-2);
+  pointer-events: none;
+}
+.fieldKolom.fieldAwalan > input { padding-left: 32px; }
+
 .fieldBaris:focus-within .fieldKolom { box-shadow: inset 0 -2px 0 #fafafa; }
 .fieldBaris:focus-within .fieldLabel,
 .fieldBaris:focus-within .fieldIkon { color: var(--primer); }

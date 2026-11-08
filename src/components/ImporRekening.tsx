@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CalendarDays, FileText, Landmark, Percent, Plus } from "lucide-react";
+import { useCatat } from "@/components/Catat";
 import { BarisPilih, Field, InputNominal, Lembar, Pesan, Spinner } from "@/components/oneui";
 import s from "@/components/ui.module.css";
 import { dbErrorMessage } from "@/lib/errors";
@@ -69,6 +70,7 @@ async function kirim(url: string, berkas: File[], pilihan: Pilihan) {
 
 export default function ImporRekening({ berkas, onClose, onSelesai }: { berkas: File[]; onClose: () => void; onSelesai: (teks: string) => void }) {
   const router = useRouter();
+  const { periksaPindah } = useCatat();
   const [pilihan, setPilihan] = useState<Pilihan>({});
   const [data, setData] = useState<Pratinjau | null>(null);
   const [galat, setGalat] = useState<{ nama?: string; pesan: string }[] | null>(null);
@@ -122,6 +124,9 @@ export default function ImporRekening({ berkas, onClose, onSelesai }: { berkas: 
     ].filter(Boolean);
     const kabar = `Rekening koran diimpor: ${bagian.join(", ")}.`;
     const tanyaSaldo = (Array.isArray(d.tanyaSaldo) ? d.tanyaSaldo : []) as KantongTanya[];
+    // Kantong uang baru: transaksi rekening koran lama yang pindah ke/dari situ ditawarkan sesudah lembar ini tutup (A-3).
+    const periksa = (Array.isArray(d.periksaPindah) ? d.periksaPindah : []).filter((x): x is string => typeof x === "string");
+    if (periksa.length) periksaPindah(periksa);
     router.refresh();
     if (tanyaSaldo.length) return setSelesai({ kabar, kantong: tanyaSaldo });
     onSelesai(kabar);
@@ -169,7 +174,7 @@ export default function ImporRekening({ berkas, onClose, onSelesai }: { berkas: 
             Kantongnya baru dibuat dari rekening koran, mulai Rp 0. Isi saldonya sekarang supaya Total aset benar. Boleh dilewati.
           </p>
           {selesai.kantong.map((k) => (
-            <Field key={k.id} label={k.kind === "kredit" ? `${k.emoji} Utang ${k.name}` : `${k.emoji} ${k.name}`} galat={galatSaldo}>
+            <Field key={k.id} label={k.kind === "kredit" ? `${k.emoji} Utang ${k.name}` : `${k.emoji} ${k.name}`} galat={galatSaldo} awalan="Rp">
               <InputNominal value={saldo[k.id] ?? ""} onChange={(v) => setSaldo((x) => ({ ...x, [k.id]: v }))} placeholder="0" />
             </Field>
           ))}

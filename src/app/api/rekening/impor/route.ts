@@ -65,7 +65,9 @@ export async function POST(req: NextRequest) {
     // K1: kantong e-wallet/bank/paylater yang dibuat di tempat → sesudah impor ditanya saldonya.
     const id = ((data as { kantong_baru?: Record<string, string> } | null)?.kantong_baru ?? {}) as Record<string, string>;
     const tanyaSaldo = rencana.kantongBaru.filter((k) => k.tanyaSaldo && id[k.kunci]).map((k) => ({ id: id[k.kunci], name: k.name, kind: k.kind, emoji: k.emoji }));
-    return NextResponse.json({ ok: true, hasil: data, ringkas: rencana.ringkas, tanyaSaldo });
+    // A-3: kantong uang baru → dicari transaksi rekening koran lama yang tampaknya pindah ke/dari situ.
+    const periksaPindah = rencana.kantongBaru.filter((k) => id[k.kunci] && ["bank", "ewallet", "cash"].includes(k.kind)).map((k) => id[k.kunci]);
+    return NextResponse.json({ ok: true, hasil: data, ringkas: rencana.ringkas, tanyaSaldo, periksaPindah });
   } catch (e) {
     console.error("impor rekening:", e instanceof Error ? e.message : e);
     return NextResponse.json({ error: "Rekening korannya gagal diimpor. Coba lagi." }, { status: 500 });
