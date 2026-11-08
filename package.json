@@ -38,6 +38,7 @@
     "uji:isolasi": "node --env-file=.env.local scripts/uji-isolasi.mjs",
     "uji:simpanan": "tsx scripts/uji-simpanan.mts",
     "uji:rekening": "tsx scripts/uji-rekening.mts",
+    "uji:pindah": "tsx scripts/uji-pindah.mts",
     "uji:lengkapi": "tsx scripts/uji-lengkapi.mts",
     "cek:rekening": "tsx scripts/cek-rekening.mts"
   },

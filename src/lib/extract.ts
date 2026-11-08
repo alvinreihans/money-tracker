@@ -4,6 +4,7 @@ import { runGroqChain, parseJsonLoose } from "@/lib/groq";
 import { isoLokal } from "@/lib/format";
 import type { BuktiTransfer } from "@/lib/arah";
 import type { InfoPaylater } from "@/lib/pinjaman";
+import { bakukanPaylater } from "@/lib/paylater-nama";
 import type { PetunjukJam } from "@/lib/waktu";
 import { KATEGORI_BAWAAN, kategoriJenis, LAINNYA, type Kategori } from "@/lib/kategori";
 import { KELOMPOK } from "@/lib/metode";
@@ -478,9 +479,9 @@ function paylaterAtauNull(p: unknown): InfoPaylater | null {
   if (!x || typeof x.penyedia !== "string" || !x.penyedia.trim()) return null;
   const tenor = Number(x.tenor);
   return {
-    // Satu ejaan per penyedia (sama dengan saran di form cicilan): model kadang
-    // menulis "SPayLater", "Shopee PayLater", bahkan "ShopeePay".
-    penyedia: /shopee|spay/i.test(x.penyedia) ? "Shopee PayLater" : /gopay|gojek/i.test(x.penyedia) ? "GoPayLater" : x.penyedia.trim().slice(0, 40),
+    // Satu ejaan per penyedia (pembaku bersama, SPEC-kantong-sendiri D-1): model
+    // kadang menulis "SPayLater", "Shopee PayLater", bahkan "ShopeePay".
+    penyedia: bakukanPaylater(x.penyedia, true),
     tenor: Number.isInteger(tenor) && tenor >= 1 && tenor <= 120 ? tenor : null,
     per_cicilan: nominalAtauNull(x.per_cicilan),
     jatuh_tempo: typeof x.jatuh_tempo === "string" && /^\d{4}-\d{2}-\d{2}$/.test(x.jatuh_tempo) ? x.jatuh_tempo : null,
