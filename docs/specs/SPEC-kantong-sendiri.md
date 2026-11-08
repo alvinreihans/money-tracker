@@ -1,0 +1,208 @@
+# Spec: Uang antar kantong sendiri, kantong yang belum ada, dan impor yang belajar
+
+Status: **usulan** (K1–K5 diputuskan/dijelaskan user 8 Nov; disetujui user 8 Nov) · 8 November 2026 · branch `feat/kantong-sendiri` · dikerjakan **sebelum** [SPEC-asisten-agen](SPEC-asisten-agen.md) (P7 di sana) · menyentuh [SPEC-catat-tuntas](SPEC-catat-tuntas.md) (arah), [SPEC-impor-rekening](SPEC-impor-rekening.md), [SPEC-lengkapi](SPEC-lengkapi.md), [SPEC-ingat-kategori](SPEC-ingat-kategori.md), [SPEC-paylater](SPEC-paylater.md)
+
+## Masalah
+
+Dari pemakaian user (8 Nov 2026): impor rekening koran BRI, lalu screenshot DANA dan struk. Contoh di bawah **rekaan**; polanya dari data user.
+
+| # | Kejadian | Hasil sekarang | Seharusnya |
+|---|---|---|---|
+| A1 | Rekening koran BRI: "Top Up DANA 08xx… <nama tersamar> via BRImo", kantong DANA belum ada | Pengeluaran Lainnya, Perlu dilengkapi | Pindah kantong BRI → DANA, dengan tawaran membuat kantong DANA |
+| A2 | Screenshot DANA "Receive Money from GoPay/Jago". User mengetik "kantong GoPay" / "bank jago" | "Pakai kantong apa?" diulang terus dengan pilihan BRI / Dana. Tidak ada jalan keluar | Tawaran **+ Buat kantong GoPay** |
+| A3 | Kantong DANA dibuat belakangan | Top up dari BRI yang sudah tercatat tetap pengeluaran | Ditawarkan diubah jadi pindah kantong |
+| B1 | Screenshot DANA "Send Money to <nama user> – JAGO ••1234" | "Ini uang keluar atau masuk?" tanpa pilihan pindah. Jawaban "Aku kirim" → **pengeluaran** | Dikenali sebagai pindah DANA → Jago (namanya nama user, nomornya rekening Jago user) |
+| B2 | "Receive Money from PT Bank Jago" / "from GoPay" | Pemasukan kategori **Pemberian** | Pindah dari kantong Jago/GoPay, atau ditanyakan |
+| B3 | Screenshot DANA "Top Up via Agent (ALFAMART)" | "Pakai kantong apa?" (ambigu), merchant Alfamart | Pindah **Tunai → DANA**; pertanyaannya "Uangnya dari kantong mana?" |
+| C1 | Rekening koran bulan berikutnya: gaji dari pemberi kerja (BI-Fast), tagihan wifi lewat BRIVA | Lainnya + Perlu dilengkapi tiap bulan, padahal bulan lalu sudah Gaji / Tagihan | Kategori diingat dari bulan sebelumnya |
+| C2 | Jago "Pembayaran dengan Jago Pay", GoPay GO-RIDE | Judul "GoPay 0220260527…" (kode referensi) | Judul "GoPay · GO-RIDE", kategori Transportasi |
+| D1 | Struk bayar tagihan SPayLater | Pengeluaran Tagihan dari ShopeePay + keterangan "Rencana cicilan 'SPayLater' belum dicatat" | Terhubung ke rencana cicilan / utang SPayLater |
+| E1 | Layar awal: tidak memilih bank/e-wallet apa pun (dan belum punya kantong), lalu Lanjut | Langkah "Berapa saldonya sekarang?" tetap tampil, isinya hanya kotak kosong | Langkah saldo dilewati bila tidak ada kantong yang ditanyakan |
+
+### Penyebab (dari kode)
+
+- **A, tidak ada jalan membuat kantong.** Pertanyaan `kantong` / `kantong_tujuan` hanya menerima kantong yang ada. Jawaban yang tidak cocok → 422 → pertanyaan dibuka lagi tanpa batas (`api/draft/[id]/jawab/route.ts` jenis `kantong`; `Obrolan.tsx` saat galat). Satu-satunya jalur membuat kantong dari obrolan adalah kartu kredit (`kartu` + "tambah").
+- **A, impor.** `kantongLawan` (`rencana.ts`) hanya mencocokkan kantong yang sudah ada. Kantong baru hanya untuk rekening yang rekening korannya diimpor.
+- **A3.** Tidak ada penautan ulang saat kantong dibuat di luar impor. Pola R2 (`ubah_pindah`) hanya jalan di impor dan butuh `nomor_akhir`, yang hanya diisi impor.
+- **Daftar pilihan kantong** di obrolan adalah snapshot server saat halaman dimuat. Kantong yang baru dibuat tidak muncul sampai halaman dimuat ulang.
+- **B1.**
+  - Pilihan "Pindah antar rekeningku" hanya muncul bila **kedua** bank sudah cocok dengan kantong (`Obrolan.tsx` `pilihanArah`).
+  - `rekening_tujuan` ("JAGO …1234") terbaca, tapi tidak pernah dibandingkan dengan `nomor_akhir` kantong.
+  - **Nama pemilik dari rekening koran** (`pemilik` di parser BRI/Jago/SeaBank) tidak pernah disimpan ke `nama_rekening`, jadi bukti transfer ke diri sendiri tidak dikenali sampai user menjawab sekali.
+- **B2.** Prompt ekstraksi: uang yang "dikirim orang lain" = pemasukan, petunjuk `gift`. "Receive Money from <bank/e-wallet>" tidak punya nama orang, jadi tidak lewat logika arah.
+- **B3.** Top up e-wallet = `transfer`, sumber dana "Alfamart" tidak cocok dengan kantong mana pun. Kalimat "Pakai kantong apa?" tidak menyebut bahwa yang ditanya adalah sumbernya.
+- **C1.** Impor tidak memakai ingat kategori. `transaksiBaru` (`rencana.ts`) selalu mengisi `other` + `perlu_dilengkapi` untuk golongan bayar/transfer/lain (keputusan 12 SPEC-impor-rekening).
+- **C2.** `jago.ts` `jadiBaris`: kode referensi yang mengandung huruf tidak cocok dengan pola nomor, jadi ikut masuk `pihak.nama` → merchant.
+- **D1.**
+  - Sebutan cicilan dari AI ("SPayLater") tidak dibakukan. `pilihCicilan` butuh nama persis, sedangkan penyedia rencana dibakukan jadi "Shopee PayLater".
+  - Impor hanya mencocokkan potongan nama kantong (`kantongPaylater`) dan tidak pernah menaut ke rencana cicilan (Belum diterapkan di SPEC-impor-rekening).
+- **E1.** `MulaiView.tsx` langkah 2 selalu ditampilkan walau `daftarSaldo` kosong (kantong yang ada + yang dipilih di langkah 1): yang tersisa hanya bingkai `blokForm` tanpa kolom. Selain itu label kolom disembunyikan selama kolom kosong (nama kantong hanya di placeholder). E-wallet dari layar awal tersimpan dengan `kind` bawaan `bank` dan tanpa `nomor_akhir`, sehingga impor berikutnya tidak bisa memetakannya otomatis.
+
+## Usulan perilaku
+
+### A. Kantong yang belum ada bisa dibuat di tempat
+
+**A-1. Catat (obrolan).** Pertanyaan **"Pakai kantong apa?"**, **"Uangnya dari kantong mana?"** (B3), dan **"Pindah ke kantong mana?"** mendapat pilihan tambahan **+ Buat kantong <nama>**:
+- `<nama>` diambil dari yang terbaca: sumber dana / dompet / bank pengirim atau penerima, sesuai yang ditanya. Pilihan ini muncul hanya bila nama itu belum cocok dengan kantong mana pun.
+- Jawaban ketik yang tidak cocok dengan kantong mana pun tidak lagi berputar. Balasannya: **"Kantong 'GoPay' belum ada. Buat sekarang?"** dengan pilihan **Buat** / **Pilih yang ada**.
+- Jenis kantong ditebak dari nama: daftar e-wallet (DANA, GoPay, OVO, ShopeePay, LinkAja, Flip, Jenius Pay…) → `ewallet`; nama bank (pola `kantongBank`) → `bank`; "tunai"/"cash" → `cash`; selain itu `bank`. Bisa diubah di Profil.
+- Saldo awal kantong baru: **K1**.
+- Kantong yang baru dibuat **langsung** ada di pilihan kantong obrolan dan form, tanpa muat ulang halaman.
+
+**A-2. Impor rekening koran.**
+- Baris transfer/top up ke **e-wallet atau bank milik sendiri** yang kantongnya belum ada → pratinjau menawarkan **"Kantong baru DANA (3 top up dari BRI)"** (tercentang). Tanda milik sendiri: aturan §6 yang sudah ada, yaitu nama pemilik (boleh tersamar) atau 4 digit akhir.
+- Bila dicentang, barisnya jadi pindah kantong BRI → DANA. Bila tidak, tetap pengeluaran seperti sekarang.
+- Kantong e-wallet baru ini tidak punya rekening koran, jadi saldonya mengikuti **K1**.
+
+**A-3. Penautan ulang saat kantong dibuat.**
+- Setiap kali kantong uang dibuat, dari Profil, obrolan (A-1), impor (A-2), atau layar awal, aplikasi mencari **pengeluaran/pemasukan dari rekening koran** yang tampaknya pindah ke/dari kantong itu:
+  - nama bank/e-wallet lawan cocok dengan nama kantong, **dan**
+  - ada tanda milik sendiri (nama pemilik/tersamar, atau 4 digit akhir = `nomor_akhir` kantong).
+- Bila ada: kartu **"3 transaksi lama sepertinya pindah ke DANA. Jadikan pindah kantong?"** dengan daftar ringkasnya. Tombol **Jadikan pindah** / **Biarkan**; sesudahnya snackbar **Urungkan**.
+- Sisi lawan yang sudah tercatat (mis. pemasukan di DANA dari screenshot dengan nominal & tanggal sama) **digabung**, bukan dibuat dua (aturan pasangan §6: nominal sama, ±1 hari, jam sama bila ada).
+- Satu fungsi server bersama `cariCalonPindah(kantong)` + RPC `jadikan_pindah(jsonb)` (perluasan `ubah_pindah`, `security invoker`). Fungsi yang sama nanti dipakai asisten agen (`usul_jadikan_pindah`).
+
+### B. Uang antar rekening sendiri dikenali
+
+**B-1. Nama pemilik dari rekening koran disimpan.** Setiap impor menggabungkan `pemilik` rekening koran ke `nama_rekening` user (`gabungNama`, maks 5, nama tersamar tidak disimpan). Setelah satu impor, bukti transfer atas nama user langsung dikenali.
+
+**B-2. Nomor rekening tujuan dipakai.**
+- `rekening_tujuan` dari gambar ("JAGO ••1234") dibandingkan dengan `nomor_akhir` kantong.
+- Bila cocok → itulah kantong tujuannya. Arah = pindah bila pengirimnya juga kantong user.
+- Bila nomornya belum dikenal tapi nama penerima = nama user → pindah, dengan tujuan dari nama bank. Bila kantong bank itu belum ada → **+ Buat kantong Jago** (A-1), dan nomornya disimpan ke `nomor_akhir` supaya impor rekening koran Jago nanti langsung terpetakan.
+
+**B-3. Pilihan "Pindah antar rekeningku" selalu ada** di pertanyaan arah (bukti transfer dua pihak), bukan hanya bila kedua bank sudah dikenal. Bila dipilih dan salah satu kantong belum ada → A-1.
+
+**B-4. "Receive Money from <bank/e-wallet>"** (pengirimnya lembaga, bukan nama orang):
+- Prompt ekstraksi: uang masuk ke e-wallet dari **bank atau e-wallet** (bukan nama orang) dibaca sebagai **calon pindah kantong**: `type: transfer`, `payment_method` = bank/e-wallet pengirim, `payment_target` = e-wallet penerima. Bukan `gift`.
+- Bila kantong pengirim ada → pindah, tanpa ditanya. Bila belum ada → **"Uang dari Jago ini dari rekeningmu sendiri?"** dengan pilihan **Ya, pindah dari Jago** (+ buat kantong bila perlu) / **Bukan, pemasukan**.
+- Pengecualian: cashback, refund, dan bunga dari e-wallet itu sendiri tetap pemasukan/ikutan seperti sekarang.
+
+**B-5. Top up lewat agen** (Alfamart, Indomaret, kasir):
+- Dibaca sebagai pindah **Tunai → e-wallet**. Merchant tidak diisi nama toko; nama toko masuk keterangan ("Top up lewat Alfamart").
+- Bila kantong Tunai tidak ada → ditanyakan dengan kalimat **"Uangnya dari kantong mana?"** + **+ Buat kantong Tunai**.
+
+**B-6. Kalimat pertanyaan untuk pindah kantong.** Untuk transaksi `transfer`, "Pakai kantong apa?" diganti **"Uangnya dari kantong mana?"**, dan "Pindah ke kantong mana?" tetap.
+
+**B-7. Screenshot sisi lawan menaut, tidak mencatat baru.**
+- Screenshot uang masuk di DANA yang cocok dengan **pengeluaran top up dari rekening koran** di kantong lain (nominal sama, ±1 hari, tanda milik sendiri) → kartu Lengkapi **"Jadikan pindah BRI → DANA"**. Pengeluaran itu diubah, tidak dibuat transaksi baru.
+- Sama untuk kebalikannya: screenshot kirim dari DANA cocok dengan pemasukan di rekening koran Jago.
+- Memakai `jadikan_pindah` (A-3).
+
+### C. Impor rekening koran belajar dari bulan sebelumnya
+
+**C-1. Ingat kategori dipakai saat impor.**
+- Untuk baris bayar/transfer/lain, merchant (nama pihak) dicocokkan dengan ingatan kategori (`ingatKategori`, `src/lib/ingat.ts`: transaksi terkonfirmasi 365 hari terakhir, bukan Lainnya, `merchantSama`).
+- Bila ada → kategori diisi, kelompok mengikuti kategori. Perlakuan "Perlu dilengkapi": **K2**.
+- Pratinjau menyebut jumlahnya: "· 2 berkategori dari bulan lalu".
+- Pindah kantong dan pinjaman tidak terpengaruh.
+
+**C-2. Kode referensi tidak jadi judul.**
+- Di parser Jago (dan pembersih merchant umum untuk rekening koran), token mirip kode referensi dibuang dari merchant dan disimpan di keterangan. Contoh: ≥ 10 karakter dengan campuran angka dan huruf, `#RB-…`, `ID-1`.
+- Pembayaran Jago Pay ke GoPay: merchant **"GoPay · GO-RIDE"** (layanan dari rincian: GO-RIDE, GO-CAR, GO-FOOD, GO-SEND, GO-MART…).
+- Kategori dari layanan, aturan kecil tetap: GO-RIDE/GO-CAR → Transportasi; GO-FOOD → Makan; GO-SEND → Lainnya; GO-MART → Belanja. Ini didahulukan sebelum ingat kategori, dan ingat kategori boleh menimpanya bila user pernah mengubah.
+- QRIS BRI tanpa nama toko: tidak berubah (dilengkapi lewat struk).
+
+### D. SPayLater / SPinjam
+
+**D-1. Sebutan dibakukan.** Sebutan cicilan dari AI dibakukan dengan pembaku yang sama dengan `paylater.penyedia`: "SPayLater" / "Shopee PayLater" / "ShopeePay Later" → **Shopee PayLater**; "SPinjam" → **SPinjam**; GoPayLater, Kredivo, Akulaku, dst. `pilihCicilan` dan `kantongPaylater` (impor) membandingkan nama yang sudah dibakukan, dua arah.
+
+**D-2. Bayar tagihan paylater.** Struk/screenshot bayar tagihan SPayLater:
+- **Satu** rencana cicilan Shopee PayLater yang berjalan → ditautkan (cicilan ke-n), seperti sekarang.
+- **Beberapa** → ditanya "Cicilan yang mana?" dengan pilihan rencana.
+- **Tidak ada** → tidak lagi hanya keterangan: pindah ke kantong utang paylater (D-4).
+
+**D-3. Impor rekening koran.**
+- Baris SPayLater/SPinjam memakai pembaku D-1.
+- Bila ada rencana cicilan penyedia itu dengan cicilan yang jatuh tempo di sekitar tanggal baris (± 7 hari) dan nominalnya sama → ditautkan ke cicilan itu (`cicilan_id`, nomor), bukan pengeluaran biasa.
+- Selain itu pindah ke kantong utang penyedianya (D-4). Ini menutup butir SPinjam/SPayLater di Belum diterapkan SPEC-impor-rekening.
+
+### E. Layar awal: saldo kantong
+
+- **E-0.** Bila tidak ada kantong yang saldonya ditanyakan (belum punya kantong dan tidak memilih apa pun di langkah 1), langkah "Berapa saldonya sekarang?" **dilewati**: Lanjut dari langkah 1 langsung ke "Siap mencatat!", Kembali dari sana ke langkah 1, dan titik langkah menyesuaikan.
+- **E-1.** Tiap kolom saldo selalu menampilkan labelnya ("🏦 BRI", "👛 DANA") di atas kolom, juga saat kosong, dengan awalan "Rp". Placeholder "0".
+- **E-2.** Kantong e-wallet yang dipilih di layar awal disimpan dengan `kind = 'ewallet'` (sekarang `bank`), tunai `cash`.
+- **E-3.** Impor rekening koran: rekening yang belum terpetakan dicocokkan otomatis ke kantong **bank** bernama sama yang belum punya `nomor_akhir`, bila hanya ada satu. Lalu `nomor_akhir` diisi. Ini menghindari kantong ganda "BRI" dan "BRI …5678".
+
+## Data
+
+- RPC `jadikan_pindah(jsonb)` (perluasan `ubah_pindah`; dipakai A-3, B-7, nanti asisten). Ketentuannya:
+  - `security invoker`; `revoke public, anon`; `grant authenticated`;
+  - hanya transaksi milik user, berjenis expense/income, belum punya kantong tujuan;
+  - gagal bila sudah berubah sejak ditampilkan;
+  - mengembalikan data untuk Urungkan.
+- RPC `urungkan_jadikan_pindah(jsonb)`.
+- `user_metadata.nama_rekening` diisi dari impor (B-1). Tanpa kolom baru.
+- `user_accounts.nomor_akhir` boleh diisi dari gambar (B-2) dan pemetaan otomatis (E-3): `grant update (nomor_akhir)` bila belum.
+- Tanpa tabel baru.
+
+## Pengujian
+
+- **Unit:**
+  - `cariCalonPindah` (nama + tanda milik sendiri, nomor, tanpa tanda → tidak; sisi lawan digabung);
+  - tebakan jenis kantong dari nama;
+  - pembaku paylater (D-1);
+  - pembersih kode referensi & layanan GoPay (C-2);
+  - ingat kategori saat impor (C-1, termasuk Lainnya tidak diingat);
+  - arah dengan `rekening_tujuan` & nama pemilik dari impor (B-1–B-3);
+  - "Receive Money from <lembaga>" (B-4) dan top up agen (B-5) dari hasil baca tiruan;
+  - pemetaan otomatis rekening ke kantong tanpa nomor (E-3).
+- **RPC:** `jadikan_pindah` atomik + Urungkan; `uji:isolasi` (tidak bisa menyentuh transaksi/kantong akun lain).
+- **AI sungguhan (`eval-lengkapi` / ekstraksi):** screenshot rekaan "Receive Money from Bank X", "Send Money to <nama> – BANK ••1234", "Top Up via Agent", bayar tagihan SPayLater → jenis & isian sesuai B-4/B-5/D-2.
+- **E2E (rekening koran & gambar buatan):**
+  - impor BRI dengan top up DANA tanpa kantong → tawaran kantong baru → pindah;
+  - buat kantong DANA belakangan → kartu "jadikan pindah" → Urungkan;
+  - obrolan: ketik kantong yang belum ada → Buat → langsung ada di pilihan;
+  - bukti kirim ke diri sendiri → pindah tanpa ditanya keluar/masuk;
+  - rekening koran bulan kedua → kategori dari bulan pertama;
+  - layar awal: tanpa pilihan & tanpa kantong → langkah saldo dilewati (maju & mundur); label tampil; e-wallet berjenis e-wallet;
+  - 360px & 1024px.
+- **UAT data asli user** (lokal, akun uji sementara, laporan agregat saja): impor BRI + Jago + SeaBank, lalu screenshot DANA/ShopeePay dan struk:
+  - tidak ada pengeluaran "top up" ke kantong sendiri;
+  - saldo semua kantong bank sama dengan rekening koran;
+  - kategori bulanan berulang terisi.
+
+## Keputusan user (8 Nov 2026)
+
+| # | Pertanyaan | Keputusan |
+|---|---|---|
+| K1 | Saldo awal kantong yang dibuat di tempat | **(a)** Rp 0 sejak transaksi pertamanya, lalu sekali ditawari "Saldo <kantong> sekarang berapa?" (boleh dilewati) sesudah obrolan/impor itu selesai |
+| K2 | Kategori dari ingatan saat impor | **(a)** tanda "Perlu dilengkapi" tidak dipasang |
+| K3 | Cara mencatat paylater | **(b)** satu kantong utang per penyedia (mis. "Shopee PayLater", jenis `kredit`), seperti kartu kredit. Rincian di D-4 |
+| K4 | Penautan ulang (A-3) | **Hanya transaksi dari rekening koran** dulu |
+
+### D-4. Kantong utang paylater (K3 = b)
+
+- **Bayar tagihan** paylater (struk/screenshot/rekening koran) tanpa rencana cicilan yang cocok → **pindah kantong** dari kantong sumber (mis. ShopeePay/SeaBank) ke kantong utang **"Shopee PayLater"**. Bila kantong itu belum ada → **+ Buat kantong Shopee PayLater** (jenis `kredit`, saldo awal Rp 0 per K1; sesudahnya ditawari "Utang Shopee PayLater sekarang berapa?").
+- **Belanja** dengan paylater:
+  - tenornya disebut/terbaca → rencana cicilan seperti sekarang (SPEC-paylater);
+  - tidak disebut → **pengeluaran dari kantong utang** itu, tanpa ditanya tenornya. Utangnya bertambah, seperti belanja dengan kartu kredit.
+- Kantong utang paylater tampil bersama kartu kredit di Utang & Piutang. Sisa tagihan = saldo minusnya.
+- Impor rekening koran (D-3): baris bayar SPayLater/SPinjam tanpa cicilan yang cocok → pindah ke kantong utang penyedianya (pembaku D-1). Bila belum ada → tawaran kantong baru di pratinjau (pola A-2).
+- SPinjam (pinjaman tunai) memakai kantong utang **"SPinjam"** tersendiri, bukan Shopee PayLater.
+
+## Pertanyaan terbuka
+
+- **K1 (terjawab). Saldo awal kantong yang dibuat di tempat** (A-1/A-2), terutama e-wallet tanpa rekening koran:
+  - (a) Rp 0 sejak transaksi pertamanya, lalu ditawari "Saldo DANA sekarang berapa?" (boleh dilewati) supaya total aset benar;
+  - (b) langsung ditanya saldonya saat dibuat;
+  - (c) Rp 0, tanpa tanya.
+
+  *Usulan: (a).* Pertanyaannya muncul sekali sesudah semua transaksi di obrolan/impor itu selesai, dan "sekarang" berarti saldo saat ini (pola `saldo_sejak` = sekarang).
+- **K2 (terjawab). Kategori dari ingatan saat impor (C-1): tetap "Perlu dilengkapi"?**
+  - (a) Tidak. Kategorinya sudah terisi, jadi tanda hilang.
+  - (b) Tetap ditandai sampai dilengkapi gambar.
+
+  *Usulan: (a)* untuk transfer berulang (gaji, tagihan) yang memang tidak punya struk. Merchant tetap dari rekening koran dan bisa dilengkapi kapan saja.
+- **K3 (terjawab). Paylater tanpa rencana cicilan** (D-2/D-3): bagaimana SPayLater sebaiknya dicatat?
+  - (a) Seperti sekarang di SPEC-paylater: tiap belanja jadi rencana cicilan sendiri. Bayar tagihan tanpa rencana → ditawari "Buat rencana cicilan?" (nominal, tenor).
+  - (b) Satu **kantong utang "Shopee PayLater"** seperti kartu kredit: belanja paylater menambah utangnya, bayar tagihan = pindah kantong ke sana. Lebih cocok dengan rekening koran, yang hanya memuat pembayaran tagihan, dan dengan alur kartu kredit yang sudah ada.
+
+  *Usulan: (b)*, dengan rencana cicilan tetap bisa dipakai bila user mencatat belanjanya per cicilan.
+- **K4 (terjawab). Penautan ulang otomatis (A-3) juga untuk transaksi lama yang dicatat dari gambar/ketikan,** bukan hanya dari rekening koran? *Usulan: hanya rekening koran dulu* (angkanya pasti). Yang dari gambar/ketikan masuk daftar asisten agen nanti.
+- **K5 (terjawab).** Screenshot layar awal: muncul saat tidak memilih bank/e-wallet apa pun → E-0.
+
+## Belum diterapkan
+
+- Penautan ulang untuk transaksi dari gambar/ketikan (bila K4 = hanya rekening koran).
+- Pembacaan rekening koran e-wallet (DANA/ShopeePay/GoPay PDF/CSV), bila suatu saat tersedia.
