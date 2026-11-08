@@ -9,6 +9,8 @@ import s from "@/components/ui.module.css";
 import { dbErrorMessage } from "@/lib/errors";
 import { isianNominal } from "@/lib/format";
 import { emojiKantong, type Kantong } from "@/lib/kantong";
+import { tebakJenisKantong } from "@/lib/lembaga";
+import { KUNCI_PERIKSA_PINDAH } from "@/components/CalonPindah";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 /** Rekening & e-wallet yang paling umum, untuk dipilih sekali ketuk. */
@@ -27,10 +29,13 @@ const SARAN = [
 ];
 
 const LANGKAH = 4;
+/** Langkah "Berapa saldonya sekarang?". */
+const LANGKAH_SALDO = 2;
 
 /**
  * Empat langkah singkat: cara mencatat → kantong → saldo awal → siap. Bisa
- * dilewati kapan saja; yang diisi baru disimpan di langkah terakhir.
+ * dilewati kapan saja; yang diisi baru disimpan di langkah terakhir. Langkah
+ * saldo dilewati bila tidak ada kantong yang ditanyakan (SPEC-kantong-sendiri E-0).
  */
 export default function MulaiView({ userId, kantong }: { userId: string; kantong: Kantong[] }) {
   const router = useRouter();
@@ -52,6 +57,10 @@ export default function MulaiView({ userId, kantong }: { userId: string; kantong
   ];
 
   const pilih = (nama: string) => setDipilih((v) => (v.includes(nama) ? v.filter((n) => n !== nama) : [...v, nama]));
+  // Belum punya kantong & tidak memilih apa pun: langkah saldo hanya bingkai kosong → dilewati (E-0).
+  const lewatiSaldo = daftarSaldo.length === 0;
+  const urutan = Array.from({ length: LANGKAH }, (_, i) => i).filter((i) => !(lewatiSaldo && i === LANGKAH_SALDO));
+  const ke = urutan.indexOf(langkah);
 
   /** Tandai selesai di akun (ikut di JWT), segarkan sesi, lalu ke Beranda. */
   async function tandaiSelesai() {
@@ -73,14 +82,22 @@ export default function MulaiView({ userId, kantong }: { userId: string; kantong
         const baru = SARAN.filter((k) => dipilih.includes(k.name)).map((k) => ({
           user_id: userId,
           name: k.name,
+          // E-wallet berjenis e-wallet, supaya impor rekening koran berikutnya bisa memetakannya (E-2).
+          kind: tebakJenisKantong(k.name),
           emoji: k.emoji,
           saldo_awal: Number(saldo[k.name] || 0),
           // Saldo saat ini: berlaku sejak jam sekarang (SPEC-saldo-waktu).
           saldo_sejak: new Date().toISOString(),
         }));
         if (baru.length) {
-          const { error: err } = await db.insert(baru);
+          const { data: dibuat, error: err } = await db.insert(baru).select("id");
           if (err) throw err;
+          // Transaksi rekening koran lama yang pindah ke/dari kantong ini ditawarkan begitu aplikasi terbuka (A-3).
+          try {
+            sessionStorage.setItem(KUNCI_PERIKSA_PINDAH, JSON.stringify((dibuat ?? []).map((k) => k.id)));
+          } catch {
+            // Penyimpanan diblokir: penautan ulang dilewati.
+          }
         }
         // Kantong lama yang saldonya diubah di sini.
         for (const k of kantong) {
@@ -98,14 +115,14 @@ export default function MulaiView({ userId, kantong }: { userId: string; kantong
     }
   }
 
-  const lanjut = () => setLangkah((l) => Math.min(l + 1, LANGKAH - 1));
-  const kembali = () => setLangkah((l) => Math.max(l - 1, 0));
+  const lanjut = () => setLangkah(urutan[Math.min(ke + 1, urutan.length - 1)]);
+  const kembali = () => setLangkah(urutan[Math.max(ke - 1, 0)]);
 
   return (
     <main className={s.app} data-tanpa-nav style={{ paddingBottom: 120 }}>
       <div className={s.mulaiAtas}>
-        <span className={s.mulaiTitik} aria-label={`Langkah ${langkah + 1} dari ${LANGKAH}`} role="img">
-          {Array.from({ length: LANGKAH }, (_, i) => (
+        <span className={s.mulaiTitik} aria-label={`Langkah ${ke + 1} dari ${urutan.length}`} role="img">
+          {urutan.map((i) => (
             <span key={i} data-aktif={i === langkah} />
           ))}
         </span>
@@ -162,13 +179,10 @@ export default function MulaiView({ userId, kantong }: { userId: string; kantong
             </header>
             <div className={s.isi}>
               <div className={`${s.blok} ${s.blokForm}`}>
+                {/* Label selalu tampil di atas kolom, dengan awalan Rp (E-1). */}
                 {daftarSaldo.map((k) => (
-                  <Field key={k.name} label={`${k.emoji} ${k.name}`}>
-                    <InputNominal
-                      value={saldo[k.name] ?? ""}
-                      onChange={(v) => setSaldo((x) => ({ ...x, [k.name]: v }))}
-                      placeholder={`${k.emoji} ${k.name}`}
-                    />
+                  <Field key={k.name} label={`${k.emoji} ${k.name}`} awalan="Rp">
+                    <InputNominal value={saldo[k.name] ?? ""} onChange={(v) => setSaldo((x) => ({ ...x, [k.name]: v }))} placeholder="0" />
                   </Field>
                 ))}
               </div>
