@@ -169,6 +169,7 @@ try {
     /Kantong “GoPay” belum ada\. Buat sekarang\?/.test(tanya) && /Buat kantong GoPay/.test(tanya) && /Pilih yang ada/.test(tanya), tanya);
   await foto("kantong-sendiri-2-buat-360.png");
   const saldo = await langkah("Buat kantong GoPay", `tombol('Buat kantong GoPay', dialog()).click();
+    await sampai(() => tombol('Simpan', dialog()) && !tombol('Simpan', dialog()).disabled, 60); tombol('Simpan', dialog()).click();
     await sampai(() => /Saldo GoPay sekarang berapa\\?/.test(dialog()?.innerText ?? ''), 30);
     const teks = dialog().innerText.replace(/\\s+/g, ' ');
     const ph = dialog().querySelector('textarea').placeholder, mode = dialog().querySelector('textarea').inputMode;
@@ -190,7 +191,7 @@ try {
   const tinggi = await jalankan(`Math.min(...[...[...document.querySelectorAll('dialog[open]')].at(-1).querySelectorAll('[class*=pilihanJawab] button')].map((b) => b.getBoundingClientRect().height - 2 * parseFloat(getComputedStyle(b, '::after').top)))`);
   cek("Area sentuh chip jawaban (termasuk “+ Buat kantong”) ≥ 44 px", tinggi >= 44, String(tinggi));
   cek("360: tanpa gulir mendatar", await tanpaGeser());
-  await langkah("jawab GoPay", `tombol('📱 GoPay', dialog()).click(); await sampai(() => [...dialog().querySelectorAll('[role=timer]')].length > 0, 20); dialog().close(); await t(600); return 'ok'`);
+  await langkah("jawab GoPay", `tombol('📱 GoPay', dialog()).click(); await sampai(() => tombol('Simpan', dialog()) && !tombol('Simpan', dialog()).disabled, 60); tombol('Simpan', dialog()).click(); await sampai(() => [...dialog().querySelectorAll('[role=timer]')].length > 0, 20); dialog().close(); await t(600); return 'ok'`);
 
   // --- 3. Bukti "kirim ke diri sendiri" dari DANA ke Jago (belum ada kantong Jago) → pindah tanpa ditanya keluar/masuk.
   await buka(`${base}/`, 5000);
@@ -213,6 +214,7 @@ try {
   cek("Bukti kirim ke nama sendiri: tidak ditanya keluar/masuk; ditanya tujuan dengan \"+ Buat kantong Jago\"",
     /Pindah ke kantong mana\?/.test(bukti) && !/keluar atau masuk|Aku kirim/.test(bukti) && /\+ Buat kantong Jago/.test(bukti), bukti);
   await langkah("Buat kantong Jago", `tombol('+ Buat kantong Jago', dialog()).click();
+    await sampai(() => tombol('Simpan', dialog()) && !tombol('Simpan', dialog()).disabled, 60); tombol('Simpan', dialog()).click();
     await sampai(() => /Saldo Jago sekarang berapa\\?/.test(dialog()?.innerText ?? ''), 30);
     tombol('Lewati', dialog()).click(); await sampai(() => [...dialog().querySelectorAll('[role=timer]')].length > 0, 20); return 'ok'`);
   const { data: jago } = await sb.from("user_accounts").select("id, kind, nomor_akhir, saldo_awal").eq("name", "Jago").maybeSingle();
@@ -239,6 +241,7 @@ try {
     await sampai(() => /dari rekeningmu sendiri\\?/.test(dialog()?.innerText ?? ''), 60);
     const teks = dialog().innerText.replace(/\\s+/g, ' ').slice(-200);
     tombol('Ya, pindah dari Mandiri', dialog()).click();
+    await sampai(() => tombol('Simpan', dialog()) && !tombol('Simpan', dialog()).disabled, 60); tombol('Simpan', dialog()).click();
     await sampai(() => /Saldo Mandiri sekarang berapa\\?/.test(dialog()?.innerText ?? ''), 30);
     tombol('Lewati', dialog()).click(); await sampai(() => [...dialog().querySelectorAll('[role=timer]')].length > 0, 20); dialog().close(); await t(500);
     return teks`);
@@ -253,6 +256,7 @@ try {
     await sampai(() => /Pakai kantong apa\\?|Dicicil berapa kali/.test(dialog()?.innerText ?? ''), 60);
     const teks = dialog().innerText.replace(/\\s+/g, ' ').slice(-200);
     tombol('+ Buat kantong Shopee PayLater', dialog())?.click();
+    await sampai(() => tombol('Simpan', dialog()) && !tombol('Simpan', dialog()).disabled, 60); tombol('Simpan', dialog()).click();
     await sampai(() => /Utang Shopee PayLater sekarang berapa\\?/.test(dialog()?.innerText ?? ''), 30);
     isi(dialog().querySelector('textarea'), '300000'); await t(200); dialog().querySelector('button[aria-label="Kirim"]').click();
     await sampai(() => [...dialog().querySelectorAll('[role=timer]')].length > 0, 20); dialog().close(); await t(500);

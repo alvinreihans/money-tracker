@@ -48,10 +48,16 @@ try {
 
   // --- 2. Selama jadi draft, cicilan 2 dibayar lewat jalur lain. Draft selesai → nomor 3.
   await bayar(sepatu.id, 2);
-  const jawab = (id) =>
-    langkah(`jawab ${id.slice(0, 8)}`, `const r = await fetch('/api/draft/${id}/jawab', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jenis: 'kantong', nilai: 'BCA' }) });
-      return JSON.stringify(await r.json())`);
-  const j1 = JSON.parse(await jawab(draft.id)).transaction ?? {};
+  // Jawaban terakhir → kartu "Periksa dulu" (belum dihitung), lalu Simpan (SPEC-periksa-dulu §1).
+  const jawabSimpan = (id, body) =>
+    langkah(`jawab & simpan ${id.slice(0, 8)}`, `const r = await fetch('/api/draft/${id}/jawab', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(${JSON.stringify(body)}) });
+      const jawab = await r.json();
+      const s = await fetch('/api/draft/${id}/simpan', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
+      return JSON.stringify({ jawab: { pertanyaan: jawab.pertanyaan, status: jawab.transaction?.status }, ...(await s.json()) })`);
+  const jawab = (id) => jawabSimpan(id, { jenis: "kantong", nilai: "BCA" });
+  const r1 = JSON.parse(await jawab(draft.id));
+  const j1 = r1.transaction ?? {};
+  cek("Jawaban terakhir: tinggal dicek (belum dihitung) sampai Simpan", r1.jawab?.pertanyaan === "konfirmasi" && r1.jawab?.status === "needs_review", JSON.stringify(r1.jawab));
   cek("Draft selesai mendapat nomor terkecil yang belum dibayar (3)", j1.status === "confirmed" && j1.cicilan_ke === 3 && j1.description === "Cicilan 3/3 · Shopee PayLater", JSON.stringify(j1));
 
   // --- 3. Rencana yang sudah lunas: draft dilepas dari rencananya, uangnya tetap tercatat.
@@ -72,7 +78,7 @@ try {
     return JSON.stringify({ teks: teksHalaman().includes("Kartu kredit Mandiri belum terdaftar. Bayar ke kartu yang mana?"), tambah: b.includes("+ Tambah Kartu kredit Mandiri"), hapus: b.includes("Hapus catatan"), bca: b.some((x) => x.endsWith("BCA")) })`);
   const tq = JSON.parse(tanya || "{}");
   cek("Kartu belum terdaftar: ditanya kartunya, pilihan tambah & hapus, tanpa kantong uang", tq.teks && tq.tambah && tq.hapus && !tq.bca, tanya);
-  const j3 = JSON.parse(await langkah("jawab tambah", `const r = await fetch("/api/draft/${t1.id}/jawab", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jenis: "kartu", nilai: "tambah" }) }); return JSON.stringify(await r.json())`)).transaction ?? {};
+  const j3 = JSON.parse(await jawabSimpan(t1.id, { jenis: "kartu", nilai: "tambah" })).transaction ?? {};
   const { data: kartu } = await sb.from("user_accounts").select("id, kind, saldo_awal").eq("name", "Kartu kredit Mandiri").maybeSingle();
   cek("Tambah kartu: kartu kredit dibuat bertagihan = pembayaran, jadi tujuan", j3.status === "confirmed" && kartu?.kind === "kredit" && Number(kartu?.saldo_awal) === -200000 && j3.kantong_tujuan_id === kartu?.id, JSON.stringify({ j3: j3.kantong_tujuan_id, kartu }));
   await buka(`${base}/pinjaman`, 6000);
@@ -82,7 +88,7 @@ try {
   await buka(`${base}/pinjaman`, 6000);
   cek("Kartu tanpa tagihan tetap menampilkan jatuh tempo", /Tidak ada tagihan · jatuh tempo \d{1,2} \w+/.test(await langkah("pinjaman 3", `return teksHalaman()`)));
   const { data: t2 } = await tagihan();
-  const j4 = JSON.parse(await langkah("jawab kartu ada", `const r = await fetch("/api/draft/${t2.id}/jawab", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jenis: "kartu", nilai: "${kartu?.id}" }) }); return JSON.stringify(await r.json())`)).transaction ?? {};
+  const j4 = JSON.parse(await jawabSimpan(t2.id, { jenis: "kartu", nilai: kartu?.id })).transaction ?? {};
   cek("Pilih kartu yang sudah ada: jadi tujuan", j4.status === "confirmed" && j4.kantong_tujuan_id === kartu?.id, JSON.stringify(j4.kantong_tujuan_id));
 } catch (e) {
   console.log("GAGAL:", e.message);

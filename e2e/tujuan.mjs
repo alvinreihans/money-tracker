@@ -168,9 +168,11 @@ try {
   await langkah("catat sisihkan", `document.querySelector('button[aria-label="Catat transaksi"]').click(); await sampai(() => dialog()?.querySelector('textarea')); await t(300);
     isi(dialog().querySelector('textarea'), 'sisihkan 200rb dari bca ke Liburan'); await t(200); dialog().querySelector('button[aria-label="Kirim"]').click();
     // AI belum tahu nama kantong user, jadi kadang tujuannya ditanyakan dulu: jawab seperti user.
-    await sampai(() => /Tercatat|tercatat|Tersimpan|kantong mana/.test(dialog()?.innerText || ''), 90);
+    await sampai(() => /Periksa dulu|kantong mana/.test(dialog()?.innerText || ''), 90);
     const ditanya = /kantong mana/.test(dialog()?.innerText || '');
-    if (ditanya) { [...dialog().querySelectorAll('[class*=pilihanJawab] button')].find(b => b.textContent.includes('Liburan')).click(); await sampai(() => /Tercatat|tercatat|Tersimpan/.test(dialog()?.innerText || ''), 60); }
+    if (ditanya) { [...dialog().querySelectorAll('[class*=pilihanJawab] button')].find(b => b.textContent.includes('Liburan')).click(); await sampai(() => /Periksa dulu/.test(dialog()?.innerText || ''), 60); }
+    // Kartu "Periksa dulu" (SPEC-periksa-dulu): tersimpan baru sesudah Simpan.
+    await sampai(() => tombol('Simpan', dialog()) && !tombol('Simpan', dialog()).disabled, 60); tombol('Simpan', dialog()).click(); await sampai(() => /Tersimpan/.test(dialog()?.innerText || ''), 30);
     await t(1000); return { ditanya, akhir: dialog()?.innerText.slice(-200) }`);
   const { data: lewatAi } = await sb.from("transactions").select("amount, type, kantong_id, kantong_tujuan_id, status").eq("kantong_tujuan_id", liburan.id).eq("amount", 200000);
   cek("Catat AI: transfer BCA → Liburan Rp 200.000", lewatAi?.length === 1 && lewatAi[0].type === "transfer" && lewatAi[0].kantong_id === bca.id && lewatAi[0].status === "confirmed", JSON.stringify(lewatAi));
