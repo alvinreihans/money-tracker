@@ -1,6 +1,6 @@
 # Spec: Asisten AI yang bisa bertindak (Tanya AI jadi agen)
 
-Status: **usulan** (P1–P9 & P4b dijawab user 9 Nov; dikerjakan sesudah SPEC-periksa-dulu) · 8 November 2026 · branch belum dibuat · lanjutan [SPEC-analitik-ai](SPEC-analitik-ai.md) dan [SPEC-cerita-tanya](SPEC-cerita-tanya.md)
+Status: **disetujui, dikerjakan** (P1–P9 & P4b dijawab user 9 Nov; disetujui 9 Nov) · 8 November 2026 · branch `feat/asisten-agen` (stacked di atas `feat/periksa-dulu`) · lanjutan [SPEC-analitik-ai](SPEC-analitik-ai.md) dan [SPEC-cerita-tanya](SPEC-cerita-tanya.md)
 
 ## Masalah
 
