@@ -120,6 +120,21 @@ export interface Pilihan {
   jadikan?: Record<string, IsianJadikan>;
   /** Kunci tawaran kantong baru yang TIDAK dicentang (SPEC-kantong-sendiri A-2/D-3); bawaannya tercentang. */
   tolakKantong?: string[];
+  /**
+   * Pengenal baris (ref) yang tidak dicentang di rincian pratinjau (SPEC-periksa-dulu §3):
+   * tidak diimpor dan tidak diingat — impor ulang menawarkannya lagi sebagai baris baru.
+   */
+  kecuali?: string[];
+}
+
+/** Baris rekening koran yang dibaca (untuk rincian pratinjau, SPEC-periksa-dulu §3). */
+export interface BarisRincianBank {
+  ref: string;
+  kunciRek: string;
+  tanggal: string;
+  jam: string | null;
+  uraian: string;
+  nominal: number;
 }
 
 /** Rencana cicilan beserta nomor cicilan yang sudah dibayar (SPEC-kantong-sendiri D-3). */
@@ -372,6 +387,12 @@ export interface Rencana {
   tutup: TutupRekening[];
   sesuaikan: SesuaikanPeriode[];
   ragu: Ragu[];
+  /** Semua baris yang dibaca (tanpa dobel antar-berkas), untuk rincian pratinjau. */
+  barisBank: BarisRincianBank[];
+  /** Kunci TxBaru yang kategorinya dari ingatan (C-1). */
+  dariIngatan: string[];
+  /** Baris yang dipakai deposito jatuh tempo (tidak bisa dikecualikan satu per satu). */
+  refDeposito: string[];
   ringkas: {
     baris: number;
     dobel: number;
@@ -671,6 +692,10 @@ export function rencanakan(m: MasukanRencana): Rencana {
     }
   // Rekening yang belum dipetakan tidak diproses.
   for (const b of kerja) if (!b.kantong) b.selesai = true;
+  // Tidak dicentang di rincian (SPEC-periksa-dulu §3): dilewati, tanpa dihitung tercatat.
+  const kecuali = new Set(pilihan.kecuali ?? []);
+  for (const b of kerja) if (kecuali.has(b.ref)) b.selesai = true;
+  const dariIngatan: string[] = [];
 
   // Transaksi lama: sisi mana yang masih bebas ditautkan.
   const lama = m.transaksi.map((t) => ({ ...t, n: Number(t.amount), bebasAsal: !t.ref_bank, bebasTujuan: !t.ref_bank_tujuan }));
@@ -977,7 +1002,7 @@ export function rencanakan(m: MasukanRencana): Rencana {
       rr.tercatat += daftar.length;
       continue;
     }
-    if (bersih <= 0) continue;
+    if (bersih <= 0 || kecuali.has(ref)) continue;
     rr.bunga++;
     sisip.push({
       kunci: kunciBaru(),
@@ -1559,6 +1584,7 @@ export function rencanakan(m: MasukanRencana): Rencana {
     if (!merchant) merchant = b.uraian.slice(0, 60) || NAMA_BANK[b.rek.bank];
     const r = ringkas.get(b.kunciRek)!;
     let kelompok: string | null = null;
+    let diingat = false;
     if (perlu) {
       // GoPay lewat Jago Pay: kategori dari layanannya, aturan tetap (C-2).
       const layanan = !masuk ? kategoriLayanan(merchant) : null;
@@ -1574,11 +1600,14 @@ export function rencanakan(m: MasukanRencana): Rencana {
         kelompok = type === "expense" ? ingat.kelompok : null;
         perlu = false;
         r.dariIngatan++;
+        diingat = true;
       }
     }
     if (perlu) r.perluDilengkapi++;
+    const kunci = kunciBaru();
+    if (diingat) dariIngatan.push(kunci);
     return {
-      kunci: kunciBaru(),
+      kunci,
       type,
       amount: Math.abs(b.nominal),
       category: kat(type, category),
@@ -1702,6 +1731,9 @@ export function rencanakan(m: MasukanRencana): Rencana {
     tutup,
     sesuaikan,
     ragu,
+    barisBank: kerja.map((b) => ({ ref: b.ref, kunciRek: b.kunciRek, tanggal: b.tanggal, jam: b.jam, uraian: b.uraian, nominal: b.nominal })),
+    dariIngatan,
+    refDeposito: [...milikDeposito].map((b) => b.ref),
     ringkas: {
       baris: kerja.length,
       dobel,
