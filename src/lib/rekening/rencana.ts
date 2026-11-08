@@ -1,7 +1,7 @@
 import { cocokkanKantong, normal } from "@/lib/kantong";
 import { kantongBank, namaSama } from "@/lib/arah";
 import { ingatKategori, type BarisIngat } from "@/lib/ingat";
-import { emojiJenis, namaLembaga, tebakJenisKantong } from "@/lib/lembaga";
+import { emojiJenis, namaEwallet, namaLembaga, tebakJenisKantong } from "@/lib/lembaga";
 import { bakukanPaylater, penyediaPaylater } from "@/lib/paylater-nama";
 import { jatuhTempoKe, keteranganCicilan, type Cicilan } from "@/lib/pinjaman";
 import { bersihkanMerchant, kategoriLayanan } from "@/lib/rekening/merchant";
@@ -46,6 +46,11 @@ export interface KantongRencana {
   saldo_awal?: number | string;
   saldo_per?: string;
   saldo_sejak?: string | null;
+  /**
+   * Dibuat di tempat (A-1/A-2) dan saldonya belum diisi user (U1): rekening koran pertama
+   * banknya sendiri mengisi saldo awal (saldo awal bank, sejak awal periode).
+   */
+  saldo_sementara?: boolean | null;
 }
 
 /** Transaksi tercatat yang sudah ada (cukup kolom yang dipakai di sini). */
@@ -331,6 +336,8 @@ export interface RingkasRekening {
   saldoBank: number;
   /** Saldo kantong di akhir periode menurut aplikasi sesudah impor; null bila belum dipetakan. */
   saldoAplikasi: number | null;
+  /** U1: saldo awal kantong yang dibuat di tempat diambil dari rekening koran ini ("Saldo awal SeaBank diambil dari rekening koran ini"). */
+  saldoDariRekening: boolean;
   /** Tawaran K4 bila beda. */
   samakan: { saldo_awal: number; saldo_sejak: string; teks: string } | null;
   /** Transaksi di kantong lain yang diubah jadi pindah kantong dengan rekening ini (R2): "2 transaksi di Jago …". */
@@ -479,6 +486,8 @@ interface BarisKerja extends BarisBank {
 
 const kunciRekening = (r: Pick<RekeningBank, "bank" | "nomorAkhir">) => `${r.bank}:${r.nomorAkhir}`;
 const KANTONG_UANG = new Set(["bank", "ewallet", "cash"]);
+/** Baris top up / isi saldo e-wallet (U3), bukan pembayaran lewat e-wallet. */
+const TOP_UP = /\btop\s*-?\s*up\b|\bisi\s+saldo\b/i;
 const sama = (a: string | null | undefined, b: string | null | undefined) => Boolean(a && b) && normal(a!) === normal(b!);
 const menit = (j: string | null | undefined) => (j ? Number(j.slice(0, 2)) * 60 + Number(j.slice(3, 5)) : null);
 
@@ -633,6 +642,7 @@ export function rencanakan(m: MasukanRencana): Rencana {
       saldoAplikasi: null,
       samakan: null,
       diubahPindah: [],
+      saldoDariRekening: false,
       deposito: [],
     });
   }
@@ -1089,6 +1099,7 @@ export function rencanakan(m: MasukanRencana): Rencana {
   const milikSendiri = (b: BarisKerja) =>
     namaMilik(b.pihak?.nama, b.pemilik) || (b.rek.bank === "bri" && /^Top Up/i.test(b.uraian) && namaMilik(b.uraian.replace(/^Top Up \S+ \S+ /i, "").replace(/ via BRImo$/i, ""), b.pemilik));
   /** Kantong sendiri yang dituju baris ini: dari 4 digit akhir nomor lawan, atau nama bank/e-wallet bila nama pihaknya pemilik. */
+  const jenisKantong = (id: RujukanKantong) => cariKantong(id)?.kind ?? kantongBaru.find((k) => k.kunci === id)?.kind ?? null;
   const kantongLawan = (b: BarisKerja): RujukanKantong | null => {
     const akhir = empatAkhir(b.pihak?.nomor);
     const bank = b.pihak?.bank;
@@ -1098,6 +1109,13 @@ export function rencanakan(m: MasukanRencana): Rencana {
     // Nomor cocok dan nama banknya tidak menyebut kantong lain (nomor HP e-wallet
     // bisa kebetulan berakhiran sama dengan nomor rekening).
     if (menurutNomor && (!menurutNama || menurutNama.id === menurutNomor.id)) return menurutNomor.id;
+    // U3: top up (bukan pembayaran) ke e-wallet yang kantongnya sudah ada = pindah kantong, walau
+    // tanpa tanda milik sendiri. Kantong e-wallet baru (A-2) tetap butuh tandanya (di bawah).
+    if (b.nominal < 0 && TOP_UP.test(`${b.pihak?.nama ?? ""} ${b.uraian} ${b.jenis ?? ""}`)) {
+      const ew = namaEwallet(bank) ?? namaEwallet(b.pihak?.nama) ?? namaEwallet(b.uraian);
+      const tuju = ew ? cocokkanKantong(ew, lain.filter((x) => jenisKantong(x.id) === "ewallet")) : null;
+      if (tuju) return tuju.id;
+    }
     if (!milikSendiri(b) || !menurutNama) return null;
     // Kantong yang namanya cocok tapi nomornya lain: rekening lain di bank yang sama.
     const nomor = nomorKantong(menurutNama.id);
@@ -1617,6 +1635,17 @@ export function rencanakan(m: MasukanRencana): Rencana {
       continue;
     }
     if (!k) continue;
+    // U1: kantong yang dibuat di tempat (saldo Rp 0 sementara) menerima rekening koran banknya
+    // sendiri untuk pertama kali → saldo awal = saldo awal bank di awal periode, seperti kantong
+    // yang dibuat oleh impor. Transaksi yang sudah ada tetap (yang sebelum periode sudah
+    // termasuk di saldo bank). Tanpa peringatan & Samakan.
+    if (k.saldo_sementara && r.utama && KANTONG_UANG.has(k.kind)) {
+      const awal = [...rekMap.get(r.kunci)!.semua].sort((a, b) => a.dari.localeCompare(b.dari))[0];
+      saldoRencana.push({ kantong_id: r.kantong, saldo_awal: awal.saldoAwal, saldo_sejak: `${awal.dari}T00:00:00+07:00` });
+      r.saldoAplikasi = sen(awal.saldoAwal + dalamPeriode);
+      r.saldoDariRekening = true;
+      continue;
+    }
     const sejak: SaldoSejak = saldoSejak({ saldo_per: k.saldo_per ?? "1970-01-01", saldo_sejak: k.saldo_sejak });
     const akhir = { tanggal: r.sampai, jam: "23:59" };
     const sebelumAkhir = (t: { transaction_date: string; waktu?: string | null }) => t.transaction_date <= r.sampai;

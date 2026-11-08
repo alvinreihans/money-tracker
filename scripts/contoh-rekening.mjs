@@ -355,6 +355,24 @@ export const jagoGopay = () =>
     ],
   });
 
+/**
+ * Jago (temuan UAT U2, U3): pembayaran Jago Pay ke GoPay tanpa layanan GO-…, kodenya
+ * terpotong ke baris berikutnya ("…ID-1"); dan top up GoPay lewat Jago Pay (tanpa nama/nomor).
+ */
+export const jagoGopayTopUp = () =>
+  jagoBulan({
+    bulan: "November 2026",
+    kantong: [
+      {
+        nama: "Kantong Utama", id: "102000005678", awal: 117_008,
+        baris: [
+          { tgl: "04 Nov 2026", jam: "08.20", pihak: "GoPay 0220261104K1L2M3N4", rincian: "Pembayaran dengan Jago Pay", n: -15_000, rekening: "…ID-1" },
+          { tgl: "06 Nov 2026", jam: "19.05", pihak: "GoPay Top up", rincian: "Pembayaran dengan Jago Pay", n: -100_000 },
+        ],
+      },
+    ],
+  });
+
 /** "1234567" → "1.234.567" */
 const ribuan = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 

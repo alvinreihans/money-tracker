@@ -113,6 +113,8 @@ export async function buatKantongDiTempat(
       saldo_awal: 0,
       saldo_per: opsi.tanggal,
       saldo_sejak: `${opsi.tanggal}T00:00:00+07:00`,
+      // Saldo Rp 0 sementara (U1): rekening koran pertama banknya mengisi saldo awal, kecuali user mengisinya dulu.
+      saldo_sementara: true,
       ...(opsi.nomor_akhir && /^\d{4}$/.test(opsi.nomor_akhir) && kind === "bank" ? { nomor_akhir: opsi.nomor_akhir } : {}),
     })
     .select(KOLOM_KANTONG_BARU)

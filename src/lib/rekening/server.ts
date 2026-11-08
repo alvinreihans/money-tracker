@@ -47,7 +47,7 @@ const KOLOM_TX = "id, amount, type, category, merchant, description, kantong_id,
 /** Rencana impor untuk user yang sedang masuk (RLS membatasi ke datanya sendiri). */
 export async function susunRencana(supabase: SupabaseClient, bacaan: HasilBaca[], pilihan: Pilihan): Promise<{ rencana: Rencana; kantong: KantongRencana[] }> {
   const [{ data: akun }, { data: kategori }, { data: deposito }, { data: periode }, { data: saldo }, { data: ingatan }, { data: cicilan }, { data: bayarCicilan }, { data: pengguna }] = await Promise.all([
-    supabase.from("user_accounts").select("id, name, kind, nomor_akhir, induk_id, macam_simpanan, aliases, saldo_awal, saldo_per, saldo_sejak, emoji").order("created_at"),
+    supabase.from("user_accounts").select("id, name, kind, nomor_akhir, induk_id, macam_simpanan, aliases, saldo_awal, saldo_per, saldo_sejak, saldo_sementara, emoji").order("created_at"),
     supabase.from("categories").select("type, slug"),
     supabase.from("deposito").select("kantong_id, bunga_persen, tenor, satuan_tenor, pajak_persen, pajak_otomatis, perpanjangan, selesai"),
     supabase.from("deposito_periode").select("id, deposito_id, ke, mulai, jatuh_tempo, pokok, bunga_kotor, pajak, bunga_bersih, bunga_diterima, dicairkan_awal, transaksi_tutup").order("ke"),

@@ -32,7 +32,8 @@ export async function POST(req: NextRequest) {
     }
     const { data, error } = await supabase.rpc("impor_rekening", {
       p: {
-        kantong_baru: rencana.kantongBaru,
+        // Kantong yang dibuat di tempat (A-2/D-3) bersaldo sementara (U1): rekening koran pertamanya mengisi saldo awal.
+        kantong_baru: rencana.kantongBaru.map((k) => ({ ...k, saldo_sementara: Boolean(k.tanyaSaldo) })),
         nomor_akhir: rencana.nomorAkhir,
         deposito_baru: rencana.depositoBaru,
         saldo: rencana.saldo,

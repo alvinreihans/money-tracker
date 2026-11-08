@@ -14,7 +14,7 @@ import { golongkan, rencanakan, ringkasRupiah, samaPemilik, type DepositoRencana
 import type { HasilBaca } from "../src/lib/rekening/jenis.ts";
 import { angkaID, angkaUS, susunBaris, tanggalTeks } from "../src/lib/rekening/teks.ts";
 import { pihakBri } from "../src/lib/rekening/bri.ts";
-import { bri as briContoh, briNov, briOkt, Halaman, jagoBulanan, jagoDepositoOkt, jagoGopay, jagoKeSea, jagoRiwayat, jagoUat, seabank as seabankContoh, seabankBulan, seaDariJago } from "./contoh-rekening.mjs";
+import { bri as briContoh, briNov, briOkt, Halaman, jagoBulanan, jagoDepositoOkt, jagoGopay, jagoGopayTopUp, jagoKeSea, jagoRiwayat, jagoUat, seabank as seabankContoh, seabankBulan, seaDariJago } from "./contoh-rekening.mjs";
 import { bersihkanMerchant, kategoriLayanan, layananGopay } from "../src/lib/rekening/merchant.ts";
 import { hitungSaldo, type Kantong } from "../src/lib/kantong.ts";
 import type { Rencana } from "../src/lib/rekening/rencana.ts";
@@ -333,7 +333,7 @@ function terapkan(db: Db, r: Rencana, sekarang: string) {
     peta.set(kunci, baru.id);
   };
   for (const k of [...r.kantongBaru].sort((a, b) => Number(a.kind === "simpanan") - Number(b.kind === "simpanan")))
-    tambahKantong(k.kunci, { name: k.name, kind: k.kind, aliases: null, induk_id: id(k.induk_id), macam_simpanan: k.macam_simpanan, saldo_awal: k.saldo_awal, saldo_sejak: k.saldo_sejak ?? sekarang, nomor_akhir: k.nomor_akhir || null });
+    tambahKantong(k.kunci, { name: k.name, kind: k.kind, aliases: null, induk_id: id(k.induk_id), macam_simpanan: k.macam_simpanan, saldo_awal: k.saldo_awal, saldo_sejak: k.saldo_sejak ?? sekarang, nomor_akhir: k.nomor_akhir || null, saldo_sementara: Boolean(k.tanyaSaldo) });
   for (const d of r.depositoBaru)
     tambahKantong(d.kunci, { name: d.name, kind: "simpanan", aliases: null, induk_id: id(d.induk_id), macam_simpanan: "deposito", saldo_awal: d.didanai ? 0 : d.pokok, saldo_sejak: d.didanai ? `${d.didanai}T00:00:00+07:00` : sekarang });
   for (const t of r.sisip) {
@@ -346,6 +346,8 @@ function terapkan(db: Db, r: Rencana, sekarang: string) {
   for (const x of r.ubahPindah ?? [])
     Object.assign(db.tx.find((t) => t.id === x.id)!, { type: "transfer", category: null, merchant: x.merchant, kantong_id: id(x.kantong_id), kantong_tujuan_id: id(x.kantong_tujuan_id), ref_bank: x.ref_bank, ref_bank_tujuan: x.ref_bank_tujuan, perlu_dilengkapi: false });
   db.tx = db.tx.filter((t) => !r.hapus.includes(t.id));
+  // Samakan saldo awal / saldo dari rekening koran (U1): seperti RPC, penanda saldo sementara mati.
+  for (const x of r.saldo) Object.assign(db.kantong.find((k) => k.id === id(x.kantong_id))!, { saldo_awal: x.saldo_awal, saldo_sejak: x.saldo_sejak, saldo_per: tanggalWIB(x.saldo_sejak), saldo_sementara: false });
 }
 /** Impor dengan semua tawaran deposito diterima dan rekening baru → "Buat kantong". */
 function impor(db: Db, bacaan: ReturnType<typeof bacaRekening>[], sekarang: string) {
@@ -773,6 +775,58 @@ const KANTONG_BRI: KantongRencana[] = [{ id: "bri", name: "BRI", kind: "bank", n
   assert.equal(dua.belumDipetakan.length, 1);
   const bukanBank = rencanakan({ bacaan: [okt], kantong: [{ id: "b0", name: "BRI", kind: "ewallet" }], transaksi: [], kategori: null, sudahAda: new Set() });
   assert.equal(bukanBank.belumDipetakan.length, 1);
+}
+
+// ------------------------------------------------------------ temuan UAT SPEC-kantong-sendiri (U1–U3)
+
+// U2: sisa potongan kode referensi sesudah nama e-wallet ikut dibuang → "GoPay".
+assert.equal(bersihkanMerchant("GoPay 0220260527A1B2C3 …ID-1").nama, "GoPay");
+assert.equal(bersihkanMerchant("GoPay 0220260527A1B2 C3D4-ID-1").nama, "GoPay");
+assert.equal(bersihkanMerchant("GoPay 02202605 27A1").nama, "GoPay", "potongan pendek sesudah nama e-wallet");
+assert.equal(bersihkanMerchant("GoPay Top up").nama, "GoPay Top up", "kata biasa tetap");
+assert.equal(bersihkanMerchant("Klinik COVID-19").nama, "Klinik COVID-19", "bukan kode");
+assert.equal(bersihkanMerchant("Toko 88 Jaya").nama, "Toko 88 Jaya", "bukan e-wallet: angka pendek tetap");
+{
+  const jt = bacaRekening(pdf(...jagoGopayTopUp()));
+  assert.deepEqual(jt.rekening[0].baris.map((b) => b.pihak?.nama), ["GoPay", "GoPay Top up"]);
+  const kJago: KantongRencana[] = [{ id: "jago", name: "Jago", kind: "bank", nomor_akhir: "5678", saldo_awal: 117_008, saldo_per: "2026-11-01", saldo_sejak: "2026-11-01T00:00:00+07:00" }];
+  // U3: kantong GoPay sudah ada → top up jadi pindah kantong walau tanpa tanda milik sendiri;
+  //     pembayaran lewat GoPay tetap pengeluaran.
+  const ada = rencanakan({ bacaan: [jt], kantong: [...kJago, { id: "gopay", name: "GoPay", kind: "ewallet" }], transaksi: [], kategori: null, sudahAda: new Set() });
+  assert.deepEqual(ada.sisip.map((t) => [t.type, t.amount, t.merchant, t.kantong_tujuan_id]).sort((x, y) => Number(x[1]) - Number(y[1])), [["expense", 15_000, "GoPay", null], ["transfer", 100_000, "Pindah ke GoPay", "gopay"]]);
+  // Kantong GoPay belum ada & tidak ada tanda milik sendiri → pengeluaran, tanpa tawaran kantong baru (A-2).
+  const belum = rencanakan({ bacaan: [jt], kantong: kJago, transaksi: [], kategori: null, sudahAda: new Set() });
+  assert.deepEqual([belum.sisip.map((t) => t.type), belum.tawaranKantong.length], [["expense", "expense"], 0]);
+  // Kantong "GoPay" yang bukan e-wallet (mis. kantong orang) tidak dipakai.
+  const orang = rencanakan({ bacaan: [jt], kantong: [...kJago, { id: "g", name: "GoPay", kind: "orang" }], transaksi: [], kategori: null, sudahAda: new Set() });
+  assert.deepEqual(orang.sisip.map((t) => t.type), ["expense", "expense"]);
+}
+
+// U1: Jago dulu (tawaran "Kantong baru SeaBank" diterima, saldo Rp 0 sementara), lalu rekening koran
+//     SeaBank-nya sendiri → saldo awal dari rekening koran, tanpa peringatan/Samakan, saldo = bank.
+for (const isiSendiri of [false, true]) {
+  const db: Db = { kantong: [], tx: [] };
+  const a = imporServer(db, [bacaRekening(pdf(...jagoKeSea()))]);
+  assert.equal(a.tawaranKantong[0].dipilih, true);
+  const sb = db.kantong.find((k) => k.name === "SeaBank")!;
+  assert.deepEqual([sb.kind, sb.nomor_akhir, Number(sb.saldo_awal), sb.saldo_sementara], ["bank", "5555", 0, true]);
+  // Pertanyaan K1 dijawab (saldo diisi user) → penandanya mati, saldo tidak ditimpa.
+  if (isiSendiri) Object.assign(sb, { saldo_awal: 999_000, saldo_sejak: "2026-11-07T09:00:00+07:00", saldo_per: "2026-11-07", saldo_sementara: false });
+  const r = imporServer(db, [bacaRekening(pdf(...seaDariJago()))]);
+  const kartu = r.rekening.find((x) => x.kunci === "seabank:5555")!;
+  assert.equal(r.belumDipetakan.length, 0, "terpetakan lewat 4 digit akhir");
+  if (!isiSendiri) {
+    assert.ok(kartu.saldoDariRekening && !kartu.samakan && kartu.saldoAplikasi === kartu.saldoBank, "U1: saldo awal dari rekening koran, tanpa Samakan");
+    assert.deepEqual(r.saldo, [{ kantong_id: sb.id, saldo_awal: 150_000, saldo_sejak: "2026-08-01T00:00:00+07:00" }]);
+    assert.ok(tanpaPeringatan(r));
+    assert.deepEqual([saldoDb(db).SeaBank, saldoDb(db).Jago, sb.saldo_sementara], [425_000, 1_000, false], "saldo = bank; penanda mati");
+    assert.equal(r.sisip.filter((t) => t.type === "transfer").length, 0, "pindah kantong dari Jago ditautkan, tidak dobel");
+    // Rekening koran berikutnya: perilaku biasa (penanda sudah mati).
+    assert.equal(imporServer(db, [bacaRekening(pdf(...seaDariJago()))]).rekening.find((x) => x.kunci === "seabank:5555")!.saldoDariRekening, false);
+  } else {
+    assert.ok(!kartu.saldoDariRekening && kartu.samakan, "saldo yang diisi user tidak ditimpa; peringatan + Samakan seperti biasa");
+    assert.deepEqual(r.saldo, []);
+  }
 }
 
 console.log("uji:rekening lulus");

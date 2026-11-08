@@ -397,6 +397,8 @@ function KartuRekening({ r, baru, samakan, onSamakan }: { r: RingkasRekening; ba
               {d.teks}
             </span>
           ))}
+        {/* U1: kantong yang dibuat di tempat menerima rekening koran pertamanya. */}
+        {r.saldoDariRekening && <span className={s.redup}>Saldo awal {r.namaKantong ?? r.nama} diambil dari rekening koran ini</span>}
         {r.saldoAplikasi !== null && !beda && <span className={s.redup}>Saldo akhir menurut bank {rp(r.saldoBank)} · sama dengan aplikasi</span>}
       </div>
       {/* Bunga beda dengan perkiraan/isian: peringatan (pola SPEC-perbaikan-uiux #3). */}
