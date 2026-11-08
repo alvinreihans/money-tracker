@@ -316,11 +316,52 @@ try {
   cek("saldo_sementara tidak bisa dihidupkan lagi lewat update", !(hidupkan ?? []).some((k) => k.saldo_sementara), JSON.stringify(hidupkan));
   const { error: urungDua } = await A.sb.rpc("urungkan_jadikan_pindah", { p: { salinan: jadi?.salinan ?? [] } });
   cek("urungkan_jadikan_pindah dua kali: ditolak", Boolean(urungDua));
+
+  // "Cara dicatat" (SPEC-periksa-dulu §4): jejak draft digabung saat Simpan, thumbnail draft ikut pindah (K1).
+  const draftJ = await satu(A.sb.from("transactions").insert({ user_id: A.id, amount: 42000, type: "expense", category: "food", merchant: "Warung Uji", transaction_date: hariIni, kantong_id: kantongA.id, status: "needs_review", source: "receipt" }));
+  await A.sb.rpc("simpan_foto_draft", { p_id: draftJ.id, p_foto: Buffer.from("thumb A").toString("base64") });
+  const { data: j1 } = await A.sb.rpc("catat_jejak_draft", { p_id: draftJ.id, p_tambah: { asal: "gambar", bacaan: { merchant: "Warung Uji", nominal: 42000 }, langkah: [{ t: "tanya", teks: "Pakai kantong apa?" }] } });
+  const { data: j2 } = await A.sb.rpc("catat_jejak_draft", { p_id: draftJ.id, p_tambah: { langkah: [{ t: "jawab", teks: "BCA A" }] } });
+  const { data: tambahJ } = await A.sb.rpc("tambah_jejak", { p_id: draftJ.id, p_isi: { disimpan: new Date().toISOString(), cara: "kartu" } });
+  await A.sb.from("transactions").update({ status: "confirmed" }).eq("id", draftJ.id);
+  const { data: jejakA } = await A.sb.rpc("jejak_catat", { p_id: draftJ.id });
+  cek(
+    "jejak_catat: jejak draft (asal, tanya-jawab berurutan) digabung saat Simpan, thumbnail ikut",
+    j1 === true && j2 === true && tambahJ === true && jejakA?.length === 1 && jejakA[0].isi.asal === "gambar" && jejakA[0].isi.cara === "kartu" &&
+      JSON.stringify(jejakA[0].isi.langkah.map((l) => l.t)) === '["tanya","jawab"]' && jejakA[0].ada_foto === true,
+    JSON.stringify(jejakA),
+  );
+  const { data: fotoJ } = await A.sb.rpc("foto_jejak", { p_id: jejakA?.[0]?.id ?? 0 });
+  cek("foto_jejak: pemilik mendapat thumbnail-nya", Buffer.from(fotoJ ?? "", "base64").toString() === "thumb A");
+  for (const [siapa, sb] of [["B", B.sb], ["Pengunjung", anon]]) {
+    const { data: baca } = await sb.rpc("jejak_catat", { p_id: draftJ.id });
+    cek(`${siapa} tidak bisa membaca jejak_catat transaksi A`, !(baca ?? []).length, JSON.stringify(baca));
+    const { data: fotoB } = await sb.rpc("foto_jejak", { p_id: jejakA?.[0]?.id ?? 0 });
+    cek(`${siapa} tidak bisa mengambil foto jejak A`, !fotoB);
+    const { data: tambahB } = await sb.rpc("tambah_jejak", { p_id: draftJ.id, p_isi: { asal: "palsu" } });
+    cek(`${siapa} tidak bisa menambah jejak ke transaksi A`, tambahB !== true);
+    const { data: draftB } = await sb.rpc("catat_jejak_draft", { p_id: draftA.id, p_tambah: { asal: "palsu" } });
+    cek(`${siapa} tidak bisa menulis jejak draft A`, draftB !== true);
+    const { data: urungB } = await sb.rpc("urungkan_jejak", { p_id: draftJ.id });
+    cek(`${siapa} tidak bisa mengurungkan jejak A`, urungB !== true);
+  }
+  const { data: jejakTetap } = await A.sb.rpc("jejak_catat", { p_id: draftJ.id });
+  cek("Jejak A tetap satu baris sesudah percobaan B", jejakTetap?.length === 1 && jejakTetap[0].isi.asal === "gambar");
+  // Urungkan Simpan: kembali draft, jejak & thumbnail kembali ke draft-nya.
+  await A.sb.from("transactions").update({ status: "needs_review" }).eq("id", draftJ.id);
+  const { data: urungJ } = await A.sb.rpc("urungkan_jejak", { p_id: draftJ.id });
+  const { data: jejakUrung } = await A.sb.rpc("jejak_catat", { p_id: draftJ.id });
+  const { data: fotoDraftJ } = await A.sb.rpc("foto_draft", { p_id: draftJ.id });
+  cek("urungkan_jejak: jejak Simpan dihapus, thumbnail kembali ke draft", urungJ === true && !(jejakUrung ?? []).length && Buffer.from(fotoDraftJ ?? "", "base64").toString() === "thumb A");
+  await A.sb.rpc("tambah_jejak", { p_id: draftJ.id, p_isi: { asal: "gambar" } });
+  await A.sb.from("transactions").delete().eq("id", draftJ.id);
+  const { data: jejakHapus } = await A.sb.rpc("jejak_catat", { p_id: draftJ.id });
+  cek("jejak_catat terhapus bersama transaksinya", !(jejakHapus ?? []).length, JSON.stringify(jejakHapus));
 } catch (e) {
   gagal++;
   console.log("✗ GAGAL:", e.message);
 } finally {
   for (const id of akun) await admin.auth.admin.deleteUser(id);
-  console.log(`\n${gagal ? `${gagal} cek gagal` : "✓ isolasi antar akun: baca, ubah, hapus, tulis atas nama orang lain, fungsi, dan kolom rujukan (termasuk simpanan, deposito, impor rekening koran, deposito jatuh tempo & jadikan pindah)"} · akun uji dihapus`);
+  console.log(`\n${gagal ? `${gagal} cek gagal` : "✓ isolasi antar akun: baca, ubah, hapus, tulis atas nama orang lain, fungsi, dan kolom rujukan (termasuk simpanan, deposito, impor rekening koran, deposito jatuh tempo, jadikan pindah & jejak “Cara dicatat”)"} · akun uji dihapus`);
   process.exit(gagal ? 1 : 0);
 }
