@@ -382,11 +382,127 @@ try {
   cek("Anon tidak bisa memanggil catat_pemakaian_ai", Boolean(eAnonPakai) && anonPakai == null);
   const { data: tetapA } = await A.sb.rpc("pemakaian_ai_hari_ini", { p_model: MODEL_UJI });
   cek("Hitungan A tetap 3 sesudah percobaan B & anon", tetapA === 3, JSON.stringify(tetapA));
+
+  // --- Kartu usulan asisten (SPEC-asisten-agen §3): terapkan_usulan atomik, urungkan_aksi persis, isolasi.
+  const bank = await satu(A.sb.from("user_accounts").insert({ user_id: A.id, name: "Bank Usulan A", kind: "bank", emoji: "🏦", saldo_awal: 1000000, saldo_sejak: "2026-01-01T00:00:00+07:00" }));
+  const KOLOM_U = "id, amount, type, category, merchant, kantong_id, kantong_tujuan_id, status, ref_bank, ref_bank_tujuan, transaction_date, updated_at";
+  const baca = async (id) => (await A.sb.from("transactions").select(KOLOM_U).eq("id", id).maybeSingle()).data;
+  // updated_at dari insert lewat view selalu kosong (trigger instead of): dibaca ulang.
+  const txU = async (isi) => baca((await satu(A.sb.from("transactions").insert({ user_id: A.id, status: "confirmed", source: "text", transaction_date: hariIni, kantong_id: bank.id, category: "other", ...isi }))).id);
+  const grab = await txU({ amount: 100000, type: "expense", category: "food", merchant: "Grab" });
+  const rek = await txU({ amount: 50000, type: "expense", merchant: "Bank fee", source: "statement", ref_bank: "uji:usulan-rek" });
+  const topUpU = await txU({ amount: 200000, type: "expense", merchant: "Top Up DANA", source: "statement", ref_bank: "uji:usulan-top" });
+  const draftU = await baca((await satu(A.sb.from("transactions").insert({ user_id: A.id, status: "needs_review", source: "receipt", amount: 30000, type: "expense", category: "food", merchant: "Warung Usulan", transaction_date: hariIni }))).id);
+  const saldoU = async () => Object.fromEntries(((await A.sb.rpc("saldo_kantong")).data ?? []).map((s) => [s.id, Number(s.saldo)]));
+
+  // 1. Ubah transaksi → urungkan persis.
+  const { data: ubahU, error: eUbahU } = await A.sb.rpc("terapkan_usulan", { p: { jenis: "ubah_transaksi", ringkasan: "Grab → Transportasi", ubah: [{ id: grab.id, updated_at: grab.updated_at, isian: { category: "transport", merchant: "Grab Bike" } }] } });
+  const grabUbah = await baca(grab.id);
+  cek("terapkan_usulan ubah_transaksi: kategori & merchant berubah", !eUbahU && ubahU?.n === 1 && grabUbah?.category === "transport" && grabUbah?.merchant === "Grab Bike", JSON.stringify({ eUbahU, ubahU, grabUbah }));
+  for (const [siapa, sb] of [["B", B.sb], ["Anon", anon]]) {
+    const { error: eUrungLain } = await sb.rpc("urungkan_aksi", { p_id: ubahU?.aksi_id });
+    cek(`${siapa} tidak bisa mengurungkan aksi asisten A`, Boolean(eUrungLain));
+    const { error: eTerapLain } = await sb.rpc("terapkan_usulan", { p: { jenis: "ubah_transaksi", ubah: [{ id: grab.id, updated_at: grabUbah?.updated_at, isian: { category: "other" } }] } });
+    const { error: eHapusLain } = await sb.rpc("terapkan_usulan", { p: { jenis: "hapus", hapus: [{ id: grab.id, updated_at: grabUbah?.updated_at }] } });
+    cek(`${siapa} tidak bisa menerapkan usulan atas transaksi A (ubah & hapus)`, Boolean(eTerapLain) && Boolean(eHapusLain));
+    const { data: dAksi, error: eAksi } = await sb.from("aksi_asisten").select("*");
+    cek(`${siapa} tidak bisa membaca aksi_asisten`, Boolean(eAksi) || !(dAksi ?? []).length);
+  }
+  const { error: eKantongLain } = await B.sb.rpc("terapkan_usulan", { p: { jenis: "catat", sisip: [{ type: "expense", amount: 1000, category: "food", kantong_id: bank.id, transaction_date: hariIni }] } });
+  cek("B tidak bisa mencatat ke kantong A lewat usulan", Boolean(eKantongLain));
+  const grabTetap = await baca(grab.id);
+  cek("Transaksi A tetap sesudah percobaan B & anon", grabTetap?.category === "transport" && grabTetap?.updated_at === grabUbah?.updated_at);
+  const { data: urungU, error: eUrungU } = await A.sb.rpc("urungkan_aksi", { p_id: ubahU?.aksi_id });
+  const grabBalik = await baca(grab.id);
+  cek("urungkan_aksi: kategori & merchant kembali persis", !eUrungU && urungU?.n === 1 && grabBalik?.category === "food" && grabBalik?.merchant === "Grab", JSON.stringify({ eUrungU, grabBalik }));
+  const { error: eUrungDua } = await A.sb.rpc("urungkan_aksi", { p_id: ubahU?.aksi_id });
+  cek("urungkan_aksi dua kali: ditolak", Boolean(eUrungDua));
+
+  // 2. Atomik & validasi: baris kedua (nominal bank diubah) gagal → baris pertama juga tidak berubah.
+  const { error: eBankU } = await A.sb.rpc("terapkan_usulan", {
+    p: { jenis: "ubah_transaksi", ubah: [{ id: grab.id, updated_at: grabBalik.updated_at, isian: { category: "transport" } }, { id: rek.id, updated_at: rek.updated_at, isian: { amount: 60000 } }] },
+  });
+  const [grabAtom, rekAtom] = [await baca(grab.id), await baca(rek.id)];
+  cek("terapkan_usulan: nominal rekening koran diubah → ditolak, baris lain tidak ikut berubah", Boolean(eBankU) && /rekening koran/.test(eBankU?.message ?? "") && grabAtom?.category === "food" && Number(rekAtom?.amount) === 50000, JSON.stringify({ eBankU, grabAtom }));
+  const { error: eBasi } = await A.sb.rpc("terapkan_usulan", { p: { jenis: "ubah_transaksi", ubah: [{ id: grab.id, updated_at: grab.updated_at, isian: { category: "transport" } }] } });
+  cek("terapkan_usulan: transaksi sudah berubah sejak usulan → ditolak", /sudah berubah/.test(eBasi?.message ?? ""), JSON.stringify(eBasi));
+  const { error: eKatU } = await A.sb.rpc("terapkan_usulan", { p: { jenis: "ubah_transaksi", ubah: [{ id: grab.id, updated_at: grabBalik.updated_at, isian: { category: "kategori-tidak-ada" } }] } });
+  cek("terapkan_usulan: kategori yang tidak ada → ditolak", Boolean(eKatU));
+  const { error: eBanyak } = await A.sb.rpc("terapkan_usulan", { p: { jenis: "hapus", hapus: Array.from({ length: 201 }, () => ({ id: grab.id, updated_at: grabBalik.updated_at })) } });
+  cek("terapkan_usulan: lebih dari 200 transaksi → ditolak", /200/.test(eBanyak?.message ?? ""), JSON.stringify(eBanyak));
+
+  // 3. Buat kantong + jadikan pindah → saldo; urungkan → kantong baru hilang, transaksi kembali.
+  const saldoAwalU = await saldoU();
+  const { data: pindahU, error: ePindahU } = await A.sb.rpc("terapkan_usulan", {
+    p: { jenis: "jadikan_pindah", kantong_baru: { nama: "DANA Usulan", jenis: "ewallet", saldo_awal: 0, saldo_sejak: "2026-01-01T00:00:00+07:00" }, pindah: [{ id: topUpU.id, updated_at: topUpU.updated_at, ke: "baru" }] },
+  });
+  const topSesudah = await baca(topUpU.id);
+  const saldoPindahU = await saldoU();
+  cek(
+    "terapkan_usulan jadikan_pindah + kantong baru: top up jadi pindah kantong, saldo bank tetap, DANA bertambah",
+    !ePindahU && pindahU?.kantong_baru && topSesudah?.type === "transfer" && topSesudah?.kantong_tujuan_id === pindahU.kantong_baru && topSesudah?.merchant === "Pindah ke DANA Usulan" &&
+      saldoPindahU[bank.id] === saldoAwalU[bank.id] && saldoPindahU[pindahU.kantong_baru] === 200000,
+    JSON.stringify({ ePindahU, pindahU, topSesudah }),
+  );
+  const { error: eUrungPindah } = await A.sb.rpc("urungkan_aksi", { p_id: pindahU?.aksi_id });
+  const topBalik = await baca(topUpU.id);
+  const { data: danaHilang } = await A.sb.from("user_accounts").select("id").eq("id", pindahU?.kantong_baru ?? A.id);
+  cek("urungkan_aksi jadikan_pindah: kembali pengeluaran, kantong baru dihapus", !eUrungPindah && topBalik?.type === "expense" && topBalik?.kantong_tujuan_id === null && topBalik?.ref_bank === "uji:usulan-top" && !(danaHilang ?? []).length, JSON.stringify({ eUrungPindah, topBalik, danaHilang }));
+
+  // 4. Hapus: rekening koran tanpa kembaran ditolak; transaksi biasa → urungkan mengembalikan id yang sama.
+  const { error: eHapusRek } = await A.sb.rpc("terapkan_usulan", { p: { jenis: "hapus", hapus: [{ id: rek.id, updated_at: rek.updated_at }] } });
+  cek("terapkan_usulan hapus: transaksi rekening koran tanpa kembaran → ditolak", /kembaran/.test(eHapusRek?.message ?? ""), JSON.stringify(eHapusRek));
+  const kembar = await txU({ amount: 50000, type: "expense", merchant: "Bank fee (ketik)" });
+  const { data: hapusU, error: eHapusU } = await A.sb.rpc("terapkan_usulan", { p: { jenis: "hapus", hapus: [{ id: kembar.id, updated_at: kembar.updated_at }] } });
+  const hilang = await baca(kembar.id);
+  await A.sb.rpc("urungkan_aksi", { p_id: hapusU?.aksi_id });
+  const kembali = await baca(kembar.id);
+  cek("terapkan_usulan hapus → urungkan: transaksi kembali dengan id & merchant yang sama", !eHapusU && !hilang && kembali?.merchant === "Bank fee (ketik)" && Number(kembali?.amount) === 50000, JSON.stringify({ eHapusU, kembali }));
+
+  // 5. Selesaikan draft & catat baru → urungkan.
+  const { data: draftSel, error: eDraftSel } = await A.sb.rpc("terapkan_usulan", { p: { jenis: "selesaikan_draft", draft: [{ id: draftU.id, updated_at: draftU.updated_at, isian: { kantong_id: bank.id, waktu: "12:30" } }] } });
+  const draftSesudah = await baca(draftU.id);
+  await A.sb.rpc("urungkan_aksi", { p_id: draftSel?.aksi_id });
+  const draftBalik = await baca(draftU.id);
+  cek("selesaikan_draft: tersimpan dengan kantongnya; urungkan → kembali draft", !eDraftSel && draftSesudah?.status === "confirmed" && draftSesudah?.kantong_id === bank.id && draftBalik?.status === "needs_review" && draftBalik?.kantong_id === null, JSON.stringify({ eDraftSel, draftSesudah, draftBalik }));
+  const { data: catatU, error: eCatatU } = await A.sb.rpc("terapkan_usulan", { p: { jenis: "catat", sisip: [{ type: "expense", amount: 25000, category: "food", merchant: "Bakso Usulan", kantong_id: bank.id, transaction_date: hariIni, teks: "tadi bakso 25rb" }] } });
+  const { data: baksoAda } = await A.sb.from("transactions").select("id, source").eq("merchant", "Bakso Usulan");
+  const { error: eUrungCatat } = await A.sb.rpc("urungkan_aksi", { p_id: catatU?.aksi_id });
+  const { data: baksoHilang } = await A.sb.from("transactions").select("id").eq("merchant", "Bakso Usulan");
+  cek("catat: transaksi baru (ketikan) → urungkan menghapusnya", !eCatatU && baksoAda?.length === 1 && baksoAda[0].source === "text" && !eUrungCatat && !(baksoHilang ?? []).length, JSON.stringify({ eCatatU, baksoAda, eUrungCatat }));
+
+  // 6. Urungkan ditolak bila barisnya sudah diubah lagi.
+  const grabKini = await baca(grab.id);
+  const { data: ubahLagi } = await A.sb.rpc("terapkan_usulan", { p: { jenis: "ubah_transaksi", ubah: [{ id: grab.id, updated_at: grabKini.updated_at, isian: { category: "shopping" } }] } });
+  await A.sb.from("transactions").update({ description: "diubah sendiri" }).eq("id", grab.id);
+  const { error: eUrungBerubah } = await A.sb.rpc("urungkan_aksi", { p_id: ubahLagi?.aksi_id });
+  const grabAkhir = await baca(grab.id);
+  cek("urungkan_aksi: baris sudah diubah lagi → ditolak, tidak ada yang berubah", /diubah lagi/.test(eUrungBerubah?.message ?? "") && grabAkhir?.category === "shopping", JSON.stringify({ eUrungBerubah, grabAkhir }));
+
+  // --- Riwayat percakapan Tanya AI (P4): terenkripsi, hanya pemilik.
+  const pesanA = [{ peran: "saya", teks: "Rahasia obrolan A" }, { peran: "ai", teks: "Jawaban A" }];
+  const { data: obrolanA, error: eObrolan } = await A.sb.rpc("simpan_obrolan", { p_id: null, p_judul: "Rahasia obrolan A", p_pesan: pesanA });
+  const { data: daftarA } = await A.sb.rpc("daftar_obrolan");
+  const { data: bukaA } = await A.sb.rpc("buka_obrolan", { p_id: obrolanA });
+  cek("simpan/daftar/buka obrolan: pemilik membaca percakapannya", !eObrolan && daftarA?.length === 1 && daftarA[0].judul === "Rahasia obrolan A" && bukaA?.[0]?.pesan?.[0]?.teks === "Rahasia obrolan A", JSON.stringify({ eObrolan, daftarA, bukaA }));
+  for (const [siapa, sb] of [["B", B.sb], ["Anon", anon]]) {
+    const { data: dB } = await sb.rpc("daftar_obrolan");
+    const { data: bB } = await sb.rpc("buka_obrolan", { p_id: obrolanA });
+    cek(`${siapa} tidak bisa membaca obrolan A`, !(dB ?? []).length && !(bB ?? []).length, JSON.stringify({ dB, bB }));
+    const { error: eTimpa } = await sb.rpc("simpan_obrolan", { p_id: obrolanA, p_judul: "palsu", p_pesan: [] });
+    const { data: hB } = await sb.rpc("hapus_obrolan", { p_id: obrolanA });
+    cek(`${siapa} tidak bisa menimpa atau menghapus obrolan A`, Boolean(eTimpa) && hB !== true);
+    const { data: tabel, error: eTabel } = await sb.from("obrolan_asisten").select("*");
+    cek(`${siapa} tidak bisa membaca tabel obrolan_asisten`, Boolean(eTabel) || !(tabel ?? []).length);
+  }
+  const { data: masihA } = await A.sb.rpc("buka_obrolan", { p_id: obrolanA });
+  const { data: hapusObrolan } = await A.sb.rpc("hapus_obrolan", { p_id: obrolanA });
+  cek("Obrolan A utuh sesudah percobaan B & anon, lalu bisa dihapus pemiliknya", masihA?.[0]?.judul === "Rahasia obrolan A" && hapusObrolan === true);
 } catch (e) {
   gagal++;
   console.log("✗ GAGAL:", e.message);
 } finally {
   for (const id of akun) await admin.auth.admin.deleteUser(id);
-  console.log(`\n${gagal ? `${gagal} cek gagal` : "✓ isolasi antar akun: baca, ubah, hapus, tulis atas nama orang lain, fungsi, dan kolom rujukan (termasuk simpanan, deposito, impor rekening koran, deposito jatuh tempo, jadikan pindah, jejak “Cara dicatat” & pemakaian AI)"} · akun uji dihapus`);
+  console.log(`\n${gagal ? `${gagal} cek gagal` : "✓ isolasi antar akun: baca, ubah, hapus, tulis atas nama orang lain, fungsi, dan kolom rujukan (termasuk simpanan, deposito, impor rekening koran, deposito jatuh tempo, jadikan pindah, jejak “Cara dicatat”, pemakaian AI, kartu usulan asisten & riwayat obrolan)"} · akun uji dihapus`);
   process.exit(gagal ? 1 : 0);
 }
