@@ -26,11 +26,18 @@ docs/specs/SPEC-catat-tuntas.md (fase 1 & 2 selesai di 2.4.0, fase 3 di 2.5.0, f
 - **"Kok saldo BRI beda sama bank?"** Asisten membandingkan saldo aplikasi dengan saldo di rekening koran terakhir (atau saldo bank yang kamu sebut), lalu menunjukkan calon penyebabnya: transaksi dobel, pindah kantong yang tercatat sebagai pengeluaran + pemasukan, top up yang tampaknya ke rekening sendiri, transaksi sesudah rekening koran, dan draft yang belum disimpan.
 - **"Ada yang perlu dirapikan?"** Asisten mendaftar yang perlu dibereskan, termasuk top up e-wallet yang kantongnya belum ada (mis. top up DANA yang tercatat sebagai pengeluaran).
 - Langkah yang sedang dikerjakan tampil selama asisten bekerja ("Mencari top up DANA…", "Memeriksa saldo BRI…"). Pertanyaan yang terlalu panjang dijawab dengan yang sudah ditemukan, dengan tombol **Lanjutkan**.
+- **Tanya AI bisa merapikan, lewat kartu** (SPEC-asisten-agen, tahap B). Minta "jadikan semua Grab bulan ini kategori Transportasi", "rapikan top up DANA-ku", "hapus Indomaret yang dobel", "selesaikan draft Warung", atau "tadi makan bakso 25rb pakai GoPay, catat ya": asisten menyiapkan **kartu usulan** berisi apa yang berubah (sebelum → sesudah), jumlah & total transaksinya, dan saldo kantong sebelum → sesudah. Tidak ada yang berubah sampai kamu menekan **Terapkan**; satu kartu diterapkan utuh atau tidak sama sekali (paling banyak 200 transaksi).
+- **Urungkan** di kartu yang sudah diterapkan mengembalikan semuanya persis, kapan saja, selama transaksinya belum kamu ubah lagi. Kantong yang dibuat kartu itu ikut dihapus bila tidak dipakai lagi.
+- Top up e-wallet yang kantongnya belum ada bisa dibereskan dengan satu kartu: buat kantong DANA (saldo awalnya dihitung supaya tidak minus) sekaligus jadikan top up-nya pindah kantong. Sisi lain yang sudah tercatat di kantong tujuan digabung jadi satu pindah kantong.
+- **Riwayat percakapan Tanya AI**, seperti ChatGPT: percakapan tersimpan (terenkripsi) dengan judul dari pertanyaan pertama, bisa dibuka lagi, dilanjutkan, dan dihapus; tombol **Percakapan baru**. Di HP, tombol riwayat & percakapan baru ada di kanan atas lembar Tanya AI; di layar lebar (≥ 1280 px) daftarnya di samping obrolan. Keadaan kartu usulan (diterapkan/diurungkan) ikut tersimpan.
 - Pertanyaan berat (mencari penyebab, merapikan, rentang panjang) otomatis dijawab model AI yang lebih besar, tanpa tombol. Bila kuota harian model besar habis, jawabannya dari model ringan dengan catatan kecil "Dijawab model ringan, kuota model besar hari ini habis."; bila model besar sedang sibuk atau lambat, "Dijawab model ringan, model besar sedang sibuk."
 
 ### Diubah
 - Tanya AI kini paham cara kerja aplikasinya (kantong, pindah kantong, rekening koran, draft, perlu dilengkapi) dan mengingat sampai 20 pesan obrolan. Pertanyaan boleh sampai 1.000 karakter.
-- Asisten masih hanya membaca dan menjelaskan; perubahan data selain usulan ubah kategori belum bisa dilakukan lewat Tanya AI.
+- "Cara dicatat" menyebut transaksi yang dicatat atau disimpan lewat kartu Tanya AI.
+
+### Diperbaiki
+- Tanya AI tidak lagi menandai nominal seperti "Rp 358.000 menjadi Rp 333.000" sebagai angka yang belum pasti (huruf "m" di awal kata sesudahnya terbaca sebagai "miliar").
 
 ## [2.15.0] — 2026-11-09
 
