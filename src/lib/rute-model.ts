@@ -24,13 +24,13 @@ const UBAH =
 
 // Mencari penyebab masalah data/saldo (bukan "kenapa boros").
 const PENYEBAB =
-  /\b(beda|selisih|ga sama|gak sama|nggak sama|tidak sama|ngga sama|tidak cocok|gak cocok|ga cocok|nggak cocok)\b[^.?!]{0,40}\b(bank|m-?banking|rekening( koran)?|aplikasi|saldo|dana|gopay|ovo|shopeepay|seabank|jago|bri|bca|bni|mandiri)\b|\b(dobel|double|ganda|kembar|duplikat|hilang|kelewat|terlewat|nyasar|ketinggalan)\b|\bsaldo\b[^.?!]{0,40}\b(salah|aneh|minus|kurang|lebih|ga bener|nggak bener|tidak benar)\b/i;
+  /\b(beda|selisih|ga sama|gak sama|nggak sama|tidak sama|ngga sama|tidak cocok|gak cocok|ga cocok|nggak cocok)\b[^?!]{0,40}\b(bank|m-?banking|rekening( koran)?|aplikasi|saldo|dana|gopay|ovo|shopeepay|seabank|jago|bri|bca|bni|mandiri)\b|\b(bank|m-?banking|rekening koran|mutasi)\b[^?!]{0,60}\b(beda|selisih|ga sama|gak sama|nggak sama|tidak sama|ngga sama|tidak cocok|gak cocok|ga cocok|nggak cocok)\b|\b(dobel|double|ganda|kembar|duplikat|hilang|kelewat|terlewat|nyasar|ketinggalan)\b|\bsaldo\b[^?!]{0,40}\b(salah|aneh|minus|kurang|lebih|ga bener|nggak bener|tidak benar)\b/i;
 
 // "kenapa/kok" + topik data (bukan pengeluaran bulanan).
-const KENAPA_DATA = /\b(kenapa|mengapa|kok)\b[^.?!]{0,60}\b(saldo|tercatat|dicatat|masuk ke|jadi pengeluaran|jadi pemasukan|pindah kantong|rekening koran|impor|kantong)\b/i;
+const KENAPA_DATA = /\b(kenapa|mengapa|kok)\b[^?!]{0,60}\b(saldo|tercatat|dicatat|masuk ke|jadi pengeluaran|jadi pemasukan|pindah kantong|rekening koran|impor|kantong)\b/i;
 
 // Membandingkan beberapa kantong.
-const BANDING_KANTONG = /\b(banding(kan|in)?|vs|versus)\b[^.?!]{0,60}\b(semua kantong|antar ?kantong|kantong-kantong|tiap kantong|setiap kantong|per kantong)\b/i;
+const BANDING_KANTONG = /\b(banding(kan|in)?|vs|versus)\b[^?!]{0,60}\b(semua kantong|antar ?kantong|kantong-kantong|tiap kantong|setiap kantong|per kantong)\b/i;
 
 // Rentang waktu panjang: lebih dari 3 bulan, dari awal, setahun.
 const RENTANG = /\b(dari awal|sejak awal|semua waktu|sepanjang waktu|selama ini|setahun|satu tahun|1 tahun|tahun ini|tahun lalu|per bulan sepanjang|tiap bulan sepanjang)\b/i;

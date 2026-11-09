@@ -155,10 +155,61 @@ const KASUS = [
     // Tidak ada "500.000" (saldo sendiri) sebelum "2.500.000".
     pola: /^(?:(?!(?<![\d.])500\.000)[\s\S])*2\.500\.000/,
   },
+  // --- Asisten agen tahap A (SPEC-asisten-agen): alat baca baru. Data khusus kasus dibuang lagi sesudahnya.
+  // Skenario DANA (data buatan): top up BCA → DANA tercatat sebagai pengeluaran karena kantong DANA belum ada.
+  // Asisten harus menemukannya (cari_kejanggalan / cari) dan menjelaskan bahwa itu seharusnya pindah kantong.
+  {
+    tanya: "kenapa top up DANA-ku tercatat jadi pengeluaran?",
+    siapkan: async ({ sb, tx, bca }) => {
+      const { data } = await sb
+        .from("transactions")
+        .insert([
+          tx(150000, "expense", "other", "Top Up DANA", tgl(B, 5), bca.id, { source: "statement", description: "Top Up DANA 0812xxxx345 BUDX SAXXXXX via BRImo", ref_bank: "uji-eval:dana-1" }),
+        ])
+        .select("id");
+      return () => sb.from("transactions").delete().in("id", data.map((x) => x.id));
+    },
+    harus: [150000],
+    pola: /kantong DANA[\s\S]*(pindah|belum)|(pindah|belum)[\s\S]*kantong DANA/i,
+  },
+  // periksa_saldo: transaksi dobel (ketikan + rekening koran) membuat saldo aplikasi kurang Rp 150.000 dari bank.
+  // BCA aplikasi 24.900.000 − 2 × 150.000 = 24.600.000; bank (disebut user) 24.750.000 → selisih 150.000 = dobelnya.
+  {
+    tanya: "saldo BCA di m-banking Rp 24.750.000, kok di aplikasi beda?",
+    siapkan: async ({ sb, tx, bca }) => {
+      const { data } = await sb
+        .from("transactions")
+        .insert([
+          tx(150000, "expense", "shopping", "Indomaret", tgl(B, 6), bca.id),
+          tx(150000, "expense", "shopping", "Indomaret", tgl(B, 6), bca.id, { source: "statement", ref_bank: "uji-eval:dobel-1" }),
+        ])
+        .select("id");
+      return () => sb.from("transactions").delete().in("id", data.map((x) => x.id));
+    },
+    harus: [150000],
+    pola: /(dobel|dua kali|ganda|double|kembar)/i,
+  },
+  // cari_kejanggalan tanpa kata "rapikan" (tetap mulai di model ringan): draft tertahan & top up tanpa kantong.
+  {
+    tanya: "ada catatan yang masih perlu kuberesin nggak?",
+    siapkan: async ({ sb, tx, bca, uid }) => {
+      const { data } = await sb
+        .from("transactions")
+        .insert([
+          tx(150000, "expense", "other", "Top Up DANA", tgl(B, 5), bca.id, { source: "statement", description: "Top Up DANA 0812xxxx345 BUDX SAXXXXX via BRImo", ref_bank: "uji-eval:dana-2" }),
+          { user_id: uid, status: "needs_review", source: "receipt", amount: 0, type: "expense", category: "other", merchant: "Struk buram", transaction_date: tgl(B, 7) },
+        ])
+        .select("id");
+      return () => sb.from("transactions").delete().in("id", data.map((x) => x.id));
+    },
+    harus: [],
+    pola: /DANA[\s\S]*(draft|belum selesai)|(draft|belum selesai)[\s\S]*DANA/i,
+  },
 ];
 
 let uid;
 let lulus = 0;
+const model = {};
 try {
   const { data: u, error } = await admin.auth.admin.createUser({ email: EMAIL, password: SANDI, email_confirm: true, user_metadata: { onboarding_selesai: new Date().toISOString() } });
   if (error) throw error;
@@ -228,11 +279,12 @@ try {
     if (bersihkan) await bersihkan();
     if (k.metode) await sb.from("metode_budget").upsert(METODE_AWAL);
     if (ok) lulus++;
-    console.log(`${ok ? "✓" : "✗"} ${k.tanya}  (${((Date.now() - t) / 1000).toFixed(1)} dtk)\n    ${teks}${kurang.length ? `\n    kurang: ${kurang.map(rp).join(", ")}` : ""}${d.ragu ? `\n    ragu: ${(d.nominal_ragu ?? []).map(rp).join(", ") || "ada nominal tak terverifikasi"}` : ""}`);
+    model[d.model ?? "?"] = (model[d.model ?? "?"] ?? 0) + 1;
+    console.log(`${ok ? "✓" : "✗"} ${k.tanya}  (${((Date.now() - t) / 1000).toFixed(1)} dtk · model ${d.model ?? "?"}${d.catatan ? " · " + d.catatan : ""})\n    ${teks}${kurang.length ? `\n    kurang: ${kurang.map(rp).join(", ")}` : ""}${d.ragu ? `\n    ragu: ${(d.nominal_ragu ?? []).map(rp).join(", ") || "ada nominal tak terverifikasi"}` : ""}`);
   }
 } catch (e) {
   console.log("GAGAL:", e.message);
 } finally {
   if (uid) await admin.auth.admin.deleteUser(uid);
-  console.log(`\nSkor: ${lulus}/${KASUS.length}${uid ? " · akun uji dihapus" : ""}`);
+  console.log(`\nSkor: ${lulus}/${KASUS.length} · model yang menjawab: ${JSON.stringify(model)}${uid ? " · akun uji dihapus" : ""}`);
 }

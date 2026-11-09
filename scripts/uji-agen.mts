@@ -39,6 +39,7 @@ for (const [q, alasan] of [
   ["kenapa top up DANA tercatat jadi pengeluaran?", "penyebab"],
   ["ada transaksi yang dobel ga?", "penyebab"],
   ["uang 50rb hilang", "penyebab"],
+  ["saldo BCA di m-banking Rp 24.750.000, kok di aplikasi beda?", "penyebab"],
   ["bandingkan semua kantong", "banding"],
   ["pengeluaran 6 bulan terakhir per kategori", "rentang"],
   ["total belanja dari awal", "rentang"],
