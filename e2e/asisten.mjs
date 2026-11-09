@@ -137,8 +137,9 @@ try {
       item.click();
       await sampai(() => /Diurungkan, semuanya kembali/.test(dialog().innerText), 20); await t(300);
       return { tombolRiwayatTampil, sampingObrolan, ukuran, ikonTanpaLabel, teks: dialog().querySelector('[class*=gptPesan]').innerText, gulirSamping: document.documentElement.scrollWidth > innerWidth + 1 }`);
-    cek(`${lebar}: daftar percakapan (${lebar < 1024 ? "lewat tombol riwayat, menggantikan isi" : "di samping obrolan"}) → buka yang lama: pesannya & kartu "Diurungkan" kembali`,
-      lama && (lebar < 1024 ? lama.tombolRiwayatTampil && !lama.sampingObrolan : !lama.tombolRiwayatTampil && lama.sampingObrolan) &&
+    // Di bawah 1280 px (termasuk 1024) daftar lewat tombol riwayat & menggantikan isi; ≥ 1280 di samping (dicek di bawah).
+    cek(`${lebar}: daftar percakapan lewat tombol riwayat (menggantikan isi) → buka yang lama: pesannya & kartu "Diurungkan" kembali`,
+      lama && lama.tombolRiwayatTampil && !lama.sampingObrolan &&
         lama.teks.includes(judulLama) && /Diurungkan, semuanya kembali/.test(lama.teks) && !lama.teks.includes(`catatan kedua ${lebar}`) &&
         lama.ukuran.every((h) => h >= 44) && lama.ikonTanpaLabel === 0 && !lama.gulirSamping,
       JSON.stringify(lama));
@@ -167,6 +168,17 @@ try {
     cek(`${lebar}: hapus percakapan (dengan konfirmasi) → hilang dari daftar`, hapus?.tanya && daftarAkhir.length === daftarTiga.length - 1 && !daftarAkhir.some((o) => o.judul === `catatan kedua ${lebar}`), JSON.stringify({ hapus, daftarAkhir }));
     await langkah("tutup", `dialog()?.dispatchEvent(new Event('cancel', { cancelable: true })); await t(500); return 'ok'`);
   }
+
+  // Layar ≥ 1280 px: daftar percakapan selalu di samping obrolan, tanpa tombol riwayat, tanpa gulir samping.
+  await ukur(1440);
+  await buka(`${base}/`, 6000);
+  const samping = await langkah("daftar di samping di 1440", `
+    document.querySelector('button[aria-label="Tanya AI soal keuanganmu"]').click(); await sampai(() => dialog()?.querySelector('textarea'));
+    await sampai(() => dialog().querySelector('ul[aria-label="Percakapan tersimpan"]'), 20);
+    const lebarDaftar = dialog().querySelector('ul[aria-label="Percakapan tersimpan"]').getBoundingClientRect().width;
+    return { lebarDaftar, obrolan: dialog().querySelector('[class*=gptRuang]').getBoundingClientRect().width, tombol: dialog().querySelector('button[aria-label="Riwayat percakapan"]').getBoundingClientRect().width, gulirSamping: document.documentElement.scrollWidth > innerWidth + 1 }`);
+  cek("1440: daftar percakapan di samping obrolan, tombol riwayat tersembunyi", samping && samping.lebarDaftar > 100 && samping.obrolan > 300 && samping.tombol === 0 && !samping.gulirSamping, JSON.stringify(samping));
+  await foto("asisten-samping-1440.png");
 
   cek("tidak ada error console", masalah.length === 0, JSON.stringify(masalah));
 } catch (e) {

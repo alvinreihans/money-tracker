@@ -1547,7 +1547,8 @@ button.blok { background: var(--blok); }
 .dialogKepalaAksi { margin-left: auto; display: flex; align-items: center; }
 
 /* Tanya AI + riwayat percakapan (SPEC-asisten-agen P4). HP: daftar menggantikan
-   isi lembar saat tombol riwayat ditekan. Layar ≥ 1024 px: daftar di samping. */
+   isi lembar saat tombol riwayat ditekan (juga 840–1279 px: halaman di sebelah
+   panel tidak cukup lebar). Layar ≥ 1280 px: daftar di samping. */
 .tanyaTata { display: flex; min-height: 100%; min-width: 0; }
 .tanyaTata > .gptRuang { flex: 1; min-width: 0; }
 .tanyaSamping { display: none; min-width: 0; }
@@ -1572,7 +1573,7 @@ button.blok { background: var(--blok); }
 .gptAI .kartuAksiBaris small { margin-top: 0; }
 .kartuAksiLihat { justify-self: start; min-height: 44px; }
 
-@media (min-width: 1024px) {
+@media (min-width: 1280px) {
   :root:has(.dialogSamping[open]:not(:modal) .tanyaTata) { --panel: 584px; }
   .dialogSamping:not(:modal) .tanyaSamping {
     display: block; flex: 0 0 184px; width: 184px; position: sticky; top: 0; align-self: flex-start;

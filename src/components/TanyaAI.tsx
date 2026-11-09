@@ -580,7 +580,7 @@ function DaftarObrolan({
  * lebar jadi panel di kanan supaya grafik tetap terlihat.
  *
  * Riwayat percakapan (P4): di HP tombol riwayat & Percakapan baru di kanan
- * atas, daftarnya menggantikan isi lembar; di layar lebar (≥ 1024 px) daftar
+ * atas, daftarnya menggantikan isi lembar; di layar lebar (≥ 1280 px) daftar
  * selalu di samping obrolan.
  */
 function TanyaAI({
