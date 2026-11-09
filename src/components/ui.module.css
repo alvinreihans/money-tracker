@@ -1543,6 +1543,50 @@ button.blok { background: var(--blok); }
 .gptMemuat:has(.gptLangkah) span { margin-top: 4px; flex-shrink: 0; }
 .gptLangkah { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; font-size: 14px; min-width: 0; overflow-wrap: anywhere; }
 
+/* Tombol ikon di kanan kepala lembar (riwayat & percakapan baru Tanya AI). */
+.dialogKepalaAksi { margin-left: auto; display: flex; align-items: center; }
+
+/* Tanya AI + riwayat percakapan (SPEC-asisten-agen P4). HP: daftar menggantikan
+   isi lembar saat tombol riwayat ditekan. Layar ≥ 1024 px: daftar di samping. */
+.tanyaTata { display: flex; min-height: 100%; min-width: 0; }
+.tanyaTata > .gptRuang { flex: 1; min-width: 0; }
+.tanyaSamping { display: none; min-width: 0; }
+.tanyaTataRiwayat > .tanyaSamping { display: block; flex: 1; }
+.tanyaTataRiwayat > .gptRuang { display: none; }
+.riwayatObrolan { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 2px; }
+.riwayatObrolan > li { display: flex; align-items: center; gap: 2px; min-width: 0; }
+.riwayatObrolanBuka {
+  flex: 1; min-width: 0; min-height: 52px; display: flex; flex-direction: column; justify-content: center; gap: 2px;
+  padding: 6px 12px; border: 0; border-radius: 14px; background: transparent; color: var(--teks); font-size: 15px; text-align: left; cursor: pointer;
+}
+.riwayatObrolanBuka span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.riwayatObrolanBuka small { font-size: 12px; }
+.riwayatObrolanBuka[aria-current="true"] { background: var(--blok-2); }
+.riwayatObrolan > li.riwayatObrolanHapus { flex-direction: column; align-items: stretch; gap: 4px; padding: 8px 12px; border-radius: 14px; background: var(--blok-2); font-size: 14px; overflow-wrap: anywhere; }
+.riwayatObrolanKosong { margin: 0; padding: 16px 12px; }
+
+/* Kartu usulan alat ubah (SPEC-asisten-agen §3). */
+.kartuAksiJudul { font-weight: 600; }
+.kartuAksiBaris, .kartuAksiSaldo { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; font-size: 14px; line-height: 1.4; overflow-wrap: anywhere; }
+.kartuAksiBaris li { display: grid; gap: 1px; }
+.gptAI .kartuAksiBaris small { margin-top: 0; }
+.kartuAksiLihat { justify-self: start; min-height: 44px; }
+
+@media (min-width: 1024px) {
+  :root:has(.dialogSamping[open]:not(:modal) .tanyaTata) { --panel: 584px; }
+  .dialogSamping:not(:modal) .tanyaSamping {
+    display: block; flex: 0 0 184px; width: 184px; position: sticky; top: 0; align-self: flex-start;
+    max-height: calc(100dvh - 96px); overflow-y: auto; margin-right: 8px; padding-right: 6px; border-right: 1px solid var(--garis);
+  }
+  .dialogSamping:not(:modal) .tanyaTata > .gptRuang { display: flex; }
+  .dialogSamping:not(:modal) .tanyaTombolRiwayat { display: none; }
+}
+
+@media (min-width: 1480px) {
+  :root:has(.dialogSamping[open]:not(:modal) .tanyaTata) { --panel: 660px; }
+  .dialogSamping:not(:modal) .tanyaSamping { flex-basis: 240px; width: 240px; }
+}
+
 /* ---------- Layar lebar: tablet, Fold, desktop (SPEC-layar-lebar) ---------- */
 
 /* Mengikuti panduan layar lebar Samsung. Ringkas (< 600px): semua di atas
