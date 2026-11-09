@@ -33,6 +33,7 @@ docs/specs/SPEC-catat-tuntas.md (fase 1 & 2 selesai di 2.4.0, fase 3 di 2.5.0, f
 - Pertanyaan berat (mencari penyebab, merapikan, rentang panjang) otomatis dijawab model AI yang lebih besar, tanpa tombol. Bila kuota harian model besar habis, jawabannya dari model ringan dengan catatan kecil "Dijawab model ringan, kuota model besar hari ini habis."; bila model besar sedang sibuk atau lambat, "Dijawab model ringan, model besar sedang sibuk."
 
 ### Diubah
+- **"X itu kategori Y" di Tanya AI memakai kartu usulan yang sama** dengan kartu lain: baris sebelum → sesudah, **Terapkan**, lalu **Urungkan** kapan saja (bukan hanya selama kartunya terbuka) selama transaksinya belum diubah lagi. Kategori baru yang dibuat kartu itu ikut dihapus saat diurungkan bila tidak dipakai lagi. Kartu ubah kategori lama di riwayat percakapan tampil tanpa tombol.
 - Tanya AI kini paham cara kerja aplikasinya (kantong, pindah kantong, rekening koran, draft, perlu dilengkapi) dan mengingat sampai 20 pesan obrolan. Pertanyaan boleh sampai 1.000 karakter.
 - "Cara dicatat" menyebut transaksi yang dicatat atau disimpan lewat kartu Tanya AI.
 

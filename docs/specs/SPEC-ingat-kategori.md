@@ -62,6 +62,8 @@ Koreksi di obrolan sudah ada: setelah transaksi tersimpan, user mengetik "bukan,
 
 User bisa menulis ke Tanya AI: "waitenjoy itu laundry, tolong betulkan" atau "transfer ke Dnid Ridx Dana itu makan di warteg".
 
+> **Diganti 10 Nov 2026** (SPEC-asisten-agen keputusan 35): kartunya kini kartu usulan biasa Tanya AI (**Batal / Terapkan**, lalu **Urungkan** kapan saja) lewat RPC `terapkan_usulan` / `urungkan_aksi`, bukan `POST /api/kategori-merchant`; kategori baru ikut dibuat di usulan yang sama dan ikut dihapus saat Urungkan bila tidak dipakai lagi. Pencarian transaksinya (`cariSerupa`, jenis yang lebih banyak) dan aturan kategori baru di bawah tetap. Kartu bentuk lama di riwayat percakapan tampil tanpa tombol.
+
 - **AI hanya mengusulkan, user yang menyetujui.** Tanya AI tetap tidak mengubah data sendiri.
 - **Fungsi baru `usul_ubah_kategori(merchant, kategori, kelompok?)`:**
   - `kategori` boleh slug atau nama (maks 30 karakter); `kelompok` hanya untuk kategori pengeluaran baru;
