@@ -1539,6 +1539,9 @@ button.blok { background: var(--blok); }
 .tombolAI:active { transform: scale(0.94); }
 .gptMemuat { display: flex; align-items: center; gap: 10px; }
 .gptMemuat p { margin: 0; font-size: 14px; }
+.gptMemuat:has(.gptLangkah) { align-items: flex-start; }
+.gptMemuat:has(.gptLangkah) span { margin-top: 4px; flex-shrink: 0; }
+.gptLangkah { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; font-size: 14px; min-width: 0; overflow-wrap: anywhere; }
 
 /* ---------- Layar lebar: tablet, Fold, desktop (SPEC-layar-lebar) ---------- */
 

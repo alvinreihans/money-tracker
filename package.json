@@ -29,6 +29,7 @@
     "uji:waktu": "tsx scripts/uji-waktu.mts",
     "uji:riwayat": "tsx scripts/uji-riwayat.mts",
     "uji:tanya": "tsx scripts/uji-tanya.mts",
+    "uji:agen": "tsx scripts/uji-agen.mts",
     "eval:tanya": "node --env-file=.env.local scripts/eval-tanya.mjs",
     "eval:lengkapi": "tsx --env-file=.env.local scripts/eval-lengkapi.mts",
     "e2e": "node --env-file-if-exists=.env.local e2e/jalankan.mjs",

@@ -10,11 +10,16 @@ import { kembalikanKategori, ubahKategoriMerchant, type HasilUbahKategori } from
 import s from "@/components/ui.module.css";
 import { isoLokal, namaBulan } from "@/lib/format";
 import { geserBulan } from "@/lib/kalender";
-import type { UsulanKategori } from "@/lib/tanya-server";
+import { pengurai, TIPE_ALIR } from "@/lib/alir";
+import type { HasilTanya, UsulanKategori } from "@/lib/tanya-server";
+
+/** Batas yang sama dengan server (SPEC-asisten-agen §5). */
+const MAKS_PERTANYAAN = 1000;
+const MAKS_RIWAYAT = 20;
 
 type Pesan =
   | { peran: "saya"; teks: string }
-  | { peran: "ai"; teks: string; tautan: { label: string; href: string }[]; ragu: boolean; usulan?: UsulanKategori }
+  | { peran: "ai"; teks: string; tautan: { label: string; href: string }[]; ragu: boolean; usulan?: UsulanKategori; catatan?: string; lanjutkan?: boolean }
   | { peran: "galat"; teks: string };
 
 /** Ikon sparkle bergradasi (tombol melayang & layar kosong). Gradasinya didefinisikan sekali. */
@@ -138,35 +143,28 @@ export function TanyaProvider({ children }: { children: React.ReactNode }) {
   const [pesan, setPesan] = useState<Pesan[]>([]);
   const [teks, setTeks] = useState("");
   const [sibuk, setSibuk] = useState(false);
+  // Langkah yang sedang dikerjakan asisten (dialirkan server, SPEC-asisten-agen §5).
+  const [langkah, setLangkah] = useState<string[]>([]);
+  // Percakapan ini sudah naik ke model besar: lanjutannya tetap di sana (§1). Tidak ditampilkan (P8).
+  const [berat, setBerat] = useState(false);
   const bulan = bulanHalaman ?? isoLokal(new Date()).slice(0, 7);
 
   async function tanya(pertanyaan: string) {
-    const q = pertanyaan.trim();
+    const q = pertanyaan.trim().slice(0, MAKS_PERTANYAAN);
     if (!q || sibuk) return;
-    // Konteks percakapan: 6 pesan terakhir, tanpa pesan galat.
-    const riwayat = pesan.flatMap((p) => (p.peran === "galat" ? [] : [{ peran: p.peran, teks: p.teks }])).slice(-6);
+    // Konteks percakapan: 20 pesan terakhir, tanpa pesan galat.
+    const riwayat = pesan.flatMap((p) => (p.peran === "galat" ? [] : [{ peran: p.peran, teks: p.teks }])).slice(-MAKS_RIWAYAT);
     setPesan((p) => [...p, { peran: "saya", teks: q }]);
     setTeks("");
     setSibuk(true);
-    const res = await fetch("/api/tanya", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pertanyaan: q, riwayat, bulan }),
-    }).catch(() => null);
-    const d = ((await res?.json().catch(() => null)) ?? {}) as {
-      jawaban?: string;
-      tautan?: { label: string; href: string }[];
-      ragu?: boolean;
-      usulan?: UsulanKategori;
-      error?: string;
-    };
+    setLangkah([]);
+    const d = await kirimTanya({ pertanyaan: q, riwayat, bulan, berat }, (l) => setLangkah((x) => (x.at(-1) === l ? x : [...x, l])));
     setSibuk(false);
-    setPesan((p) => [
-      ...p,
-      res?.ok && d.jawaban
-        ? { peran: "ai", teks: d.jawaban, tautan: d.tautan ?? [], ragu: Boolean(d.ragu), usulan: d.usulan }
-        : { peran: "galat", teks: d.error ?? "Lagi sibuk, coba lagi sebentar ya." },
-    ]);
+    setLangkah([]);
+    if ("jawaban" in d && d.jawaban) {
+      if (d.model === "berat") setBerat(true);
+      setPesan((p) => [...p, { peran: "ai", teks: d.jawaban, tautan: d.tautan ?? [], ragu: Boolean(d.ragu), usulan: d.usulan, catatan: d.catatan, lanjutkan: d.lanjutkan }]);
+    } else setPesan((p) => [...p, { peran: "galat", teks: ("error" in d && d.error) || "Lagi sibuk, coba lagi sebentar ya." }]);
   }
 
   return (
@@ -189,6 +187,7 @@ export function TanyaProvider({ children }: { children: React.ReactNode }) {
           namaBulanLalu={Besar(namaBulan(`${geserBulan(bulan, -1)}-01`))}
           pesan={pesan}
           sibuk={sibuk}
+          langkah={langkah}
           teks={teks}
           setTeks={setTeks}
           tanya={tanya}
@@ -236,6 +235,7 @@ function TanyaAI({
   namaBulanLalu,
   pesan,
   sibuk,
+  langkah,
   teks,
   setTeks,
   tanya,
@@ -245,6 +245,7 @@ function TanyaAI({
   namaBulanLalu: string;
   pesan: Pesan[];
   sibuk: boolean;
+  langkah: string[];
   teks: string;
   setTeks: (t: string) => void;
   tanya: (q: string) => Promise<void>;
@@ -273,7 +274,7 @@ function TanyaAI({
   // dan nilai kembalian efek dianggap React sebagai fungsi pembersih.
   useEffect(() => {
     akhirRef.current?.scrollIntoView({ block: "end", behavior: "smooth" });
-  }, [pesan, sibuk]);
+  }, [pesan, sibuk, langkah]);
 
   // Kolom ketik tumbuh mengikuti isinya (sampai batas tinggi di CSS).
   useEffect(() => {
@@ -317,6 +318,14 @@ function TanyaAI({
                   {p.teks}
                   {p.peran === "ai" && p.ragu && <small>⚠️ Ada angka yang belum bisa dipastikan. Cek angkanya di Riwayat.</small>}
                   {p.peran === "ai" && p.usulan && <KartuUsulan u={p.usulan} />}
+                  {p.peran === "ai" && p.catatan && <small className={s.redup}>{p.catatan}</small>}
+                  {p.peran === "ai" && p.lanjutkan && i === pesan.length - 1 && !sibuk && (
+                    <div className={s.gptUsulanTombol}>
+                      <button type="button" className={s.flat} onClick={() => void tanya("Lanjutkan")}>
+                        Lanjutkan
+                      </button>
+                    </div>
+                  )}
                   {p.peran === "ai" && p.tautan.length > 0 && (
                     <div className={s.gptTautan}>
                       {p.tautan.map((t) => (
@@ -332,7 +341,17 @@ function TanyaAI({
             {sibuk && (
               <div className={s.gptMemuat} role="status" aria-label="Menghitung">
                 <span />
-                {lama && <p className={s.redup}>Masih menghitung, pertanyaan ini butuh beberapa langkah…</p>}
+                {langkah.length > 0 ? (
+                  <ol className={s.gptLangkah} aria-label="Langkah asisten">
+                    {langkah.map((l, j) => (
+                      <li key={j} className={j === langkah.length - 1 ? undefined : s.redup}>
+                        {l}
+                      </li>
+                    ))}
+                  </ol>
+                ) : (
+                  lama && <p className={s.redup}>Masih menghitung, pertanyaan ini butuh beberapa langkah…</p>
+                )}
               </div>
             )}
             <div ref={akhirRef} />
@@ -356,7 +375,7 @@ function TanyaAI({
               rows={1}
               aria-label="Tulis pertanyaan"
               placeholder="Tanya soal keuanganmu"
-              maxLength={300}
+              maxLength={MAKS_PERTANYAAN}
               value={teks}
               onChange={(e) => setTeks(e.target.value.replace(/\n/g, " "))}
               onKeyDown={(e) => {
@@ -375,4 +394,46 @@ function TanyaAI({
       </div>
     </Lembar>
   );
+}
+
+/**
+ * Kirim pertanyaan ke /api/tanya dan baca alirannya (SPEC-asisten-agen §5):
+ * langkah diteruskan ke `diLangkah`, lalu jawaban akhirnya. Balasan JSON biasa
+ * (galat validasi, atau server/tiruan tanpa aliran) tetap dibaca.
+ */
+async function kirimTanya(
+  isi: { pertanyaan: string; riwayat: { peran: string; teks: string }[]; bulan: string; berat: boolean },
+  diLangkah: (teks: string) => void,
+): Promise<HasilTanya | { error?: string }> {
+  const res = await fetch("/api/tanya", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: `${TIPE_ALIR}, application/json` },
+    body: JSON.stringify(isi),
+  }).catch(() => null);
+  if (!res) return {};
+  if (!res.ok || !(res.headers.get("content-type") ?? "").includes(TIPE_ALIR) || !res.body) {
+    const d = ((await res.json().catch(() => null)) ?? {}) as HasilTanya | { error?: string };
+    return res.ok ? d : { error: "error" in d ? d.error : undefined };
+  }
+  const baca = res.body.pipeThrough(new TextDecoderStream()).getReader();
+  const urai = pengurai<HasilTanya>();
+  let hasil: HasilTanya | { error?: string } = {};
+  const terima = (daftar: ReturnType<typeof urai.tambah>) => {
+    for (const p of daftar) {
+      if (p.t === "langkah") diLangkah(p.teks);
+      else if (p.t === "jawaban") hasil = p.isi;
+      else hasil = { error: p.error };
+    }
+  };
+  try {
+    for (;;) {
+      const { value, done } = await baca.read();
+      if (done) break;
+      terima(urai.tambah(value));
+    }
+    terima(urai.selesai());
+  } catch {
+    // Sambungan putus di tengah: pakai yang sudah diterima (bisa kosong → pesan sibuk).
+  }
+  return hasil;
 }
