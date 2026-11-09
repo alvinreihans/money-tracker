@@ -29,6 +29,10 @@ assert.deepEqual(rupiahDiJawaban("sekitar Rp 1,2 jt dan Rp 450 rb"), [
   { nilai: 450000, toleransi: 500 },
 ]);
 assert.deepEqual(rupiahDiJawaban("naik 32% tanpa nominal"), []);
+assert.deepEqual(rupiahDiJawaban("dari Rp 358.000 menjadi Rp 333.000"), [
+  { nilai: 358000, toleransi: 0.5 },
+  { nilai: 333000, toleransi: 0.5 },
+], "huruf awal kata sesudahnya bukan satuan (M = miliar)");
 
 // Pemeriksa: nominal harus ada di hasil fungsi (rekursif); ringkas boleh dibulatkan.
 const hasil = [{ keluar: 1234567, kategori: [{ nama: "Makan", total: 60000 }] }];

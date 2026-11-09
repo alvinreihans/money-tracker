@@ -526,7 +526,13 @@ Ringkasan bulan ${bulan} (DATA, sama dengan hasil fungsi ringkasan_bulan): ${JSO
         // Alat ubah (SPEC-asisten-agen §3): hanya menyusun usulan; kartu Terapkan di browser.
         const u = await jalankanUsul(nama, args, { supabase, konteks, kategori, pertanyaan });
         hasil = u.untukModel;
-        if (u.usulan) usulanAksi.push(u.usulan);
+        // Model kadang memanggil alat yang sama dua kali (mis. sesudah diminta menulis ulang): satu kartu saja.
+        if (u.usulan) {
+          const sama = JSON.stringify(u.usulan.isian);
+          const ada = usulanAksi.findIndex((x) => JSON.stringify(x.isian) === sama);
+          if (ada >= 0) usulanAksi.splice(ada, 1);
+          usulanAksi.push(u.usulan);
+        }
       } else hasil = await jalankanFungsi(nama, args, { supabase, konteks, kategori });
       const t = tautanDari(nama, args, konteks, hasil);
       if (t) tautan.set(t.href, t);

@@ -205,6 +205,72 @@ const KASUS = [
     harus: [],
     pola: /DANA[\s\S]*(draft|belum selesai)|(draft|belum selesai)[\s\S]*DANA/i,
   },
+  // --- Asisten agen tahap B (SPEC-asisten-agen §3): perubahan hanya lewat kartu usulan.
+  // `aksi` = jenis kartu yang diharapkan; `tetap` memeriksa database BELUM berubah (belum ada yang menekan Terapkan).
+  {
+    tanya: "jadikan semua Grab bulan ini kategori Transportasi",
+    siapkan: async ({ sb, tx, gopay }) => {
+      const { data } = await sb
+        .from("transactions")
+        .insert([tx(32000, "expense", "food", "Grab", tgl(B, 4), gopay.id), tx(18000, "expense", "food", "Grab", tgl(B, 6), gopay.id)])
+        .select("id");
+      return () => sb.from("transactions").delete().in("id", data.map((x) => x.id));
+    },
+    harus: [],
+    usulan: true,
+    bukan: /\bsudah (saya |aku )?(di)?(ubah|ganti|pindah|jadikan|terapkan)/i,
+    tetap: async ({ sb }) => {
+      const { data } = await sb.from("transactions").select("category").eq("merchant", "Grab");
+      return data.length === 2 && data.every((t) => t.category === "food");
+    },
+  },
+  // Skenario DANA: top up tanpa kantong → usulan buat kantong DANA + jadikan pindah (satu kartu), saldo sesudahnya disebut.
+  {
+    tanya: "tolong rapikan top up DANA-ku yang tercatat jadi pengeluaran",
+    siapkan: async ({ sb, tx, bca }) => {
+      const { data } = await sb
+        .from("transactions")
+        .insert([
+          tx(150000, "expense", "other", "Top Up DANA", tgl(B, 5), bca.id, { source: "statement", description: "Top Up DANA 0812xxxx345 BUDX SAXXXXX via BRImo", ref_bank: "uji-eval:dana-3" }),
+        ])
+        .select("id");
+      return () => sb.from("transactions").delete().in("id", data.map((x) => x.id));
+    },
+    harus: [150000],
+    aksi: "jadikan_pindah",
+    bukan: /\bsudah (saya |aku )?(di)?(buat|ubah|pindah|jadikan|rapikan|terapkan)/i,
+    tetap: async ({ sb }) => {
+      const { data: k } = await sb.from("user_accounts").select("id").ilike("name", "dana");
+      const { data: t } = await sb.from("transactions").select("type").eq("ref_bank", "uji-eval:dana-3");
+      return !k.length && t[0]?.type === "expense";
+    },
+  },
+  // Dobel ketikan + rekening koran → usulan hapus (yang dari rekening koran tetap).
+  {
+    tanya: "hapus transaksi Indomaret yang dobel",
+    siapkan: async ({ sb, tx, bca }) => {
+      const { data } = await sb
+        .from("transactions")
+        .insert([
+          tx(87000, "expense", "groceries", "Indomaret", tgl(B, 6), bca.id),
+          tx(87000, "expense", "groceries", "Indomaret", tgl(B, 6), bca.id, { source: "statement", ref_bank: "uji-eval:dobel-2" }),
+        ])
+        .select("id");
+      return () => sb.from("transactions").delete().in("id", data.map((x) => x.id));
+    },
+    harus: [],
+    aksi: "hapus",
+    bukan: /\bsudah (saya |aku )?(di)?hapus/i,
+    tetap: async ({ sb }) => (await sb.from("transactions").select("id").eq("merchant", "Indomaret").eq("amount", 87000)).data.length === 2,
+  },
+  // Catat dari kalimat → usulan catat, belum tersimpan.
+  {
+    tanya: "tadi makan bakso 25rb pakai GoPay, tolong catat",
+    harus: [25000],
+    aksi: "catat",
+    bukan: /\bsudah (saya |aku )?(di)?(catat|simpan)/i,
+    tetap: async ({ sb }) => !(await sb.from("transactions").select("id").ilike("merchant", "%bakso%")).data.length,
+  },
 ];
 
 let uid;
@@ -246,7 +312,7 @@ try {
   await sb.from("transactions").insert(tx(10300000, "transfer", "other", "Tabungan HP", tgl(B, 3), bca.id, { kantong_tujuan_id: tabunganHp.id, pelengkap_tujuan: laku6.id }));
   const METODE_AWAL = { user_id: uid, metode: "50-30-20", persen: null, target_tabungan: null, strategi_utang: null, ekstra_utang: null };
   await sb.from("metode_budget").upsert(METODE_AWAL);
-  const ctx = { sb, uid, tx, bca, tabunganHp };
+  const ctx = { sb, uid, tx, bca, gopay, tabunganHp };
 
   const ref = new URL(U).hostname.split(".")[0];
   const isi = "base64-" + Buffer.from(JSON.stringify(sesi.session)).toString("base64url");
@@ -274,13 +340,17 @@ try {
       (!k.bukan || !k.bukan.test(teks)) &&
       (!k.tanpaTautan || !(d.tautan ?? []).length) &&
       (!k.tautan || (d.tautan ?? []).some((x) => k.tautan.test(x.href))) &&
-      (!k.usulan || Boolean(d.usulan)) &&
-      (!k.tanpaUsulan || !d.usulan);
+      (!k.usulan || Boolean(d.usulan) || Boolean(d.usulan_aksi?.length)) &&
+      (!k.aksi || (d.usulan_aksi ?? []).some((u) => u.jenis === k.aksi)) &&
+      (!k.tanpaUsulan || (!d.usulan && !d.usulan_aksi?.length));
+    // Usulan tidak pernah langsung mengubah data (P1).
+    const tetap = k.tetap ? await k.tetap(ctx) : true;
     if (bersihkan) await bersihkan();
     if (k.metode) await sb.from("metode_budget").upsert(METODE_AWAL);
-    if (ok) lulus++;
+    if (ok && tetap) lulus++;
     model[d.model ?? "?"] = (model[d.model ?? "?"] ?? 0) + 1;
-    console.log(`${ok ? "✓" : "✗"} ${k.tanya}  (${((Date.now() - t) / 1000).toFixed(1)} dtk · model ${d.model ?? "?"}${d.catatan ? " · " + d.catatan : ""})\n    ${teks}${kurang.length ? `\n    kurang: ${kurang.map(rp).join(", ")}` : ""}${d.ragu ? `\n    ragu: ${(d.nominal_ragu ?? []).map(rp).join(", ") || "ada nominal tak terverifikasi"}` : ""}`);
+    const kartu = (d.usulan_aksi ?? []).map((u) => `${u.jenis}: ${u.judul}`).join(" | ");
+    console.log(`${ok && tetap ? "✓" : "✗"} ${k.tanya}  (${((Date.now() - t) / 1000).toFixed(1)} dtk · model ${d.model ?? "?"}${d.catatan ? " · " + d.catatan : ""})\n    ${teks}${kurang.length ? `\n    kurang: ${kurang.map(rp).join(", ")}` : ""}${kartu ? `\n    kartu: ${kartu}` : ""}${tetap ? "" : "\n    DATA BERUBAH tanpa Terapkan!"}${d.ragu ? `\n    ragu: ${(d.nominal_ragu ?? []).map(rp).join(", ") || "ada nominal tak terverifikasi"}` : ""}`);
   }
 } catch (e) {
   console.log("GAGAL:", e.message);

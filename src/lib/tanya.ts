@@ -396,7 +396,8 @@ export function tautanDari(
  */
 export function rupiahDiJawaban(teks: string): { nilai: number; toleransi: number }[] {
   const hasil: { nilai: number; toleransi: number }[] = [];
-  for (const m of teks.matchAll(/Rp\s?([\d.,]+)\s*(jt|juta|rb|ribu|M|miliar)?/gi)) {
+  // Satuan harus kata utuh: "Rp 358.000 menjadi" bukan "358.000 M(iliar)".
+  for (const m of teks.matchAll(/Rp\s?([\d.,]+)\s*(?:(jt|juta|rb|ribu|M|miliar)\b)?/gi)) {
     const satuan = m[2]?.toLowerCase();
     if (satuan) {
       const angka = Number(m[1].replace(/\./g, "").replace(",", "."));
