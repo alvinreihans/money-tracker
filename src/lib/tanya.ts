@@ -1,4 +1,4 @@
-import { SchemaType, type FunctionDeclaration } from "@google/generative-ai";
+import { SchemaType, type FunctionDeclaration, type FunctionDeclarationSchemaProperty } from "@google/generative-ai";
 import { fmtTanggalPanjang, geserHari } from "@/lib/format";
 import { geserBulan } from "@/lib/kalender";
 import { cocokkanKantong, type Kantong } from "@/lib/kantong";
@@ -36,10 +36,40 @@ export const NAMA_FUNGSI = [
   "detail",
   "periksa_saldo",
   "cari_kejanggalan",
+  // Asisten agen tahap B (SPEC-asisten-agen §3): alat ubah, hasilnya kartu usulan (Terapkan).
+  "usul_buat_kantong",
+  "usul_jadikan_pindah",
+  "usul_ubah_transaksi",
+  "usul_hapus",
+  "usul_selesaikan_draft",
+  "usul_catat",
   // Hanya untuk model ringan (lapis 2): menyerahkan ke model besar.
   "serahkan",
 ] as const;
 export type NamaFungsi = (typeof NAMA_FUNGSI)[number];
+
+/** Saringan transaksi bersama (`cari` dan alat usul_*). */
+const SKEMA_SARING: FunctionDeclarationSchemaProperty = {
+    type: SchemaType.OBJECT,
+    description: "Saringan (semua opsional)",
+    properties: {
+      dari: { type: SchemaType.STRING, description: "Tanggal awal YYYY-MM-DD (inklusif)" },
+      sampai: { type: SchemaType.STRING, description: "Tanggal akhir YYYY-MM-DD (inklusif)" },
+      kantong: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING }, description: "Nama kantong (asal ATAU tujuan)" },
+      jenis: { type: SchemaType.STRING, format: "enum", enum: ["keluar", "masuk", "pindah"] },
+      kategori: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING }, description: "Slug kategori" },
+      status: { type: SchemaType.STRING, format: "enum", enum: ["semua", "tercatat", "draft", "perlu_dilengkapi"], description: "Bawaan semua" },
+      asal: {
+        type: SchemaType.ARRAY,
+        items: { type: SchemaType.STRING, format: "enum", enum: Object.keys(ASAL_CARI) },
+        description: "Asal catatan",
+      },
+      minimal: { type: SchemaType.NUMBER },
+      maksimal: { type: SchemaType.NUMBER },
+      kata: { type: SchemaType.STRING, description: "Kata di merchant/keterangan/nama, mis. 'DANA' atau 'top up'" },
+      ref_bank: { type: SchemaType.STRING, format: "enum", enum: ["ada", "tidak"], description: "Punya baris rekening koran (ada) atau tidak" },
+    },
+  };
 
 export const DEKLARASI_FUNGSI: FunctionDeclaration[] = [
   {
@@ -125,27 +155,7 @@ export const DEKLARASI_FUNGSI: FunctionDeclaration[] = [
       type: SchemaType.OBJECT,
       properties: {
         sumber: { type: SchemaType.STRING, format: "enum", enum: [...SUMBER_CARI] },
-        saring: {
-          type: SchemaType.OBJECT,
-          description: "Saringan (semua opsional)",
-          properties: {
-            dari: { type: SchemaType.STRING, description: "Tanggal awal YYYY-MM-DD (inklusif)" },
-            sampai: { type: SchemaType.STRING, description: "Tanggal akhir YYYY-MM-DD (inklusif)" },
-            kantong: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING }, description: "Nama kantong (asal ATAU tujuan)" },
-            jenis: { type: SchemaType.STRING, format: "enum", enum: ["keluar", "masuk", "pindah"] },
-            kategori: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING }, description: "Slug kategori" },
-            status: { type: SchemaType.STRING, format: "enum", enum: ["semua", "tercatat", "draft", "perlu_dilengkapi"], description: "Bawaan semua" },
-            asal: {
-              type: SchemaType.ARRAY,
-              items: { type: SchemaType.STRING, format: "enum", enum: Object.keys(ASAL_CARI) },
-              description: "Asal catatan",
-            },
-            minimal: { type: SchemaType.NUMBER },
-            maksimal: { type: SchemaType.NUMBER },
-            kata: { type: SchemaType.STRING, description: "Kata di merchant/keterangan/nama, mis. 'DANA' atau 'top up'" },
-            ref_bank: { type: SchemaType.STRING, format: "enum", enum: ["ada", "tidak"], description: "Punya baris rekening koran (ada) atau tidak" },
-          },
-        },
+        saring: SKEMA_SARING,
         kelompokkan: { type: SchemaType.STRING, format: "enum", enum: [...KELOMPOK_CARI], description: "Hanya untuk transaksi: jumlahkan per kelompok" },
         urutkan: { type: SchemaType.STRING, format: "enum", enum: [...URUT_CARI] },
         batas: { type: SchemaType.NUMBER, description: "Jumlah baris rinci, 1–50 (bawaan 20)" },
@@ -180,6 +190,109 @@ export const DEKLARASI_FUNGSI: FunctionDeclaration[] = [
     parameters: {
       type: SchemaType.OBJECT,
       properties: { jenis: { type: SchemaType.STRING, format: "enum", enum: ["semua", ...JENIS_KEJANGGALAN] } },
+    },
+  },
+  {
+    name: "usul_buat_kantong",
+    description:
+      "USULAN membuat kantong baru (bank, e-wallet, tunai). Belum membuat apa pun: pengguna menekan Terapkan di kartu. Untuk top up e-wallet yang kantongnya belum ada, pakai usul_jadikan_pindah dengan buat_kantong (kantong dibuat sekalian).",
+    parameters: {
+      type: SchemaType.OBJECT,
+      properties: {
+        nama: { type: SchemaType.STRING, description: "Nama kantong, mis. 'DANA'" },
+        jenis: { type: SchemaType.STRING, format: "enum", enum: ["bank", "ewallet", "tunai"] },
+        saldo_awal: { type: SchemaType.NUMBER, description: "Saldo awal yang disebut pengguna (bawaan 0)" },
+        per: { type: SchemaType.STRING, description: "Saldo awal berlaku sejak YYYY-MM-DD (bawaan hari ini)" },
+      },
+      required: ["nama"],
+    },
+  },
+  {
+    name: "usul_jadikan_pindah",
+    description:
+      "USULAN menjadikan pengeluaran/pemasukan sebagai pindah kantong ke/dari kantong lain milik pengguna (mis. top up DANA dari BCA yang tercatat sebagai pengeluaran). Sisi lain yang sudah tercatat di kantong tujuan digabung otomatis. Bila kantong tujuan belum ada, isi buat_kantong supaya dibuat sekalian. Belum mengubah apa pun: pengguna menekan Terapkan.",
+    parameters: {
+      type: SchemaType.OBJECT,
+      properties: {
+        ids: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING }, description: "id transaksi dari hasil cari/cari_kejanggalan/periksa_saldo" },
+        saring: SKEMA_SARING,
+        ke_kantong: { type: SchemaType.STRING, description: "Nama kantong lawan (tujuan top up / asal uang masuk)" },
+        buat_kantong: { type: SchemaType.STRING, format: "enum", enum: ["bank", "ewallet", "tunai"], description: "Hanya bila ke_kantong belum ada: jenis kantong yang dibuat" },
+        saldo_awal: { type: SchemaType.NUMBER, description: "Saldo awal kantong baru bila disebut pengguna (bawaan: dihitung supaya tidak minus)" },
+      },
+      required: ["ke_kantong"],
+    },
+  },
+  {
+    name: "usul_ubah_transaksi",
+    description:
+      "USULAN mengubah transaksi tercatat: kategori, merchant, keterangan, kantong, tanggal, jam, nominal. Pilih transaksinya dengan ids (dari hasil cari) atau saring (seperti cari), mis. semua Grab bulan ini. Nominal, tanggal & kantong transaksi rekening koran tidak bisa diubah (angka bank). Belum mengubah apa pun: pengguna menekan Terapkan.",
+    parameters: {
+      type: SchemaType.OBJECT,
+      properties: {
+        ids: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+        saring: SKEMA_SARING,
+        isian: {
+          type: SchemaType.OBJECT,
+          description: "Yang diubah (isi yang perlu saja)",
+          properties: {
+            kategori: { type: SchemaType.STRING, description: "Slug atau nama kategori yang ada" },
+            merchant: { type: SchemaType.STRING },
+            keterangan: { type: SchemaType.STRING },
+            kantong: { type: SchemaType.STRING, description: "Nama kantong" },
+            tanggal: { type: SchemaType.STRING, description: "YYYY-MM-DD" },
+            jam: { type: SchemaType.STRING, description: "HH:MM" },
+            nominal: { type: SchemaType.NUMBER },
+          },
+        },
+      },
+      required: ["isian"],
+    },
+  },
+  {
+    name: "usul_hapus",
+    description:
+      "USULAN menghapus transaksi (mis. yang dobel), dengan ids dari hasil cari/periksa_saldo/cari_kejanggalan. Transaksi rekening koran hanya bisa dihapus bila ada kembarannya: hapus yang BUKAN dari rekening koran. Belum menghapus apa pun: pengguna menekan Terapkan.",
+    parameters: {
+      type: SchemaType.OBJECT,
+      properties: { ids: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } }, alasan: { type: SchemaType.STRING } },
+      required: ["ids"],
+    },
+  },
+  {
+    name: "usul_selesaikan_draft",
+    description:
+      "USULAN menyelesaikan satu draft 'Belum selesai': isi yang kurang (kantong, kantong tujuan, jam) lalu simpan. id draft dari cari (status draft) atau cari_kejanggalan. Belum menyimpan apa pun: pengguna menekan Terapkan.",
+    parameters: {
+      type: SchemaType.OBJECT,
+      properties: {
+        id: { type: SchemaType.STRING },
+        isian: {
+          type: SchemaType.OBJECT,
+          properties: { kantong: { type: SchemaType.STRING }, kantong_tujuan: { type: SchemaType.STRING }, jam: { type: SchemaType.STRING, description: "HH:MM" } },
+        },
+      },
+      required: ["id"],
+    },
+  },
+  {
+    name: "usul_catat",
+    description:
+      "USULAN mencatat SATU transaksi baru dari kalimat pengguna yang jelas (mis. 'tadi makan bakso 25rb pakai DANA'). Kantong wajib; kalau tidak disebut, tanya dulu. Belum mencatat apa pun: pengguna menekan Terapkan.",
+    parameters: {
+      type: SchemaType.OBJECT,
+      properties: {
+        jenis: { type: SchemaType.STRING, format: "enum", enum: ["keluar", "masuk", "pindah"] },
+        nominal: { type: SchemaType.NUMBER },
+        kategori: { type: SchemaType.STRING, description: "Slug atau nama kategori yang ada" },
+        merchant: { type: SchemaType.STRING },
+        keterangan: { type: SchemaType.STRING },
+        kantong: { type: SchemaType.STRING },
+        kantong_tujuan: { type: SchemaType.STRING, description: "Hanya untuk pindah" },
+        tanggal: { type: SchemaType.STRING, description: "YYYY-MM-DD (bawaan hari ini)" },
+        jam: { type: SchemaType.STRING, description: "HH:MM" },
+      },
+      required: ["jenis", "nominal", "kantong"],
     },
   },
 ];
@@ -242,7 +355,7 @@ export function tautanDari(
   k: KonteksTanya,
   hasil?: unknown,
 ): { label: string; href: string } | null {
-  if (nama === "hitung" || nama === "usul_ubah_kategori" || nama === "serahkan" || nama === "detail" || nama === "cari_kejanggalan") return null;
+  if (nama === "hitung" || nama.startsWith("usul_") || nama === "serahkan" || nama === "detail" || nama === "cari_kejanggalan") return null;
   if (nama === "periksa_saldo") return { label: "Lihat kantong", href: "/profil/kantong" };
   if (nama === "cari") {
     const c = bersihkanArgCari(args, k);
@@ -488,16 +601,16 @@ export interface ArgCari {
   batas: number;
 }
 
-const tanggalSah = (s: unknown): s is string => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s) && new Date(`${s}T00:00:00Z`).toISOString().slice(0, 10) === s;
+export const tanggalSah = (s: unknown): s is string => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s) && new Date(`${s}T00:00:00Z`).toISOString().slice(0, 10) === s;
 const pilih = <T extends string>(v: unknown, daftar: readonly T[]): T | null => (typeof v === "string" && (daftar as readonly string[]).includes(v) ? (v as T) : null);
 /** Angka dari AI (kadang berupa teks "50000"). */
-const angkaArg = (v: unknown): number | null => {
+export const angkaArg = (v: unknown): number | null => {
   // "1.250.000" (titik ribuan) dan "1250000.5" sama-sama terbaca.
   const teks = typeof v === "string" ? v.replace(/[^\d.,-]/g, "") : "";
   const n = typeof v === "number" ? v : teks ? Number(/^-?\d{1,3}(\.\d{3})+(,\d+)?$/.test(teks) ? teks.replace(/\./g, "").replace(",", ".") : teks.replace(",", ".")) : NaN;
   return Number.isFinite(n) ? n : null;
 };
-const daftarTeks = (v: unknown) => (Array.isArray(v) ? v : typeof v === "string" ? [v] : []).filter((x): x is string => typeof x === "string" && x.trim() !== "").slice(0, 20);
+export const daftarTeks = (v: unknown) => (Array.isArray(v) ? v : typeof v === "string" ? [v] : []).filter((x): x is string => typeof x === "string" && x.trim() !== "").slice(0, 20);
 
 /**
  * Argumen `cari` dari AI → saringan yang aman: sumber/kelompok/urutan dari
@@ -538,7 +651,7 @@ export function bersihkanArgCari(args: Record<string, unknown>, k: KonteksTanya)
   };
 }
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** id untuk `detail`: harus berbentuk uuid (dirangkai ke query). */
 export const idDariArgumen = (args: Record<string, unknown>) => (typeof args.id === "string" && UUID.test(args.id.trim()) ? args.id.trim().toLowerCase() : null);
 
@@ -592,6 +705,18 @@ export function labelLangkah(nama: string, args: Record<string, unknown>, k: Kon
       return "Menghitung…";
     case "usul_ubah_kategori":
       return "Menyiapkan usulan kategori…";
+    case "usul_buat_kantong":
+      return `Menyiapkan usulan kantong ${typeof args.nama === "string" ? args.nama.slice(0, 30) : "baru"}…`;
+    case "usul_jadikan_pindah":
+      return `Menyiapkan usulan pindah kantong${typeof args.ke_kantong === "string" ? ` ${args.ke_kantong.slice(0, 30)}` : ""}…`;
+    case "usul_ubah_transaksi":
+      return "Menyiapkan usulan perubahan…";
+    case "usul_hapus":
+      return "Menyiapkan usulan hapus…";
+    case "usul_selesaikan_draft":
+      return "Menyiapkan usulan simpan draft…";
+    case "usul_catat":
+      return "Menyiapkan catatan baru…";
     case "cari": {
       const c = bersihkanArgCari(args, k);
       const di = c.kantong.length ? ` di ${c.kantong.map(kantong).filter(Boolean).join(", ")}` : "";

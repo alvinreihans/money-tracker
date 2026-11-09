@@ -10,7 +10,7 @@ import type { ExtractedReceipt } from "@/types/transaction";
  * di private.draft_catat). Fungsi murni — diuji di scripts/uji-draft.mts.
  */
 
-export type AsalJejak = "ketikan" | "gambar" | "bukti" | "banyak" | "lengkapi" | "koreksi";
+export type AsalJejak = "ketikan" | "gambar" | "bukti" | "banyak" | "lengkapi" | "koreksi" | "asisten";
 
 export interface LangkahJejak {
   /** tanya = pertanyaan aplikasi; jawab = jawaban user; koreksi = ketikan yang membetulkan isinya. */
@@ -40,7 +40,7 @@ export interface IsiJejak {
   /** Waktu Simpan (ISO). */
   disimpan?: string;
   /** Cara menyimpan: kartu periksa, Simpan semua, form Ubah, atau Lengkapi. */
-  cara?: "kartu" | "semua" | "form" | "lengkapi";
+  cara?: "kartu" | "semua" | "form" | "lengkapi" | "asisten";
 }
 
 /** Asal catatan dari kolom source & cara unggahnya. */
@@ -105,6 +105,7 @@ const NAMA_ASAL: Record<AsalJejak, string> = {
   banyak: "Dari unggah banyak gambar",
   lengkapi: "Dilengkapi dari gambar",
   koreksi: "Dikoreksi lewat ketikan",
+  asisten: "Dicatat lewat Tanya AI",
 };
 
 const NAMA_CARA: Record<NonNullable<IsiJejak["cara"]>, string> = {
@@ -112,6 +113,7 @@ const NAMA_CARA: Record<NonNullable<IsiJejak["cara"]>, string> = {
   semua: "Disimpan lewat Simpan semua",
   form: "Disimpan dari form Ubah",
   lengkapi: "Dilengkapi",
+  asisten: "Disimpan dari kartu Tanya AI",
 };
 
 export interface Gelembung {

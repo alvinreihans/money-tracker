@@ -5,7 +5,7 @@ import { namaDariMetadata } from "@/lib/nama-rekening";
 import { cariKejanggalan, bacaRef, namaBankRef, periksaSaldo, riwayatImpor, ringkasPencarian, type KantongPeriksa, type TxPeriksa } from "@/lib/periksa";
 import { kantongUang, statusCicilan, type Cicilan } from "@/lib/pinjaman";
 import { ambilDeposito, NAMA_PERPANJANGAN } from "@/lib/simpanan";
-import { bersihkanArgCari, bersihkanArgPeriksa, idDariArgumen, jenisKejanggalanDari, type KonteksTanya } from "@/lib/tanya";
+import { bersihkanArgCari, bersihkanArgPeriksa, idDariArgumen, jenisKejanggalanDari, type ArgCari, type KonteksTanya } from "@/lib/tanya";
 
 /**
  * Alat baca asisten (SPEC-asisten-agen §2): cari, detail, periksa_saldo,
@@ -36,6 +36,30 @@ async function muatSemua(ambil: (dari: number, sampai: number) => PromiseLike<{ 
   return { baris, terpotong: true };
 }
 
+/**
+ * Saringan `cari` (sudah dibersihkan bersihkanArgCari) → query transaksi. Dipakai juga
+ * alat usulan (src/lib/usulan-server.ts) untuk memilih transaksi lewat saringan.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function saringTransaksi<Q extends { eq: any; is: any; gte: any; lte: any; or: any; in: any; neq: any }>(q: Q, c: ArgCari): Q {
+  if (c.status === "tercatat") q = q.eq("status", "confirmed");
+  else if (c.status === "draft") q = q.eq("status", "needs_review").is("induk_id", null);
+  else if (c.status === "perlu_dilengkapi") q = q.eq("status", "confirmed").eq("perlu_dilengkapi", true);
+  if (c.jenis) q = q.eq("type", c.jenis === "keluar" ? "expense" : c.jenis === "masuk" ? "income" : "transfer");
+  if (c.dari) q = q.gte("transaction_date", c.dari);
+  if (c.sampai) q = q.lte("transaction_date", c.sampai);
+  // id kantong & slug sudah divalidasi (milik user); kata dibersihkan seperti kolom cari Riwayat.
+  if (c.kantong.length) q = q.or(`kantong_id.in.(${c.kantong.join(",")}),kantong_tujuan_id.in.(${c.kantong.join(",")})`);
+  if (c.kategori.length) q = q.in("category", c.kategori).neq("type", "transfer");
+  if (c.asal.length) q = q.in("source", c.asal);
+  if (c.minimal != null) q = q.gte("amount", c.minimal);
+  if (c.maksimal != null) q = q.lte("amount", c.maksimal);
+  if (c.refBank === true) q = q.or("ref_bank.not.is.null,ref_bank_tujuan.not.is.null");
+  if (c.refBank === false) q = q.is("ref_bank", null).is("ref_bank_tujuan", null);
+  if (c.kata) q = q.or(`merchant.ilike.%${c.kata}%,description.ilike.%${c.kata}%,payment_method.ilike.%${c.kata}%`);
+  return q;
+}
+
 interface Ctx {
   supabase: SupabaseClient;
   konteks: KonteksTanya;
@@ -59,23 +83,7 @@ async function cari(args: Record<string, unknown>, { supabase, konteks, kategori
 
   if (c.sumber === "transaksi") {
     const { baris, terpotong } = await muatSemua((d, s) => {
-      let q = supabase.from("transactions").select(KOLOM_TX);
-      if (c.status === "tercatat") q = q.eq("status", "confirmed");
-      else if (c.status === "draft") q = q.eq("status", "needs_review").is("induk_id", null);
-      else if (c.status === "perlu_dilengkapi") q = q.eq("status", "confirmed").eq("perlu_dilengkapi", true);
-      if (c.jenis) q = q.eq("type", c.jenis === "keluar" ? "expense" : c.jenis === "masuk" ? "income" : "transfer");
-      if (c.dari) q = q.gte("transaction_date", c.dari);
-      if (c.sampai) q = q.lte("transaction_date", c.sampai);
-      // id kantong & slug sudah divalidasi (milik user); kata dibersihkan seperti kolom cari Riwayat.
-      if (c.kantong.length) q = q.or(`kantong_id.in.(${c.kantong.join(",")}),kantong_tujuan_id.in.(${c.kantong.join(",")})`);
-      if (c.kategori.length) q = q.in("category", c.kategori).neq("type", "transfer");
-      if (c.asal.length) q = q.in("source", c.asal);
-      if (c.minimal != null) q = q.gte("amount", c.minimal);
-      if (c.maksimal != null) q = q.lte("amount", c.maksimal);
-      if (c.refBank === true) q = q.or("ref_bank.not.is.null,ref_bank_tujuan.not.is.null");
-      if (c.refBank === false) q = q.is("ref_bank", null).is("ref_bank_tujuan", null);
-      if (c.kata) q = q.or(`merchant.ilike.%${c.kata}%,description.ilike.%${c.kata}%,payment_method.ilike.%${c.kata}%`);
-      return q.order("transaction_date", { ascending: false }).order("id", { ascending: false }).range(d, s);
+      return saringTransaksi(supabase.from("transactions").select(KOLOM_TX), c).order("transaction_date", { ascending: false }).order("id", { ascending: false }).range(d, s);
     });
     const namaKantong = (id: string | null) => konteks.kantong.find((k) => k.id === id)?.name ?? null;
     return {
