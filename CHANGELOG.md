@@ -21,6 +21,17 @@ docs/specs/SPEC-catat-tuntas.md (fase 1 & 2 selesai di 2.4.0, fase 3 di 2.5.0, f
 
 ## [Unreleased]
 
+### Ditambah
+- **Tanya AI bisa menyelidiki** (SPEC-asisten-agen, tahap A). Asisten kini bisa mencari sendiri sampai ketemu penyebabnya: semua transaksi termasuk draft dan yang perlu dilengkapi, kantong, simpanan, deposito, cicilan, utang & piutang, tujuan tabungan, dan riwayat impor rekening koran; rincian satu transaksi (biaya/cashback, pasangan pindah kantong, baris bank asalnya, "Cara dicatat").
+- **"Kok saldo BRI beda sama bank?"** Asisten membandingkan saldo aplikasi dengan saldo di rekening koran terakhir (atau saldo bank yang kamu sebut), lalu menunjukkan calon penyebabnya: transaksi dobel, pindah kantong yang tercatat sebagai pengeluaran + pemasukan, top up yang tampaknya ke rekening sendiri, transaksi sesudah rekening koran, dan draft yang belum disimpan.
+- **"Ada yang perlu dirapikan?"** Asisten mendaftar yang perlu dibereskan, termasuk top up e-wallet yang kantongnya belum ada (mis. top up DANA yang tercatat sebagai pengeluaran).
+- Langkah yang sedang dikerjakan tampil selama asisten bekerja ("Mencari top up DANA…", "Memeriksa saldo BRI…"). Pertanyaan yang terlalu panjang dijawab dengan yang sudah ditemukan, dengan tombol **Lanjutkan**.
+- Pertanyaan berat (mencari penyebab, merapikan, rentang panjang) otomatis dijawab model AI yang lebih besar, tanpa tombol. Bila kuota harian model besar habis, jawabannya dari model ringan dengan catatan kecil "Dijawab model ringan, kuota model besar hari ini habis."; bila model besar sedang sibuk atau lambat, "Dijawab model ringan, model besar sedang sibuk."
+
+### Diubah
+- Tanya AI kini paham cara kerja aplikasinya (kantong, pindah kantong, rekening koran, draft, perlu dilengkapi) dan mengingat sampai 20 pesan obrolan. Pertanyaan boleh sampai 1.000 karakter.
+- Asisten masih hanya membaca dan menjelaskan; perubahan data selain usulan ubah kategori belum bisa dilakukan lewat Tanya AI.
+
 ## [2.15.0] — 2026-11-09
 
 ### Ditambah
