@@ -58,3 +58,12 @@ export function galatKuota(err: unknown): boolean {
 
 /** Catatan di bawah jawaban saat kuota model besar habis (P8: satu-satunya tanda model). */
 export const CATATAN_KUOTA = "Dijawab model ringan, kuota model besar hari ini habis.";
+/** Galat model sedang penuh/tidak tersedia (503 "high demand", 500, UNAVAILABLE). */
+export function galatSibuk(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const e = err as { status?: number; message?: string };
+  return e.status === 503 || e.status === 500 || /\b50[03]\b|UNAVAILABLE|overloaded|high demand/i.test(e.message ?? "");
+}
+
+/** Catatan saat model besar sibuk/terlalu lambat menjawab (keputusan saat implementasi, tahap A). */
+export const CATATAN_LAMBAT = "Dijawab model ringan, model besar sedang sibuk.";

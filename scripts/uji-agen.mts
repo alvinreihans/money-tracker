@@ -11,7 +11,7 @@ import type { Content, FunctionCall } from "@google/generative-ai";
 import { jalankanAgen, type BalasanModel, type PanggilModel } from "../src/lib/agen.ts";
 import { barisAlir, pengurai } from "../src/lib/alir.ts";
 import { bacaRef, cariKejanggalan, periksaSaldo, riwayatImpor, ringkasPencarian, type KantongPeriksa, type TxPeriksa } from "../src/lib/periksa.ts";
-import { CATATAN_KUOTA, galatKuota, pilihModelAwal } from "../src/lib/rute-model.ts";
+import { CATATAN_KUOTA, galatKuota, galatSibuk, pilihModelAwal } from "../src/lib/rute-model.ts";
 import { bersihkanArgCari, bersihkanArgPeriksa, idDariArgumen, jenisKejanggalanDari, labelLangkah, tautanDari } from "../src/lib/tanya.ts";
 
 // ---------------------------------------------------------------- lapis 1
@@ -252,6 +252,20 @@ const dasar = (panggil: PanggilModel, extra: Partial<Parameters<typeof jalankanA
   assert.deepEqual(log, [{ jenis: "berat", serahkan: false }, { jenis: "ringan", serahkan: false }]);
   assert.equal(CATATAN_KUOTA, "Dijawab model ringan, kuota model besar hari ini habis.");
 }
+// 2b. Model besar 503 "high demand" → model ringan, catatan "sibuk" (bukan kuota).
+{
+  const h = await dasar(
+    async (jenis) => {
+      if (jenis === "berat") throw Object.assign(new Error("[503 Service Unavailable] This model is currently experiencing high demand."), { status: 503 });
+      return balas({ teks: "ok" });
+    },
+    { mulai: "berat" },
+  );
+  assert.equal(h.model, "ringan");
+  assert.equal(h.beratLambat, true);
+  assert.equal(h.kuotaHabis, false);
+  assert.ok(galatSibuk({ status: 503 }) && !galatSibuk(new Error("fetch failed")));
+}
 // 3. Jatah harian (RPD) habis menurut hitungan kita → langsung model ringan, tanpa memanggil model besar.
 {
   const log: string[] = [];
@@ -278,6 +292,32 @@ const dasar = (panggil: PanggilModel, extra: Partial<Parameters<typeof jalankanA
   assert.deepEqual(log, ["ringan", "ringan", "berat"]);
   assert.equal(h.jawaban, "Belum ada angka pasti.");
   assert.deepEqual(h.asing, []);
+}
+// 5b. Waktu tinggal sedikit → tidak naik; jawaban model ringan dipakai dengan tanda ragu.
+{
+  const log: string[] = [];
+  const h = await dasar(async (jenis) => (log.push(jenis), balas({ teks: "Total Rp 999.999." })), { batasWaktu: Date.now() + 20_000 });
+  assert.deepEqual(log, ["ringan", "ringan"]);
+  assert.deepEqual(h.asing, [999999]);
+  assert.equal(h.model, "ringan");
+}
+// 5c. Model besar tidak menjawab dalam 20 detik → dibatalkan, model ringan melanjutkan (catatan "lambat").
+{
+  const log: string[] = [];
+  let dibatalkan = false;
+  const h = await dasar(
+    async (jenis, _isi, o) => {
+      log.push(jenis);
+      if (jenis === "ringan") return balas({ teks: log.length > 3 ? "Belum ada angka pasti." : "Total Rp 999.999." });
+      return new Promise<BalasanModel>((_, gagal) => o.signal?.addEventListener("abort", () => ((dibatalkan = true), gagal(new Error("aborted")))));
+    },
+    { batasWaktu: Date.now() + 45_000 },
+  );
+  assert.deepEqual(log, ["ringan", "ringan", "berat", "ringan"]);
+  assert.equal(h.beratLambat, true);
+  assert.equal(dibatalkan, true, "permintaan model besar dihentikan");
+  assert.equal(h.model, "ringan");
+  assert.equal(h.jawaban, "Belum ada angka pasti.");
 }
 // 6. Batas waktu: sisa sedikit → model diminta menjawab tanpa alat; waktu habis di tengah panggilan → jawaban sebagian dari kode.
 {

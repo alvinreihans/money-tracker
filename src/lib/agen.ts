@@ -1,5 +1,5 @@
 import type { Content, FunctionCall, Part } from "@google/generative-ai";
-import { galatKuota, type JenisModel } from "@/lib/rute-model";
+import { galatKuota, galatSibuk, type JenisModel } from "@/lib/rute-model";
 import { rupiahTakTerverifikasi } from "@/lib/tanya";
 
 /**
@@ -26,6 +26,14 @@ export const MAKS_PUTARAN: Record<JenisModel, number> = { ringan: 4, berat: 10 }
 export const CADANGAN_JAWAB_MS = 15_000;
 /** Di bawah sisa waktu ini, tidak ada panggilan model baru. */
 const CADANGAN_MINIMUM_MS = 3_000;
+/** Sisa waktu minimum untuk naik ke model besar di tengah jalan. */
+export const WAKTU_NAIK_MS = 30_000;
+/**
+ * Batas satu panggilan model besar. Lewat dari ini model besar dianggap sedang
+ * lambat: model ringan melanjutkan (seperti saat kuota habis). Diukur 9 Nov
+ * 2026: panggilan model besar paling sederhana pun bisa lebih dari 3 menit.
+ */
+export const BATAS_PANGGIL_BERAT_MS = 20_000;
 /** Batas teks hasil fungsi yang diteruskan saat berganti model. */
 const MAKS_BEKAL = 40_000;
 
@@ -41,6 +49,8 @@ export interface OpsiPanggil {
   tanpaAlat?: boolean;
   /** Sertakan alat `serahkan` (hanya model ringan, dan hanya bila masih bisa naik). */
   serahkan?: boolean;
+  /** Dibatalkan saat batas waktu panggilan lewat (permintaan ke Gemini dihentikan). */
+  signal?: AbortSignal;
 }
 
 export type PanggilModel = (jenis: JenisModel, isi: Content[], opsi: OpsiPanggil) => Promise<BalasanModel>;
@@ -71,6 +81,8 @@ export interface HasilAgen {
   asing: number[];
   model: JenisModel;
   kuotaHabis: boolean;
+  /** Model besar terlalu lambat menjawab: model ringan yang melanjutkan. */
+  beratLambat: boolean;
   /** Waktu habis sebelum selesai: jawaban sebagian, tawarkan Lanjutkan. */
   lanjutkan: boolean;
   /** Panggilan sukses ke model besar (untuk pemakaian_ai). */
@@ -80,6 +92,7 @@ export interface HasilAgen {
 }
 
 class WaktuHabis extends Error {}
+class ModelLambat extends Error {}
 
 const teksBalasan = (r: BalasanModel) => {
   try {
@@ -97,11 +110,15 @@ export async function jalankanAgen(o: OpsiAgen): Promise<HasilAgen> {
   const langkah: string[] = [];
   let jenis: JenisModel = o.mulai;
   let kuotaHabis = false;
+  let beratLambat = false;
   let pakaiBerat = 0;
   let lanjutkan = false;
   let isi: Content[] = [];
   let bolehBeratCache: boolean | null = null;
-  const bisaNaik = async () => !kuotaHabis && (bolehBeratCache ??= await o.bolehBerat());
+  // Naik ke model besar hanya bila waktunya masih cukup: satu panggilan model besar bisa puluhan detik.
+  const bisaNaik = async () => !kuotaHabis && !beratLambat && sisa() >= WAKTU_NAIK_MS && (bolehBeratCache ??= await o.bolehBerat());
+  // Jawaban terbaik sejauh ini: dipakai bila waktu habis saat model besar masih bekerja.
+  let cadangan: { jawaban: string; asing: number[]; model: JenisModel } | null = null;
 
   const tulisLangkah = (teks: string) => {
     if (langkah.at(-1) === teks) return;
@@ -123,21 +140,35 @@ export async function jalankanAgen(o: OpsiAgen): Promise<HasilAgen> {
     isi = isiAwal();
   };
 
-  /** Satu panggilan model dengan batas waktu; 429 di model besar → model ringan. */
+  /**
+   * Satu panggilan model dengan batas waktu. Model besar: 429/kuota, atau tidak menjawab
+   * dalam BATAS_PANGGIL_BERAT_MS → model ringan melanjutkan.
+   */
   const panggil = async (opsi: OpsiPanggil = {}): Promise<BalasanModel> => {
     if (sisa() < CADANGAN_MINIMUM_MS) throw new WaktuHabis();
     let jam: ReturnType<typeof setTimeout> | undefined;
+    const batal = new AbortController();
+    const berat = jenis === "berat";
+    // Model besar dibatasi lebih pendek, asal masih ada waktu untuk model ringan sesudahnya.
+    const batasBerat = berat && sisa() - BATAS_PANGGIL_BERAT_MS > CADANGAN_MINIMUM_MS;
     const habis = new Promise<never>((_, gagal) => {
-      jam = setTimeout(() => gagal(new WaktuHabis()), Math.max(0, sisa()));
+      jam = setTimeout(
+        () => {
+          batal.abort();
+          gagal(batasBerat ? new ModelLambat() : new WaktuHabis());
+        },
+        Math.max(0, batasBerat ? BATAS_PANGGIL_BERAT_MS : sisa()),
+      );
     });
     try {
       const serahkan = jenis === "ringan" && !opsi.tanpaAlat && (opsi.serahkan ?? true) && (await bisaNaik());
-      const r = await Promise.race([o.panggil(jenis, isi, { ...opsi, serahkan }), habis]);
-      if (jenis === "berat") pakaiBerat++;
+      const r = await Promise.race([o.panggil(jenis, isi, { ...opsi, serahkan, signal: batal.signal }), habis]);
+      if (berat) pakaiBerat++;
       return r;
     } catch (e) {
-      if (jenis === "berat" && galatKuota(e)) {
-        kuotaHabis = true;
+      if (berat && (galatKuota(e) || galatSibuk(e) || e instanceof ModelLambat)) {
+        if (!galatKuota(e)) beratLambat = true;
+        else kuotaHabis = true;
         pindahModel("ringan");
         return panggil(opsi.tanpaAlat ? { tanpaAlat: true } : {});
       }
@@ -232,6 +263,7 @@ export async function jalankanAgen(o: OpsiAgen): Promise<HasilAgen> {
       asing = rupiahTakTerverifikasi(jawaban, hasilFungsi);
       // Gagal pemeriksaan angka dua kali di model ringan → model besar melanjutkan.
       if (asing.length && jenis === "ringan" && (await bisaNaik())) {
+        cadangan = { jawaban, asing, model: jenis };
         const berat = await naikKeBerat();
         if (berat) {
           jawaban = berat;
@@ -244,11 +276,13 @@ export async function jalankanAgen(o: OpsiAgen): Promise<HasilAgen> {
         }
       }
     }
-    return { jawaban, asing, model: jenis, kuotaHabis, lanjutkan, pakaiBerat, langkah, hasilFungsi };
+    return { jawaban, asing, model: jenis, kuotaHabis, beratLambat, lanjutkan, pakaiBerat, langkah, hasilFungsi };
   } catch (e) {
     if (!(e instanceof WaktuHabis)) throw e;
+    // Model besar belum selesai, tapi model ringan sudah punya jawaban (meski ada angka yang belum pasti): pakai itu.
+    if (cadangan?.jawaban) return { ...cadangan, kuotaHabis, beratLambat, lanjutkan: false, pakaiBerat, langkah, hasilFungsi };
     const sudah = langkah.filter((l) => l !== "Menyelidiki lebih jauh…").map((l) => l.replace(/…$/, "").replace(/^\p{Lu}/u, (h) => h.toLowerCase()));
     const jawaban = `Waktunya habis sebelum aku selesai memeriksa.${sudah.length ? ` Yang sudah kukerjakan: ${sudah.join("; ")}.` : ""} Tekan Lanjutkan supaya aku meneruskan.`;
-    return { jawaban, asing: [], model: jenis, kuotaHabis, lanjutkan: true, pakaiBerat, langkah, hasilFungsi };
+    return { jawaban, asing: [], model: jenis, kuotaHabis, beratLambat, lanjutkan: true, pakaiBerat, langkah, hasilFungsi };
   }
 }

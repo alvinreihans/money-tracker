@@ -4,7 +4,7 @@ import { jalankanAgen, type PanggilModel } from "@/lib/agen";
 import { jalankanAlatBaca } from "@/lib/alat-server";
 import { GEMINI_MODEL_BERAT, GEMINI_MODEL_BERAT_RPD, GEMINI_MODEL_CHAT, getGeminiClient } from "@/lib/gemini";
 import { PENGETAHUAN_APLIKASI } from "@/lib/pengetahuan-aplikasi";
-import { CATATAN_KUOTA, pilihModelAwal, type JenisModel } from "@/lib/rute-model";
+import { CATATAN_KUOTA, CATATAN_LAMBAT, pilihModelAwal, type JenisModel } from "@/lib/rute-model";
 import { ambilPengaturanMetode, hitungMetode, LABEL_METODE, type HasilWadah } from "@/lib/metode";
 import { ambilKategori } from "@/lib/kategori-server";
 import { analisisBulan, pisahTujuan, progresBudget, type BarisAnalitik } from "@/lib/analitik";
@@ -442,7 +442,7 @@ Aturan:
 - Isi satu tujuan tabungan (mis. "berapa isi dana darurat?"): panggil saldo_kantong dan sebut "terkumpul" tujuan itu saja dari "tujuan_tabungan". "total_semua_tujuan" hanya untuk pertanyaan tentang semua tujuan sekaligus.
 - "Utang mana dulu?" / strategi pelunasan: panggil pinjaman_cicilan. Kalau "strategi_pelunasan" terisi, jawab dengan urutan strategi itu dari "urutan_pelunasan" (yang pertama = fokus; "uang_ekstra_per_bulan" ke sana). Kalau null, jelaskan singkat Snowball (sisa terkecil dulu) dan Avalanche (bunga tertinggi dulu) beserta urutan teratas masing-masing. Bunga null = belum diisi pengguna.
 - Pengguna meminta membetulkan kategori transaksi dari suatu merchant ("waitenjoy itu laundry", "tolong ganti kategori X jadi Y"): panggil usul_ubah_kategori. Itu baru USULAN: kategori BELUM berubah sampai pengguna menekan tombol "Ubah" di kartu di bawah jawabanmu. JANGAN pernah bilang sudah diubah/diganti; jelaskan apa yang akan berubah (jumlah transaksi, totalnya, kategori sekarang → tujuan, dan kategori baru yang akan dibuat bila ada), lalu minta pengguna menekan Ubah. Pertanyaan biasa (mis. "berapa pengeluaran laundry?") BUKAN permintaan membetulkan.
-- Menyelidiki (saldo beda dengan bank, transaksi hilang/dobel, uang "hilang", "kenapa X tercatat sebagai pengeluaran"): pakai periksa_saldo (saldo aplikasi vs bank beserta calon penyebab, dihitung kode), cari_kejanggalan (yang perlu dirapikan, termasuk top up e-wallet yang kantongnya belum ada), cari (data apa pun: transaksi semua status termasuk draft, kantong, simpanan, deposito, cicilan, pinjaman, tujuan, riwayat impor), dan detail (satu transaksi dari id hasil cari). Bila pengguna menyebut saldo menurut bank/e-wallet, isi "saldo_bank". Jelaskan penyebab yang paling mungkin dengan bukti (tanggal, merchant, nominal), utamakan yang "cocok_dengan_selisih", lalu langkah perbaikannya di aplikasi.
+- Menyelidiki (saldo beda dengan bank, transaksi hilang/dobel, uang "hilang", "kenapa X tercatat sebagai pengeluaran"): pakai periksa_saldo (saldo aplikasi vs bank beserta calon penyebab, dihitung kode), cari_kejanggalan (yang perlu dirapikan, termasuk top up e-wallet yang kantongnya belum ada), cari (data apa pun: transaksi semua status termasuk draft, kantong, simpanan, deposito, cicilan, pinjaman, tujuan, riwayat impor), dan detail (satu transaksi dari id hasil cari). Bila pengguna menyebut saldo menurut bank/e-wallet, isi "saldo_bank". Jelaskan penyebab yang paling mungkin dengan buktinya: SEBUT nominal, tanggal, dan merchant transaksinya (mis. "top up DANA Rp 150.000 tanggal 5 November"), utamakan yang "cocok_dengan_selisih", lalu langkah perbaikannya di aplikasi.
 - Kamu BELUM bisa mengubah data apa pun selain usulan ubah kategori. Jangan pernah bilang sudah membuat kantong, mengubah, menghapus, atau menyimpan transaksi; jelaskan langkahnya untuk dilakukan pengguna.
 - Pertanyaan lanjutan merujuk ke percakapan sebelumnya (mis. "kalau dibanding pemasukan?"). "Lanjutkan" = teruskan pemeriksaan yang belum selesai di jawaban sebelumnya.
 - Kategori pengguna (slug: nama): ${kategori.map((k) => `${k.slug}: ${k.name} (${k.type === "expense" ? "keluar" : "masuk"})`).join("; ")}.
@@ -467,7 +467,7 @@ Ringkasan bulan ${bulan} (DATA, sama dengan hasil fungsi ringkasan_bulan): ${JSO
       // Riwayat dikelola sendiri, bukan lewat startChat: SDK ini mengirim hasil
       // fungsi dengan role "function" yang ditolak model Gemini baru. Konten
       // balasan model disimpan apa adanya (termasuk penanda pemikirannya).
-      const r = await model.generateContent({ contents: isi, ...(opsi.tanpaAlat ? { toolConfig: { functionCallingConfig: { mode: FunctionCallingMode.NONE } } } : {}) });
+      const r = await model.generateContent({ contents: isi, ...(opsi.tanpaAlat ? { toolConfig: { functionCallingConfig: { mode: FunctionCallingMode.NONE } } } : {}) }, { signal: opsi.signal });
       return r.response;
     });
 
@@ -534,7 +534,7 @@ Ringkasan bulan ${bulan} (DATA, sama dengan hasil fungsi ringkasan_bulan): ${JSO
     ...(ragu ? { nominal_ragu: h.asing } : {}),
     ...(usulan ? { usulan } : {}),
     model: h.model,
-    ...(h.kuotaHabis ? { catatan: CATATAN_KUOTA } : {}),
+    ...(h.kuotaHabis ? { catatan: CATATAN_KUOTA } : h.beratLambat ? { catatan: CATATAN_LAMBAT } : {}),
     ...(h.lanjutkan ? { lanjutkan: true } : {}),
   };
 }
