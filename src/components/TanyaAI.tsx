@@ -6,13 +6,12 @@ import { useRouter } from "next/navigation";
 import { ArrowUp, History, SquarePen, Sparkles, Trash2 } from "lucide-react";
 import { LAYAR_LEBAR } from "@/components/navigasi";
 import { Lembar, Spinner } from "@/components/oneui";
-import { kembalikanKategori, ubahKategoriMerchant, type HasilUbahKategori } from "@/components/TawaranSerupa";
 import s from "@/components/ui.module.css";
 import { fmtIDR, fmtTanggalPendek, isoLokal, namaBulan } from "@/lib/format";
 import { geserBulan } from "@/lib/kalender";
 import { pengurai, TIPE_ALIR } from "@/lib/alir";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import type { HasilTanya, UsulanKategori } from "@/lib/tanya-server";
+import type { HasilTanya } from "@/lib/tanya-server";
 import type { UsulanAksi } from "@/lib/usulan";
 
 /** Batas yang sama dengan server (SPEC-asisten-agen §5). */
@@ -28,10 +27,20 @@ interface KartuAksi {
   hasil?: string;
 }
 
-/** Keadaan kartu ubah kategori (SPEC-ingat-kategori), ikut disimpan. */
-interface KeadaanKategori {
+/**
+ * Kartu ubah kategori bentuk lama (sebelum keputusan 35 SPEC-asisten-agen),
+ * hanya ada di riwayat percakapan yang sudah tersimpan. Kini "X itu kategori Y"
+ * memakai kartu usulan biasa (`kartu`, jenis ubah_kategori).
+ */
+interface UsulanKategoriLama {
+  merchant: string;
+  kategori: { slug: string; name: string } | null;
+  kategori_baru: { nama: string } | null;
+  jumlah: number;
+}
+interface KeadaanKategoriLama {
   keadaan: "siap" | "diubah" | "batal" | "dikembalikan";
-  hasil?: HasilUbahKategori;
+  hasil?: { diubah: number; kategori: { name: string } };
 }
 
 type PesanAI = {
@@ -39,8 +48,8 @@ type PesanAI = {
   teks: string;
   tautan: { label: string; href: string }[];
   ragu: boolean;
-  usulan?: UsulanKategori;
-  usulanKeadaan?: KeadaanKategori;
+  usulan?: UsulanKategoriLama;
+  usulanKeadaan?: KeadaanKategoriLama;
   kartu?: KartuAksi[];
   catatan?: string;
   lanjutkan?: boolean;
@@ -89,89 +98,24 @@ const teksRiwayat = (p: Pesan) =>
 const kalimatSaldo = (saldo: { nama: string; saldo: number }[]) => (saldo.length ? `Saldo ${saldo.map((x) => `${x.nama} sekarang ${fmtIDR(x.saldo)}`).join(", ")}.` : "");
 
 /**
- * Kartu konfirmasi usulan Tanya AI (SPEC-ingat-kategori): AI hanya
- * mengusulkan; kategori baru berubah setelah user menekan Ubah, dan bisa
- * diurungkan. Server mencari ulang transaksinya saat Ubah ditekan.
+ * Kartu ubah kategori lama dari riwayat percakapan: hanya keadaannya, tanpa
+ * tombol (jalurnya sudah diganti terapkan_usulan; kategorinya bisa diubah di
+ * Riwayat, atau minta usulan baru).
  */
-function KartuUsulan({ u, awal, simpan }: { u: UsulanKategori; awal?: KeadaanKategori; simpan: (k: KeadaanKategori) => void }) {
-  const router = useRouter();
-  const [keadaan, setKeadaan] = useState<KeadaanKategori["keadaan"] | "sibuk">(awal?.keadaan ?? "siap");
-  const [hasil, setHasil] = useState<HasilUbahKategori | null>(awal?.hasil ?? null);
-  const [error, setError] = useState<string | null>(null);
+function KartuKategoriLama({ u, k }: { u: UsulanKategoriLama; k?: KeadaanKategoriLama }) {
   const tujuan = u.kategori?.name ?? u.kategori_baru?.nama ?? "";
-
-  async function ubah() {
-    setKeadaan("sibuk");
-    setError(null);
-    const r = await ubahKategoriMerchant({ merchant: u.merchant, type: u.type, kategori: u.kategori?.slug, kategori_baru: u.kategori_baru, kelompok: null });
-    if ("error" in r) {
-      setError(r.error);
-      return setKeadaan("siap");
-    }
-    setHasil(r);
-    setKeadaan("diubah");
-    simpan({ keadaan: "diubah", hasil: r });
-    router.refresh();
-  }
-
-  async function urungkan() {
-    if (!hasil) return;
-    setKeadaan("sibuk");
-    const err = await kembalikanKategori(hasil.sebelum);
-    if (err) {
-      setError("Gagal mengurungkan. Coba lagi.");
-      return setKeadaan("diubah");
-    }
-    setKeadaan("dikembalikan");
-    simpan({ keadaan: "dikembalikan" });
-    router.refresh();
-  }
-
   return (
-    <div className={s.gptUsulan} role="group" aria-label="Usulan ubah kategori">
-      {keadaan === "diubah" && hasil ? (
-        <>
-          <p>
-            {hasil.diubah} transaksi {u.merchant} sekarang {hasil.kategori.name}. Transaksi berikutnya dari {u.merchant} otomatis {hasil.kategori.name}.
-          </p>
-          <div className={s.gptUsulanTombol}>
-            <button type="button" className={s.flat} onClick={() => void urungkan()}>
-              Urungkan
-            </button>
-          </div>
-        </>
-      ) : keadaan === "dikembalikan" ? (
-        <p>Dikembalikan ke kategori semula.</p>
-      ) : keadaan === "batal" ? (
-        <p>Tidak jadi diubah.</p>
-      ) : (
-        <>
-          <p>
-            {u.kategori_baru ? `Buat kategori ${tujuan} dan ubah` : "Ubah"} {u.jumlah} transaksi {u.merchant} jadi {tujuan}?
-          </p>
-          <div className={s.gptUsulanTombol}>
-            <button
-              type="button"
-              className={s.flat}
-              disabled={keadaan === "sibuk"}
-              onClick={() => {
-                setKeadaan("batal");
-                simpan({ keadaan: "batal" });
-              }}
-            >
-              Batal
-            </button>
-            <button type="button" className={s.tombol} disabled={keadaan === "sibuk"} onClick={() => void ubah()}>
-              {keadaan === "sibuk" ? <Spinner /> : "Ubah"}
-            </button>
-          </div>
-        </>
-      )}
-      {error && (
-        <small className={s.bahaya} role="alert">
-          {error}
-        </small>
-      )}
+    <div className={s.gptUsulan} role="group" aria-label="Usulan ubah kategori (lama)">
+      <p>
+        {k?.keadaan === "diubah" && k.hasil
+          ? `${k.hasil.diubah} transaksi ${u.merchant} diubah jadi ${k.hasil.kategori.name}.`
+          : k?.keadaan === "dikembalikan"
+            ? "Dikembalikan ke kategori semula."
+            : k?.keadaan === "batal"
+              ? "Tidak jadi diubah."
+              : `Usulan ubah ${u.jumlah} transaksi ${u.merchant} jadi ${tujuan} (tidak diterapkan).`}
+      </p>
+      <small className={s.redup}>Kartu lama: tidak bisa diterapkan atau diurungkan lagi dari sini. Minta usulan baru bila masih perlu.</small>
     </div>
   );
 }
@@ -216,7 +160,7 @@ function KartuUsulanAksi({ k, ubah }: { k: KartuAksi; ubah: (patch: Partial<Kart
     const d = await kirim("/api/asisten/urungkan", { aksi_id: k.aksi_id, kantong: u.kantong.filter((x) => x !== "baru") });
     if (!d) return;
     const saldo = kalimatSaldo((d.saldo as { nama: string; saldo: number }[]) ?? []);
-    ubah({ keadaan: "diurungkan", hasil: `${d.kantong_dihapus ? "Kantong barunya ikut dihapus. " : ""}${saldo}`.trim() });
+    ubah({ keadaan: "diurungkan", hasil: `${d.kantong_dihapus ? "Kantong barunya ikut dihapus. " : ""}${d.kategori_dihapus ? "Kategori barunya ikut dihapus. " : ""}${saldo}`.trim() });
     router.refresh();
   }
 
@@ -396,7 +340,6 @@ export function TanyaProvider({ children }: { children: React.ReactNode }) {
         teks: d.jawaban,
         tautan: d.tautan ?? [],
         ragu: Boolean(d.ragu),
-        usulan: d.usulan,
         kartu: d.usulan_aksi?.map((u) => ({ u, keadaan: "siap" as const })),
         catatan: d.catatan,
         lanjutkan: d.lanjutkan,
@@ -725,14 +668,7 @@ function TanyaAI({
                   <div key={i} className={`${s.gptAI} ${p.peran === "galat" ? s.bahaya : ""}`} role={p.peran === "galat" ? "alert" : undefined}>
                     {p.teks}
                     {p.peran === "ai" && p.ragu && <small>⚠️ Ada angka yang belum bisa dipastikan. Cek angkanya di Riwayat.</small>}
-                    {p.peran === "ai" && p.usulan && (
-                      <KartuUsulan
-                        key={`${obrolanId}-${i}`}
-                        u={p.usulan}
-                        awal={p.usulanKeadaan}
-                        simpan={(k) => ubahPesan(i, (x) => ({ ...x, usulanKeadaan: k }))}
-                      />
-                    )}
+                    {p.peran === "ai" && p.usulan && <KartuKategoriLama u={p.usulan} k={p.usulanKeadaan} />}
                     {p.peran === "ai" &&
                       p.kartu?.map((k, j) => (
                         <KartuUsulanAksi key={k.u.kunci} k={k} ubah={(patch) => ubahPesan(i, (x) => ({ ...x, kartu: x.kartu?.map((y, n) => (n === j ? { ...y, ...patch } : y)) }))} />

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { saringTransaksi } from "@/lib/alat-server";
+import { cariSerupa } from "@/lib/ingat";
 import { ambilKantong } from "@/lib/kantong";
 import type { Kategori } from "@/lib/kategori";
 import { geserHari } from "@/lib/format";
@@ -13,6 +14,7 @@ import {
   usulHapus,
   usulJadikanPindah,
   usulSelesaikanDraft,
+  usulUbahKategori,
   usulUbahTransaksi,
   type HasilUsulan,
   type KonteksUsulan,
@@ -26,7 +28,7 @@ import {
  * Penerapannya lewat /api/asisten/terapkan → RPC terapkan_usulan.
  */
 
-export const NAMA_USUL = ["usul_buat_kantong", "usul_jadikan_pindah", "usul_ubah_transaksi", "usul_hapus", "usul_selesaikan_draft", "usul_catat"] as const;
+export const NAMA_USUL = ["usul_buat_kantong", "usul_jadikan_pindah", "usul_ubah_transaksi", "usul_ubah_kategori", "usul_hapus", "usul_selesaikan_draft", "usul_catat"] as const;
 export type NamaUsul = (typeof NAMA_USUL)[number];
 export const alatUsul = (nama: string): nama is NamaUsul => (NAMA_USUL as readonly string[]).includes(nama);
 
@@ -68,6 +70,13 @@ export async function jalankanUsul(nama: NamaUsul, args: Record<string, unknown>
 
   if (nama === "usul_buat_kantong") return usulBuatKantong(args, k);
   if (nama === "usul_catat") return usulCatat(args, k, pertanyaan);
+  if (nama === "usul_ubah_kategori") {
+    // Transaksi merchant itu dicari dengan aturan cocok SPEC-ingat-kategori (bukan ids/saring).
+    const merchant = typeof args.merchant === "string" ? args.merchant.trim().slice(0, 200) : "";
+    if (!merchant) return usulUbahKategori({ expense: [], income: [] }, args, k);
+    const [expense, income] = await Promise.all([cariSerupa(supabase, merchant, "expense"), cariSerupa(supabase, merchant, "income")]);
+    return usulUbahKategori({ expense: expense as TxUsulan[], income: income as TxUsulan[] }, args, k);
+  }
   if (nama === "usul_selesaikan_draft") {
     const id = idDariArgumen(args);
     const { data } = id ? await supabase.from("transactions").select(KOLOM).eq("id", id).maybeSingle() : { data: null };

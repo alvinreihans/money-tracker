@@ -65,7 +65,7 @@ const KASUS = [
   { tanya: "kenapa bulan ini boros?", harus: [10300000], pola: /\bHP\b[\s\S]*tabungan|tabungan[\s\S]*\bHP\b/i },
   // Minta membetulkan kategori (SPEC-ingat-kategori): hanya usulan + kartu,
   // tidak mengaku sudah mengubah; pertanyaan biasa tidak memunculkan usulan.
-  { tanya: "Kopi Janji Jiwa itu harusnya kategori Jajan, tolong betulkan", harus: [], usulan: true, bukan: /\bsudah (saya |aku )?(di)?(ubah|ganti|betulkan|perbaiki|pindah)/i },
+  { tanya: "Kopi Janji Jiwa itu harusnya kategori Jajan, tolong betulkan", harus: [], usulan: true, aksi: "ubah_kategori", bukan: /\bsudah (saya |aku )?(di)?(ubah|ganti|betulkan|perbaiki|pindah)/i },
   { tanya: "berapa pengeluaran Shopee bulan ini?", harus: [245000], tanpaUsulan: true },
   // Metode lanjutan (SPEC-metode-lanjutan). `metode` dipasang & `siapkan`
   // menambah data khusus kasus itu; sesudahnya kembali ke 50/30/20 tanpa data

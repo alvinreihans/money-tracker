@@ -127,7 +127,7 @@ export const DEKLARASI_FUNGSI: FunctionDeclaration[] = [
   {
     name: "usul_ubah_kategori",
     description:
-      "HANYA saat pengguna meminta membetulkan/mengganti kategori transaksi dari satu merchant (mis. 'waitenjoy itu laundry', 'transfer ke Dnid Ridx Dana itu makan'). Mencari transaksinya dan menyiapkan USULAN; belum mengubah apa pun — pengguna yang menekan tombol Ubah.",
+      "HANYA saat pengguna meminta membetulkan/mengganti kategori semua transaksi dari satu merchant (mis. 'waitenjoy itu laundry', 'transfer ke Dnid Ridx Dana itu makan'). Mencari transaksinya dan menyiapkan kartu USULAN (kategori baru ikut dibuat bila belum ada); belum mengubah apa pun — pengguna yang menekan Terapkan.",
     parameters: {
       type: SchemaType.OBJECT,
       properties: {

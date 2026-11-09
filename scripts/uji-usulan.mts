@@ -19,6 +19,7 @@ import {
   usulHapus,
   usulJadikanPindah,
   usulSelesaikanDraft,
+  usulUbahKategori,
   usulUbahTransaksi,
   type KonteksUsulan,
   type TxUsulan,
@@ -74,7 +75,7 @@ const tx = (isi: Partial<TxUsulan>): TxUsulan => ({
 });
 
 // ---------------------------------------------------------------- deklarasi & label
-for (const nama of ["usul_buat_kantong", "usul_jadikan_pindah", "usul_ubah_transaksi", "usul_hapus", "usul_selesaikan_draft", "usul_catat"] as const) {
+for (const nama of ["usul_buat_kantong", "usul_jadikan_pindah", "usul_ubah_transaksi", "usul_ubah_kategori", "usul_hapus", "usul_selesaikan_draft", "usul_catat"] as const) {
   assert.ok(NAMA_FUNGSI.includes(nama), nama);
   assert.ok(DEKLARASI_FUNGSI.some((d) => d.name === nama), `deklarasi ${nama}`);
   assert.equal(tautanDari(nama, {}, { hariIni: k.hariIni, kantong: [], kategori: [] }), null, "usulan tanpa tautan");
@@ -91,6 +92,55 @@ assert.deepEqual(idsDariArgumen([BCA, BCA.toUpperCase(), "bukan-id", 5]), [BCA],
   assert.equal(h.usulan?.isian.kantong_baru?.saldo_awal, 50000);
   assert.deepEqual(h.usulan?.saldo, [{ nama: "DANA", sebelum: null, sesudah: 50000 }]);
   assert.match(String(h.untukModel.status), /BELUM DITERAPKAN/);
+}
+
+// ---------------------------------------------------------------- ubah kategori per merchant
+{
+  const w1 = tx({ merchant: "WAITENJOY.CO", amount: 16000 });
+  const w2 = tx({ merchant: "Waitenjoy", amount: 18000, category: "transport", source: "statement", ref_bank: "bri:2" });
+  const w3 = tx({ merchant: "WAITENJOY.CO", amount: 20000, category: "other" });
+  // Kategori yang sudah ada: yang sudah Transportasi tidak ikut; isian category = slug.
+  const ada = usulUbahKategori({ expense: [w1, w2, w3], income: [] }, { merchant: "waitenjoy", kategori: "transportasi" }, k);
+  const u = ada.usulan!;
+  assert.equal(u.jenis, "ubah_kategori");
+  assert.equal(u.isian.jenis, "ubah_kategori");
+  assert.equal(u.isian.kategori_baru, undefined, "kategori yang ada tidak dibuat lagi");
+  assert.deepEqual(
+    u.isian.ubah?.map((x) => [x.id, x.updated_at, x.isian]),
+    [
+      [w1.id, w1.updated_at, { category: "transport" }],
+      [w3.id, w3.updated_at, { category: "transport" }],
+    ],
+  );
+  assert.equal(u.judul, "Ubah 2 transaksi waitenjoy jadi Transportasi");
+  assert.deepEqual([u.baris[0].sebelum, u.baris[0].sesudah, u.baris[1].sebelum], ["Makan", "Transportasi", "Lainnya"]);
+  assert.deepEqual([u.saldo, u.kantong], [[], []], "kategori tidak menggeser saldo");
+  assert.ok(u.catatan.some((c) => /berikutnya dari waitenjoy otomatis Transportasi/.test(c)));
+  assert.match(String(ada.untukModel.status), /BELUM DITERAPKAN/);
+
+  // Kategori baru: dibuat di usulan yang sama (category "baru"), kelompok dari AI atau keinginan.
+  const baru = usulUbahKategori({ expense: [w1, w2], income: [] }, { merchant: "waitenjoy", kategori: "laundry", kelompok: "kebutuhan" }, k).usulan!;
+  assert.deepEqual(baru.isian.kategori_baru, { type: "expense", nama: "Laundry", kelompok: "kebutuhan" });
+  assert.deepEqual(baru.isian.ubah?.map((x) => x.isian.category), ["baru", "baru"], "rekening koran tetap boleh diubah kategorinya");
+  assert.equal(baru.judul, "Buat kategori Laundry dan ubah 2 transaksi waitenjoy jadi Laundry");
+  assert.ok(baru.catatan.some((c) => /Kategori pengeluaran Laundry dibuat \(kelompok Kebutuhan\)/.test(c)));
+  assert.equal(usulUbahKategori({ expense: [w1], income: [] }, { merchant: "w", kategori: "Jajan", kelompok: "ngawur" }, k).usulan?.isian.kategori_baru?.kelompok, "keinginan");
+
+  // Jenis: yang transaksinya lebih banyak; pemasukan tanpa kelompok.
+  const gaji = [tx({ type: "income", category: "other", merchant: "PT Maju" }), tx({ type: "income", category: "other", merchant: "PT Maju" })];
+  const masuk = usulUbahKategori({ expense: [tx({ merchant: "PT Maju" })], income: gaji }, { merchant: "PT Maju", kategori: "Bonus" }, k).usulan!;
+  assert.deepEqual(masuk.isian.kategori_baru, { type: "income", nama: "Bonus", kelompok: null });
+  assert.equal(masuk.jumlah, 2);
+  assert.deepEqual(usulUbahKategori({ expense: [w1], income: gaji }, { merchant: "x", kategori: "gaji" }, k).usulan?.isian.ubah?.[0].isian, { category: "salary" });
+
+  // Tidak ada / sudah semua / isian kurang / batas 200 / draft tidak ikut.
+  assert.match(String(usulUbahKategori({ expense: [], income: [] }, { merchant: "Zzz", kategori: "Makan" }, k).untukModel.pesan), /Tidak ada transaksi/);
+  assert.match(String(usulUbahKategori({ expense: [w1], income: [] }, { merchant: "w", kategori: "makan" }, k).untukModel.pesan), /sudah berkategori Makan/);
+  assert.match(String(usulUbahKategori({ expense: [w1], income: [] }, { merchant: "w" }, k).untukModel.error), /wajib/);
+  assert.match(String(usulUbahKategori({ expense: [tx({ status: "needs_review" })], income: [] }, { merchant: "w", kategori: "Jajan" }, k).untukModel.pesan), /Tidak ada transaksi/, "draft tidak ikut");
+  const banyak = usulUbahKategori({ expense: Array.from({ length: MAKS_USULAN + 1 }, () => tx({ merchant: "Grab" })), income: [] }, { merchant: "Grab", kategori: "Transportasi" }, k).usulan!;
+  assert.equal(banyak.isian.ubah?.length, MAKS_USULAN);
+  assert.ok(banyak.catatan.some((c) => /200 transaksi pertama; 1 lainnya/.test(c)));
 }
 
 // ---------------------------------------------------------------- ubah transaksi
@@ -237,4 +287,4 @@ assert.deepEqual(idsDariArgumen([BCA, BCA.toUpperCase(), "bukan-id", 5]), [BCA],
   assert.match(String(usulCatat({ jenis: "pindah", nominal: 5000, kantong: "BCA", kantong_tujuan: "BCA" }, k, "").untukModel.error), /berbeda/);
 }
 
-console.log("✓ usulan: deklarasi & langkah usul_*, buat kantong, ubah transaksi (angka bank dilewati, batas 200), jadikan pindah (+ kantong baru dengan saldo awal tidak minus, gabung sisi lain), hapus (kembaran rekening koran, pecahan), selesaikan draft, catat, saldo sebelum → sesudah");
+console.log("✓ usulan: deklarasi & langkah usul_*, buat kantong, ubah kategori per merchant (+ kategori baru), ubah transaksi (angka bank dilewati, batas 200), jadikan pindah (+ kantong baru dengan saldo awal tidak minus, gabung sisi lain), hapus (kembaran rekening koran, pecahan), selesaikan draft, catat, saldo sebelum → sesudah");

@@ -33,11 +33,11 @@ export async function terapkanAksi(supabase: SupabaseClient, isian: unknown, kan
   return { aksi_id: d.aksi_id, n: d.n, saldo: await saldoKantong(supabase, [...new Set(ids)].slice(0, 20)) };
 }
 
-export async function urungkanAksi(supabase: SupabaseClient, aksiId: unknown, kantongIds: unknown): Promise<{ n: number; kantong_dihapus: boolean; saldo: { nama: string; saldo: number }[] }> {
+export async function urungkanAksi(supabase: SupabaseClient, aksiId: unknown, kantongIds: unknown): Promise<{ n: number; kantong_dihapus: boolean; kategori_dihapus?: boolean; saldo: { nama: string; saldo: number }[] }> {
   if (typeof aksiId !== "string" || !UUID.test(aksiId)) throw new GalatAksi("Usulan ini tidak ditemukan.");
   const { data, error } = await supabase.rpc("urungkan_aksi", { p_id: aksiId });
   if (error) throw new GalatAksi(pesan(error, "Gagal mengurungkan. Coba lagi."));
-  const d = data as { n: number; kantong_dihapus: boolean };
+  const d = data as { n: number; kantong_dihapus: boolean; kategori_dihapus?: boolean };
   const ids = (Array.isArray(kantongIds) ? kantongIds : []).filter((x): x is string => typeof x === "string" && UUID.test(x));
   return { ...d, saldo: await saldoKantong(supabase, [...new Set(ids)].slice(0, 20)) };
 }

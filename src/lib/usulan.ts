@@ -1,5 +1,6 @@
 import { cocokkanKantong, hitungSaldo, kantongDeposito, type Kantong } from "@/lib/kantong";
 import { tebakJenisKantong } from "@/lib/lembaga";
+import { KELOMPOK, NAMA_KELOMPOK, type Kelompok } from "@/lib/metode";
 import type { TxPeriksa } from "@/lib/periksa";
 import { selisihHari } from "@/lib/rekening/teks";
 import { angkaArg, tanggalSah, UUID } from "@/lib/tanya";
@@ -18,14 +19,18 @@ import { angkaArg, tanggalSah, UUID } from "@/lib/tanya";
 /** Satu usulan paling banyak 200 transaksi (P5); sisanya diusulkan lagi sesudahnya. */
 export const MAKS_USULAN = 200;
 
-export const JENIS_USULAN = ["buat_kantong", "jadikan_pindah", "ubah_transaksi", "hapus", "selesaikan_draft", "catat"] as const;
+export const JENIS_USULAN = ["buat_kantong", "jadikan_pindah", "ubah_transaksi", "ubah_kategori", "hapus", "selesaikan_draft", "catat"] as const;
 export type JenisUsulan = (typeof JENIS_USULAN)[number];
 
-/** Isian RPC terapkan_usulan (bentuknya dijelaskan di migrasi 20261123000000_asisten_aksi.sql). */
+/**
+ * Isian RPC terapkan_usulan (bentuknya dijelaskan di migrasi 20261123000000_asisten_aksi.sql;
+ * kategori_baru & isian category "baru" di 20261124000000_ubah_kategori_asisten.sql).
+ */
 export interface IsianUsulan {
   jenis: JenisUsulan;
   ringkasan: string;
   kantong_baru?: { nama: string; jenis: "bank" | "ewallet" | "cash"; saldo_awal: number; saldo_sejak: string };
+  kategori_baru?: { type: "expense" | "income"; nama: string; kelompok: string | null };
   ubah?: { id: string; updated_at: string; isian: Record<string, string | number | null> }[];
   pindah?: { id: string; updated_at: string; ke: string; gabung?: { id: string; updated_at: string } | null }[];
   hapus?: { id: string; updated_at: string }[];
@@ -282,7 +287,7 @@ export function usulUbahTransaksi(baris: TxUsulan[], args: Record<string, unknow
       untukModel: {
         error: `Kategori "${minta.kategori}" tidak ada.`,
         kategori_yang_ada: k.kategori.filter((c) => kategoriTakAda.has(c.type)).map((c) => `${c.slug}: ${c.name}`),
-        saran: "Pakai kategori yang ada, atau usul_ubah_kategori (bisa membuat kategori baru) untuk satu merchant.",
+        saran: "Pakai kategori yang ada, atau usul_ubah_kategori (bisa membuat kategori baru) untuk semua transaksi satu merchant.",
       },
     };
   if (lewatBank) catatan.push(`${lewatBank} transaksi dari rekening koran: nominal, tanggal & kantongnya angka bank, jadi bagian itu tidak diubah.`);
@@ -325,6 +330,59 @@ export function usulUbahTransaksi(baris: TxUsulan[], args: Record<string, unknow
     isian: { jenis: "ubah_transaksi", ringkasan: `Ubah ${dipakai.length} transaksi`, ubah: dipakai.map((u) => ({ id: u.t.id, updated_at: u.t.updated_at, isian: u.isian })) },
   };
   return { usulan, untukModel: untukModel(usulan) };
+}
+
+// --- usul_ubah_kategori ---------------------------------------------------------
+
+/**
+ * "X itu kategori Y" (SPEC-ingat-kategori): semua transaksi tercatat dari satu
+ * merchant (`serupa`, hasil cariSerupa per jenis) jadi kategori Y; jenisnya
+ * yang transaksinya lebih banyak. Kategori yang belum ada dibuat di usulan
+ * yang sama (isian category "baru"). Transaksi berikutnya dari merchant itu
+ * otomatis ikut, karena kategori diingat dari transaksi terakhirnya.
+ */
+export function usulUbahKategori(serupa: { expense: TxUsulan[]; income: TxUsulan[] }, args: Record<string, unknown>, k: KonteksUsulan): HasilUsulan {
+  const merchant = teksArg(args.merchant, 200);
+  const minta = teksArg(args.kategori, 30);
+  if (!merchant || !minta) return { untukModel: { error: "merchant dan kategori wajib diisi" } };
+  const type = serupa.expense.length >= serupa.income.length ? "expense" : "income";
+  const baris = serupa[type].filter((t) => (t.status ?? "confirmed") === "confirmed");
+  if (!baris.length) return { untukModel: { jumlah_transaksi: 0, pesan: `Tidak ada transaksi dengan merchant "${merchant}".` } };
+  const ada = cariKategoriUsulan(minta, type, k);
+  const ubah = ada ? baris.filter((t) => t.category !== ada.slug) : baris;
+  if (!ubah.length) return { untukModel: { jumlah_transaksi: 0, pesan: `Semua transaksi ${merchant} sudah berkategori ${ada!.name}.` } };
+  const nama = ada?.name ?? minta.charAt(0).toUpperCase() + minta.slice(1);
+  const kelompok: Kelompok | null = type === "expense" ? (KELOMPOK.includes(args.kelompok as Kelompok) ? (args.kelompok as Kelompok) : "keinginan") : null;
+  const catatan: string[] = [];
+  if (!ada) catatan.push(`Kategori ${type === "expense" ? "pengeluaran" : "pemasukan"} ${nama} dibuat${kelompok ? ` (kelompok ${NAMA_KELOMPOK[kelompok]})` : ""}.`);
+  catatan.push(`Transaksi berikutnya dari ${merchant} otomatis ${nama}.`);
+  const dipakai = potong(ubah, catatan);
+  const usulan: UsulanAksi = {
+    kunci: kunciBaru(),
+    jenis: "ubah_kategori",
+    judul: `${ada ? "Ubah" : `Buat kategori ${nama} dan ubah`} ${dipakai.length} transaksi ${merchant} jadi ${nama}`,
+    jumlah: dipakai.length,
+    total: dipakai.reduce((n, t) => n + Number(t.amount), 0),
+    baris: dipakai.map((t) => barisDari(t, k, namaKat(t.category, t.type, k), nama)),
+    saldo: [],
+    catatan,
+    kantong: [],
+    isian: {
+      jenis: "ubah_kategori",
+      ringkasan: `Ubah kategori ${dipakai.length} transaksi ${merchant} jadi ${nama}`,
+      ...(ada ? {} : { kategori_baru: { type, nama, kelompok } }),
+      ubah: dipakai.map((t) => ({ id: t.id, updated_at: t.updated_at, isian: { category: ada?.slug ?? "baru" } })),
+    },
+  };
+  return {
+    usulan,
+    untukModel: untukModel(usulan, {
+      merchant,
+      kategori_sekarang: [...new Set(dipakai.map((t) => namaKat(t.category, t.type, k)))],
+      kategori_tujuan: nama,
+      kategori_baru_akan_dibuat: !ada,
+    }),
+  };
 }
 
 // --- usul_jadikan_pindah --------------------------------------------------------

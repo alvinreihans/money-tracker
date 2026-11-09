@@ -94,16 +94,16 @@ try {
   await buka(`${base}/`, 5000);
   const q1 = await tanya("transfer ke Dnid Ridx Dana itu bayar makan di warteg, tolong betulkan kategorinya");
   const ngaku = /\bsudah (saya |aku )?(di)?(ubah|ganti|betulkan|perbaiki)/i.test(q1?.jawaban ?? "");
-  cek("Tanya AI: kartu usulan, belum mengaku sudah mengubah", /Ubah 1 transaksi Dnid Ridx Dana jadi Makan\?/i.test(norm(q1?.kartu)) && !ngaku && (await kat(d1)) === "other", JSON.stringify(q1));
-  const k5 = await tekanKartu("Ubah", "sekarang");
+  cek("Tanya AI: kartu usulan, belum mengaku sudah mengubah", /Ubah 1 transaksi Dnid Ridx Dana jadi Makan/i.test(norm(q1?.kartu)) && !ngaku && (await kat(d1)) === "other", JSON.stringify(q1));
+  const k5 = await tekanKartu("Terapkan", "Diterapkan");
   const d1Ubah = await kat(d1);
-  const k5b = await tekanKartu("Urungkan", "Dikembalikan");
-  cek("Kartu: Ubah → berubah; Urungkan → kembali", d1Ubah === "food" && (await kat(d1)) === "other" && /Dikembalikan/.test(k5b ?? ""), JSON.stringify({ k5, d1Ubah, k5b }));
+  const k5b = await tekanKartu("Urungkan", "Diurungkan");
+  cek("Kartu: Terapkan → berubah; Urungkan → kembali", d1Ubah === "food" && (await kat(d1)) === "other" && /Diurungkan/.test(k5b ?? ""), JSON.stringify({ k5, d1Ubah, k5b }));
 
   // --- 6. Tanya AI: kategori baru.
   const q2 = await tanya("Kopi Kenangan harusnya masuk kategori Jajan, tolong betulkan");
-  cek("Tanya AI: usulan membuat kategori baru Jajan", /Buat kategori Jajan dan ubah 1 transaksi Kopi Kenangan jadi Jajan\?/.test(norm(q2?.kartu)), JSON.stringify(q2));
-  await tekanKartu("Ubah", "sekarang");
+  cek("Tanya AI: usulan membuat kategori baru Jajan", /Buat kategori Jajan dan ubah 1 transaksi Kopi Kenangan jadi Jajan/i.test(norm(q2?.kartu)), JSON.stringify(q2));
+  await tekanKartu("Terapkan", "Diterapkan");
   const { data: jajan } = await sb.from("categories").select("slug, kelompok, type").eq("name", "Jajan").maybeSingle();
   cek("Kategori Jajan dibuat dan Kopi Kenangan pindah ke sana", jajan?.type === "expense" && (await kat(k1)) === jajan?.slug, JSON.stringify({ jajan, k1: await kat(k1) }));
   await langkah("tutup tanya", `dialog().dispatchEvent(new Event('cancel', { cancelable: true })); await t(600); return 'ok'`);

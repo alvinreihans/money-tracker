@@ -479,6 +479,58 @@ try {
   const grabAkhir = await baca(grab.id);
   cek("urungkan_aksi: baris sudah diubah lagi → ditolak, tidak ada yang berubah", /diubah lagi/.test(eUrungBerubah?.message ?? "") && grabAkhir?.category === "shopping", JSON.stringify({ eUrungBerubah, grabAkhir }));
 
+  // 7. Ubah kategori per merchant (keputusan 35): kategori baru dibuat di usulan yang sama ("baru"),
+  //    urungkan mengembalikan kategori lama & menghapus kategori itu bila tidak dipakai lagi.
+  const cuci1 = await txU({ amount: 16000, type: "expense", category: "food", merchant: "Cuci Usulan" });
+  const cuci2 = await txU({ amount: 18000, type: "expense", category: "other", merchant: "Cuci Usulan", source: "statement", ref_bank: "uji:usulan-cuci" });
+  const isiKat = (a, b, kategori_baru = { type: "expense", nama: "Laundry  Usulan", kelompok: "kebutuhan" }) => ({
+    jenis: "ubah_kategori", ringkasan: "Cuci Usulan → Laundry", kategori_baru,
+    ubah: [{ id: a.id, updated_at: a.updated_at, isian: { category: "baru" } }, { id: b.id, updated_at: b.updated_at, isian: { category: "baru" } }],
+  });
+  for (const [siapa, sb] of [["B", B.sb], ["Anon", anon]]) {
+    const { error: eKatLain } = await sb.rpc("terapkan_usulan", { p: isiKat(cuci1, cuci2) });
+    cek(`${siapa}: terapkan_usulan ubah_kategori atas transaksi A → ditolak`, Boolean(eKatLain), JSON.stringify(eKatLain));
+  }
+  const { data: katSisaB } = await admin.from("categories").select("id").eq("name", "Laundry Usulan").in("user_id", [A.id, B.id]);
+  cek("Percobaan B & anon tidak meninggalkan kategori (satu transaksi database)", !(katSisaB ?? []).length, JSON.stringify(katSisaB));
+  const { error: eTanpaBaru } = await A.sb.rpc("terapkan_usulan", { p: { jenis: "ubah_kategori", ubah: [{ id: cuci1.id, updated_at: cuci1.updated_at, isian: { category: "baru" } }] } });
+  cek("terapkan_usulan: category \"baru\" tanpa kategori_baru → ditolak", /Kategori barunya tidak ada/.test(eTanpaBaru?.message ?? ""), JSON.stringify(eTanpaBaru));
+  for (const salah of [{ type: "transfer", nama: "X" }, { type: "expense", nama: "x".repeat(31) }, { type: "expense", nama: "Y", kelompok: "ngawur" }]) {
+    const { error: eKatSalah } = await A.sb.rpc("terapkan_usulan", { p: isiKat(cuci1, cuci2, salah) });
+    cek(`terapkan_usulan: kategori_baru tidak valid (${JSON.stringify(salah).slice(0, 60)}) → ditolak`, /tidak valid/.test(eKatSalah?.message ?? ""), JSON.stringify(eKatSalah));
+  }
+  const { data: katU, error: eKatU2 } = await A.sb.rpc("terapkan_usulan", { p: isiKat(cuci1, cuci2) });
+  const { data: katBaru } = await A.sb.from("categories").select("slug, name, kelompok, icon").eq("slug", katU?.kategori_baru ?? "-").maybeSingle();
+  const [c1, c2] = [await baca(cuci1.id), await baca(cuci2.id)];
+  cek("terapkan_usulan ubah_kategori + kategori baru: kategori Laundry Usulan (kebutuhan) dibuat, kedua transaksi pindah (rekening koran boleh)",
+    !eKatU2 && katU?.n === 2 && katBaru?.name === "Laundry Usulan" && katBaru?.kelompok === "kebutuhan" && c1?.category === katBaru?.slug && c2?.category === katBaru?.slug,
+    JSON.stringify({ eKatU2, katU, katBaru, c1: c1?.category, c2: c2?.category }));
+  const { data: katDiB } = await B.sb.from("categories").select("id").eq("name", "Laundry Usulan");
+  cek("B tidak melihat kategori baru A", !(katDiB ?? []).length);
+  for (const [siapa, sb] of [["B", B.sb], ["Anon", anon]]) {
+    const { error: eUrungKatLain } = await sb.rpc("urungkan_aksi", { p_id: katU?.aksi_id });
+    cek(`${siapa}: urungkan_aksi ubah_kategori milik A → ditolak`, Boolean(eUrungKatLain));
+  }
+  const { data: urungKat, error: eUrungKat } = await A.sb.rpc("urungkan_aksi", { p_id: katU?.aksi_id });
+  const { data: katHilang } = await A.sb.from("categories").select("id").eq("slug", katU?.kategori_baru ?? "-");
+  const [b1, b2] = [await baca(cuci1.id), await baca(cuci2.id)];
+  cek("urungkan_aksi ubah_kategori: kategori lama kembali, kategori baru ikut dihapus",
+    !eUrungKat && urungKat?.kategori_dihapus === true && !(katHilang ?? []).length && b1?.category === "food" && b2?.category === "other",
+    JSON.stringify({ eUrungKat, urungKat, katHilang, b1: b1?.category, b2: b2?.category }));
+  // Nama yang sudah ada (beda huruf) dipakai lagi dan tidak dihapus saat urungkan.
+  const { data: makan } = await A.sb.from("categories").select("slug, name").eq("type", "expense").eq("slug", "food").single();
+  const { data: katAda } = await A.sb.rpc("terapkan_usulan", { p: isiKat(b1, b2, { type: "expense", nama: makan.name.toUpperCase() }) });
+  const { data: urungAda } = await A.sb.rpc("urungkan_aksi", { p_id: katAda?.aksi_id });
+  const { data: makanTetap } = await A.sb.from("categories").select("slug").eq("slug", "food").maybeSingle();
+  cek("kategori_baru dengan nama yang sudah ada → kategori itu dipakai, tidak dihapus saat urungkan", katAda?.kategori_baru === "food" && urungAda?.kategori_dihapus === false && makanTetap?.slug === "food", JSON.stringify({ katAda, urungAda }));
+  // Kategori baru yang sudah dipakai transaksi lain tidak ikut dihapus.
+  const [d1, d2] = [await baca(cuci1.id), await baca(cuci2.id)];
+  const { data: katLagi } = await A.sb.rpc("terapkan_usulan", { p: isiKat(d1, d2) });
+  await txU({ amount: 5000, type: "expense", category: katLagi?.kategori_baru, merchant: "Cuci Lain" });
+  const { data: urungLagi, error: eUrungLagi } = await A.sb.rpc("urungkan_aksi", { p_id: katLagi?.aksi_id });
+  const { data: katMasih } = await A.sb.from("categories").select("id").eq("slug", katLagi?.kategori_baru ?? "-");
+  cek("urungkan_aksi: kategori baru yang sudah dipakai transaksi lain tetap ada", !eUrungLagi && urungLagi?.kategori_dihapus === false && (katMasih ?? []).length === 1, JSON.stringify({ eUrungLagi, urungLagi, katMasih }));
+
   // --- Riwayat percakapan Tanya AI (P4): terenkripsi, hanya pemilik.
   const pesanA = [{ peran: "saya", teks: "Rahasia obrolan A" }, { peran: "ai", teks: "Jawaban A" }];
   const { data: obrolanA, error: eObrolan } = await A.sb.rpc("simpan_obrolan", { p_id: null, p_judul: "Rahasia obrolan A", p_pesan: pesanA });

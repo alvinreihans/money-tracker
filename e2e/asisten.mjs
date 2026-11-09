@@ -1,6 +1,7 @@
 // Asisten agen tahap B (SPEC-asisten-agen §3, P4): kartu usulan → Terapkan → data &
 // saldo berubah → Urungkan → kembali; riwayat percakapan (obrolan baru, buka obrolan
-// lama, lanjutkan, hapus). Di 360 & 1024 px. Jawaban /api/tanya ditiru (tanpa kuota
+// lama, lanjutkan, hapus). Di 360 & 1024 px. Kartu ubah kategori per merchant (+ kategori
+// baru) lewat jalur yang sama, dan kartu ubah kategori bentuk lama dari riwayat (tanpa tombol). Jawaban /api/tanya ditiru (tanpa kuota
 // Gemini); Terapkan/Urungkan & penyimpanan obrolan memakai server & database sungguhan.
 import { createRequire } from "node:module";
 import { base, buka, cdp, edge, foto, jalankan, langkah, masalah, tidur } from "./kepala.mjs";
@@ -14,12 +15,12 @@ const cek = (nama, ok, info = "") => { console.log(`${ok ? "✓" : "✗"} ${nama
 const ukur = async (w, h = 860) => { await cdp("Emulation.setDeviceMetricsOverride", { width: w, height: h, deviceScaleFactor: 1, mobile: w < 600 }); await tidur(700); };
 const hariIni = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" });
 
-// /api/tanya tiruan: pertanyaan berisi "jadikan" → jawaban + kartu usulan (window.__usulan); selain itu jawaban biasa.
+// /api/tanya tiruan: pertanyaan berisi "jadikan"/"kategori" → jawaban + kartu usulan (window.__usulan); selain itu jawaban biasa.
 // Kiriman terakhir disimpan di window.__kirimanTanya.
 const TIRU = `window.__tiruAsisten = window.__tiruAsisten || (() => { const asli = window.fetch; window.fetch = (u, o) => {
   if (!String(u).includes('/api/tanya')) return asli(u, o);
   const b = JSON.parse(o.body); window.__kirimanTanya = b;
-  const usul = /jadikan/i.test(b.pertanyaan);
+  const usul = /jadikan|kategori/i.test(b.pertanyaan);
   const isi = usul
     ? { jawaban: 'Top up itu seharusnya pindah kantong ke DANA Uji. Cek kartunya, lalu tekan Terapkan.', tautan: [], ragu: false, model: 'ringan', usulan_aksi: [window.__usulan] }
     : { jawaban: 'Oke, ' + b.pertanyaan + ' sudah kucatat di percakapan ini.', tautan: [], ragu: false, model: 'ringan' };
@@ -168,6 +169,82 @@ try {
     cek(`${lebar}: hapus percakapan (dengan konfirmasi) → hilang dari daftar`, hapus?.tanya && daftarAkhir.length === daftarTiga.length - 1 && !daftarAkhir.some((o) => o.judul === `catatan kedua ${lebar}`), JSON.stringify({ hapus, daftarAkhir }));
     await langkah("tutup", `dialog()?.dispatchEvent(new Event('cancel', { cancelable: true })); await t(500); return 'ok'`);
   }
+
+  // --- Kartu ubah kategori per merchant (keputusan 35): Terapkan → kategori baru dibuat & transaksi pindah;
+  //     Urungkan → kategori lama kembali, kategori baru dihapus. Lalu kartu bentuk lama dari riwayat: tanpa tombol.
+  await ukur(360);
+  const { data: cuciBaru } = await sb.from("transactions").insert({ user_id: uid, amount: 16000, type: "expense", category: "other", merchant: "Laundry Kiloan Uji", transaction_date: hariIni, kantong_id: bca.id, status: "confirmed", source: "text" }).select("id").single();
+  const { data: cuci } = await sb.from("transactions").select("id, updated_at").eq("id", cuciBaru.id).single();
+  const judulKat = "Buat kategori Laundry Uji dan ubah 1 transaksi Laundry Kiloan Uji jadi Laundry Uji";
+  const usulanKat = {
+    kunci: "uji-kategori",
+    jenis: "ubah_kategori",
+    judul: judulKat,
+    jumlah: 1,
+    total: 16000,
+    baris: [{ id: cuci.id, tanggal: hariIni, teks: "Laundry Kiloan Uji", nominal: 16000, sebelum: "Lainnya", sesudah: "Laundry Uji" }],
+    saldo: [],
+    catatan: ["Kategori pengeluaran Laundry Uji dibuat (kelompok Kebutuhan).", "Transaksi berikutnya dari Laundry Kiloan Uji otomatis Laundry Uji."],
+    kantong: [],
+    isian: { jenis: "ubah_kategori", ringkasan: "Ubah kategori 1 transaksi Laundry Kiloan Uji jadi Laundry Uji", kategori_baru: { type: "expense", nama: "Laundry Uji", kelompok: "kebutuhan" }, ubah: [{ id: cuci.id, updated_at: cuci.updated_at, isian: { category: "baru" } }] },
+  };
+  await buka(`${base}/`, 6000);
+  await jalankan(TIRU);
+  await jalankan(`window.__usulan = ${JSON.stringify(usulanKat)}; true`);
+  const kartuKat = await langkah("kartu ubah kategori", `
+    document.querySelector('button[aria-label="Tanya AI soal keuanganmu"]').click(); await sampai(() => dialog()?.querySelector('textarea'));
+    dialog().querySelector('button[aria-label="Percakapan baru"]').click(); await t(300);
+    isi(dialog().querySelector('textarea'), 'laundry kiloan itu kategori laundry ya'); await t(200); dialog().querySelector('button[aria-label="Kirim"]').click();
+    await sampai(() => tombol('Terapkan', dialog()), 20);
+    const k = dialog().querySelector('[role=group][aria-label^="Usulan:"]');
+    return { teks: k.innerText, tombol: [...k.querySelectorAll('button')].map(b => b.innerText.trim()) }`);
+  cek("kartu ubah kategori: judul, Lainnya → Laundry Uji, catatan kategori baru, Batal & Terapkan (bukan Ubah)",
+    kartuKat && kartuKat.teks.includes(judulKat) && /Lainnya → Laundry Uji/.test(kartuKat.teks) && /Kategori pengeluaran Laundry Uji dibuat/.test(kartuKat.teks) && kartuKat.tombol.join() === "Batal,Terapkan",
+    JSON.stringify(kartuKat));
+  const terapKat = await langkah("Terapkan ubah kategori", `
+    tombol('Terapkan', dialog()).click();
+    await sampai(() => /Diterapkan\\./.test(dialog().innerText), 30); await t(300);
+    return { urungkan: !!tombol('Urungkan', dialog()) }`);
+  const { data: katUji } = await sb.from("categories").select("slug, kelompok").eq("name", "Laundry Uji").maybeSingle();
+  const { data: cuciSesudah } = await sb.from("transactions").select("category").eq("id", cuci.id).single();
+  cek("Terapkan → kategori Laundry Uji (kebutuhan) dibuat, transaksinya pindah ke sana, tombol Urungkan",
+    terapKat?.urungkan && katUji?.kelompok === "kebutuhan" && cuciSesudah?.category === katUji?.slug, JSON.stringify({ terapKat, katUji, cuciSesudah }));
+  const urungKat = await langkah("Urungkan ubah kategori", `
+    tombol('Urungkan', dialog()).click();
+    await sampai(() => /Diurungkan/.test(dialog().innerText), 30); await t(300);
+    return dialog().querySelector('[role=group][aria-label^="Usulan:"]').innerText`);
+  const { data: cuciBalik } = await sb.from("transactions").select("category").eq("id", cuci.id).single();
+  const { data: katHilang } = await sb.from("categories").select("id").eq("name", "Laundry Uji");
+  cek("Urungkan → kembali Lainnya, kategori barunya ikut dihapus",
+    /Diurungkan, semuanya kembali seperti semula\. Kategori barunya ikut dihapus\./.test(urungKat ?? "") && cuciBalik?.category === "other" && !(katHilang ?? []).length,
+    JSON.stringify({ urungKat, cuciBalik, katHilang }));
+
+  // Percakapan lama dengan kartu ubah kategori bentuk lama (usulan + usulanKeadaan): tampil tanpa tombol.
+  const judulKuno = "obrolan kartu kategori lama";
+  const { error: eKuno } = await sb.rpc("simpan_obrolan", {
+    p_id: null,
+    p_judul: judulKuno,
+    p_pesan: [
+      { peran: "saya", teks: judulKuno },
+      { peran: "ai", teks: "Tekan Ubah di kartu.", tautan: [], ragu: false, usulan: { merchant: "Warteg Kuno", type: "expense", kategori: { slug: "food", name: "Makan" }, kategori_baru: null, jumlah: 2, total: 30000 }, usulanKeadaan: { keadaan: "diubah", hasil: { diubah: 2, sebelum: [{ id: cuci.id, category: "other", kelompok: null }], kategori: { slug: "food", name: "Makan" } } } },
+      { peran: "saya", teks: "satu lagi" },
+      { peran: "ai", teks: "Tekan Ubah di kartu.", tautan: [], ragu: false, usulan: { merchant: "Kopi Kuno", type: "expense", kategori: null, kategori_baru: { nama: "Jajan", kelompok: null }, jumlah: 1, total: 20000 } },
+    ],
+  });
+  const kuno = await langkah("buka kartu kategori lama", `
+    const tombolRiwayat = dialog().querySelector('button[aria-label="Riwayat percakapan"]');
+    tombolRiwayat.click(); await t(400);
+    const daftar = dialog().querySelector('ul[aria-label="Percakapan tersimpan"]');
+    await sampai(() => daftar.innerText.includes(${JSON.stringify(judulKuno)}), 20);
+    [...daftar.querySelectorAll('button')].find(b => b.innerText.startsWith(${JSON.stringify(judulKuno)})).click();
+    await sampai(() => dialog().querySelectorAll('[role=group][aria-label="Usulan ubah kategori (lama)"]').length === 2, 20); await t(300);
+    const k = [...dialog().querySelectorAll('[role=group][aria-label="Usulan ubah kategori (lama)"]')];
+    return { teks: k.map(x => x.innerText.replace(/\\s+/g, ' ')), tombol: k.flatMap(x => [...x.querySelectorAll('button')]).length, gulirSamping: document.documentElement.scrollWidth > innerWidth + 1 }`);
+  cek("kartu ubah kategori bentuk lama dari riwayat: keadaannya tampil, tanpa tombol aksi",
+    !eKuno && kuno && kuno.tombol === 0 && /2 transaksi Warteg Kuno diubah jadi Makan/.test(kuno.teks[0]) && /Usulan ubah 1 transaksi Kopi Kuno jadi Jajan \(tidak diterapkan\)/.test(kuno.teks[1]) && !kuno.gulirSamping,
+    JSON.stringify({ eKuno, kuno }));
+  await foto("asisten-kartu-lama-360.png");
+  await langkah("tutup", `dialog()?.dispatchEvent(new Event('cancel', { cancelable: true })); await t(500); return 'ok'`);
 
   // Layar ≥ 1280 px: daftar percakapan selalu di samping obrolan, tanpa tombol riwayat, tanpa gulir samping.
   await ukur(1440);

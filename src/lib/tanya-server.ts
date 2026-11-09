@@ -11,8 +11,7 @@ import { analisisBulan, pisahTujuan, progresBudget, type BarisAnalitik } from "@
 import { geserBulan } from "@/lib/kalender";
 import { ambilKantong } from "@/lib/kantong";
 import { ambilDeposito } from "@/lib/simpanan";
-import { kategoriJenis, namaKategori, type Kategori } from "@/lib/kategori";
-import { cariSerupa } from "@/lib/ingat";
+import { namaKategori, type Kategori } from "@/lib/kategori";
 import { daftarUtang, ringkasanPinjaman, statusCicilan, urutPelunasan, type Cicilan } from "@/lib/pinjaman";
 import { queryRiwayat, ringkasRiwayat } from "@/lib/riwayat";
 import { alatUsul, jalankanUsul } from "@/lib/usulan-server";
@@ -62,63 +61,6 @@ const CATATAN_TABUNGAN: Record<NonNullable<HasilWadah["sumber"]>, string> = {
   "setoran-total": "tabungan = yang benar-benar disisihkan bulan ini: setoran bersih ke tujuan tabungan ditambah beli emas/reksadana; makin besar makin baik",
   pengeluaran: "= beli emas, reksadana, dan investasi lain (kelompok tabungan) bulan ini; makin besar makin baik",
 };
-
-export interface UsulanKategori {
-  merchant: string;
-  type: "expense" | "income";
-  /** Kategori yang sudah ada, atau null kalau harus dibuat (kategori_baru). */
-  kategori: { slug: string; name: string } | null;
-  kategori_baru: { nama: string; kelompok: string | null } | null;
-  jumlah: number;
-  total: number;
-}
-
-/**
- * usul_ubah_kategori: cari transaksi dari merchant itu (aturan cocok
- * SPEC-ingat-kategori) dan siapkan usulan. Tidak mengubah apa pun — browser
- * menampilkan kartu konfirmasi, dan /api/kategori-merchant mencari ulang
- * transaksinya saat user menekan Ubah.
- */
-async function usulUbahKategori(
-  args: Record<string, unknown>,
-  { supabase, kategori }: { supabase: SupabaseClient; kategori: Kategori[] },
-): Promise<{ untukModel: unknown; usulan?: UsulanKategori }> {
-  const merchant = typeof args.merchant === "string" ? args.merchant.trim().slice(0, 200) : "";
-  const minta = typeof args.kategori === "string" ? args.kategori.trim().replace(/\s+/g, " ").slice(0, 30) : "";
-  if (!merchant || !minta) return { untukModel: { error: "merchant dan kategori wajib diisi" } };
-  const [keluar, masuk] = await Promise.all([cariSerupa(supabase, merchant, "expense"), cariSerupa(supabase, merchant, "income")]);
-  const type = keluar.length >= masuk.length ? "expense" : "income";
-  const baris = type === "expense" ? keluar : masuk;
-  if (!baris.length) return { untukModel: { jumlah_transaksi: 0, pesan: `Tidak ada transaksi dengan merchant "${merchant}".` } };
-  const daftar = kategoriJenis(kategori, type);
-  const ada = daftar.find((k) => k.slug === minta || k.name.toLowerCase() === minta.toLowerCase());
-  const ubah = ada ? baris.filter((b) => b.category !== ada.slug) : baris;
-  if (!ubah.length) return { untukModel: { jumlah_transaksi: 0, pesan: `Semua transaksi ${merchant} sudah berkategori ${ada!.name}.` } };
-  const nama = ada?.name ?? minta.charAt(0).toUpperCase() + minta.slice(1);
-  const kelompok = typeof args.kelompok === "string" ? args.kelompok : null;
-  const usulan: UsulanKategori = {
-    // Nama seperti yang ditulis user: mencakup semua variasi bacaan AI-nya.
-    merchant,
-    type,
-    kategori: ada ? { slug: ada.slug, name: ada.name } : null,
-    kategori_baru: ada ? null : { nama, kelompok: type === "expense" ? kelompok : null },
-    jumlah: ubah.length,
-    total: ubah.reduce((n, b) => n + Number(b.amount), 0),
-  };
-  return {
-    usulan,
-    untukModel: {
-      status: "USULAN, BELUM DIUBAH. Pengguna harus menekan tombol Ubah di kartu di bawah jawabanmu.",
-      merchant: usulan.merchant,
-      jumlah_transaksi: usulan.jumlah,
-      total: usulan.total,
-      kategori_sekarang: [...new Set(ubah.map((b) => namaKategori(kategori, b.category, type)))],
-      kategori_tujuan: nama,
-      kategori_baru_akan_dibuat: !ada,
-      contoh: ubah.slice(0, 3).map((b) => ({ tanggal: b.transaction_date, nominal: Number(b.amount) })),
-    },
-  };
-}
 
 export async function jalankanFungsi(
   nama: NamaFungsi,
@@ -358,8 +300,6 @@ export const MAKS_PERTANYAAN = 1000;
 export interface HasilTanya {
   jawaban: string;
   tautan: { label: string; href: string }[];
-  /** Usulan ubah kategori (SPEC-ingat-kategori): diterapkan browser setelah user menekan Ubah. */
-  usulan?: UsulanKategori;
   /** Kartu usulan alat ubah (SPEC-asisten-agen §3): diterapkan lewat /api/asisten/terapkan setelah user menekan Terapkan. */
   usulan_aksi?: UsulanAksi[];
   /** Ada nominal di jawaban yang tidak ada di hasil fungsi/percakapan. */
@@ -446,9 +386,9 @@ Aturan:
 - Saldo satu kantong (mis. "berapa saldo SeaBank?"): sebut "saldo" kantong itu LEBIH DULU — untuk kantong yang berisi simpanan/tujuan itu sudah gabungan, sama dengan yang tampil di aplikasi & m-banking. Rinciannya ("saldo_sendiri" + isi "berisi") sesudahnya. Total aset: pakai "total_aset", jangan menjumlah saldo kantong sendiri (simpanan sudah terhitung di gabungan induknya).
 - Isi satu tujuan tabungan (mis. "berapa isi dana darurat?"): panggil saldo_kantong dan sebut "terkumpul" tujuan itu saja dari "tujuan_tabungan". "total_semua_tujuan" hanya untuk pertanyaan tentang semua tujuan sekaligus.
 - "Utang mana dulu?" / strategi pelunasan: panggil pinjaman_cicilan. Kalau "strategi_pelunasan" terisi, jawab dengan urutan strategi itu dari "urutan_pelunasan" (yang pertama = fokus; "uang_ekstra_per_bulan" ke sana). Kalau null, jelaskan singkat Snowball (sisa terkecil dulu) dan Avalanche (bunga tertinggi dulu) beserta urutan teratas masing-masing. Bunga null = belum diisi pengguna.
-- Pengguna meminta membetulkan kategori transaksi dari suatu merchant ("waitenjoy itu laundry", "tolong ganti kategori X jadi Y"): panggil usul_ubah_kategori. Itu baru USULAN: kategori BELUM berubah sampai pengguna menekan tombol "Ubah" di kartu di bawah jawabanmu. JANGAN pernah bilang sudah diubah/diganti; jelaskan apa yang akan berubah (jumlah transaksi, totalnya, kategori sekarang → tujuan, dan kategori baru yang akan dibuat bila ada), lalu minta pengguna menekan Ubah. Pertanyaan biasa (mis. "berapa pengeluaran laundry?") BUKAN permintaan membetulkan.
+- Pengguna meminta membetulkan kategori transaksi dari suatu merchant ("waitenjoy itu laundry", "tolong ganti kategori X jadi Y"): panggil usul_ubah_kategori. Itu baru USULAN: kategori BELUM berubah sampai pengguna menekan Terapkan di kartu di bawah jawabanmu. JANGAN pernah bilang sudah diubah/diganti; jelaskan apa yang akan berubah (jumlah transaksi, totalnya, kategori sekarang → tujuan, dan kategori baru yang akan dibuat bila ada), lalu minta pengguna menekan Terapkan. Pertanyaan biasa (mis. "berapa pengeluaran laundry?") BUKAN permintaan membetulkan.
 - Menyelidiki (saldo beda dengan bank, transaksi hilang/dobel, uang "hilang", "kenapa X tercatat sebagai pengeluaran"): pakai periksa_saldo (saldo aplikasi vs bank beserta calon penyebab, dihitung kode), cari_kejanggalan (yang perlu dirapikan, termasuk top up e-wallet yang kantongnya belum ada), cari (data apa pun: transaksi semua status termasuk draft, kantong, simpanan, deposito, cicilan, pinjaman, tujuan, riwayat impor), dan detail (satu transaksi dari id hasil cari). Bila pengguna menyebut saldo menurut bank/e-wallet, isi "saldo_bank". Jelaskan penyebab yang paling mungkin dengan buktinya: SEBUT nominal, tanggal, dan merchant transaksinya (mis. "top up DANA Rp 150.000 tanggal 5 November"), utamakan yang "cocok_dengan_selisih", lalu langkah perbaikannya di aplikasi.
-- MENGUBAH DATA hanya lewat alat usul_* (dan usul_ubah_kategori). Hasilnya kartu USULAN dengan tombol Terapkan: BELUM ada yang berubah sampai pengguna menekan Terapkan. JANGAN pernah bilang sudah dibuat/diubah/dihapus/dicatat. Jelaskan singkat apa yang akan berubah (jumlah transaksi, total, saldo kantong sebelum → sesudah dari hasil fungsi), lalu minta pengguna memeriksa kartunya dan menekan Terapkan.
+- MENGUBAH DATA hanya lewat alat usul_*. Hasilnya kartu USULAN dengan tombol Terapkan: BELUM ada yang berubah sampai pengguna menekan Terapkan. JANGAN pernah bilang sudah dibuat/diubah/dihapus/dicatat. Jelaskan singkat apa yang akan berubah (jumlah transaksi, total, saldo kantong sebelum → sesudah dari hasil fungsi), lalu minta pengguna memeriksa kartunya dan menekan Terapkan.
 - Pakai usul_* hanya bila pengguna MEMINTA perubahan (rapikan, betulkan, jadikan, ubah, hapus, buatkan, catat, selesaikan). Pertanyaan biasa dan penyelidikan cukup dijawab; tawarkan perbaikannya dalam satu kalimat, jangan langsung membuat usulan.
 - Memilih transaksi: pakai ids dari hasil cari/periksa_saldo/cari_kejanggalan, atau saring (sama dengan cari), mis. "jadikan semua Grab bulan ini kategori Transportasi" → usul_ubah_transaksi dengan saring {kata: "Grab", dari, sampai} dan isian {kategori: "transport"}. "X itu kategori Y" untuk semua transaksi satu merchant (diingat untuk transaksi berikutnya) → usul_ubah_kategori.
 - Top up e-wallet yang tercatat sebagai pengeluaran karena kantongnya belum ada → usul_jadikan_pindah ke kantong itu dengan buat_kantong (kantong dibuat sekalian). Dobel → usul_hapus yang BUKAN dari rekening koran. Draft "Belum selesai" → usul_selesaikan_draft. Mencatat transaksi baru dari kalimat pengguna → usul_catat (kantong wajib; kalau tidak disebut, tanya dulu).
@@ -489,7 +429,6 @@ Ringkasan bulan ${bulan} (DATA, sama dengan hasil fungsi ringkasan_bulan): ${JSO
     rupiahDiJawaban(t).map((r) => r.nilai),
   );
   const tautan = new Map<string, { label: string; href: string }>();
-  let usulan: UsulanKategori | undefined;
   const usulanAksi: UsulanAksi[] = [];
   const jatah = jatahBerat();
   const pilihan = pilihModelAwal(pertanyaan, { sudahBerat });
@@ -518,11 +457,7 @@ Ringkasan bulan ${bulan} (DATA, sama dengan hasil fungsi ringkasan_bulan): ${JSO
       let hasil: unknown;
       // Kalkulator: hanya boleh memakai angka besar yang sudah ada di hasil fungsi sebelumnya.
       if (nama === "hitung") hasil = { ekspresi: args.ekspresi, keterangan: args.keterangan ?? null, ...hitungEkspresi(String(args.ekspresi ?? ""), angkaDiData(hasilSejauhIni)) };
-      else if (nama === "usul_ubah_kategori") {
-        const u = await usulUbahKategori(args, { supabase, kategori });
-        hasil = u.untukModel;
-        usulan = u.usulan ?? usulan;
-      } else if (alatUsul(nama)) {
+      else if (alatUsul(nama)) {
         // Alat ubah (SPEC-asisten-agen §3): hanya menyusun usulan; kartu Terapkan di browser.
         const u = await jalankanUsul(nama, args, { supabase, konteks, kategori, pertanyaan });
         hasil = u.untukModel;
@@ -554,7 +489,6 @@ Ringkasan bulan ${bulan} (DATA, sama dengan hasil fungsi ringkasan_bulan): ${JSO
     tautan: semuaTautan,
     ragu,
     ...(ragu ? { nominal_ragu: h.asing } : {}),
-    ...(usulan ? { usulan } : {}),
     ...(usulanAksi.length ? { usulan_aksi: usulanAksi.slice(0, 5) } : {}),
     model: h.model,
     ...(h.kuotaHabis ? { catatan: CATATAN_KUOTA } : h.beratLambat ? { catatan: CATATAN_LAMBAT } : {}),
