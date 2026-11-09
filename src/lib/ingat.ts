@@ -76,6 +76,11 @@ export interface BarisSerupa extends BarisIngat {
   id: string;
   amount: number | string;
   transaction_date: string;
+  /** Untuk usulan Tanya AI (terapkan_usulan memeriksa updated_at). */
+  status: string;
+  kantong_id: string | null;
+  kantong_tujuan_id: string | null;
+  updated_at: string;
 }
 
 // ponytail: 2000 transaksi terbaru per jenis; cukup untuk membetulkan riwayat satu merchant.
@@ -94,7 +99,7 @@ export async function cariSerupa(
 ): Promise<BarisSerupa[]> {
   const { data } = await supabase
     .from("transactions")
-    .select("id, merchant, category, kelompok, type, amount, transaction_date")
+    .select("id, merchant, category, kelompok, type, amount, transaction_date, status, kantong_id, kantong_tujuan_id, updated_at")
     .eq("type", type)
     .eq("status", "confirmed")
     .is("pecahan_dari", null)

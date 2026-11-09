@@ -210,10 +210,13 @@ export function Lembar({
   pil,
   label,
   isian,
+  aksi,
   onClose,
   children,
 }: {
   judul?: React.ReactNode;
+  /** Tombol ikon di kanan kepala (hanya posisi penuh/samping), mis. riwayat & obrolan baru Tanya AI. */
+  aksi?: React.ReactNode;
   /** Nama dialog untuk pembaca layar, bila judulnya tidak ditampilkan. */
   label?: string;
   sub?: React.ReactNode;
@@ -330,6 +333,7 @@ export function Lembar({
             <X size={24} className={s.hanyaLebar} />
           </button>
           {judul && <h2 className={s.dialogJudul}>{judul}</h2>}
+          {aksi && <div className={s.dialogKepalaAksi}>{aksi}</div>}
         </div>
       ) : (
         judul && <h2 className={s.dialogJudul}>{judul}</h2>

@@ -33,3 +33,19 @@ export const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3.5-flash-lite";
  * pilih berdasarkan `npm run eval:tanya` (skor & waktu) dan kuota free tier.
  */
 export const GEMINI_MODEL_CHAT = process.env.GEMINI_MODEL_CHAT || GEMINI_MODEL;
+
+/**
+ * Model besar Tanya AI untuk pertanyaan berat (SPEC-asisten-agen §1):
+ * ditulis persis, bukan alias -latest. Kuota gratisnya kecil (puluhan per
+ * hari), jadi hanya dipakai bila aturan di src/lib/rute-model.ts atau model
+ * ringan (serahkan) memintanya. Pembaca struk, Lengkapi, dan Catat tidak
+ * memakainya.
+ */
+export const GEMINI_MODEL_BERAT = process.env.GEMINI_MODEL_BERAT || "gemini-3.8-flash";
+
+/**
+ * Jatah harian model besar (P9), opsional: kosong = tanpa batas hitung (pakai
+ * sampai Gemini menolak dengan 429, lalu jatuh ke model ringan). Pemakaian
+ * harian tetap dicatat di tabel pemakaian_ai.
+ */
+export const GEMINI_MODEL_BERAT_RPD = process.env.GEMINI_MODEL_BERAT_RPD ?? "";

@@ -6,14 +6,14 @@ import { useCatat } from "@/components/Catat";
 import { Konfirmasi } from "@/components/oneui";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
-export interface HasilUbahKategori {
+interface HasilUbahKategori {
   diubah: number;
   sebelum: { id: string; category: string; kelompok: string | null }[];
   kategori: { slug: string; name: string };
 }
 
 /** POST /api/kategori-merchant (lihat route-nya untuk isi `body`). */
-export async function ubahKategoriMerchant(body: Record<string, unknown>): Promise<HasilUbahKategori | { error: string }> {
+async function ubahKategoriMerchant(body: Record<string, unknown>): Promise<HasilUbahKategori | { error: string }> {
   const res = await fetch("/api/kategori-merchant", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).catch(() => null);
   const d = (await res?.json().catch(() => null)) as (HasilUbahKategori & { error?: string }) | null;
   if (!res?.ok || !d) return { error: d?.error ?? "Gagal mengubah. Coba lagi." };
@@ -21,7 +21,7 @@ export async function ubahKategoriMerchant(body: Record<string, unknown>): Promi
 }
 
 /** Urungkan pembetulan massal: kategori & kelompok tiap transaksi dikembalikan. */
-export async function kembalikanKategori(sebelum: HasilUbahKategori["sebelum"]) {
+async function kembalikanKategori(sebelum: HasilUbahKategori["sebelum"]) {
   const db = createSupabaseBrowserClient();
   const hasil = await Promise.all(sebelum.map((b) => db.from("transactions").update({ category: b.category, kelompok: b.kelompok }).eq("id", b.id)));
   return hasil.find((h) => h.error)?.error ?? null;

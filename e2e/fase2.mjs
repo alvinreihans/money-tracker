@@ -10,6 +10,22 @@ const cek = (nama, ok, info = "") => { console.log(`${ok ? "✓" : "✗"} ${nama
 const ukur = async (w, h = 860) => { await cdp("Emulation.setDeviceMetricsOverride", { width: w, height: h, deviceScaleFactor: 1, mobile: w < 600 }); await tidur(700); };
 // Jawaban Tanya AI tiruan (tanpa kuota): satu jawaban dengan tautan ke Riwayat.
 const TIRU = `window.__tiru = window.__tiru || (() => { const asli = window.fetch; window.fetch = (u, o) => String(u).includes('/api/tanya') ? new Promise(r => setTimeout(() => r(new Response(JSON.stringify({ jawaban: 'Total kopi bulan ini Rp 47.000.', tautan: [{ label: 'Lihat di Riwayat', href: '/riwayat?q=kopi' }], ragu: false }), { status: 200, headers: { 'content-type': 'application/json' } })), 300)) : asli(u, o); return true; })()`;
+// Aliran NDJSON tiruan (SPEC-asisten-agen §5): dua langkah berjeda, lalu jawaban dengan catatan
+// kuota & Lanjutkan. Kiriman terakhir disimpan di window.__kirimanTanya untuk diperiksa.
+const TIRU_ALIR = `window.__tiruAlir = window.__tiruAlir || (() => { const asli = window.fetch; window.fetch = (u, o) => {
+  if (!String(u).includes('/api/tanya')) return asli(u, o);
+  const b = JSON.parse(o.body); window.__kirimanTanya = { ...b, accept: new Headers(o.headers).get('accept') };
+  const enc = new TextEncoder(); const tidur = (ms) => new Promise(r => setTimeout(r, ms));
+  const baris = (p) => enc.encode(JSON.stringify(p) + '\\n');
+  const aliran = new ReadableStream({ async start(c) {
+    c.enqueue(baris({ t: 'langkah', teks: 'Mencari top up DANA…' })); await tidur(700);
+    c.enqueue(baris({ t: 'langkah', teks: 'Memeriksa saldo BRI…' })); await tidur(700);
+    const isi = { jawaban: b.pertanyaan === 'Lanjutkan' ? 'Sudah kuperiksa semua.' : 'Selisih Rp 200.000 karena top up DANA tercatat sebagai pengeluaran; kantong DANA belum ada.', tautan: [{ label: 'Lihat kantong', href: '/profil/kantong' }], ragu: false, model: 'berat', catatan: 'Dijawab model ringan, kuota model besar hari ini habis.', lanjutkan: b.pertanyaan !== 'Lanjutkan' };
+    const teks = JSON.stringify({ t: 'jawaban', isi }) + '\\n'; const tengah = Math.floor(teks.length / 2);
+    c.enqueue(enc.encode(teks.slice(0, tengah))); await tidur(100); c.enqueue(enc.encode(teks.slice(tengah))); c.close();
+  } });
+  return Promise.resolve(new Response(aliran, { status: 200, headers: { 'content-type': 'application/x-ndjson; charset=utf-8' } }));
+}; return true; })()`;
 try {
   const { data: u, error } = await admin.auth.admin.createUser({ email: EMAIL, password: SANDI, email_confirm: true, user_metadata: { onboarding_selesai: new Date().toISOString() } });
   if (error) throw error;
@@ -98,6 +114,43 @@ try {
     document.querySelector('button[aria-label="Tanya AI soal keuanganmu"]').click(); await sampai(() => dialog()); await t(400);
     return { tertutup, obrolanKembali: /Rp.47\\.000/.test(dialog().innerText) && dialog().innerText.includes('total kopi?') }`);
   cek("360: tautan menutup lembar; dibuka lagi dari Beranda, obrolannya masih ada", hp && hp.tertutup && hp.obrolanKembali, JSON.stringify(hp));
+
+  // --- 6. Asisten agen (SPEC-asisten-agen §5): langkah dialirkan & tampil, lalu jawaban
+  //        dengan tautan, catatan kuota, dan tombol Lanjutkan — di 360 & 1024.
+  for (const lebarLayar of [360, 1024]) {
+    await ukur(lebarLayar);
+    await buka(`${base}/`, 5000);
+    await jalankan(TIRU_ALIR);
+    const alir = await langkah(`aliran langkah di ${lebarLayar}`, `
+      document.querySelector('button[aria-label="Tanya AI soal keuanganmu"]').click(); await sampai(() => dialog()?.querySelector('textarea'));
+      const ta = dialog().querySelector('textarea');
+      const maks = ta.maxLength;
+      isi(ta, 'kok saldo BRI beda sama bank?'); await t(200); dialog().querySelector('button[aria-label="Kirim"]').click();
+      const terlihat = new Set();
+      for (let i = 0; i < 80 && !/Rp.200\\.000/.test(dialog()?.innerText || ''); i++) {
+        for (const li of dialog().querySelectorAll('[aria-label="Langkah asisten"] li')) terlihat.add(li.innerText);
+        await t(100);
+      }
+      const ai = [...dialog().querySelectorAll('[class*=gptAI]')].at(-1);
+      const lanjut = tombol('Lanjutkan', dialog());
+      const r = ai?.getBoundingClientRect();
+      return { maks, terlihat: [...terlihat], jawaban: ai?.innerText, tautan: [...ai.querySelectorAll('a')].map(a => a.innerText), lanjut: !!lanjut,
+        langkahHilang: !dialog().querySelector('[aria-label="Langkah asisten"]'), muat: r ? r.right <= innerWidth + 1 && r.left >= -1 : false, gulirSamping: document.documentElement.scrollWidth > innerWidth + 1,
+        kiriman: window.__kirimanTanya }`);
+    cek(`${lebarLayar}: langkah yang dialirkan tampil berurutan, lalu jawaban + tautan + catatan kuota + Lanjutkan; tidak melebar`,
+      alir && alir.maks === 1000 && alir.terlihat.includes("Mencari top up DANA…") && alir.terlihat.includes("Memeriksa saldo BRI…") &&
+        /Rp.200\.000/.test(alir.jawaban) && /Dijawab model ringan, kuota model besar hari ini habis\./.test(alir.jawaban) && alir.tautan.includes("Lihat kantong") &&
+        alir.lanjut && alir.langkahHilang && alir.muat && !alir.gulirSamping && /x-ndjson/.test(alir.kiriman?.accept ?? ""),
+      JSON.stringify(alir));
+    await foto(`fase2-asisten-${lebarLayar}.png`);
+    // Lanjutkan mengirim "Lanjutkan" beserta riwayat; model "berat" dari jawaban sebelumnya ikut (lanjutan tetap di model besar).
+    const lanjut = await langkah(`Lanjutkan di ${lebarLayar}`, `
+      tombol('Lanjutkan', dialog()).click();
+      await sampai(() => window.__kirimanTanya?.pertanyaan === 'Lanjutkan' && [...dialog().querySelectorAll('[class*=gptAI]')].length >= 2, 20); await t(300);
+      return { kiriman: window.__kirimanTanya, tombolLama: [...dialog().querySelectorAll('button')].filter(b => b.innerText === 'Lanjutkan').length }`);
+    cek(`${lebarLayar}: Lanjutkan mengirim riwayat & tanda model besar`, lanjut && lanjut.kiriman.riwayat.length === 2 && lanjut.kiriman.berat === true, JSON.stringify(lanjut));
+    await langkah("tutup", `dialog()?.dispatchEvent(new Event('cancel', { cancelable: true })); await t(500); return 'ok'`);
+  }
 
   cek("tidak ada error console", masalah.length === 0, JSON.stringify(masalah));
 } catch (e) {

@@ -3,7 +3,7 @@ import { ambilUser, createSupabaseServerClient } from "@/lib/supabase/server";
 import { ambilKategori } from "@/lib/kategori-server";
 import { dbErrorMessage } from "@/lib/errors";
 import { cariSerupa } from "@/lib/ingat";
-import { kategoriJenis, slugBaru, validasiKategori, WARNA_KATEGORI, type Kategori } from "@/lib/kategori";
+import { kategoriJenis } from "@/lib/kategori";
 import { KELOMPOK } from "@/lib/metode";
 
 export const runtime = "nodejs";
@@ -11,14 +11,14 @@ export const dynamic = "force-dynamic";
 
 const JENIS = ["expense", "income"] as const;
 type Jenis = (typeof JENIS)[number];
-const IKON_BARU = "receipt";
 
 /**
  * Membetulkan kategori semua transaksi dari satu merchant (SPEC-ingat-kategori):
- * dipakai setelah Ubah transaksi, koreksi di obrolan Catat, dan usulan Tanya AI.
+ * dipakai setelah Ubah transaksi dan koreksi di obrolan Catat. (Usulan Tanya AI
+ * "X itu kategori Y" lewat RPC terapkan_usulan, SPEC-asisten-agen keputusan 35.)
  *
  * GET  ?merchant&type&kategori&kecuali → { jumlah, total }: berapa yang akan ikut berubah.
- * POST { merchant, type, kategori | kategori_baru: { nama, kelompok }, kelompok?, kecuali? }
+ * POST { merchant, type, kategori, kelompok?, kecuali? }
  *      → { diubah, sebelum: [{ id, category, kelompok }], kategori: { slug, name } }.
  * Transaksinya selalu dicari ulang di server; daftar id dari browser tidak dipercaya.
  */
@@ -47,35 +47,7 @@ export async function POST(req: NextRequest) {
 
   const supabase = await createSupabaseServerClient();
   const daftar = kategoriJenis(await ambilKategori(supabase), type);
-  let kategori: Pick<Kategori, "slug" | "name"> | undefined = daftar.find((k) => k.slug === body?.kategori);
-
-  // Kategori baru dari usulan Tanya AI ("Laundry"); nama yang sudah ada dipakai lagi.
-  const baru = body?.kategori_baru as { nama?: unknown; kelompok?: unknown } | undefined;
-  if (!kategori && baru) {
-    const nama = typeof baru.nama === "string" ? baru.nama.trim() : "";
-    kategori = daftar.find((k) => k.name.toLowerCase() === nama.toLowerCase());
-    if (!kategori) {
-      const cek = validasiKategori(
-        {
-          type,
-          name: nama,
-          icon: IKON_BARU,
-          color: WARNA_KATEGORI[daftar.length % WARNA_KATEGORI.length],
-          kelompok: KELOMPOK.includes(baru.kelompok as (typeof KELOMPOK)[number]) ? baru.kelompok : "keinginan",
-        },
-        daftar,
-      );
-      if (!cek.ok) return NextResponse.json({ error: cek.error }, { status: 400 });
-      const urutan = Math.max(0, ...daftar.filter((k) => k.slug !== "other").map((k) => k.sort)) + 1;
-      const { data, error } = await supabase
-        .from("categories")
-        .insert({ ...cek.data, user_id: user.id, type, slug: slugBaru(), sort: urutan })
-        .select("slug, name")
-        .single();
-      if (error) return NextResponse.json({ error: dbErrorMessage(error, `Kategori "${cek.data.name}"`) }, { status: 400 });
-      kategori = data;
-    }
-  }
+  const kategori = daftar.find((k) => k.slug === body?.kategori);
   if (!kategori) return NextResponse.json({ error: "Kategorinya nggak ketemu." }, { status: 400 });
 
   const kelompok = type === "expense" && KELOMPOK.includes(body?.kelompok as (typeof KELOMPOK)[number]) ? (body!.kelompok as string) : null;
@@ -93,6 +65,6 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     diubah: baris.length,
     sebelum: baris.map((b) => ({ id: b.id, category: b.category, kelompok: b.kelompok ?? null })),
-    kategori,
+    kategori: { slug: kategori.slug, name: kategori.name },
   });
 }
