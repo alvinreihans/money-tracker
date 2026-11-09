@@ -21,6 +21,8 @@ docs/specs/SPEC-catat-tuntas.md (fase 1 & 2 selesai di 2.4.0, fase 3 di 2.5.0, f
 
 ## [Unreleased]
 
+## [2.16.0] — 2026-11-09
+
 ### Ditambah
 - **Tanya AI bisa menyelidiki** (SPEC-asisten-agen, tahap A). Asisten kini bisa mencari sendiri sampai ketemu penyebabnya: semua transaksi termasuk draft dan yang perlu dilengkapi, kantong, simpanan, deposito, cicilan, utang & piutang, tujuan tabungan, dan riwayat impor rekening koran; rincian satu transaksi (biaya/cashback, pasangan pindah kantong, baris bank asalnya, "Cara dicatat").
 - **"Kok saldo BRI beda sama bank?"** Asisten membandingkan saldo aplikasi dengan saldo di rekening koran terakhir (atau saldo bank yang kamu sebut), lalu menunjukkan calon penyebabnya: transaksi dobel, pindah kantong yang tercatat sebagai pengeluaran + pemasukan, top up yang tampaknya ke rekening sendiri, transaksi sesudah rekening koran, dan draft yang belum disimpan.
